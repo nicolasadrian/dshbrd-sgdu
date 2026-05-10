@@ -91,18 +91,77 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
         months_filter = ", ".join(months_to_show)
 
         with engine.connect() as conn:
-            # Devolvemos DESC porque el frontend hace .reverse() 
-            # Así garantizamos orden cronológico de izquierda a derecha en el gráfico
-            sql = f"""
-                SELECT * FROM mvw_reporte_historico_dgroc 
+            # 1. Obtener el STOCK FÍSICO REAL ACTUAL (El Ancla)
+            sql_fisico = f"""
+                SELECT COUNT(*) as total 
+                FROM mvw_stock_actual_detalle 
+                WHERE is_subs = 0 AND gerencia = '{gerencia_clean}'
+            """
+            if trata != 'INTERVENCIONES':
+                sql_fisico += f" AND trata = '{trata}'"
+            else:
+                propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
+                propios_sql = ", ".join([f"'{p}'" for p in propios])
+                sql_fisico += f" AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'"
+                
+            res_fisico = conn.execute(text(sql_fisico)).fetchone()
+            stock_actual_fisico = res_fisico[0] if res_fisico else 0
+
+            # 2. Obtener los Ingresos y Egresos históricos
+            sql_hist = f"""
+                SELECT anio, mes, 
+                       SUM(ingresos) as ING, 
+                       SUM(egresos_efectivos) as EGR_EF, 
+                       SUM(egresos_no_efectivos) as EGR_NE
+                FROM mvw_reporte_historico_dgroc
                 WHERE "GERENCIA" = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
                   AND (anio, mes) IN ({months_filter})
+                GROUP BY anio, mes
                 ORDER BY anio DESC, mes DESC
             """
-            result = conn.execute(text(sql))
-            rows = [dict(r._mapping) for r in result.fetchall()]
-            return rows
+            # Si es intervenciones, sumamos todo lo que no es propio
+            if trata == 'INTERVENCIONES':
+                propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
+                propios_sql = ", ".join([f"'{p}'" for p in propios])
+                sql_hist = f"""
+                    SELECT anio, mes, 
+                           SUM(ingresos) as ING, 
+                           SUM(egresos_efectivos) as EGR_EF, 
+                           SUM(egresos_no_efectivos) as EGR_NE
+                    FROM mvw_reporte_historico_dgroc
+                    WHERE "GERENCIA" = '{gerencia_clean}' 
+                      AND "COD TRATA" NOT IN ({propios_sql})
+                      AND "COD TRATA" != 'MDUG0102B'
+                      AND (anio, mes) IN ({months_filter})
+                    GROUP BY anio, mes
+                    ORDER BY anio DESC, mes DESC
+                """
+
+            df_hist = pd.read_sql(sql_hist, conn)
+            
+        if df_hist.empty: return []
+
+        # 3. Reconstruir la serie asegurando que el mes actual COINCIDA con el físico
+        result = []
+        current_stock = stock_actual_fisico
+        
+        for i, row in df_hist.iterrows():
+            mes_row = {
+                "anio": int(row['anio']),
+                "mes": int(row['mes']),
+                "ING": int(row['ing']),
+                "EGR_EF": int(row['egr_ef']),
+                "EGR_NE": int(row['egr_ne']),
+                "STOCK_PROPIO": current_stock,
+                "STOCK_SUBS": 0 # Por ahora no mostramos histórico de subsanaciones físico
+            }
+            result.append(mes_row)
+            # Para el mes anterior, el stock era: Stock_Hoy - Ingresos + Egresos
+            net_flow = int(row['ing']) - (int(row['egr_ef']) + int(row['egr_ne']))
+            current_stock = max(0, current_stock - net_flow)
+            
+        return result
     except Exception as e:
         logger.error(f"Error en histórico individual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
