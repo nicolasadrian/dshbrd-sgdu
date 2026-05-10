@@ -176,30 +176,25 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
             if trata == 'INTERVENCIONES':
                 sql = f"""
                     WITH target_expedientes AS (
-                        SELECT id_expediente, trata, expediente
+                        SELECT id_expediente, expediente
                         FROM mvw_expedientes_tratas_secgdu 
                         WHERE trata NOT IN ({", ".join([f"'{t}'" for t in TRAMITES_CONFIG[gerencia_clean].keys() if t != 'INTERVENCIONES'])})
                           AND trata != 'MDUG0102B'
                     ),
-                    all_pases AS (
-                        SELECT p.id_expediente, p.fecha, p.destinatario, p.usuario
-                        FROM mvw_ee_pases_secgdu p
-                        JOIN target_expedientes te ON p.id_expediente = te.id_expediente
-                    ),
                     ingresos AS (
-                        SELECT id_expediente, MIN(fecha)::date as fecha_ing
-                        FROM all_pases
-                        WHERE destinatario IN ({buzzers_sql})
-                        GROUP BY id_expediente
+                        SELECT p.id_expediente, MIN(p.fecha)::date as fecha_ing
+                        FROM mvw_ee_pases_secgdu p
+                        WHERE p.destinatario IN ({buzzers_sql})
+                        AND EXISTS (SELECT 1 FROM target_expedientes te WHERE te.id_expediente = p.id_expediente)
+                        GROUP BY p.id_expediente
                     ),
                     egresos_efectivos AS (
-                        SELECT p.id_expediente, MIN(p.fecha)::date as fecha_egr
-                        FROM all_pases p
+                        SELECT p.id_expediente
+                        FROM mvw_ee_pases_secgdu p
                         JOIN ingresos i ON p.id_expediente = i.id_expediente
                         WHERE p.fecha > i.fecha_ing
                           AND p.usuario IN ({", ".join([f"'{u}'" for u in whitelist_users])})
                           AND p.destinatario NOT IN ({sector_whitelist_sql})
-                        GROUP BY p.id_expediente
                     ),
                     stock_potencial AS (
                         SELECT i.id_expediente, i.fecha_ing, (CURRENT_DATE - i.fecha_ing) as dias, te.expediente
@@ -207,16 +202,15 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
                         JOIN target_expedientes te ON i.id_expediente = te.id_expediente
                         LEFT JOIN egresos_efectivos ee ON i.id_expediente = ee.id_expediente
                         WHERE ee.id_expediente IS NULL
-                    ),
-                    analista_actual AS (
-                        SELECT s.id_expediente, s.expediente, s.fecha_ing, s.dias, p.destinatario as analista,
-                                ROW_NUMBER() OVER (PARTITION BY s.id_expediente ORDER BY p.fecha DESC) as rn
-                        FROM stock_potencial s
-                        JOIN all_pases p ON s.id_expediente = p.id_expediente
                     )
-                    SELECT id_expediente, expediente, fecha_ing, dias, analista
-                    FROM analista_actual
-                    WHERE rn = 1 AND analista IN ({sector_whitelist_sql});
+                    SELECT id_expediente, expediente, fecha_ing, dias, 
+                           (SELECT p.destinatario FROM mvw_ee_pases_secgdu p 
+                            WHERE p.id_expediente = s.id_expediente 
+                            ORDER BY p.fecha DESC LIMIT 1) as analista
+                    FROM stock_potencial s
+                    WHERE (SELECT p.destinatario FROM mvw_ee_pases_secgdu p 
+                           WHERE p.id_expediente = s.id_expediente 
+                           ORDER BY p.fecha DESC LIMIT 1) IN ({sector_whitelist_sql});
                 """
             else:
                 sql = f"""
