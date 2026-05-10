@@ -77,9 +77,7 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
 async def get_reporte_tramite_historico(gerencia: str, trata: str):
     gerencia_clean = gerencia.lower()
     try:
-        # Calcular el límite de hace 12 meses desde hoy
         now = datetime.now()
-        # Generar una lista de los últimos 12 (anio, mes) para el filtro
         months_to_show = []
         for i in range(12):
             d = (now.replace(day=1) - timedelta(days=i*30)).replace(day=1)
@@ -87,13 +85,14 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
         months_filter = ", ".join(months_to_show)
 
         with engine.connect() as conn:
-            # Filtramos exactamente por los últimos 12 meses reales desde hoy
+            # Devolvemos DESC porque el frontend hace .reverse() 
+            # Así garantizamos orden cronológico de izquierda a derecha en el gráfico
             sql = f"""
                 SELECT * FROM mvw_reporte_historico_dgroc 
                 WHERE "GERENCIA" = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
                   AND (anio, mes) IN ({months_filter})
-                ORDER BY anio ASC, mes ASC
+                ORDER BY anio DESC, mes DESC
             """
             result = conn.execute(text(sql))
             rows = [dict(r._mapping) for r in result.fetchall()]
@@ -115,23 +114,29 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
         with engine.connect() as conn:
             if trata == 'INTERVENCIONES':
                 sql = f"""
-                    SELECT id_expediente, expediente, fecha_ingreso as fecha_ing, dias_stock as dias, analista_actual as analista, 0 as is_subs
+                    SELECT id_expediente, expediente, fecha_ingreso as fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
                     FROM mvw_stock_actual_detalle
                     WHERE trata NOT IN ({", ".join([f"'{t}'" for t in TRAMITES_CONFIG[gerencia_clean].keys() if t != 'INTERVENCIONES'])})
                       AND trata != 'MDUG0102B' AND analista_actual IN ({sector_whitelist_sql})
                 """
             else:
                 sql = f"""
-                    SELECT id_expediente, expediente, fecha_ingreso as fecha_ing, dias_stock as dias, analista_actual as analista, 0 as is_subs
+                    SELECT id_expediente, expediente, fecha_ingreso as fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
                     FROM mvw_stock_actual_detalle
                     WHERE trata = '{trata}' AND analista_actual IN ({sector_whitelist_sql})
                 """
             result = conn.execute(text(sql))
             rows = result.fetchall()
+            
+            # Formatear la respuesta enfocada en STOCK ACTUAL PROPIO
             propio_month_counts = {}
             analyst_data = {}
             ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
-            for row in rows:
+            
+            # Solo procesamos para el detalle lo que es STOCK PROPIO (is_subs = 0)
+            propio_rows = [r for r in rows if r.is_subs == 0]
+            
+            for row in propio_rows:
                 m_key = row.fecha_ing.strftime("%Y-%m")
                 propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
                 analista = row.analista or "SIN ASIGNAR"
@@ -143,10 +148,11 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
                         analyst_data[analista][label] += 1
                         break
                 analyst_data[analista]["TOTAL"] += 1
+            
             return {
                 "month_distribution": [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())],
                 "analyst_distribution": [{"analista": name, **counts} for name, counts in analyst_data.items()],
-                "expedientes": [dict(r._mapping) for r in rows[:1000]]
+                "expedientes": [dict(r._mapping) for r in propio_rows[:1000]]
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
