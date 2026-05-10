@@ -150,15 +150,15 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             mes_row = {
                 "anio": int(row['anio']),
                 "mes": int(row['mes']),
-                "ING": int(row['ing']),
-                "EGR_EF": int(row['egr_ef']),
-                "EGR_NE": int(row['egr_ne']),
+                "ING": int(row['ING']),
+                "EGR_EF": int(row['EGR_EF']),
+                "EGR_NE": int(row['EGR_NE']),
                 "STOCK_PROPIO": current_stock,
-                "STOCK_SUBS": 0 # Por ahora no mostramos histórico de subsanaciones físico
+                "STOCK_SUBS": 0
             }
             result.append(mes_row)
             # Para el mes anterior, el stock era: Stock_Hoy - Ingresos + Egresos
-            net_flow = int(row['ing']) - (int(row['egr_ef']) + int(row['egr_ne']))
+            net_flow = int(row['ING']) - (int(row['EGR_EF']) + int(row['EGR_NE']))
             current_stock = max(0, current_stock - net_flow)
             
         return result

@@ -326,8 +326,15 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 
     try {
         const response = await fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}`);
-        let data = await response.json();
-        data = data.reverse();
+        const data = await response.json();
+        
+        if (!Array.isArray(data)) {
+            throw new Error('Formato de datos inválido');
+        }
+
+        // Invertimos porque el backend devuelve DESC (mes actual primero) 
+        // y el gráfico necesita orden cronológico
+        data.reverse();
         
         const labels = data.map(d => `${MESES[d.mes - 1]} ${d.anio}`);
         const ctx = document.getElementById('trata-chart').getContext('2d');
