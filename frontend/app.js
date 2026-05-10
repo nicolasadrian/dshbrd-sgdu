@@ -150,7 +150,7 @@ function renderMatrixTable(container, data) {
                 <thead>
                     <tr>
                         <th style="min-width: 250px; text-align: left;">TRÁMITE / MÉTRICA</th>
-                        ${allMonths.map(mk => `<th>${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br><small>${mk.split('-')[0]}</small></th>`).join('')}
+                        ${allMonths.map(mk => `<th></th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>`;
