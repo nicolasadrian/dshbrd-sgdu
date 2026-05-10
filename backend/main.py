@@ -174,21 +174,20 @@ async def get_intervenciones_detalle(gerencia: str):
     propios_sql = ", ".join([f"'{p}'" for p in propios])
 
     try:
-        analistas = WHITELISTS.get(gerencia_clean, [])
-        buzzers = BUZZERS_MAP.get(gerencia_clean, [])
-        sector_whitelist_sql = ", ".join([f"'{u}'" for u in (analistas + buzzers)])
-
         with engine.connect() as conn:
+            # Consultamos directamente el stock actual de la gerencia, excluyendo los propios
             sql = f"""
                 SELECT trata, descripcion as detalle, dias_stock
                 FROM mvw_stock_actual_detalle
-                WHERE is_subs = 0 AND analista_actual IN ({sector_whitelist_sql})
-                  AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'
+                WHERE is_subs = 0 
+                  AND gerencia = '{gerencia_clean}'
+                  AND trata NOT IN ({propios_sql})
+                  AND trata != 'MDUG0102B'
             """
             result = conn.execute(text(sql))
-            df = pd.DataFrame([dict(r._mapping) for r in result.fetchall()])
-            
-            if df.empty: return []
+            rows = [dict(r._mapping) for r in result.fetchall()]
+            if not rows: return []
+            df = pd.DataFrame(rows)
 
             def get_range(d):
                 if d < 15: return "Menos de 15 dias"
