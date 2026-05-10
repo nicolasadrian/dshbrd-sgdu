@@ -46,12 +46,14 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
     
     trata_codes = list(TRAMITES_CONFIG[gerencia_clean].keys())
-    current_date = datetime.now()
-    months = []
-    for i in range(5):
-        d = current_date - timedelta(days=i*30)
-        months.append((d.year, d.month))
-    months_filter = ", ".join([f"({anio}, {mes})" for anio, mes in months])
+    
+    # Obtener los últimos 6 meses (Un semestre) para la matriz
+    now = datetime.now()
+    months_list = []
+    for i in range(6):
+        month_date = (now.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+        months_list.append(f"({month_date.year}, {month_date.month})")
+    months_filter = ", ".join(months_list)
     
     try:
         with engine.connect() as conn:
@@ -76,14 +78,17 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
     gerencia_clean = gerencia.lower()
     try:
         with engine.connect() as conn:
+            # Seleccionamos los últimos 12 meses y ordenamos cronológicamente para el gráfico
             sql = f"""
                 SELECT * FROM mvw_reporte_historico_dgroc 
                 WHERE "GERENCIA" = '{gerencia_clean}' AND "COD TRATA" = '{trata}'
-                ORDER BY anio DESC, mes DESC LIMIT 12
+                ORDER BY anio DESC, mes DESC
+                LIMIT 12
             """
             result = conn.execute(text(sql))
-            df = pd.DataFrame(result.fetchall(), columns=result.keys())
-            return df.to_dict(orient='records')
+            rows = [dict(r._mapping) for r in result.fetchall()]
+            # Ordenamos de más viejo a más nuevo para que el gráfico se vea bien
+            return sorted(rows, key=lambda x: (x['anio'], x['mes']))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
