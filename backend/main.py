@@ -83,12 +83,17 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
 async def get_reporte_tramite_historico(gerencia: str, trata: str):
     gerencia_clean = gerencia.lower()
     try:
+        # Calcular los 12 meses: Actual + 11 anteriores
         now = datetime.now()
-        months_to_show = []
+        months_list = []
+        curr_y, curr_m = now.year, now.month
         for i in range(12):
-            d = (now.replace(day=1) - timedelta(days=i*30)).replace(day=1)
-            months_to_show.append(f"({d.year}, {d.month})")
-        months_filter = ", ".join(months_to_show)
+            months_list.append(f"({curr_y}, {curr_m})")
+            curr_m -= 1
+            if curr_m == 0:
+                curr_m = 12
+                curr_y -= 1
+        months_filter = ", ".join(months_list)
 
         with engine.connect() as conn:
             # 1. Obtener el STOCK FÍSICO REAL ACTUAL (El Ancla)
@@ -107,7 +112,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             res_fisico = conn.execute(text(sql_fisico)).fetchone()
             stock_actual_fisico = res_fisico[0] if res_fisico else 0
 
-            # 2. Obtener los Ingresos y Egresos históricos (Los últimos 12 meses con datos)
+            # 2. Obtener los Ingresos y Egresos históricos (Los últimos 12 meses REALES)
             sql_hist = f"""
                 SELECT anio, mes, 
                        SUM("ING") as ing, 
@@ -116,9 +121,9 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                 FROM mvw_reporte_historico_dgroc
                 WHERE "GERENCIA" = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
+                  AND (anio, mes) IN ({months_filter})
                 GROUP BY anio, mes
                 ORDER BY anio DESC, mes DESC
-                LIMIT 12
             """
             # Si es intervenciones, sumamos todo lo que no es propio
             if trata == 'INTERVENCIONES':
@@ -133,9 +138,9 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                     WHERE "GERENCIA" = '{gerencia_clean}' 
                       AND "COD TRATA" NOT IN ({propios_sql})
                       AND "COD TRATA" != 'MDUG0102B'
+                      AND (anio, mes) IN ({months_filter})
                     GROUP BY anio, mes
                     ORDER BY anio DESC, mes DESC
-                    LIMIT 12
                 """
 
             df_hist = pd.read_sql(sql_hist, conn)
