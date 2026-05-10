@@ -107,7 +107,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             res_fisico = conn.execute(text(sql_fisico)).fetchone()
             stock_actual_fisico = res_fisico[0] if res_fisico else 0
 
-            # 2. Obtener los Ingresos y Egresos históricos
+            # 2. Obtener los Ingresos y Egresos históricos (Los últimos 12 meses con datos)
             sql_hist = f"""
                 SELECT anio, mes, 
                        SUM("ING") as ing, 
@@ -116,9 +116,9 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                 FROM mvw_reporte_historico_dgroc
                 WHERE "GERENCIA" = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
-                  AND (anio, mes) IN ({months_filter})
                 GROUP BY anio, mes
                 ORDER BY anio DESC, mes DESC
+                LIMIT 12
             """
             # Si es intervenciones, sumamos todo lo que no es propio
             if trata == 'INTERVENCIONES':
@@ -133,9 +133,9 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                     WHERE "GERENCIA" = '{gerencia_clean}' 
                       AND "COD TRATA" NOT IN ({propios_sql})
                       AND "COD TRATA" != 'MDUG0102B'
-                      AND (anio, mes) IN ({months_filter})
                     GROUP BY anio, mes
                     ORDER BY anio DESC, mes DESC
+                    LIMIT 12
                 """
 
             df_hist = pd.read_sql(sql_hist, conn)
