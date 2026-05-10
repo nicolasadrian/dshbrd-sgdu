@@ -200,14 +200,25 @@ async def get_intervenciones_detalle(gerencia: str):
                 return "Mas de 90 dias"
 
             df['rango'] = df['dias_stock'].apply(get_range)
-            pivot = df.groupby(['trata', 'detalle', 'rango']).size().unstack(fill_value=0)
+            
+            # Agrupar solo por trata para evitar duplicados por detalle
+            # Primero obtenemos el mapeo de trata -> detalle (el primero que encuentre)
+            trata_nombres = df.groupby('trata')['detalle'].first().to_dict()
+            
+            # Pivotear agrupando solo por trata y rango
+            pivot = df.groupby(['trata', 'rango']).size().unstack(fill_value=0)
             
             ranges = ["Menos de 15 dias", "15 a 30 dias", "30 a 45 dias", "45 a 60 dias", "60 a 75 dias", "75 a 90 dias", "Mas de 90 dias"]
             for r in ranges:
                 if r not in pivot.columns: pivot[r] = 0
             
             pivot['TOTAL'] = pivot.sum(axis=1)
-            return pivot.reset_index().sort_values(by='TOTAL', ascending=False).to_dict(orient='records')
+            pivot = pivot.reset_index()
+            
+            # Reincorporar el nombre del detalle
+            pivot['detalle'] = pivot['trata'].map(trata_nombres)
+            
+            return pivot.sort_values(by='TOTAL', ascending=False).to_dict(orient='records')
     except Exception as e:
         logger.error(f"Error en intervenciones detalle: {e}")
         raise HTTPException(status_code=500, detail=str(e))
