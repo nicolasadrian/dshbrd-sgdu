@@ -292,7 +292,11 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     if (ageChartCtx) ageChartCtx.parentElement.innerHTML = '<canvas id="stock-age-chart"></canvas>';
 
     document.getElementById('trata_detail_title').innerText = trataName;
-    document.getElementById('trata_detail_back').onclick = () => showView(gerencia);
+    
+    // Solo actualizamos la URL, el handleRouting se encarga del resto
+    document.getElementById('trata_detail_back').onclick = () => {
+        window.location.hash = `#/${gerencia}`;
+    };
 
     const intervContainer = document.getElementById('intervenciones-detail-container');
     if (intervContainer) {
