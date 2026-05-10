@@ -110,7 +110,8 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             
             if trata != 'INTERVENCIONES':
                 sql_fisico_propio += f" AND trata = '{trata}'"
-                sql_fisico_subs += f" AND trata = '{trata}'"
+                # Buscamos el código de subsanación correspondiente (terminado en _S)
+                sql_fisico_subs += f" AND trata = '{trata}_S'"
             else:
                 propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
                 propios_sql = ", ".join([f"'{p}'" for p in propios])
