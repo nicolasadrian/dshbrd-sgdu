@@ -77,19 +77,29 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
 async def get_reporte_tramite_historico(gerencia: str, trata: str):
     gerencia_clean = gerencia.lower()
     try:
+        # Calcular el límite de hace 12 meses desde hoy
+        now = datetime.now()
+        # Generar una lista de los últimos 12 (anio, mes) para el filtro
+        months_to_show = []
+        for i in range(12):
+            d = (now.replace(day=1) - timedelta(days=i*30)).replace(day=1)
+            months_to_show.append(f"({d.year}, {d.month})")
+        months_filter = ", ".join(months_to_show)
+
         with engine.connect() as conn:
-            # Seleccionamos los últimos 12 meses y ordenamos cronológicamente para el gráfico
+            # Filtramos exactamente por los últimos 12 meses reales desde hoy
             sql = f"""
                 SELECT * FROM mvw_reporte_historico_dgroc 
-                WHERE "GERENCIA" = '{gerencia_clean}' AND "COD TRATA" = '{trata}'
-                ORDER BY anio DESC, mes DESC
-                LIMIT 12
+                WHERE "GERENCIA" = '{gerencia_clean}' 
+                  AND "COD TRATA" = '{trata}'
+                  AND (anio, mes) IN ({months_filter})
+                ORDER BY anio ASC, mes ASC
             """
             result = conn.execute(text(sql))
             rows = [dict(r._mapping) for r in result.fetchall()]
-            # Ordenamos de más viejo a más nuevo para que el gráfico se vea bien
-            return sorted(rows, key=lambda x: (x['anio'], x['mes']))
+            return rows
     except Exception as e:
+        logger.error(f"Error en histórico individual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/tramite/{trata}/stock_detail")
