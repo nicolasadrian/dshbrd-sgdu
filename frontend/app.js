@@ -335,8 +335,8 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             data: {
                 labels: labels,
                 datasets: [
-                    { label: 'Stock Propio', data: data.map(d => d.STOCK_PROPIO || 0), type: 'line', borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 0 },
-                    { label: 'Stock Subsanaciones', data: data.map(d => d.STOCK_SUBS || 0), type: 'line', borderColor: '#EF4444', backgroundColor: '#EF4444', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 1 },
+                    { label: 'Stock Propio', data: data.map(d => d.STOCK_PROPIO || 0), type: 'line', borderColor: '#EF4444', backgroundColor: '#EF4444', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 0 },
+                    { label: 'Stock Subsanaciones', data: data.map(d => d.STOCK_SUBS || 0), type: 'line', borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 1 },
                     { label: 'Ingresos', data: data.map(d => d.ING || 0), backgroundColor: '#002d47', borderRadius: 4, order: 2 },
                     { label: 'Egresos Efectivos', data: data.map(d => d.EGR_EF || 0), backgroundColor: '#0076bb', stack: 'egresos', borderRadius: 4, order: 3 },
                     { label: 'Egresos No Efectivos', data: data.map(d => d.EGR_NE || 0), backgroundColor: '#94A3B8', stack: 'egresos', order: 4 }
