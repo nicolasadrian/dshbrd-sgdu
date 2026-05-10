@@ -181,14 +181,22 @@ function renderMatrixTable(container, data) {
 
         html += `
             <tr class="trata-group-header">
-                <td colspan="${allMonths.length + 2}">
+                <td style="background: var(--primary-dark); color: white; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
                     <div class="trata-title-wrapper">
-                        <a href="#" class="trata-link" onclick="event.preventDefault(); showTrataDetail('${gerenciaKey}', '${trataId}', '${safeName}')">
+                        <a href="#" class="trata-link" style="color: white;" onclick="event.preventDefault(); showTrataDetail('${gerenciaKey}', '${trataId}', '${safeName}')">
                             ${group.name.toUpperCase()}
                         </a>
                         <span class="info-icon" onclick="event.stopPropagation(); openHelpModal('${trataId}', '${gerenciaKey}', '${safeName}', '${safeAcronimos}')">i</span>
-                        <span class="trata-id-tag">${trataId}</span>
+                        <span class="trata-id-tag" style="background: rgba(255,255,255,0.2); color: white;">${trataId}</span>
                     </div>
+                </td>
+                ${allMonths.map(mk => `
+                    <td style="background: var(--primary-dark); color: rgba(255,255,255,0.7); font-size: 0.75rem; text-align: center; vertical-align: middle;">
+                        ${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br>${mk.split('-')[0]}
+                    </td>
+                `).join('')}
+                <td style="background: #004b76; color: white; text-align: center; font-weight: 700; border-top-right-radius: 8px; border-bottom-right-radius: 8px; font-size: 0.8rem;">
+                    TOTAL<br>PERIODO
                 </td>
             </tr>`;
 
