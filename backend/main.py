@@ -110,11 +110,11 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             # 2. Obtener los Ingresos y Egresos históricos
             sql_hist = f"""
                 SELECT anio, mes, 
-                       SUM("INGRESOS") as ING, 
-                       SUM("EGRESOS_EFECTIVOS") as EGR_EF, 
-                       SUM("EGRESOS_NO_EFECTIVOS") as EGR_NE
+                       SUM(ingresos) as ing, 
+                       SUM(egresos_efectivos) as egr_ef, 
+                       SUM(egresos_no_efectivos) as egr_ne
                 FROM mvw_reporte_historico_dgroc
-                WHERE "GERENCIA" = '{gerencia_clean}' 
+                WHERE gerencia = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
                   AND (anio, mes) IN ({months_filter})
                 GROUP BY anio, mes
@@ -126,11 +126,11 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                 propios_sql = ", ".join([f"'{p}'" for p in propios])
                 sql_hist = f"""
                     SELECT anio, mes, 
-                           SUM("INGRESOS") as ING, 
-                           SUM("EGRESOS_EFECTIVOS") as EGR_EF, 
-                           SUM("EGRESOS_NO_EFECTIVOS") as EGR_NE
+                           SUM(ingresos) as ing, 
+                           SUM(egresos_efectivos) as egr_ef, 
+                           SUM(egresos_no_efectivos) as egr_ne
                     FROM mvw_reporte_historico_dgroc
-                    WHERE "GERENCIA" = '{gerencia_clean}' 
+                    WHERE gerencia = '{gerencia_clean}' 
                       AND "COD TRATA" NOT IN ({propios_sql})
                       AND "COD TRATA" != 'MDUG0102B'
                       AND (anio, mes) IN ({months_filter})
@@ -150,15 +150,14 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             mes_row = {
                 "anio": int(row['anio']),
                 "mes": int(row['mes']),
-                "ING": int(row['ING']),
-                "EGR_EF": int(row['EGR_EF']),
-                "EGR_NE": int(row['EGR_NE']),
+                "ING": int(row['ing']),
+                "EGR_EF": int(row['egr_ef']),
+                "EGR_NE": int(row['egr_ne']),
                 "STOCK_PROPIO": current_stock,
                 "STOCK_SUBS": 0
             }
             result.append(mes_row)
-            # Para el mes anterior, el stock era: Stock_Hoy - Ingresos + Egresos
-            net_flow = int(row['ING']) - (int(row['EGR_EF']) + int(row['EGR_NE']))
+            net_flow = int(row['ing']) - (int(row['egr_ef']) + int(row['egr_ne']))
             current_stock = max(0, current_stock - net_flow)
             
         return result
