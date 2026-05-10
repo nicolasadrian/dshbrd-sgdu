@@ -160,23 +160,41 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
 @app.get("/api/reporte/{gerencia}/intervenciones/detalle")
 async def get_intervenciones_detalle(gerencia: str):
     gerencia_clean = gerencia.lower()
+    if gerencia_clean not in TRAMITES_CONFIG:
+        raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
+    
+    # Lista de trámites propios para excluir del desglose de intervenciones
+    propios = list(TRAMITES_CONFIG[gerencia_clean].keys())
+    propios_sql = ", ".join([f"'{p}'" for p in propios])
+
     try:
         with engine.connect() as conn:
-            # Esta consulta agrupa los trámites externos que están en stock para la gerencia
             sql = f"""
-                SELECT trata, "DETALLE TRATA" as detalle, anio, mes, "ING" as cantidad
-                FROM mvw_reporte_historico_dgroc
-                WHERE "GERENCIA" = '{gerencia_clean}' AND "COD TRATA" = 'INTERVENCIONES'
+                SELECT trata, detalle, anio, mes, cantidad
+                FROM mvw_intervenciones_breakdown
+                WHERE gerencia = '{gerencia_clean}'
+                  AND trata NOT IN ({propios_sql})
                 ORDER BY anio DESC, mes DESC
             """
-            # Por ahora devolvemos el consolidado de intervenciones
             result = conn.execute(text(sql))
-            df = pd.DataFrame(result.fetchall(), columns=result.keys())
-            # Transformar a formato meses
+            rows = [dict(r._mapping) for r in result.fetchall()]
+            
+            if not rows:
+                return []
+
+            df = pd.DataFrame(rows)
             output = []
-            for name, group in df.groupby(['trata', 'detalle']):
-                meses = {f"{r.anio}-{r.mes:02d}": int(r.cantidad) for r in group.itertuples()}
-                output.append({"trata": name[0], "detalle": name[1], "meses": meses})
-            return output
+            # Agrupar por trámite para el formato que espera el frontend
+            for (trata, detalle), group in df.groupby(['trata', 'detalle']):
+                meses = {f"{int(r.anio)}-{int(r.mes):02d}": int(r.cantidad) for r in group.itertuples()}
+                output.append({
+                    "trata": trata,
+                    "detalle": detalle,
+                    "meses": meses
+                })
+            
+            # Ordenar por el trámite que más ingresos tuvo en el último mes
+            return sorted(output, key=lambda x: sum(x['meses'].values()), reverse=True)
     except Exception as e:
+        logger.error(f"Error en intervenciones detalle: {e}")
         raise HTTPException(status_code=500, detail=str(e))
