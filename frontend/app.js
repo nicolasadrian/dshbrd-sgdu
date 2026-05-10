@@ -22,7 +22,7 @@ const ANALYSTS_DOCS = {
     'etapa_proyecto': ["A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", "DIMASOM", "DNKAINSKY", "FORGIONEA", "GAILLURJP", "GARRIONDO", "JOSEFINA.P", "M.SANCHEZ", "MARCE.TOSONI", "MARCETOSONI", "MARCETOSONI1", "MBRISA", "MCANOGARAY", "MCARLUCCIO", "MGALLARDOC", "MSTIBERTI", "NLOPEZQUIROGA", "ROCABERTJ", "SPUET", "TALAMOM", "VERA"]
 };
 
-function showView(viewId) {
+function showView(viewId, updateHash = true) {
     const views = document.querySelectorAll('.view-container');
     const targetView = document.getElementById(viewId);
     if (!targetView) return;
@@ -37,6 +37,11 @@ function showView(viewId) {
     
     gsap.from(targetView, { opacity: 0, y: 20, duration: 0.4, ease: "power2.out" });
 
+    // Actualizar URL si es necesario
+    if (updateHash) {
+        window.location.hash = `#/${viewId}`;
+    }
+
     // Cargar reporte automáticamente si es una vista de gerencia
     const gerencias = ['catastro', 'instalaciones', 'obra', 'interpretacion', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra'];
     if (gerencias.includes(viewId)) {
@@ -44,199 +49,57 @@ function showView(viewId) {
     }
 }
 
-async function loadConsolidatedReport(gerencia) {
-    const containerId = `consolidated-table-container-${gerencia}`;
-    const container = document.getElementById(containerId);
-    if (!container) return;
+// Nueva función para manejar las rutas
+async function handleRouting() {
+    const hash = window.location.hash.substring(2); // Quitar "#/"
+    if (!hash) {
+        showView('landing', false);
+        return;
+    }
 
-    container.innerHTML = `<div class="loading-overlay"><span class="loader"></span><h2 style="margin-top: 1rem; color: var(--primary-dark);">Procesando Matriz de Gestión de ${gerencia.toUpperCase()}...</h2></div>`;
-
-    try {
-        const response = await fetch(`${API_BASE}/reporte/${gerencia}/consolidado`);
-        if (!response.ok) throw new Error(`Error ${response.status}`);
-        const data = await response.json();
+    const parts = hash.split('/');
+    const viewId = parts[0];
+    
+    if (parts.length === 2) {
+        // Detalle de trámite: #/gerencia/trataCode
+        const gerencia = parts[0];
+        const trataCode = parts[1];
         
-        if (!data || data.length === 0) {
-            container.innerHTML = '<div class="error-message"><h3>Sin datos disponibles</h3></div>';
-            return;
-        }
-
-        renderMatrixTable(container, data);
-    } catch (error) {
-        container.innerHTML = `<div class="error-message"><h3>Error de Carga</h3><p>${error.message}</p></div>`;
+        // Primero mostramos la vista base por si acaso
+        showView(gerencia, false);
+        
+        // Intentamos obtener el nombre del trámite desde la configuración (o fallback)
+        // Nota: En un sistema real, el nombre vendría de un catálogo o del consolidado ya cargado
+        const trataName = trataCode; 
+        showTrataDetail(gerencia, trataCode, trataName, false);
+    } else {
+        showView(viewId, false);
     }
 }
 
-function buildSummaryHTML(data, allMonths) {
-    const totals = {};
-    allMonths.forEach(mk => { totals[mk] = { ING: 0, EGR_EF: 0, EGR_NE: 0, STOCK_PROPIO: 0, STOCK_SUBS: 0 }; });
-    data.forEach(row => {
-        const mk = `${row.anio}-${row.mes}`;
-        if (totals[mk]) {
-            totals[mk].ING          += row.ING ?? 0;
-            totals[mk].EGR_EF       += row.EGR_EF ?? 0;
-            totals[mk].EGR_NE       += row.EGR_NE ?? 0;
-            totals[mk].STOCK_PROPIO += row.STOCK_PROPIO ?? 0;
-            totals[mk].STOCK_SUBS   += row.STOCK_SUBS ?? 0;
-        }
-    });
+// Escuchar cambios en la URL
+window.addEventListener('hashchange', handleRouting);
 
-    const metrics = [
-        { label: 'Ingresos',              field: 'ING',          cls: 'sum-ing'     },
-        { label: 'Egresos Efectivos',     field: 'EGR_EF',       cls: 'sum-egr-ef'  },
-        { label: 'Egresos No Efectivos',  field: 'EGR_NE',       cls: 'sum-egr-ne'  },
-        { label: 'Egresos Totales',       field: 'EGR_TOT',      cls: 'sum-egr-tot' },
-        { label: 'Stock Propio',          field: 'STOCK_PROPIO', cls: 'sum-stock'   },
-        { label: 'Subsanación Abierta',   field: 'STOCK_SUBS',   cls: 'sum-subs'    },
-        { label: 'Stock Total',           field: 'STOCK_TOTAL',  cls: 'sum-stock-tot' }
-    ];
-
-    const fmt = n => n.toLocaleString('es-AR');
-
-    let html = `<div class="summary-section">
-        <h3 class="summary-title">Resumen Mensual Consolidado</h3>
-        <div class="summary-wrapper">
-            <table class="summary-table">
-                <thead><tr>
-                    <th class="sum-label-col">Indicador</th>
-                    ${allMonths.map(mk => `<th>${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br><span class="sum-year">${mk.split('-')[0]}</span></th>`).join('')}
-                </tr></thead>
-                <tbody>`;
-
-    metrics.forEach(m => {
-        html += `<tr class="${m.cls}"><td class="sum-label">${m.label}</td>`;
-        allMonths.forEach(mk => {
-            const t = totals[mk];
-            let val = 0;
-            if (m.field === 'EGR_TOT') val = (t.EGR_EF || 0) + (t.EGR_NE || 0);
-            else if (m.field === 'STOCK_TOTAL') val = (t.STOCK_PROPIO || 0) + (t.STOCK_SUBS || 0);
-            else val = t[m.field] || 0;
-            html += `<td class="sum-val">${fmt(val)}</td>`;
-        });
-        html += `</tr>`;
-    });
-
-    html += `</tbody></table></div></div>`;
-    return html;
-}
-
-function renderMatrixTable(container, data) {
-    const groups = {};
-    data.forEach(row => {
-        const key = row["COD TRATA"];
-        if (!groups[key]) {
-            groups[key] = { 
-                name: row["DETALLE TRATA"], 
-                months: {}, 
-                acronimos: row["acronimos"]
-            };
-        }
-        const monthKey = `${row.anio}-${row.mes}`;
-        groups[key].months[monthKey] = row;
-    });
-
-    const allMonths = [...new Set(data.map(r => `${r.anio}-${r.mes}`))].sort((a,b) => {
-        const [y1, m1] = a.split('-').map(Number);
-        const [y2, m2] = b.split('-').map(Number);
-        return y1 === y2 ? m1 - m2 : y1 - y2;
-    });
-
-    let html = buildSummaryHTML(data, allMonths);
-
-    html += `
-    <div class="main-card-container">
-        <div class="matrix-table-wrapper">
-            <table class="matrix-table">
-                <thead>
-                    <tr>
-                        <th style="min-width: 250px; text-align: left;">TRÁMITE / MÉTRICA</th>
-                        ${allMonths.map(mk => `<th></th>`).join('')}
-                    </tr>
-                </thead>
-                <tbody>`;
-
-    const sortedTrataIds = Object.keys(groups).sort((a, b) => {
-        if (a === 'INTERVENCIONES') return 1;
-        if (b === 'INTERVENCIONES') return -1;
-        return 0; 
-    });
-
-    sortedTrataIds.forEach(trataId => {
-        const group = groups[trataId];
-        const gerenciaKey = container.id.split('-').pop();
-        const safeName = group.name.replace(/'/g, "\\'");
-        const safeAcronimos = (group.acronimos || '').replace(/'/g, "\\'");
-
-        html += `
-            <tr class="trata-group-header">
-                <td style="background: var(--primary-dark); color: white; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
-                    <div class="trata-title-wrapper">
-                        <a href="#" class="trata-link" style="color: white;" onclick="event.preventDefault(); showTrataDetail('${gerenciaKey}', '${trataId}', '${safeName}')">
-                            ${group.name.toUpperCase()}
-                        </a>
-                        <span class="info-icon" onclick="event.stopPropagation(); openHelpModal('${trataId}', '${gerenciaKey}', '${safeName}', '${safeAcronimos}')">i</span>
-                        <span class="trata-id-tag" style="background: rgba(255,255,255,0.2); color: white;">${trataId}</span>
-                    </div>
-                </td>
-                ${allMonths.map((mk, i) => `
-                    <td style="background: var(--primary-dark); color: rgba(255,255,255,0.7); font-size: 0.75rem; text-align: center; vertical-align: middle; ${i === allMonths.length - 1 ? 'border-top-right-radius: 8px; border-bottom-right-radius: 8px;' : ''}">
-                        ${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br>${mk.split('-')[0]}
-                    </td>
-                `).join('')}
-            </tr>`;
-
-        const metrics = [
-            { label: 'INGRESOS',             field: 'ING',          rowCls: 'row-ing' },
-            { label: 'EGRESOS EFECTIVOS',    field: 'EGR_EF',       rowCls: '' },
-            { label: 'EGRESOS NO EFECTIVOS', field: 'EGR_NE',       rowCls: '' },
-            { label: 'EGRESOS TOTALES',      field: 'EGR_TOT',      rowCls: 'row-egr-tot' },
-            { label: 'STOCK PROPIO',         field: 'STOCK_PROPIO', rowCls: 'row-stock-p' },
-            { label: 'SUBSANACIÓN ABIERTA',  field: 'STOCK_SUBS',   rowCls: 'row-stock-s' },
-            { label: 'STOCK TOTAL',          field: 'STOCK_TOTAL',  rowCls: 'row-stock-tot' }
-        ];
-
-        metrics.forEach(metric => {
-            html += `<tr class="metric-row ${metric.rowCls}">
-                <td class="metric-label" style="${metric.label === 'INGRESOS' ? 'font-weight: 800;' : ''}">${metric.label}</td>`;
-            
-            allMonths.forEach(mk => {
-                const row = group.months[mk];
-                let val = '-';
-                if (row) {
-                    if (metric.field === 'EGR_TOT') val = (row.EGR_EF || 0) + (row.EGR_NE || 0);
-                    else if (metric.field === 'STOCK_TOTAL') val = (row.STOCK_PROPIO || 0) + (row.STOCK_SUBS || 0);
-                    else val = row[metric.field];
-                }
-                html += `<td class="metric-value">${val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-'}</td>`;
-            });
-            html += `</tr>`;
-        });
-    });
-
-    html += `</tbody></table></div></div>`;
-    container.innerHTML = html;
-    gsap.from(".main-card-container", { opacity: 0, y: 20, duration: 0.5, ease: "power2.out" });
-}
-
+// Carga inicial
 window.addEventListener('DOMContentLoaded', () => {
-    const landing = document.getElementById('landing');
-    if (landing) {
-        landing.style.display = 'block';
-        landing.classList.add('active');
-    }
+    handleRouting();
 });
 
 let currentChart = null;
 let currentStockAgeChart = null;
 let currentStockData = { expedientes: [], trataName: "", trataCode: "" };
 
-async function showTrataDetail(gerencia, trataCode, trataName) {
+async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true) {
     const views = document.querySelectorAll('.view-container');
     views.forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
     
     const detailView = document.getElementById('trata_detail');
     detailView.style.display = 'block';
     detailView.classList.add('active');
+    
+    if (updateHash) {
+        window.location.hash = `#/${gerencia}/${trataCode}`;
+    }
     
     if (currentChart) { currentChart.destroy(); currentChart = null; }
     if (currentStockAgeChart) { currentStockAgeChart.destroy(); currentStockAgeChart = null; }
