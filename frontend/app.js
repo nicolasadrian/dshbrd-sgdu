@@ -306,8 +306,11 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 
     document.getElementById('trata_detail_title').innerText = trataName;
     
-    // Solo actualizamos la URL, el handleRouting se encarga del resto
-    document.getElementById('trata_detail_back').onclick = () => {
+    // Actualizamos el texto del breadcrumb de retorno con el nombre de la gerencia
+    const backBtn = document.getElementById('trata_detail_back');
+    backBtn.innerText = gerencia.toUpperCase();
+    
+    backBtn.onclick = () => {
         window.location.hash = `#/${gerencia}`;
     };
 
