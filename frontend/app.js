@@ -100,20 +100,31 @@ function buildSummaryHTML(data, allMonths) {
                 <thead><tr>
                     <th class="sum-label-col">Indicador</th>
                     ${allMonths.map(mk => `<th>${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br><span class="sum-year">${mk.split('-')[0]}</span></th>`).join('')}
+                    <th class="sum-total-col">TOTAL<br><span class="sum-year">PERIODO</span></th>
                 </tr></thead>
                 <tbody>`;
 
     metrics.forEach(m => {
         html += `<tr class="${m.cls}"><td class="sum-label">${m.label}</td>`;
+        let totalPeriodo = 0;
+        let lastVal = 0;
+
         allMonths.forEach(mk => {
             const t = totals[mk];
             let val = 0;
             if (m.field === 'EGR_TOT') val = (t.EGR_EF || 0) + (t.EGR_NE || 0);
             else if (m.field === 'STOCK_TOTAL') val = (t.STOCK_PROPIO || 0) + (t.STOCK_SUBS || 0);
             else val = t[m.field] || 0;
+            
             html += `<td class="sum-val">${fmt(val)}</td>`;
+            
+            if (m.field.includes('STOCK')) lastVal = val;
+            else totalPeriodo += val;
         });
-        html += `</tr>`;
+
+        // En la columna TOTAL, si es Stock mostramos el último, si es flujo sumamos
+        const finalVal = m.field.includes('STOCK') ? lastVal : totalPeriodo;
+        html += `<td class="sum-total-val">${fmt(finalVal)}</td></tr>`;
     });
 
     html += `</tbody></table></div></div>`;
@@ -128,7 +139,7 @@ function renderMatrixTable(container, data) {
             groups[key] = { 
                 name: row["DETALLE TRATA"], 
                 months: {}, 
-                acronimos: row["acronimos"] // Capturar acrónimos desde la vista histórica
+                acronimos: row["acronimos"]
             };
         }
         const monthKey = `${row.anio}-${row.mes}`;
@@ -151,6 +162,7 @@ function renderMatrixTable(container, data) {
                     <tr>
                         <th style="min-width: 250px; text-align: left;">TRÁMITE / MÉTRICA</th>
                         ${allMonths.map(mk => `<th>${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br><small>${mk.split('-')[0]}</small></th>`).join('')}
+                        <th class="total-col-header">TOTAL<br><small>ACUM</small></th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -169,7 +181,7 @@ function renderMatrixTable(container, data) {
 
         html += `
             <tr class="trata-group-header">
-                <td colspan="${allMonths.length + 1}">
+                <td colspan="${allMonths.length + 2}">
                     <div class="trata-title-wrapper">
                         <a href="#" class="trata-link" onclick="event.preventDefault(); showTrataDetail('${gerenciaKey}', '${trataId}', '${safeName}')">
                             ${group.name.toUpperCase()}
@@ -193,6 +205,11 @@ function renderMatrixTable(container, data) {
         metrics.forEach(metric => {
             html += `<tr class="metric-row ${metric.rowCls}">
                 <td class="metric-label" style="${metric.label === 'INGRESOS' ? 'font-weight: 800;' : ''}">${metric.label}</td>`;
+            
+            let totalPeriodo = 0;
+            let lastVal = 0;
+            const fmt = n => (n !== undefined && n !== '-' ? n.toLocaleString('es-AR') : '-');
+
             allMonths.forEach(mk => {
                 const row = group.months[mk];
                 let val = '-';
@@ -200,11 +217,18 @@ function renderMatrixTable(container, data) {
                     if (metric.field === 'EGR_TOT') val = (row.EGR_EF || 0) + (row.EGR_NE || 0);
                     else if (metric.field === 'STOCK_TOTAL') val = (row.STOCK_PROPIO || 0) + (row.STOCK_SUBS || 0);
                     else val = row[metric.field];
+                    
+                    if (val !== '-') {
+                        if (metric.field.includes('STOCK')) lastVal = val;
+                        else totalPeriodo += val;
+                    }
                 }
-                html += `<td class="metric-value">
-                    ${val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-'}
-                </td>`;
+                html += `<td class="metric-value">${fmt(val)}</td>`;
             });
+
+            // Columna TOTAL
+            const finalVal = metric.field.includes('STOCK') ? lastVal : totalPeriodo;
+            html += `<td class="metric-value" style="font-weight:700; background:rgba(0,118,187,0.05);">${fmt(finalVal)}</td>`;
             html += `</tr>`;
         });
     });

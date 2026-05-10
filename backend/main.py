@@ -47,10 +47,11 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
     
     trata_codes = list(TRAMITES_CONFIG[gerencia_clean].keys())
     
-    # Obtener los últimos 6 meses (Un semestre) para la matriz
+    # Obtener el último cuatrimestre completo + mes actual (5 meses total)
     now = datetime.now()
     months_list = []
-    for i in range(6):
+    for i in range(5):
+        # Retrocedemos i meses desde el primero de este mes para asegurar meses completos
         month_date = (now.replace(day=1) - timedelta(days=i*30)).replace(day=1)
         months_list.append(f"({month_date.year}, {month_date.month})")
     months_filter = ", ".join(months_list)
