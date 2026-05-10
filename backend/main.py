@@ -110,9 +110,9 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             # 2. Obtener los Ingresos y Egresos históricos
             sql_hist = f"""
                 SELECT anio, mes, 
-                       SUM(ingresos) as ING, 
-                       SUM(egresos_efectivos) as EGR_EF, 
-                       SUM(egresos_no_efectivos) as EGR_NE
+                       SUM("INGRESOS") as ING, 
+                       SUM("EGRESOS_EFECTIVOS") as EGR_EF, 
+                       SUM("EGRESOS_NO_EFECTIVOS") as EGR_NE
                 FROM mvw_reporte_historico_dgroc
                 WHERE "GERENCIA" = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
@@ -126,9 +126,9 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                 propios_sql = ", ".join([f"'{p}'" for p in propios])
                 sql_hist = f"""
                     SELECT anio, mes, 
-                           SUM(ingresos) as ING, 
-                           SUM(egresos_efectivos) as EGR_EF, 
-                           SUM(egresos_no_efectivos) as EGR_NE
+                           SUM("INGRESOS") as ING, 
+                           SUM("EGRESOS_EFECTIVOS") as EGR_EF, 
+                           SUM("EGRESOS_NO_EFECTIVOS") as EGR_NE
                     FROM mvw_reporte_historico_dgroc
                     WHERE "GERENCIA" = '{gerencia_clean}' 
                       AND "COD TRATA" NOT IN ({propios_sql})
