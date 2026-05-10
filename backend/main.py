@@ -174,33 +174,40 @@ async def get_intervenciones_detalle(gerencia: str):
     propios_sql = ", ".join([f"'{p}'" for p in propios])
 
     try:
+        analistas = WHITELISTS.get(gerencia_clean, [])
+        buzzers = BUZZERS_MAP.get(gerencia_clean, [])
+        sector_whitelist_sql = ", ".join([f"'{u}'" for u in (analistas + buzzers)])
+
         with engine.connect() as conn:
             sql = f"""
-                SELECT trata, detalle, anio, mes, cantidad
-                FROM mvw_intervenciones_breakdown
-                WHERE gerencia = '{gerencia_clean}'
-                  AND trata NOT IN ({propios_sql})
-                ORDER BY anio DESC, mes DESC
+                SELECT trata, descripcion as detalle, dias_stock
+                FROM mvw_stock_actual_detalle
+                WHERE is_subs = 0 AND analista_actual IN ({sector_whitelist_sql})
+                  AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'
             """
             result = conn.execute(text(sql))
-            rows = [dict(r._mapping) for r in result.fetchall()]
+            df = pd.DataFrame([dict(r._mapping) for r in result.fetchall()])
             
-            if not rows:
-                return []
+            if df.empty: return []
 
-            df = pd.DataFrame(rows)
-            output = []
-            # Agrupar por trámite para el formato que espera el frontend
-            for (trata, detalle), group in df.groupby(['trata', 'detalle']):
-                meses = {f"{int(r.anio)}-{int(r.mes):02d}": int(r.cantidad) for r in group.itertuples()}
-                output.append({
-                    "trata": trata,
-                    "detalle": detalle,
-                    "meses": meses
-                })
+            def get_range(d):
+                if d < 15: return "Menos de 15 dias"
+                if d <= 30: return "15 a 30 dias"
+                if d <= 45: return "30 a 45 dias"
+                if d <= 60: return "45 a 60 dias"
+                if d <= 75: return "60 a 75 dias"
+                if d <= 90: return "75 a 90 dias"
+                return "Mas de 90 dias"
+
+            df['rango'] = df['dias_stock'].apply(get_range)
+            pivot = df.groupby(['trata', 'detalle', 'rango']).size().unstack(fill_value=0)
             
-            # Ordenar por el trámite que más ingresos tuvo en el último mes
-            return sorted(output, key=lambda x: sum(x['meses'].values()), reverse=True)
+            ranges = ["Menos de 15 dias", "15 a 30 dias", "30 a 45 dias", "45 a 60 dias", "60 a 75 dias", "75 a 90 dias", "Mas de 90 dias"]
+            for r in ranges:
+                if r not in pivot.columns: pivot[r] = 0
+            
+            pivot['TOTAL'] = pivot.sum(axis=1)
+            return pivot.reset_index().sort_values(by='TOTAL', ascending=False).to_dict(orient='records')
     except Exception as e:
         logger.error(f"Error en intervenciones detalle: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -445,16 +445,40 @@ async function loadIntervencionesDetail(gerencia) {
     try {
         const response = await fetch(`${API_BASE}/reporte/${gerencia}/intervenciones/detalle`);
         const data = await response.json();
-        if (!data || data.length === 0) { wrapper.innerHTML = '<div style="padding:20px; text-align:center;">Sin datos de intervención.</div>'; return; }
-        const mesesSet = new Set();
-        data.forEach(item => Object.keys(item.meses).forEach(m => mesesSet.add(m)));
-        const sortedMeses = Array.from(mesesSet).sort((a, b) => b.localeCompare(a));
-        let html = `<table class="matrix-table"><thead><tr><th>TRATA</th><th>DETALLE</th>${sortedMeses.map(m => `<th>${m}</th>`).join('')}</tr></thead><tbody>`;
+        if (!data || data.length === 0) { 
+            wrapper.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b;">No hay stock de intervenciones externas.</div>'; 
+            return; 
+        }
+
+        const ranges = ["Menos de 15 dias", "15 a 30 dias", "30 a 45 dias", "45 a 60 dias", "60 a 75 dias", "75 a 90 dias", "Mas de 90 dias"];
+        
+        let html = `
+            <table class="matrix-table analyst-table">
+                <thead>
+                    <tr>
+                        <th style="width:120px;">TRATA</th>
+                        <th>DETALLE</th>
+                        ${ranges.map(r => `<th>${r.replace(' dias', 'd')}</th>`).join('')}
+                        <th>TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
         data.forEach(item => {
-            html += `<tr><td>${item.trata}</td><td>${item.detalle}</td>${sortedMeses.map(m => `<td>${item.meses[m] || '-'}</td>`).join('')}</tr>`;
+            html += `
+                <tr>
+                    <td style="font-weight:600; font-family:monospace;">${item.trata}</td>
+                    <td style="font-size:0.85rem;">${item.detalle}</td>
+                    ${ranges.map(r => `<td>${item[r] || '-'}</td>`).join('')}
+                    <td style="font-weight:700;">${item.TOTAL}</td>
+                </tr>`;
         });
+        
         wrapper.innerHTML = html + '</tbody></table>';
-    } catch (err) { wrapper.innerHTML = 'Error de carga.'; }
+    } catch (err) { 
+        console.error(err);
+        wrapper.innerHTML = '<div class="error-message">Error cargando desglose de intervenciones.</div>'; 
+    }
 }
 
 function openDrillDown(analista) {
