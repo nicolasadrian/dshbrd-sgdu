@@ -120,16 +120,16 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
         with engine.connect() as conn:
             if trata == 'INTERVENCIONES':
                 sql = f"""
-                    SELECT id_expediente, expediente, fecha_ingreso as fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
+                    SELECT id_expediente, expediente, fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
                     FROM mvw_stock_actual_detalle
                     WHERE trata NOT IN ({", ".join([f"'{t}'" for t in TRAMITES_CONFIG[gerencia_clean].keys() if t != 'INTERVENCIONES'])})
-                      AND trata != 'MDUG0102B' AND analista_actual IN ({sector_whitelist_sql})
+                      AND trata != 'MDUG0102B' AND gerencia = '{gerencia_clean}'
                 """
             else:
                 sql = f"""
-                    SELECT id_expediente, expediente, fecha_ingreso as fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
+                    SELECT id_expediente, expediente, fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
                     FROM mvw_stock_actual_detalle
-                    WHERE trata = '{trata}' AND analista_actual IN ({sector_whitelist_sql})
+                    WHERE trata = '{trata}' AND gerencia = '{gerencia_clean}'
                 """
             result = conn.execute(text(sql))
             rows = result.fetchall()
