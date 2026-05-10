@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Gestión SGDU | Buenos Aires Ciudad</title>
+    <meta name="description" content="Tablero Integral de Gestión para la Secretaría de Gestión y Desarrollo Urbano.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <header>
+        <div class="logo-container" onclick="showView('landing')" style="cursor: pointer;">
+            <div class="logo-text">Tablero SGDU</div>
+        </div>
+        <nav id="main-nav">
+            <span class="header-tag">Secretaría de Gestión y Desarrollo Urbano</span>
+        </nav>
+    </header>
+
+    <main id="app-content">
+        <!-- Vista 1: Landing -->
+        <section id="landing" class="view-container active">
+            <div class="landing-container">
+                <h1 class="landing-title">Tablero Integral de Gestión</h1>
+                <p>Seleccione una Dirección General para monitorear trámites</p>
+
+                <div class="button-grid">
+                    <article class="nav-card" id="card-dgroc" onclick="showView('dgroc')">
+                        <h2>DGROC</h2>
+                        <p>Dirección General Registros de Obra y Catastro</p>
+                    </article>
+                    <article class="nav-card" id="card-dgiur" onclick="showView('dgiur')">
+                        <h2>DGIUR</h2>
+                        <p>Dirección General de Interpretación Urbanística</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista 2: DGROC -->
+        <section id="dgroc" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / DGROC
+            </div>
+            <h1 class="landing-title">DGROC</h1>
+            <p style="margin-bottom: 2rem;">Seleccione una Gerencia Operativa</p>
+
+            <div class="button-grid">
+                <article class="nav-card" id="card-catastro" onclick="showView('catastro')">
+                    <h2>Catastro</h2>
+                    <p>Gerencia de Catastro - Control de Mensuras</p>
+                </article>
+                <article class="nav-card" id="card-instalaciones" onclick="showView('instalaciones')">
+                    <h2>Instalaciones</h2>
+                    <p>Gerencia de Instalaciones - Registro de Planos</p>
+                </article>
+                <article class="nav-card" id="card-regularizacion" onclick="showView('regularizacion')">
+                    <h2>Regularización</h2>
+                    <p>Regularización y Conforme de Obra Civil</p>
+                </article>
+                <article class="nav-card" id="card-contable" onclick="showView('contable')">
+                    <h2>Contable</h2>
+                    <p>Registro de Profesionales y Permisos de Obra</p>
+                </article>
+                <article class="nav-card" id="card-etapa-proyecto" onclick="showView('etapa_proyecto')">
+                    <h2>Etapa Proyecto</h2>
+                    <p>Gerencia de Etapa Proyecto</p>
+                </article>
+                <article class="nav-card" id="card-aviso-obra" onclick="showView('aviso_obra')">
+                    <h2>Aviso de Obra</h2>
+                    <p>Avisos de inicio y modificaciones menores</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Vista 3: Catastro (Tabla Consolidada) -->
+        <section id="catastro" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / Catastro
+            </div>
+            <h1 class="landing-title">Gerencia de Catastro</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-catastro" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 4: Instalaciones -->
+        <section id="instalaciones" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / Instalaciones
+            </div>
+            <h1 class="landing-title">Gerencia de Instalaciones</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-instalaciones" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 5: Regularización -->
+        <section id="regularizacion" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / Regularización
+            </div>
+            <h1 class="landing-title">Regularización y Conforme</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-regularizacion" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 6: Contable -->
+        <section id="contable" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / Contable
+            </div>
+            <h1 class="landing-title">Contable</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-contable" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 7: Etapa Proyecto -->
+        <section id="etapa_proyecto" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / Etapa Proyecto
+            </div>
+            <h1 class="landing-title">Etapa Proyecto</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-etapa_proyecto" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 8: Aviso de Obra -->
+        <section id="aviso_obra" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / Aviso de Obra
+            </div>
+            <h1 class="landing-title">Aviso de Obra</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-aviso_obra" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 9: Detalle de Trámite (Chart.js) -->
+        <section id="trata_detail" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgroc')">DGROC</span> / 
+                <span id="trata_detail_back" onclick="showView('dgroc')" style="cursor: pointer; text-decoration: underline;">Volver</span> / 
+                Detalle Trámite
+            </div>
+            <h1 class="landing-title" id="trata_detail_title">Detalle de Trámite</h1>
+            <p>Evolución de los últimos 12 meses</p>
+
+            <div class="chart-container" style="position: relative; height:80vh; width:100%; max-width: 1200px; margin: 0 auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-top: 2rem;">
+                <canvas id="trata-chart"></canvas>
+            </div>
+
+            <!-- Nuevos Componentes de Stock -->
+            <div class="trata-extra-analysis" style="margin-top: 2rem;">
+                <div class="analysis-section">
+                    <h3 class="section-title">Antigüedad Stock (por mes de ingreso)</h3>
+                    <div class="chart-container small-chart">
+                        <canvas id="stock-age-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="analysis-section" style="margin-top: 3rem;">
+                    <h3 class="section-title">Stock según Analista</h3>
+                    <div id="analyst-table-container" class="matrix-table-container">
+                        <!-- La tabla se generará dinámicamente -->
+                    </div>
+                </div>
+
+                <div id="intervenciones-detail-container" class="analysis-section" style="margin-top: 3rem; display: none;">
+                    <h3 class="section-title">Desglose de Tratas (Intervenciones)</h3>
+                    <div id="intervenciones-table-wrapper" class="matrix-table-container">
+                        <!-- La tabla se generará dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal de Detalles de Stock -->
+    <div id="stock-drilldown-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modal-analyst-name">Nombre Analista</h2>
+                    <p id="modal-trata-info" style="color: #cbd5e1; font-size: 0.9rem; margin-top: 5px;"></p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="btn-download-csv" class="btn-download" style="padding: 8px 15px; font-size: 0.85rem; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                        Descargar CSV
+                    </button>
+                    <span class="close-modal" onclick="closeModal('stock-drilldown-modal')" style="cursor: pointer; font-size: 2rem;">&times;</span>
+                </div>
+            </div>
+            <div id="modal-table-container" class="matrix-table-container" style="padding: 20px;">
+                <!-- Tabla dinámica -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ayuda / Metodología -->
+    <div id="help-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Metodología de Cálculo</h2>
+                <span class="close-modal" onclick="closeModal('help-modal')" style="cursor: pointer; font-size: 2rem;">&times;</span>
+            </div>
+            <div id="help-modal-body" class="help-body" style="padding: 20px;">
+                <!-- Contenido dinámico -->
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
