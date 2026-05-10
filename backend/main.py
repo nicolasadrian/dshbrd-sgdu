@@ -96,28 +96,41 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
         months_filter = ", ".join(months_list)
 
         with engine.connect() as conn:
-            # 1. Obtener el STOCK FÍSICO REAL ACTUAL (El Ancla)
-            sql_fisico = f"""
-                SELECT COUNT(*) as total 
-                FROM mvw_stock_actual_detalle 
+            # 1. Obtener el STOCK FÍSICO REAL ACTUAL (El Ancla para ambos)
+            # Stock Propio
+            sql_fisico_propio = f"""
+                SELECT COUNT(*) as total FROM mvw_stock_actual_detalle 
                 WHERE is_subs = 0 AND gerencia = '{gerencia_clean}'
             """
+            # Stock Subsanaciones
+            sql_fisico_subs = f"""
+                SELECT COUNT(*) as total FROM mvw_stock_actual_detalle 
+                WHERE is_subs = 1 AND gerencia = '{gerencia_clean}'
+            """
+            
             if trata != 'INTERVENCIONES':
-                sql_fisico += f" AND trata = '{trata}'"
+                sql_fisico_propio += f" AND trata = '{trata}'"
+                sql_fisico_subs += f" AND trata = '{trata}'"
             else:
                 propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
                 propios_sql = ", ".join([f"'{p}'" for p in propios])
-                sql_fisico += f" AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'"
+                sql_fisico_propio += f" AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'"
+                sql_fisico_subs += f" AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'"
                 
-            res_fisico = conn.execute(text(sql_fisico)).fetchone()
-            stock_actual_fisico = res_fisico[0] if res_fisico else 0
+            res_p = conn.execute(text(sql_fisico_propio)).fetchone()
+            res_s = conn.execute(text(sql_fisico_subs)).fetchone()
+            
+            stock_propio_fisico = res_p[0] if res_p else 0
+            stock_subs_fisico = res_s[0] if res_s else 0
 
             # 2. Obtener los Ingresos y Egresos históricos (Los últimos 12 meses REALES)
+            # Incluimos STOCK_SUBS para los meses pasados
             sql_hist = f"""
                 SELECT anio, mes, 
                        SUM("ING") as ing, 
                        SUM("EGR_EF") as egr_ef, 
-                       SUM("EGR_NE") as egr_ne
+                       SUM("EGR_NE") as egr_ne,
+                       SUM("STOCK_SUBS") as stock_subs_hist
                 FROM mvw_reporte_historico_dgroc
                 WHERE "GERENCIA" = '{gerencia_clean}' 
                   AND "COD TRATA" = '{trata}'
@@ -133,7 +146,8 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                     SELECT anio, mes, 
                            SUM("ING") as ing, 
                            SUM("EGR_EF") as egr_ef, 
-                           SUM("EGR_NE") as egr_ne
+                           SUM("EGR_NE") as egr_ne,
+                           SUM("STOCK_SUBS") as stock_subs_hist
                     FROM mvw_reporte_historico_dgroc
                     WHERE "GERENCIA" = '{gerencia_clean}' 
                       AND "COD TRATA" NOT IN ({propios_sql})
@@ -147,23 +161,29 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             
         if df_hist.empty: return []
 
-        # 3. Reconstruir la serie asegurando que el mes actual COINCIDA con el físico
+        # 3. Reconstruir la serie asegurando COHERENCIA TOTAL
         result = []
-        current_stock = stock_actual_fisico
+        current_stock_propio = stock_propio_fisico
         
         for i, row in df_hist.iterrows():
+            # Para el mes actual (i=0), usamos los valores FÍSICOS
+            # Para los anteriores, usamos el histórico de la tabla para subsanaciones
+            # ya que reconstruir el flujo de subsanaciones es mucho más complejo.
+            s_val = stock_subs_fisico if i == 0 else int(row['stock_subs_hist'])
+            
             mes_row = {
                 "anio": int(row['anio']),
                 "mes": int(row['mes']),
                 "ING": int(row['ing']),
                 "EGR_EF": int(row['egr_ef']),
                 "EGR_NE": int(row['egr_ne']),
-                "STOCK_PROPIO": current_stock,
-                "STOCK_SUBS": 0
+                "STOCK_PROPIO": current_stock_propio,
+                "STOCK_SUBS": s_val
             }
             result.append(mes_row)
+            # Retrocedemos el stock propio
             net_flow = int(row['ing']) - (int(row['egr_ef']) + int(row['egr_ne']))
-            current_stock = max(0, current_stock - net_flow)
+            current_stock_propio = max(0, current_stock_propio - net_flow)
             
         return result
     except Exception as e:
