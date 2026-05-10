@@ -30,15 +30,28 @@ function showView(viewId, updateHash = true) {
         return;
     }
 
+    // Ocultar todas las vistas y limpiar estados de animación previos
     views.forEach(v => {
         v.classList.remove('active');
         v.style.display = 'none';
+        gsap.set(v, { clearProps: "all" }); // LIMPIEZA TOTAL DE GSAP
     });
 
+    // Activar la vista seleccionada
     targetView.style.display = 'block';
     targetView.classList.add('active');
     
-    gsap.from(targetView, { opacity: 0, y: 10, duration: 0.3, ease: "power2.out" });
+    // Forzar opacidad 1 inmediata para evitar elementos invisibles
+    gsap.set(targetView, { opacity: 1, y: 0 });
+    
+    // Aplicar animación suave de entrada
+    gsap.from(targetView, { 
+        opacity: 0, 
+        y: 15, 
+        duration: 0.4, 
+        ease: "power2.out",
+        clearProps: "transform" // Asegura que después de la animación no queden estilos residuales
+    });
 
     if (updateHash) {
         window.location.hash = `#/${viewId}`;
