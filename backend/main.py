@@ -427,11 +427,31 @@ async def list_tramites_catastro():
 @app.get("/health")
 async def health_check():
     try:
+        # Intentar una consulta simple para validar la conexión
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "connected", "timestamp": datetime.now().isoformat()}
-    except Exception:
-        return {"status": "error", "db": "disconnected", "timestamp": datetime.now().isoformat()}
+        
+        # Extraer info de la DB para validación (sin mostrar password)
+        db_info = "Localhost"
+        if "DATABASE_URL" in os.environ:
+            url_parts = os.getenv("DATABASE_URL").split("@")
+            if len(url_parts) > 1:
+                db_info = url_parts[1] # Muestra solo el host y la db
+        
+        return {
+            "status": "ok", 
+            "db_connected": True,
+            "db_host": db_info,
+            "timestamp": datetime.now().isoformat(),
+            "env": "production" if "VERCEL" in os.environ else "development"
+        }
+    except Exception as e:
+        return {
+            "status": "error", 
+            "db_connected": False,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 if __name__ == "__main__":
     import uvicorn
