@@ -96,59 +96,17 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
         months_filter = ", ".join(months_list)
 
         with engine.connect() as conn:
-            # 1. Obtener el STOCK FÍSICO REAL ACTUAL (El Ancla para ambos)
-            # Stock Propio
-            sql_fisico_propio = f"""
-                SELECT COUNT(*) as total FROM mvw_stock_actual_detalle 
-                WHERE is_subs = 0 AND gerencia = '{gerencia_clean}'
-            """
-            # Stock Subsanaciones
-            sql_fisico_subs = f"""
-                SELECT COUNT(*) as total FROM mvw_stock_actual_detalle 
-                WHERE is_subs = 1 AND gerencia = '{gerencia_clean}'
-            """
-            
-            if trata != 'INTERVENCIONES':
-                sql_fisico_propio += f" AND trata = '{trata}'"
-                # Buscamos el código de subsanación correspondiente (terminado en _S)
-                sql_fisico_subs += f" AND trata = '{trata}_S'"
-            else:
-                propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
-                propios_sql = ", ".join([f"'{p}'" for p in propios])
-                sql_fisico_propio += f" AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'"
-                sql_fisico_subs += f" AND trata NOT IN ({propios_sql}) AND trata != 'MDUG0102B'"
-                
-            res_p = conn.execute(text(sql_fisico_propio)).fetchone()
-            res_s = conn.execute(text(sql_fisico_subs)).fetchone()
-            
-            stock_propio_fisico = res_p[0] if res_p else 0
-            stock_subs_fisico = res_s[0] if res_s else 0
-
-            # 2. Obtener los Ingresos y Egresos históricos (Los últimos 12 meses REALES)
-            # Incluimos STOCK_SUBS para los meses pasados
-            sql_hist = f"""
-                SELECT anio, mes, 
-                       SUM("ING") as ing, 
-                       SUM("EGR_EF") as egr_ef, 
-                       SUM("EGR_NE") as egr_ne,
-                       SUM("STOCK_SUBS") as stock_subs_hist
-                FROM mvw_reporte_historico_dgroc
-                WHERE "GERENCIA" = '{gerencia_clean}' 
-                  AND "COD TRATA" = '{trata}'
-                  AND (anio, mes) IN ({months_filter})
-                GROUP BY anio, mes
-                ORDER BY anio DESC, mes DESC
-            """
-            # Si es intervenciones, sumamos todo lo que no es propio
+            # Seleccionamos directamente los valores de la vista histórica para asegurar consistencia total con la tabla
             if trata == 'INTERVENCIONES':
                 propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
                 propios_sql = ", ".join([f"'{p}'" for p in propios])
-                sql_hist = f"""
+                sql = f"""
                     SELECT anio, mes, 
-                           SUM("ING") as ing, 
-                           SUM("EGR_EF") as egr_ef, 
-                           SUM("EGR_NE") as egr_ne,
-                           SUM("STOCK_SUBS") as stock_subs_hist
+                           SUM("ING") as "ING", 
+                           SUM("EGR_EF") as "EGR_EF", 
+                           SUM("EGR_NE") as "EGR_NE",
+                           SUM("STOCK_PROPIO") as "STOCK_PROPIO",
+                           SUM("STOCK_SUBS") as "STOCK_SUBS"
                     FROM mvw_reporte_historico_dgroc
                     WHERE "GERENCIA" = '{gerencia_clean}' 
                       AND "COD TRATA" NOT IN ({propios_sql})
@@ -157,36 +115,22 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                     GROUP BY anio, mes
                     ORDER BY anio DESC, mes DESC
                 """
+            else:
+                sql = f"""
+                    SELECT anio, mes, "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
+                    FROM mvw_reporte_historico_dgroc
+                    WHERE "GERENCIA" = '{gerencia_clean}' 
+                      AND "COD TRATA" = '{trata}'
+                      AND (anio, mes) IN ({months_filter})
+                    ORDER BY anio DESC, mes DESC
+                """
 
-            df_hist = pd.read_sql(sql_hist, conn)
+            df_hist = pd.read_sql(sql, conn)
             
         if df_hist.empty: return []
 
-        # 3. Reconstruir la serie asegurando COHERENCIA TOTAL
-        result = []
-        current_stock_propio = stock_propio_fisico
-        
-        for i, row in df_hist.iterrows():
-            # Para el mes actual (i=0), usamos los valores FÍSICOS
-            # Para los anteriores, usamos el histórico de la tabla para subsanaciones
-            # ya que reconstruir el flujo de subsanaciones es mucho más complejo.
-            s_val = stock_subs_fisico if i == 0 else int(row['stock_subs_hist'])
-            
-            mes_row = {
-                "anio": int(row['anio']),
-                "mes": int(row['mes']),
-                "ING": int(row['ing']),
-                "EGR_EF": int(row['egr_ef']),
-                "EGR_NE": int(row['egr_ne']),
-                "STOCK_PROPIO": current_stock_propio,
-                "STOCK_SUBS": s_val
-            }
-            result.append(mes_row)
-            # Retrocedemos el stock propio
-            net_flow = int(row['ing']) - (int(row['egr_ef']) + int(row['egr_ne']))
-            current_stock_propio = max(0, current_stock_propio - net_flow)
-            
-        return result
+        # Retornamos los datos tal cual vienen de la vista
+        return df_hist.to_dict(orient='records')
     except Exception as e:
         logger.error(f"Error en histórico individual: {e}")
         raise HTTPException(status_code=500, detail=str(e))
