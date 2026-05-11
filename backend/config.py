@@ -64,6 +64,33 @@ TRAMITES_CONFIG = {
     "aviso_obra": {
         "MDUG0102B_AUTO": {"nombre": "Aviso de Obra (Automático)", "acronimos": "'IFCAO', 'IFCAC'"},
         "MDUG0102B_DGIUR": {"nombre": "Aviso de Obra (DGIUR)", "acronimos": "'IF'"}
+    },
+    "morfologia": {
+        "MDUG1801A": {"nombre": "Informe urbanístico.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG0107A": {"nombre": "Fijación de Línea de Frente Interno.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG3501A": {"nombre": "Consulta Obligatoria General.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG3601A": {"nombre": "Interpretación Urbanística.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG3901A": {"nombre": "Solicitud De Certificado Urbanístico", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG1802A": {"nombre": "Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG1804A": {"nombre": "Permiso De Ejecución De Obra Civil - Proyecto Emisor Zona Sur", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG1803A": {"nombre": "Registro Etapa Proyecto - Emisor Zona Sur", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG1805A": {"nombre": "Evaluación Vinculante De Capacidad Constructiva Adicional - Proyecto Emisor Zona Sur", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG1806A": {"nombre": "Certificado De Capacidad Constructiva Adicional", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
+    },
+    "aph": {
+        "MDUG3701A": {"nombre": "Consulta Obligatoria para Inmuebles en APH o Catalogados.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG3801A": {"nombre": "Solicitudes Especiales para Inmuebles en APH o Catalogados.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
+    },
+    "usos": {
+        "MDUG0136B": {"nombre": "Consulta de emplazamiento de estructuras soportes de antenas.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG4102A": {"nombre": "Consulta de usos - visado de anuncio publicitario (frontal, saliente) marquesina y/o toldos.", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG4001A": {"nombre": "Consulta de usos", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MDUG4002A": {"nombre": "Consulta de usos B", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MJGG0302A": {"nombre": "Consulta de Usos No conforme", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "MJGG0303A": {"nombre": "Consulta de Usos con Intervención del consejo", "acronimos": "'DI', 'ANEXO', 'IF'"},
+        "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
     }
 }
 # Whitelists de Analistas Oficiales por Gerencia
@@ -83,7 +110,16 @@ WHITELISTS = {
     "etapa_proyecto": [
         'A.PEREZ', 'AGUSDEMARCO', 'ANTOVERA', 'BELOCURESJ', 'COIROL', 'DBECERRACURITIMA', 'DIMASOM', 'DNKAINSKY', 'FORGIONEA', 'GAILLURJP', 'GARRIONDO', 'JOSEFINA.P', 'M.SANCHEZ', 'MARCE.TOSONI', 'MARCETOSONI', 'MARCETOSONI1', 'MBRISA', 'MCANOGARAY', 'MCARLUCCIO', 'MGALLARDOC', 'MSTIBERTI', 'NLOPEZQUIROGA', 'ROCABERTJ', 'SPUET', 'TALAMOM', 'VERA'
     ],
-    "aviso_obra": []
+    "aviso_obra": [],
+    "morfologia": [
+        'A.GUZMAN', 'AGARTEAGA', 'ALANDAZURI', 'ALFONSOGA', 'CAROLINAPRADO', 'CGAMARRA', 'CGENTILINI', 'DANCOLOMBO', 'ECAYSSIALS', 'EVELYNTORRES', 'FORFANO', 'FOTTOGALLI', 'FRANGARAY', 'GBERNASCONI', 'GCABADGIUR', 'IANELUSTONDO', 'IVALDES', 'LNSPERTINO', 'M.SABATINO', 'MANUELALVELO', 'MILAGROSTOURON', 'MILENAAZULMORENO', 'MLOBIANCOCRIADO', 'MPLANS1', 'MREIDMAN', 'MVOSKIAN', 'NASILANES', 'NCASALE', 'OVERRINA', 'PTEIGA', 'ROCAM', 'SBONDOREVSKY', 'SCABANELLAS', 'SDAVIDOVSKY', 'TOSELLIR', 'VVINICIUS'
+    ],
+    "aph": [
+        'CHANTIRRO', 'CHEZOM', 'DAMATOG', 'DESANTISA', 'GALAMA', 'GONZALEZNIETOR', 'HERENUFE', 'LSANTINMOLINA', 'MARIANALVAREZ', 'NASALVATIERRA', 'PIOLON', 'VASTAM'
+    ],
+    "usos": [
+        'ALEPABLOCASTRO', 'ARVASR', 'AUZONMJ', 'BBORGIA', 'BILLAUDL', 'CLAUDIAVARELA', 'DALUNNI', 'DIMEGLIOA', 'EDUARDODIAZ', 'ELIANACABRERA', 'FOVERDAGUER', 'JBMENDY', 'JLSCIA', 'JLSCIARROTTA', 'LASALAMI', 'LTROLDAN', 'MAYASTUY', 'MERCADOEA', 'MFALAPPA', 'MIZONCA', 'MOCANA', 'MOURER', 'MPSIMONI', 'MYASTUY', 'PGLEISS', 'PORTAC', 'ROCCOR', 'SOFIAZANI', 'VKAUFMAN'
+    ]
 }
 
 # Buzones de entrada por Gerencia
@@ -93,5 +129,8 @@ BUZZERS_MAP = {
     "regularizacion": ['DGROC-OBRASDEMO', 'DGROC-ESPERAINSTALACIONES'],
     "contable": ['DGROC-CONTABLE', 'DGROC-OBRASADMIN', 'DGROC-DCG', 'DGROC-DESCARGOS', 'DGROC-DTACONT', 'DGROC-DTARPS', 'DGROC-LEGAJOS', 'DGROC-REVISIONCONTABLE'],
     "etapa_proyecto": ['DGROC-OBRASTECNICA'],
-    "aviso_obra": ['DGROC-AUTOMAT']
+    "aviso_obra": ['DGROC-AUTOMAT'],
+    "morfologia": ['DGIUR-03', 'DGIUR-ADMISIBILIDADMORFO', 'DGIUR-CONSULTASESPECIFICAS', 'DGIUR-CURVERIFICACION', 'DGIUR-DGIUR-PERMISO TEMPRANO', 'DGIUR-VA II', 'SVC_DGIURMORFO', 'SVCDGIUR3'],
+    "aph": ['DGIUR-21', 'DGIUR-ADMISIBILIDADAPH', 'DGIUR-ADMISIMIDIDADAPH', 'SVC_DGIURADMAPH'],
+    "usos": ['DGIUR-12', 'DGIUR-ADMISIBILIDADUSOS', 'DGIUR-EGOUS', 'SVC_DGIURUSOS']
 }

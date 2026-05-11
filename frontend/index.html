@@ -78,6 +78,30 @@
             </div>
         </section>
 
+        <!-- Vista: DGIUR -->
+        <section id="dgiur" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / DGIUR
+            </div>
+            <h1 class="landing-title">DGIUR</h1>
+            <p style="margin-bottom: 2rem;">Seleccione un Área / Gerencia</p>
+
+            <div class="button-grid">
+                <article class="nav-card" id="card-morfologia" onclick="showView('morfologia')">
+                    <h2>Morfología</h2>
+                    <p>Área de Morfología Urbana</p>
+                </article>
+                <article class="nav-card" id="card-aph" onclick="showView('aph')">
+                    <h2>APH</h2>
+                    <p>Área de Protección Histórica</p>
+                </article>
+                <article class="nav-card" id="card-usos" onclick="showView('usos')">
+                    <h2>Usos</h2>
+                    <p>Gerencia de Usos del Suelo</p>
+                </article>
+            </div>
+        </section>
+
         <!-- Vista 3: Catastro (Tabla Consolidada) -->
         <section id="catastro" class="view-container">
             <div class="breadcrumbs">
@@ -162,11 +186,53 @@
             </div>
         </section>
 
+        <!-- Vista 9: Morfología -->
+        <section id="morfologia" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgiur')">DGIUR</span> / Morfología
+            </div>
+            <h1 class="landing-title">Área de Morfología</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-morfologia" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 10: APH -->
+        <section id="aph" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgiur')">DGIUR</span> / APH
+            </div>
+            <h1 class="landing-title">Área de Protección Histórica</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-aph" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista 11: Usos -->
+        <section id="usos" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> /
+                <span onclick="showView('dgiur')">DGIUR</span> / Usos
+            </div>
+            <h1 class="landing-title">Gerencia de Usos</h1>
+            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
+
+            <div id="consolidated-table-container-usos" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
         <!-- Vista 9: Detalle de Trámite (Chart.js) -->
         <section id="trata_detail" class="view-container">
             <div class="breadcrumbs">
                 <span onclick="showView('landing')">Inicio</span> /
-                <span onclick="showView('dgroc')">DGROC</span> / 
+                <span id="trata_detail_parent_link" onclick="showView('dgroc')">DGROC</span> / 
                 <span id="trata_detail_back" onclick="showView('dgroc')" style="cursor: pointer; text-decoration: underline;">Volver</span> / 
                 Detalle Trámite
             </div>

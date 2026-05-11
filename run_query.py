@@ -30,20 +30,29 @@ def run_sql_file(file_path):
         
         print(f"\nEjecutando: {os.path.basename(file_path)}...")
         with engine.connect() as conn:
-            df = pd.read_sql(text(query), conn)
-        
-        if df.empty:
-            print("La consulta no devolvió resultados.")
-        else:
-            # Mostrar en pantalla
-            print("\nResultados (primeras 20 filas):")
-            print(df.head(20).to_string(index=False))
+            # Usamos execute para manejar tanto DDL como DML
+            result = conn.execute(text(query))
+            # Commiteamos los cambios (necesario en algunas versiones de SQLAlchemy/Psycopg2)
+            conn.commit()
             
-            # Exportar a CSV
-            base_name = os.path.basename(file_path).replace('.sql', '')
-            output_file = f"results/{base_name}_resultado.csv"
-            df.to_csv(output_file, index=False, sep=';', encoding='utf-8-sig')
-            print(f"\n[✓] Archivo exportado exitosamente a: {output_file}")
+            # Verificamos si el resultado tiene filas para mostrar
+            if result.returns_rows:
+                df = pd.DataFrame(result.fetchall(), columns=result.keys())
+                
+                if df.empty:
+                    print("La consulta no devolvió resultados.")
+                else:
+                    # Mostrar en pantalla
+                    print("\nResultados (primeras 20 filas):")
+                    print(df.head(20).to_string(index=False))
+                    
+                    # Exportar a CSV
+                    base_name = os.path.basename(file_path).replace('.sql', '')
+                    output_file = f"results/{base_name}_resultado.csv"
+                    df.to_csv(output_file, index=False, sep=';', encoding='utf-8-sig')
+                    print(f"\nArchivo exportado exitosamente a: {output_file}")
+            else:
+                print("\nComando ejecutado exitosamente (No se devolvieron filas).")
             
     except Exception as e:
         print(f"Error al ejecutar la consulta: {e}")

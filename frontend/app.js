@@ -11,7 +11,10 @@ const BUZZERS_DOCS = {
     'instalaciones': 'DGROC-ELECTRICAS, DGROC-ELEVADORES, DGROC-INCENDIO, DGROC-SANITARIAS o DGROC-TERMICAS',
     'regularizacion': 'DGROC-OBRASDEMO',
     'etapa_proyecto': 'DGROC-OBRASTECNICA',
-    'aviso_obra': 'DGROC-AUTOMAT'
+    'aviso_obra': 'DGROC-AUTOMAT',
+    'morfologia': 'DGIUR-03, DGIUR-ADMISIBILIDADMORFO, DGIUR-CONSULTASESPECIFICAS, DGIUR-CURVERIFICACION o DGIUR-DGIUR-PERMISO TEMPRANO',
+    'aph': 'DGIUR-21',
+    'usos': 'DGIUR-12'
 };
 
 const ANALYSTS_DOCS = {
@@ -19,7 +22,10 @@ const ANALYSTS_DOCS = {
     'regularizacion': ["AGUEROJO", "AKRACOFF", "ALVAREZ.M", "ARAOZLUIS", "ATENCIOAL", "DALBORAF", "ENCISOA", "EPARLATO", "ERDOCIAINA", "JBARRACO", "JLGARMENDIA", "JTERRILE", "MYUSHU", "S.SANCHEZPAZ", "SCAVALLARO"],
     'instalaciones': ["AQUINOLUCAS", "ARENAJ", "ARGUELLOJ", "BATALLANJ", "BENITOG", "BRIANMARTINEZ", "CORNAZM", "FICARRAR", "GAGLIARDIA", "LOPARDOC", "QUEIJASGUILLINP", "ROBLEDOJO", "ROLDANMI", "RUDAC", "SARIDISD", "TOLESANOA", "AURENA", "BATALLANGE", "BRITANP", "GUARDADOB", "JDECIMA", "PEREZGA", "RODRIGUEZESTEBAN", "RODRIGUEZNE", "SILESC", "VILLAGAB", "ABCRAGNO", "AGARCIAFIGUEROA", "CABRERAARI", "CAFELICE", "CAPOZZOG", "CSALGUERO", "DARANGURI", "DMOFFA", "FUHRY", "GONMAR", "J.OLIVERA", "LOPEZFE", "MARIANELAROCARO", "MBALDOME", "MLMAMONE", "MTRENQUE", "NIEVAL", "PCHERBENCO", "RADAA", "RIOSFE", "ROMANOFLA", "SANTACRUZ", "CANTARELLTORRES", "CIRIAE", "LOIACONOANA", "MCDIAMANTI", "POUSAF", "ARGUELLOSOL", "COSSM", "EIERACI", "HAMALAG", "RUIZMA", "BRITANG", "ENCISOROMERO", "PITTERIE", "WIERZBICKIIGOR"],
     'contable': ["AMONTEVERDE", "AMORINC", "CARLOSDUARTE", "CAROJAS", "COLOTTAP", "CPENDON", "DAS", "DASTUGUEO", "DEGODOY", "DIAZBAR", "DKRENZ", "EDEFEO", "FABIANSANTILLAN", "FMHERRERA", "FSPANTI", "GARCIASEBA", "HRICCIARDI", "JOSEMARIAORTIZ", "JPOMAR", "JULILOPARDO", "LAMORGIAKA", "LBARRIENTOS", "LICETB", "M.ROSSO", "MARQUEZMAR", "MARTINEZCLA", "MLAURITO", "MMALACALZA", "NMONTEVERDE", "NMORENO", "POVIEDO", "PRESAF", "PVACEVEDO", "RIVERAMA", "ROBLEDOE", "RODRIGUEZLEA", "RODRIGUEZMAGD", "ROSARIODECRIS", "SCHULERG", "SENING", "SMERMOZ", "SORIAD", "SPOSAROAL", "TATOJ", "TIRENDIC", "TOMIPITES", "VICSOLMORE", "VILLACRI"],
-    'etapa_proyecto': ["A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", "DIMASOM", "DNKAINSKY", "FORGIONEA", "GAILLURJP", "GARRIONDO", "JOSEFINA.P", "M.SANCHEZ", "MARCE.TOSONI", "MARCETOSONI", "MARCETOSONI1", "MBRISA", "MCANOGARAY", "MCARLUCCIO", "MGALLARDOC", "MSTIBERTI", "NLOPEZQUIROGA", "ROCABERTJ", "SPUET", "TALAMOM", "VERA"]
+    'etapa_proyecto': ["A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", "DIMASOM", "DNKAINSKY", "FORGIONEA", "GAILLURJP", "GARRIONDO", "JOSEFINA.P", "M.SANCHEZ", "MARCE.TOSONI", "MARCETOSONI", "MARCETOSONI1", "MBRISA", "MCANOGARAY", "MCARLUCCIO", "MGALLARDOC", "MSTIBERTI", "NLOPEZQUIROGA", "ROCABERTJ", "SPUET", "TALAMOM", "VERA"],
+    'morfologia': ["A.GUZMAN", "AGARTEAGA", "ALANDAZURI", "ALFONSOGA", "CAROLINAPRADO", "CGAMARRA", "CGENTILINI", "DANCOLOMBO", "ECAYSSIALS", "EVELYNTORRES", "FORFANO", "FOTTOGALLI", "FRANGARAY", "GBERNASCONI", "GCABADGIUR", "IANELUSTONDO", "IVALDES", "LNSPERTINO", "M.SABATINO", "MANUELALVELO", "MILAGROSTOURON", "MILENAAZULMORENO", "MLOBIANCOCRIADO", "MPLANS1", "MREIDMAN", "MVOSKIAN", "NASILANES", "NCASALE", "OVERRINA", "PTEIGA", "ROCAM", "SBONDOREVSKY", "SCABANELLAS", "SDAVIDOVSKY", "TOSELLIR", "VVINICIUS"],
+    'aph': ["CHANTIRRO", "CHEZOM", "DAMATOG", "DESANTISA", "GALAMA", "GONZALEZNIETOR", "HERENUFE", "LSANTINMOLINA", "MARIANALVAREZ", "NASALVATIERRA", "PIOLON", "VASTAM"],
+    'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "VKAUFMAN"]
 };
 
 function showView(viewId, updateHash = true) {
@@ -60,7 +66,7 @@ function showView(viewId, updateHash = true) {
     }
 
     // Lista oficial de gerencias que requieren carga de matriz
-    const gerencias = ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra'];
+    const gerencias = ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
     if (gerencias.includes(viewId)) {
         // Pequeño delay para asegurar que el DOM se renderizó
         setTimeout(() => loadConsolidatedReport(viewId), 50);
@@ -326,11 +332,19 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     if (ageChartCtx) ageChartCtx.parentElement.innerHTML = '<canvas id="stock-age-chart"></canvas>';
 
     document.getElementById('trata_detail_title').innerText = trataName;
+
+    // Determinar la dirección superior (DGROC o DGIUR)
+    const dgiurGerencias = ['morfologia', 'aph', 'usos'];
+    const isDGIUR = dgiurGerencias.includes(gerencia);
+    const parentDir = isDGIUR ? 'dgiur' : 'dgroc';
     
-    // Actualizamos el texto del breadcrumb de retorno con el nombre de la gerencia
+    // Actualizar Breadcrumbs
+    const parentLink = document.getElementById('trata_detail_parent_link');
+    parentLink.innerText = parentDir.toUpperCase();
+    parentLink.onclick = () => showView(parentDir);
+
     const backBtn = document.getElementById('trata_detail_back');
-    backBtn.innerText = gerencia.toUpperCase();
-    
+    backBtn.innerText = gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' ');
     backBtn.onclick = () => {
         window.location.hash = `#/${gerencia}`;
     };

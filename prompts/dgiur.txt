@@ -1,0 +1,195 @@
+Vamos a crear los sectores y tramites para la DGIUR
+
+Voy a pasarte los detalles de cada una de las Áreas/Gerencias y sus respectivos detalles. Recuerda para cada uno de ellos elaborar la vista, el endpoint y su visualizacion en el frontend.
+
+
+- Iniciamos con el área de MORFOLOGIA.
+
+Los buzones que vamos a tener en cuenta son:
+
+DGIUR-03 
+
+Para el buzón DGIUR-03, vamos a tener en cuenta los siguientes códigos de tramite para lo que es INGRESOS:
+
+Gerencia	Cod Trata	Detalle trata
+MORFOLOGIA	MDUG1801A	Informe urbanístico.
+MORFOLOGIA	MDUG0107A	Fijación de Línea de Frente Interno.
+MORFOLOGIA	MDUG3501A	Consulta Obligatoria General.
+MORFOLOGIA	MDUG3601A	Interpretación Urbanística.
+MORFOLOGIA	MDUG3901A	Solicitud De Certificado Urbanístico
+MORFOLOGIA	MDUG1802A	Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor 
+MORFOLOGIA	MDUG1804A	Permiso De Ejecución De Obra Civil - Proyecto Emisor Zona Sur
+MORFOLOGIA	MDUG1803A	Registro Etapa Proyecto - Emisor Zona Sur
+MORFOLOGIA	MDUG1805A	Evaluación Vinculante De Capacidad Constructiva Adicional - Proyecto Emisor Zona Sur 
+MORFOLOGIA	MDUG1806A	Certificado De Capacidad Constructiva Adicional
+
+
+Ahora bien, para los ingresos de INTERVENCIONES, consideraremos los siguientes buzones y que los código de tratas no sean los anteriormente descriptos:
+
+DGIUR-03
+DGIUR-ADMISIBILIDADMORFO
+DGIUR-CONSULTASESPECIFICAS
+DGIUR-CURVERIFICACION
+DGIUR-DGIUR-PERMISO TEMPRANO
+DGIUR-VA II
+
+Tanto para los tramites puros de Morfología como las intervenciones, el acto que se considera para el egreso es DICTAMEN/ANEXO/INFORME FIRMADO POR ALANDAZURI
+
+Recuerda que para esto tenemos que tener en cuenta el concepto de que si un mismo expediente ingresa mas de una vez en un buzón, vamos a contabilidad el ingreso mas antiguo.
+
+Luego, para el calculo del STOCK PROPIO, vas a tener en cuenta los siguientes buzones/usuarios:
+
+A.GUZMAN
+AGARTEAGA
+ALANDAZURI
+ALFONSOGA
+CAROLINAPRADO
+CGAMARRA
+CGENTILINI
+DANCOLOMBO
+DGIUR-03
+DGIUR-ADMISIBILIDADMORFO
+DGIUR-CONSULTASESPECIFICAS
+DGIUR-CURVERIFICACION
+DGIUR-DGIUR-PERMISO TEMPRANO
+DGIUR-VA II
+ECAYSSIALS
+EVELYNTORRES
+FORFANO
+FOTTOGALLI
+FRANGARAY
+GBERNASCONI
+GCABADGIUR
+IANELUSTONDO
+IVALDES
+LNSPERTINO
+M.SABATINO
+MANUELALVELO
+MILAGROSTOURON
+MILENAAZULMORENO
+MLOBIANCOCRIADO
+MPLANS1
+MREIDMAN
+MVOSKIAN
+NASILANES
+NCASALE
+OVERRINA
+PTEIGA
+ROCAM
+SBONDOREVSKY
+SCABANELLAS
+SDAVIDOVSKY
+SVC_DGIURMORFO
+SVCDGIUR3
+TOSELLIR
+VVINICIUS
+
+Para las subsanaciones (EGRESO NO EFECTIVO) Se toma los expedientes detectados como ingresados que tengan en la tabla de pases el movimiento de envío a Guarda Temporal y que no tenga acrónimo de registro previo al pase.
+
+---------------------------------------------------------------------------------
+
+Para el área de APH (Área de Protección Histórica).
+
+Los buzones que vamos a tener en cuenta son:
+
+DGIUR-21
+
+Para el buzón DGIUR-21, vamos a tener en cuenta los siguientes códigos de tramite para lo que es INGRESOS:
+
+Gerencia	Cod Trata	Detalle trata
+APH	MDUG3701A	Consulta Obligatoria para Inmuebles en APH o Catalogados.
+APH	MDUG3801A	Solicitudes Especiales para Inmuebles en APH o Catalogados.
+
+Ahora bien, para los ingresos de INTERVENCIONES, consideraremos los siguientes buzones y que los código de tratas no sean los anteriormente descriptos: DGIUR-21
+
+Tanto para los tramites puros de APH como las intervenciones, el acto que se considera para el egreso es DICTAMEN/ANEXO/INFORME FIRMADO POR VASTAM
+
+Recuerda que para esto tenemos que tener en cuenta el concepto de que si un mismo expediente ingresa mas de una vez en un buzón, vamos a contabilidad el ingreso mas antiguo.
+
+Luego, para el calculo del Stock Propio, vas a tener en cuenta los siguientes buzones/usuarios:
+
+CHANTIRRO
+CHEZOM
+DAMATOG
+DESANTISA
+DGIUR-21
+DGIUR-ADMISIBILIDADAPH
+DGIUR-ADMISIMIDIDADAPH
+GALAMA
+GONZALEZNIETOR
+HERENUFE
+LSANTINMOLINA
+MARIANALVAREZ
+NASALVATIERRA
+PIOLON
+SVC_DGIURADMAPH
+VASTAM
+
+Para las subsanaciones (EGRESO NO EFECTIVO) Se toma los expedientes detectados como ingresados que tengan en la tabla de pases el movimiento de envío a Guarda Temporal y que no tenga acrónimo de registro previo al pase.
+
+---------------------------------------------------------------------------------
+
+Para el área de USOS
+
+Los buzones que vamos a tener en cuenta son:
+
+DGIUR-12
+
+Para el buzón DGIUR-12, vamos a tener en cuenta los siguientes códigos de tramite para lo que es INGRESOS:
+
+Gerencia	Cod Trata	Detalle trata
+USOS	MDUG0136B	Consulta de emplazamiento de estructuras soportes de antenas.
+USOS	MDUG4102A	Consulta de usos - visado de anuncio publicitario (frontal, saliente) marquesina y/o toldos.
+USOS	MDUG4001A	Consulta de usos
+USOS	MDUG4002A	Consulta de usos B
+USOS	MJGG0302A	Consulta de Usos No conforme
+USOS	MJGG0303A	Consulta de Usos con Intervención del consejo
+
+
+Ahora bien, para los ingresos de INTERVENCIONES, consideraremos los siguientes buzones y que los código de tratas no sean los anteriormente descriptos: DGIUR-12
+
+Tanto para los tramites puros de USOS como las INTERVENCIONES, el acto que se considera para el egreso es DICTAMEN/ANEXO/INFORME FIRMADO POR FOVERDAGUER/MIZONCA/DALUNNI
+
+Recuerda que para esto tenemos que tener en cuenta el concepto de que si un mismo expediente ingresa mas de una vez en un buzón, vamos a contabilidad el ingreso mas antiguo.
+
+Luego, para el calculo del Stock Propio, vas a tener en cuenta los siguientes buzones/usuarios:
+
+ALEPABLOCASTRO
+ARVASR
+AUZONMJ
+BBORGIA
+BILLAUDL
+CLAUDIAVARELA
+DALUNNI
+DGIUR-12
+DGIUR-ADMISIBILIDADUSOS
+DGIUR-EGOUS
+DIMEGLIOA
+EDUARDODIAZ
+ELIANACABRERA
+FOVERDAGUER
+JBMENDY
+JLSCIA
+JLSCIARROTTA
+LASALAMI
+LTROLDAN
+MAYASTUY
+MERCADOEA
+MFALAPPA
+MIZONCA
+MOCANA
+MOURER
+MPSIMONI
+MYASTUY
+PGLEISS
+PORTAC
+ROCCOR
+SOFIAZANI
+SVC_DGIURUSOS
+VKAUFMAN
+
+Para las subsanaciones (EGRESO NO EFECTIVO) Se toma los expedientes detectados como ingresados que tengan en la tabla de pases el movimiento de envío a Guarda Temporal y que no tenga acrónimo de registro previo al pase.
+
+--------------------------------------------------------------
+
+Tienes ahí los detalles de las áreas de DGIUR para iniciar, arranca con esto y vamos ajustando a medida que compare los resultados, recuerda trabajar las áreas por separado ya que algunas van a tener condiciones particulares que habrá que ajustar sobre área y tramite en partícular. Vamos con esto.

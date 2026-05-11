@@ -5,7 +5,10 @@ from sqlalchemy import create_engine, text
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
-from .config import TRAMITES_CONFIG, WHITELISTS, BUZZERS_MAP
+try:
+    from .config import TRAMITES_CONFIG, WHITELISTS, BUZZERS_MAP
+except ImportError:
+    from config import TRAMITES_CONFIG, WHITELISTS, BUZZERS_MAP
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO)
@@ -184,7 +187,10 @@ async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
             return {
                 "month_distribution": [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())],
                 "analyst_distribution": [{"analista": name, **counts} for name, counts in analyst_data.items()],
-                "expedientes": [dict(r._mapping) for r in propio_rows[:1000]]
+                "expedientes": [
+                    {**dict(r._mapping), "fecha_ing": r.fecha_ing.strftime("%Y-%m-%d %H:%M:%S") if r.fecha_ing else None} 
+                    for r in propio_rows[:1000]
+                ]
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -247,3 +253,15 @@ async def get_intervenciones_detalle(gerencia: str):
     except Exception as e:
         logger.error(f"Error en intervenciones detalle: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    import sys
+    import os
+    
+    # Agregar el directorio raíz al path para que uvicorn encuentre el módulo 'backend'
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    if root_dir not in sys.path:
+        sys.path.insert(0, root_dir)
+        
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
