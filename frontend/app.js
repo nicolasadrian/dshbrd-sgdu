@@ -37,20 +37,22 @@ function showView(viewId, updateHash = true) {
         gsap.set(v, { clearProps: "all" }); // LIMPIEZA TOTAL DE GSAP
     });
 
-    // Activar la vista seleccionada
+    // Activar la vista seleccionada con limpieza de estados previos
     targetView.style.display = 'block';
     targetView.classList.add('active');
     
-    // Forzar opacidad 1 inmediata para evitar elementos invisibles
-    gsap.set(targetView, { opacity: 1, y: 0 });
+    // Resetear scroll al cambiar de vista
+    window.scrollTo(0, 0);
     
-    // Aplicar animación suave de entrada
+    // Asegurar opacidad 1 y limpiar transformaciones previas antes de la animación
+    gsap.killTweensOf(targetView);
+    gsap.set(targetView, { opacity: 1, y: 0, clearProps: "transform" });
+    
     gsap.from(targetView, { 
         opacity: 0, 
-        y: 15, 
-        duration: 0.4, 
-        ease: "power2.out",
-        clearProps: "transform" // Asegura que después de la animación no queden estilos residuales
+        y: 10, 
+        duration: 0.3, 
+        ease: "power2.out"
     });
 
     if (updateHash) {
@@ -70,21 +72,40 @@ async function loadConsolidatedReport(gerencia) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    container.innerHTML = `<div class="loading-overlay"><span class="loader"></span><h2 style="margin-top: 1rem; color: var(--primary-dark);">Procesando Matriz de Gestión de ${gerencia.toUpperCase()}...</h2></div>`;
+    container.innerHTML = `
+        <div class="loading-overlay">
+            <span class="loader"></span>
+            <h2 style="margin-top: 1rem; color: var(--primary-dark);">Procesando Matriz de ${gerencia.toUpperCase()}...</h2>
+            <p style="color: #64748b;">Sincronizando vistas materializadas...</p>
+        </div>`;
 
     try {
         const response = await fetch(`${API_BASE}/reporte/${gerencia}/consolidado`);
-        if (!response.ok) throw new Error(`Error ${response.status}`);
+        if (!response.ok) {
+            if (response.status === 500) throw new Error("La estructura de datos se está actualizando. Por favor, reintenta en unos instantes.");
+            throw new Error(`Error de conexión (Status: ${response.status})`);
+        }
         const data = await response.json();
         
         if (!data || data.length === 0) {
-            container.innerHTML = '<div class="error-message"><h3>Sin datos disponibles</h3></div>';
+            container.innerHTML = `
+                <div class="error-message">
+                    <div class="error-icon">ℹ️</div>
+                    <h3>Sin datos para ${gerencia.toUpperCase()}</h3>
+                    <p>No se encontraron registros en el periodo seleccionado o la vista está siendo procesada.</p>
+                </div>`;
             return;
         }
 
         renderMatrixTable(container, data);
     } catch (error) {
-        container.innerHTML = `<div class="error-message"><h3>Error de Carga</h3><p>${error.message}</p></div>`;
+        container.innerHTML = `
+            <div class="error-message">
+                <div class="error-icon">⚠️</div>
+                <h3>Inconveniente en el Renderizado</h3>
+                <p>${error.message}</p>
+                <button class="btn-primary" style="margin-top:1rem; padding:8px 16px;" onclick="loadConsolidatedReport('${gerencia}')">Reintentar Carga</button>
+            </div>`;
     }
 }
 
@@ -326,24 +347,30 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 
     try {
         const response = await fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}`);
+        if (!response.ok) throw new Error(`Status ${response.status}`);
+        
         const data = await response.json();
         
-        if (!Array.isArray(data)) {
-            throw new Error('Formato de datos inválido');
+        if (!data || !Array.isArray(data) || data.length === 0) {
+            if (document.getElementById('main-chart-loading')) {
+                document.getElementById('main-chart-loading').innerText = "Sin datos históricos disponibles para este trámite.";
+            }
+            return;
         }
 
         // Invertimos porque el backend devuelve DESC (mes actual primero) 
-        // y el gráfico necesita orden cronológico
         data.reverse();
         
-        const labels = data.map(d => `${MESES[d.mes - 1]} ${d.anio}`);
-        const ctx = document.getElementById('trata-chart').getContext('2d');
+        const chartCanvas = document.getElementById('trata-chart');
+        if (!chartCanvas) return; // Protección contra cambios de vista rápidos
+
+        const ctx = chartCanvas.getContext('2d');
         if (document.getElementById('main-chart-loading')) document.getElementById('main-chart-loading').remove();
 
         currentChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: labels,
+                labels: data.map(d => `${MESES[d.mes - 1]} ${d.anio}`),
                 datasets: [
                     { label: 'Stock Propio', data: data.map(d => d.STOCK_PROPIO || 0), type: 'line', borderColor: '#EF4444', backgroundColor: '#EF4444', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 0 },
                     { label: 'Subsanación Abierta', data: data.map(d => d.STOCK_SUBS || 0), type: 'line', borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 1 },
@@ -352,9 +379,15 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
                     { label: 'Egresos No Efectivos', data: data.map(d => d.EGR_NE || 0), backgroundColor: '#94A3B8', stack: 'egresos', order: 4 }
                 ]
             },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } 
+            }
         });
 
+        // Cargar detalles de stock
         const stockResp = await fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/stock_detail`);
         if (stockResp.ok) {
             const stockData = await stockResp.json();
@@ -362,7 +395,12 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             renderStockAgeChart(stockData.month_distribution);
             renderAnalystTable(stockData.analyst_distribution);
         }
-    } catch (error) { console.error(error); }
+    } catch (error) { 
+        console.warn("Error cargando detalle:", error.message);
+        if (document.getElementById('main-chart-loading')) {
+            document.getElementById('main-chart-loading').innerText = "Inconveniente al cargar evolución histórica.";
+        }
+    }
 }
 
 function renderStockAgeChart(monthDist) {

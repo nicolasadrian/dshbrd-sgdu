@@ -67,9 +67,9 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
                 WITH config_order AS (
                     SELECT * FROM (VALUES {", ".join([f"('{c}', {i})" for i, c in enumerate(trata_codes)])}) as t(trata_code, ord)
                 )
-                SELECT h.* FROM mvw_reporte_historico_dgroc h
+                SELECT h.* FROM mvw_reporte_historico_{gerencia_clean} h
                 JOIN config_order o ON h."COD TRATA" = o.trata_code
-                WHERE h."GERENCIA" = '{gerencia_clean}' AND (h.anio, h.mes) IN ({months_filter})
+                WHERE (h.anio, h.mes) IN ({months_filter})
                 ORDER BY o.ord, h.anio DESC, h.mes DESC
             """
             result = conn.execute(text(sql))
@@ -107,9 +107,8 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                            SUM("EGR_NE") as "EGR_NE",
                            SUM("STOCK_PROPIO") as "STOCK_PROPIO",
                            SUM("STOCK_SUBS") as "STOCK_SUBS"
-                    FROM mvw_reporte_historico_dgroc
-                    WHERE "GERENCIA" = '{gerencia_clean}' 
-                      AND "COD TRATA" NOT IN ({propios_sql})
+                    FROM mvw_reporte_historico_{gerencia_clean}
+                    WHERE "COD TRATA" NOT IN ({propios_sql})
                       AND "COD TRATA" != 'MDUG0102B'
                       AND (anio, mes) IN ({months_filter})
                     GROUP BY anio, mes
@@ -118,9 +117,8 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
             else:
                 sql = f"""
                     SELECT anio, mes, "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
-                    FROM mvw_reporte_historico_dgroc
-                    WHERE "GERENCIA" = '{gerencia_clean}' 
-                      AND "COD TRATA" = '{trata}'
+                    FROM mvw_reporte_historico_{gerencia_clean}
+                    WHERE "COD TRATA" = '{trata}'
                       AND (anio, mes) IN ({months_filter})
                     ORDER BY anio DESC, mes DESC
                 """
