@@ -192,6 +192,269 @@ main {
 /* ── Unified Matrix Layout ── */
 .main-card-container {
     background: var(--white);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid #dee2e6;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+/* --- AUTH & LOGIN --- */
+.login-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.8) 0%, rgba(226, 232, 240, 0.9) 100%);
+    backdrop-filter: blur(12px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 3.5rem;
+    border-radius: 24px;
+    box-shadow: 0 25px 60px rgba(0, 45, 71, 0.15);
+    width: 100%;
+    max-width: 420px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    transform: translateY(0);
+    transition: var(--transition);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+
+.login-logo {
+    height: 70px;
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.login-header h1 {
+    font-size: 1.75rem;
+    color: var(--primary-dark);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.login-header p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.form-group input, 
+.form-group select {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 10px;
+    border: 2px solid #e2e8f0;
+    background: #f8fafc;
+    font-family: inherit;
+    font-size: 1rem;
+    transition: all 0.2s;
+    color: var(--text-main);
+}
+
+.form-group input:focus, 
+.form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(0, 118, 187, 0.1);
+}
+
+.login-error {
+    background: #fef2f2;
+    color: #ef4444;
+    padding: 0.85rem;
+    border-radius: 10px;
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    text-align: center;
+    border: 1px solid #fee2e2;
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.auth-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    background: #f1f5f9;
+    padding: 0.5rem 1.5rem;
+    border-radius: 100px;
+    border: 1px solid #e2e8f0;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+}
+
+#display-username {
+    font-size: 0.9rem;
+    color: var(--primary-dark);
+}
+
+.btn-logout {
+    background: #fee2e2;
+    color: #ef4444;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: var(--transition);
+}
+
+.btn-logout:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-secondary {
+    background: #e2e8f0;
+    color: #475569;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: var(--transition);
+}
+
+.btn-secondary:hover {
+    background: #cbd5e1;
+    color: var(--primary-dark);
+}
+
+/* --- ADMIN VIEW --- */
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2.5rem;
+    margin-top: 2rem;
+}
+
+.admin-card {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 20px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid #e2e8f0;
+    height: fit-content;
+}
+
+.admin-card h3 {
+    margin-bottom: 2rem;
+    color: var(--primary-dark);
+    font-size: 1.4rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.admin-card h3::before {
+    content: '';
+    width: 4px;
+    height: 24px;
+    background: var(--primary);
+    border-radius: 4px;
+}
+
+.user-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border: 1px solid #f1f5f9;
+    border-radius: 16px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    background: #f8fafc;
+}
+
+.user-row:hover {
+    background: white;
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: var(--primary);
+}
+
+.user-row:last-child { margin-bottom: 0; }
+
+.user-info-main {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-username {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 1rem;
+}
+
+.user-meta {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 0.25rem;
+}
+
+.btn-delete {
+    background: #fef2f2;
+    color: #ef4444;
+    border: 1px solid #fee2e2;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: var(--transition);
+}
+
+.btn-delete:hover:not(:disabled) {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-delete:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.matrix-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     border: 1px solid #e2e8f0;
@@ -201,12 +464,6 @@ main {
 
 .matrix-table-wrapper {
     overflow-x: auto;
-}
-
-.matrix-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
 }
 
 .matrix-table thead th {
@@ -745,4 +1002,238 @@ body::after, body::before, html::after, html::before {
     padding-bottom: 0.75rem;
     border-bottom: 2px solid var(--accent);
     display: inline-block;
+}
+/* ── Detalle de Trámite Mejorado ── */
+.trata-header-card {
+    background: white;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.06);
+    margin: 1.5rem 0;
+    border: 1px solid #eef2f6;
+}
+
+.trata-header-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 2rem;
+}
+
+.trata-title-container {
+    max-width: 65%;
+}
+
+#trata_detail_title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin: 0;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+.trata-subtitle {
+    font-size: 1rem;
+    color: #64748b;
+    font-weight: 600;
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.header-stock-indicators {
+    display: flex;
+    gap: 1rem;
+}
+
+.header-stock-tag {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.prop-tag {
+    background: #fef2f2;
+    border: 1px solid #fee2e2;
+}
+
+.subs-tag {
+    background: #fff7ed;
+    border: 1px solid #ffedd5;
+}
+
+.prop-tag .stock-label { color: #991b1b; }
+.subs-tag .stock-label { color: #9a3412; }
+
+.stock-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.15rem;
+}
+
+.stock-value {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.prop-tag .stock-value { color: #ef4444; }
+.subs-tag .stock-value { color: #f59e0b; }
+
+.meta-semaphore-container {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #e2e8f0;
+    width: 100%;
+}
+
+.meta-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #475569;
+}
+
+.meta-progress-bar {
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
+    background-size: 200% 100%;
+    transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Tab Navigation */
+.trata-nav-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid #f1f5f9;
+    padding-top: 1rem;
+}
+
+.tab-btn {
+    padding: 0.75rem 2rem;
+    border: none;
+    background: none;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+}
+
+.tab-btn:hover {
+    color: var(--primary);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* Sections */
+.trata-section {
+    display: none;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.trata-section.active {
+    display: block;
+}
+
+.stock-summary-header {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1.5rem;
+}
+
+.stock-date-tag {
+    background: var(--primary-dark);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.chart-container-wrapper {
+    margin-bottom: 2rem;
+}
+
+.chart-box {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.chart-box h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    color: #475569;
+}
+
+.chart-canvas-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
+}
+
+/* Placeholders */
+.placeholder-content {
+    background: white;
+    border-radius: 16px;
+    padding: 5rem 2rem;
+    text-align: center;
+    border: 2px dashed #e2e8f0;
+    margin-top: 1rem;
+}
+
+.placeholder-icon {
+    font-size: 4rem;
+    margin-bottom: 1.5rem;
+}
+
+.placeholder-content h2 {
+    color: var(--primary-dark);
+    margin-bottom: 1rem;
+}
+
+.placeholder-content p {
+    color: #64748b;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .trata-header-main {
+        flex-direction: column;
+    }
+    #trata_detail_title {
+        max-width: 100%;
+    }
+    .meta-semaphore-container {
+        width: 100%;
+    }
 }

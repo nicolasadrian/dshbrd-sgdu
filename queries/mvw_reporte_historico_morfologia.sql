@@ -52,6 +52,7 @@ ingresos_raw AS (
     GROUP BY 1, 2, 3
 ),
 ingresos AS (
+    -- Concepto: si un mismo expediente ingresa mas de una vez en un buzón, vamos a contabilidad el ingreso mas antiguo.
     SELECT ir.id_expediente, ir.gerencia_buzon as gerencia,
            CASE 
                 WHEN EXISTS (SELECT 1 FROM tramites_metadata tm WHERE tm.trata = ir.trata_orig AND tm.trata != 'INTERVENCIONES') THEN ir.trata_orig
@@ -62,41 +63,31 @@ ingresos AS (
     GROUP BY 1, 2, 3
 ),
 egresos_efectivos AS (
-    -- Egresos para trámites propios (GEDO firmado por el responsable)
+    -- Tanto para los tramites puros de Morfología como las intervenciones, el acto que se considera para el egreso es DICTAMEN/ANEXO/INFORME FIRMADO POR ALANDAZURI
     SELECT g.id_expediente, i.trata, i.gerencia, MIN(g.fecha_creacion)::date as fecha_egr
     FROM mvw_datos_gedo_secgdu g
     JOIN ingresos i ON g.id_expediente = i.id_expediente
     JOIN tramites_metadata tm ON i.trata = tm.trata
-    WHERE g.acronimo = ANY(tm.acronimos_list) 
+    WHERE (g.acronimo ILIKE 'DICTAMEN%' OR g.acronimo ILIKE 'ANEXO%' OR g.acronimo ILIKE 'INFORME%')
       AND g.fecha_creacion >= i.fecha_ing
       AND g.usuario_creador = 'ALANDAZURI'
-      AND i.trata != 'INTERVENCIONES'
-    GROUP BY 1, 2, 3
-
-    UNION ALL
-
-    -- EGRESO EFECTIVO PARA INTERVENCIONES: Último pase de salida realizado por un analista hacia fuera del área
-    SELECT p.id_expediente, 'INTERVENCIONES' as trata, i.gerencia, MAX(p.fecha)::date as fecha_egr
-    FROM pases_pre_filtrados p
-    JOIN ingresos i ON p.id_expediente = i.id_expediente
-    WHERE i.trata = 'INTERVENCIONES'
-      AND p.fecha > i.fecha_ing
-      AND p.remitente IN ('A.GUZMAN', 'AGARTEAGA', 'ALANDAZURI', 'ALFONSOGA', 'CAROLINAPRADO', 'CGAMARRA', 'CGENTILINI', 'DANCOLOMBO', 'ECAYSSIALS', 'EVELYNTORRES', 'FORFANO', 'FOTTOGALLI', 'FRANGARAY', 'GBERNASCONI', 'GCABADGIUR', 'IANELUSTONDO', 'IVALDES', 'LNSPERTINO', 'M.SABATINO', 'MANUELALVELO', 'MILAGROSTOURON', 'MILENAAZULMORENO', 'MLOBIANCOCRIADO', 'MPLANS1', 'MREIDMAN', 'MVOSKIAN', 'NASILANES', 'NCASALE', 'OVERRINA', 'PTEIGA', 'ROCAM', 'SBONDOREVSKY', 'SCABANELLAS', 'SDAVIDOVSKY', 'TOSELLIR', 'VVINICIUS')
-      AND p.destinatario NOT IN ('A.GUZMAN', 'AGARTEAGA', 'ALANDAZURI', 'ALFONSOGA', 'CAROLINAPRADO', 'CGAMARRA', 'CGENTILINI', 'DANCOLOMBO', 'ECAYSSIALS', 'EVELYNTORRES', 'FORFANO', 'FOTTOGALLI', 'FRANGARAY', 'GBERNASCONI', 'GCABADGIUR', 'IANELUSTONDO', 'IVALDES', 'LNSPERTINO', 'M.SABATINO', 'MANUELALVELO', 'MILAGROSTOURON', 'MILENAAZULMORENO', 'MLOBIANCOCRIADO', 'MPLANS1', 'MREIDMAN', 'MVOSKIAN', 'NASILANES', 'NCASALE', 'OVERRINA', 'PTEIGA', 'ROCAM', 'SBONDOREVSKY', 'SCABANELLAS', 'SDAVIDOVSKY', 'TOSELLIR', 'VVINICIUS', 'DGIUR-03', 'DGIUR-ADMISIBILIDADMORFO', 'DGIUR-CONSULTASESPECIFICAS', 'DGIUR-CURVERIFICACION', 'DGIUR-DGIUR-PERMISO TEMPRANO', 'DGIUR-VA II')
     GROUP BY 1, 2, 3
 ),
 egresos_no_efectivos AS (
+    -- Para las subsanaciones (EGRESO NO EFECTIVO) Se toma los expedientes detectados como ingresados que tengan en la tabla de pases el movimiento de envío a Guarda Temporal y que no tenga acrónimo de registro previo al pase.
+    -- EGRESOS NO EFECTIVOS en INTERVENCIONES no se computan.
     SELECT p.id_expediente, i.trata, i.gerencia, MIN(p.fecha)::date as fecha_egr
     FROM mvw_ee_pases_secgdu p
     JOIN ingresos i ON p.id_expediente = i.id_expediente
     WHERE (p.estado = 'Guarda Temporal' OR p.destinatario = 'GUARDA TEMPORAL') 
       AND p.fecha > i.fecha_ing 
-      AND i.trata != 'INTERVENCIONES' -- Intervenciones no tienen egreso no efectivo (Guarda)
-      -- Excluimos si ya tiene un egreso efectivo
+      AND i.trata != 'INTERVENCIONES'
+      -- No tenga acrónimo de registro previo (egreso efectivo)
       AND NOT EXISTS (
           SELECT 1 FROM egresos_efectivos ee 
           WHERE ee.id_expediente = i.id_expediente 
           AND ee.trata = i.trata
+          AND ee.fecha_egr < p.fecha
       )
     GROUP BY 1, 2, 3
 ),

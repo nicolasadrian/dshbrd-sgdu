@@ -2,6 +2,100 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
     ? "http://127.0.0.1:8000/api" 
     : "/api";
 
+// --- ESTADO DE AUTENTICACIÓN ---
+let authToken = localStorage.getItem('sgdu_token');
+let currentUser = JSON.parse(localStorage.getItem('sgdu_user') || 'null');
+
+// Helper para fetch con autenticación
+// Helper para fetch con autenticación
+async function def_fetch(url, options = {}) {
+    if (!options.headers) options.headers = {};
+    if (authToken) {
+        options.headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    
+    try {
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            logout();
+            return null;
+        }
+        return response;
+    } catch (error) {
+        console.error("Fetch error:", error);
+        return null;
+    }
+}
+
+function initAuth() {
+    const loginOverlay = document.getElementById('login-overlay');
+    const authControls = document.getElementById('auth-controls');
+    const displayUsername = document.getElementById('display-username');
+    const adminBtn = document.getElementById('admin-btn');
+
+    if (authToken && currentUser) {
+        loginOverlay.style.display = 'none';
+        authControls.style.display = 'flex';
+        displayUsername.innerText = currentUser.username;
+        
+        if (currentUser.role === 'admin') {
+            adminBtn.style.display = 'block';
+        } else {
+            adminBtn.style.display = 'none';
+        }
+    } else {
+        loginOverlay.style.display = 'flex';
+        authControls.style.display = 'none';
+    }
+}
+
+async function login(username, password) {
+    const errorDiv = document.getElementById('login-error');
+    if (errorDiv) errorDiv.style.display = 'none';
+
+    try {
+        const formData = new FormData();
+        formData.append('username', username);
+        formData.append('password', password);
+
+        const response = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || "Error en el login");
+        }
+
+        const data = await response.json();
+        authToken = data.access_token;
+        currentUser = { username: data.username, role: data.role };
+
+        localStorage.setItem('sgdu_token', authToken);
+        localStorage.setItem('sgdu_user', JSON.stringify(currentUser));
+
+        initAuth();
+        handleRouting();
+    } catch (error) {
+        if (errorDiv) {
+            errorDiv.innerText = error.message;
+            errorDiv.style.display = 'block';
+        } else {
+            alert(error.message);
+        }
+    }
+}
+
+function logout() {
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('sgdu_token');
+    localStorage.removeItem('sgdu_user');
+    window.location.hash = '#/landing';
+    initAuth();
+}
+
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 // --- METADATOS DE AYUDA (Para el Modal de Metodología) ---
@@ -34,6 +128,16 @@ function showView(viewId, updateHash = true) {
     if (!targetView) {
         console.error("View not found:", viewId);
         return;
+    }
+
+    // Seguridad: Solo admin puede ver la vista de admin
+    if (viewId === 'admin' && (!currentUser || currentUser.role !== 'admin')) {
+        showView('landing');
+        return;
+    }
+
+    if (viewId === 'admin') {
+        loadUsers();
     }
 
     // Ocultar todas las vistas y limpiar estados de animación previos
@@ -86,7 +190,7 @@ async function loadConsolidatedReport(gerencia) {
         </div>`;
 
     try {
-        const response = await fetch(`${API_BASE}/reporte/${gerencia}/consolidado`);
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/consolidado`);
         if (!response.ok) {
             if (response.status === 500) throw new Error("La estructura de datos se está actualizando. Por favor, reintenta en unos instantes.");
             throw new Error(`Error de conexión (Status: ${response.status})`);
@@ -286,8 +390,7 @@ async function handleRouting() {
         showView(gerencia, false);
         
         // Intentamos obtener el nombre del trámite desde la configuración (o fallback)
-        // Nota: En un sistema real, el nombre vendría de un catálogo o del consolidado ya cargado
-        const trataName = trataCode; 
+        const trataName = "..."; 
         showTrataDetail(gerencia, trataCode, trataName, false);
     } else {
         showView(viewId, false);
@@ -299,12 +402,69 @@ window.addEventListener('hashchange', handleRouting);
 
 // Carga inicial
 window.addEventListener('DOMContentLoaded', () => {
+    initAuth();
     handleRouting();
+
+    // Event listener para login
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('login-username').value;
+            const p = document.getElementById('login-password').value;
+            login(u, p);
+        });
+    }
+
+    // Event listener para crear usuario
+    const createUserForm = document.getElementById('create-user-form');
+    if (createUserForm) {
+        createUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('new-username').value;
+            const password = document.getElementById('new-password').value;
+            const role = document.getElementById('new-role').value;
+            
+            try {
+                const resp = await def_fetch(`${API_BASE}/admin/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, role })
+                });
+                if (resp && resp.ok) {
+                    alert('Usuario creado correctamente');
+                    createUserForm.reset();
+                    loadUsers();
+                } else {
+                    const err = await resp.json();
+                    alert('Error: ' + err.detail);
+                }
+            } catch (err) {
+                alert('Error al crear usuario');
+            }
+        });
+    }
 });
 
 let currentChart = null;
 let currentStockAgeChart = null;
 let currentStockData = { expedientes: [], trataName: "", trataCode: "" };
+
+function switchTrataSection(sectionId) {
+    // Actualizar botones
+    const btns = document.querySelectorAll('.tab-btn');
+    btns.forEach(btn => {
+        if (btn.innerText.toLowerCase() === sectionId) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+
+    // Actualizar secciones
+    const sections = document.querySelectorAll('.trata-section');
+    sections.forEach(s => {
+        if (s.id === `section-${sectionId}`) s.classList.add('active');
+        else s.classList.remove('active');
+    });
+}
 
 async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true) {
     const views = document.querySelectorAll('.view-container');
@@ -314,6 +474,15 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     detailView.style.display = 'block';
     detailView.classList.add('active');
     
+    // Resetear a sección STOCK
+    switchTrataSection('stock');
+    
+    // Setear fecha de cabecera
+    const now = new Date();
+    // document.getElementById('header-stock-date').innerText = now.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); // Ya no se usa segun el diseño de 2 tags
+    document.getElementById('header-stock-propio').innerText = '0';
+    document.getElementById('header-stock-subs').innerText = '0';
+
     if (updateHash) {
         window.location.hash = `#/${gerencia}/${trataCode}`;
     }
@@ -325,13 +494,14 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     
     const mainChartCtx = document.getElementById('trata-chart');
     if (mainChartCtx) {
-        mainChartCtx.parentElement.innerHTML = '<div id="main-chart-loading" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#64748b;">Cargando evolución...</div><canvas id="trata-chart"></canvas>';
+        mainChartCtx.parentElement.innerHTML = '<canvas id="trata-chart"></canvas>';
     }
 
     const ageChartCtx = document.getElementById('stock-age-chart');
     if (ageChartCtx) ageChartCtx.parentElement.innerHTML = '<canvas id="stock-age-chart"></canvas>';
 
     document.getElementById('trata_detail_title').innerText = trataName;
+    document.getElementById('trata_detail_subtitle').innerText = trataCode;
 
     // Determinar la dirección superior (DGROC o DGIUR)
     const dgiurGerencias = ['morfologia', 'aph', 'usos'];
@@ -360,37 +530,52 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     }
 
     try {
-        const response = await fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}`);
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}`);
         if (!response.ok) throw new Error(`Status ${response.status}`);
         
         const data = await response.json();
         
         if (!data || !Array.isArray(data) || data.length === 0) {
-            if (document.getElementById('main-chart-loading')) {
-                document.getElementById('main-chart-loading').innerText = "Sin datos históricos disponibles para este trámite.";
-            }
             return;
         }
 
-        // Invertimos porque el backend devuelve DESC (mes actual primero) 
-        data.reverse();
+        // --- VALORES DE STOCK EN CABECERA ---
+        const latest = data[0]; 
+        
+        // Actualizar título real si no estaba disponible
+        if (latest["DETALLE TRATA"]) {
+            document.getElementById('trata_detail_title').innerText = latest["DETALLE TRATA"];
+        }
+
+        animateValue('header-stock-propio', 0, latest.STOCK_PROPIO || 0, 1500);
+        animateValue('header-stock-subs', 0, latest.STOCK_SUBS || 0, 1500);
+
+        // --- LÓGICA DE SEMÁFORO (Sección Metas) ---
+        let progress = 0;
+        if (latest.ING > 0) {
+            progress = Math.min(100, Math.round(((latest.EGR_EF || 0) / latest.ING) * 100));
+        } else if (latest.EGR_EF > 0) {
+            progress = 100;
+        }
+        animateSemaphore(progress);
+
+        // Invertimos para el gráfico
+        const chartData = [...data].reverse();
         
         const chartCanvas = document.getElementById('trata-chart');
-        if (!chartCanvas) return; // Protección contra cambios de vista rápidos
+        if (!chartCanvas) return;
 
         const ctx = chartCanvas.getContext('2d');
-        if (document.getElementById('main-chart-loading')) document.getElementById('main-chart-loading').remove();
-
         currentChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: data.map(d => `${MESES[d.mes - 1]} ${d.anio}`),
+                labels: chartData.map(d => `${MESES[d.mes - 1]} ${d.anio}`),
                 datasets: [
-                    { label: 'Stock Propio', data: data.map(d => d.STOCK_PROPIO || 0), type: 'line', borderColor: '#EF4444', backgroundColor: '#EF4444', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 0 },
-                    { label: 'Subsanación Abierta', data: data.map(d => d.STOCK_SUBS || 0), type: 'line', borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 1 },
-                    { label: 'Ingresos', data: data.map(d => d.ING || 0), backgroundColor: '#002d47', borderRadius: 4, order: 2 },
-                    { label: 'Egresos Efectivos', data: data.map(d => d.EGR_EF || 0), backgroundColor: '#0076bb', stack: 'egresos', borderRadius: 4, order: 3 },
-                    { label: 'Egresos No Efectivos', data: data.map(d => d.EGR_NE || 0), backgroundColor: '#94A3B8', stack: 'egresos', order: 4 }
+                    { label: 'Stock Propio', data: chartData.map(d => d.STOCK_PROPIO || 0), type: 'line', borderColor: '#EF4444', backgroundColor: '#EF4444', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 0 },
+                    { label: 'Subsanación Abierta', data: chartData.map(d => d.STOCK_SUBS || 0), type: 'line', borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 1 },
+                    { label: 'Ingresos', data: chartData.map(d => d.ING || 0), backgroundColor: '#002d47', borderRadius: 4, order: 2 },
+                    { label: 'Egresos Efectivos', data: chartData.map(d => d.EGR_EF || 0), backgroundColor: '#0076bb', stack: 'egresos', borderRadius: 4, order: 3 },
+                    { label: 'Egresos No Efectivos', data: chartData.map(d => d.EGR_NE || 0), backgroundColor: '#94A3B8', stack: 'egresos', order: 4 }
                 ]
             },
             options: { 
@@ -402,7 +587,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         });
 
         // Cargar detalles de stock
-        const stockResp = await fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/stock_detail`);
+        const stockResp = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/stock_detail`);
         if (stockResp.ok) {
             const stockData = await stockResp.json();
             currentStockData = { expedientes: stockData.expedientes || [], trataName, trataCode };
@@ -411,10 +596,56 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         }
     } catch (error) { 
         console.warn("Error cargando detalle:", error.message);
-        if (document.getElementById('main-chart-loading')) {
-            document.getElementById('main-chart-loading').innerText = "Inconveniente al cargar evolución histórica.";
-        }
     }
+}
+
+function switchTrataSection(sectionId) {
+    // Ocultar todas las secciones
+    document.querySelectorAll('.trata-section').forEach(s => s.classList.remove('active'));
+    // Desactivar todos los botones
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    
+    // Mostrar la seleccionada
+    const targetSection = document.getElementById(`section-${sectionId}`);
+    if (targetSection) targetSection.classList.add('active');
+    
+    // Activar botón (buscando por el texto o el onclick)
+    const buttons = document.querySelectorAll('.tab-btn');
+    buttons.forEach(btn => {
+        if (btn.getAttribute('onclick').includes(`'${sectionId}'`)) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+function animateValue(id, start, end, duration) {
+    const obj = document.getElementById(id);
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.innerHTML = Math.floor(progress * (end - start) + start).toLocaleString('es-AR');
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+function animateSemaphore(targetPercent) {
+    const fill = document.getElementById('meta-progress-fill');
+    const label = document.getElementById('meta-percentage');
+    
+    gsap.to(fill, { width: `${targetPercent}%`, duration: 1.5, ease: "power2.out" });
+    
+    let counter = { val: 0 };
+    gsap.to(counter, {
+        val: targetPercent,
+        duration: 1.5,
+        onUpdate: function() {
+            label.innerText = `${Math.round(counter.val)}%`;
+        }
+    });
 }
 
 function renderStockAgeChart(monthDist) {
@@ -505,7 +736,7 @@ function renderAnalystTable(analystDist) {
 async function loadIntervencionesDetail(gerencia) {
     const wrapper = document.getElementById('intervenciones-table-wrapper');
     try {
-        const response = await fetch(`${API_BASE}/reporte/${gerencia}/intervenciones/detalle`);
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/intervenciones/detalle`);
         const data = await response.json();
         if (!data || data.length === 0) { 
             wrapper.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b;">No hay stock de intervenciones externas.</div>'; 
@@ -644,3 +875,72 @@ function downloadCSV(analista, data) {
 }
 
 window.onclick = function(e) { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; }
+
+// --- FUNCIONES ADMIN ---
+async function loadUsers() {
+    const container = document.getElementById('users-table-container');
+    if (!container) return;
+
+    container.innerHTML = '<div style="padding: 2rem; text-align: center;"><span class="loader"></span><p style="margin-top: 1rem; color: #64748b;">Sincronizando registro de usuarios...</p></div>';
+    
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/users`);
+        if (!resp || !resp.ok) return;
+        
+        const users = await resp.json();
+        
+        if (users.length === 0) {
+            container.innerHTML = '<p style="padding: 2rem; text-align: center; color: #64748b;">No hay usuarios registrados.</p>';
+            return;
+        }
+
+        let html = '<div class="users-list">';
+        
+        users.forEach(u => {
+            const isMe = u.username === currentUser.username;
+            html += `
+                <div class="user-row">
+                    <div class="user-info-main" style="display: flex; flex-direction: row; align-items: center; gap: 1rem;">
+                        <div style="background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                            ${u.role === 'admin' ? '🛡️' : '👤'}
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <span class="user-username" style="display: flex; align-items: center;">
+                                ${u.username} 
+                                ${isMe ? '<span class="trata-id-tag" style="background: var(--primary); color: white; margin-left: 8px; font-size: 0.6rem;">SESIÓN ACTUAL</span>' : ''}
+                            </span>
+                            <span class="user-meta">Rol: <strong>${u.role.toUpperCase()}</strong> • Creado el ${new Date(u.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                    <div class="user-actions">
+                        <button onclick="deleteUser('${u.username}')" class="btn-delete" ${isMe ? 'disabled' : ''} title="${isMe ? 'No puedes eliminarte a ti mismo' : 'Eliminar usuario'}">
+                            ${isMe ? 'Protegido' : 'Eliminar'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html + '</div>';
+    } catch (error) {
+        container.innerHTML = '<p style="padding: 2rem; color: #ef4444;">Error al cargar usuarios. Por favor, reintenta.</p>';
+    }
+}
+
+async function deleteUser(username) {
+    if (!confirm(`¿Estás seguro de eliminar al usuario ${username}?`)) return;
+    
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/users/${username}`, {
+            method: 'DELETE'
+        });
+        if (resp && resp.ok) {
+            loadUsers();
+        } else {
+            const err = await resp.json();
+            alert('Error: ' + err.detail);
+        }
+    } catch (error) {
+        alert('Error al eliminar usuario');
+    }
+}

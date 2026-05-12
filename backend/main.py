@@ -1,14 +1,27 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, text
 import pandas as pd
 from datetime import datetime, timedelta
 import logging
+import bcrypt
+from jose import JWTError, jwt
+from pydantic import BaseModel
+from typing import Optional
+
 try:
     from .config import TRAMITES_CONFIG, WHITELISTS, BUZZERS_MAP
 except ImportError:
     from config import TRAMITES_CONFIG, WHITELISTS, BUZZERS_MAP
+
+# Configuración de Seguridad
+SECRET_KEY = os.getenv("SECRET_KEY", "7b6f8e9a2c4d5f1a3b5e7d9c0a2b4d6f8e0a2c4d")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 horas
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO)
@@ -24,12 +37,77 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Modelos Pydantic
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    username: str
+    role: str
+
+class User(BaseModel):
+    username: str
+    role: str
+
 # Conexión a la base de datos
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = "postgresql://postgres:lenovo@localhost:5432/sade_db"
 
 engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
+
+# Utilidades de Seguridad
+def verify_password(plain_password, hashed_password):
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar el acceso",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        role: str = payload.get("role")
+        if username is None:
+            raise credentials_exception
+        return User(username=username, role=role)
+    except JWTError:
+        raise credentials_exception
+
+# --- Endpoints de Autenticación ---
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    try:
+        with engine.connect() as conn:
+            query = text("SELECT username, password_hash, role FROM auth_users WHERE username = :u")
+            result = conn.execute(query, {"u": form_data.username}).fetchone()
+            
+            if not result or not verify_password(form_data.password, result[1]):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Usuario o contraseña incorrectos",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            access_token = create_access_token(data={"sub": result[0], "role": result[2]})
+            return {"access_token": access_token, "token_type": "bearer", "username": result[0], "role": result[2]}
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        logger.error(f"Error en login: {e}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.get("/api/auth/me", response_model=User)
+async def get_me(current_user: User = Depends(get_current_user)):
+    return current_user
 
 @app.get("/health")
 async def health_check():
@@ -42,8 +120,56 @@ async def health_check():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.get("/api/admin/users")
+async def list_users(current_user: User = Depends(get_current_user)):
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT id, username, role, created_at FROM auth_users ORDER BY username"))
+            return [dict(r._mapping) for r in result]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    role: str
+
+@app.post("/api/admin/users")
+async def create_user(user_data: UserCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        hashed = bcrypt.hashpw(user_data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        with engine.connect() as conn:
+            conn.execute(
+                text("INSERT INTO auth_users (username, password_hash, role) VALUES (:u, :p, :r)"),
+                {"u": user_data.username, "p": hashed, "r": user_data.role}
+            )
+            conn.commit()
+            return {"status": "ok", "message": f"Usuario {user_data.username} creado"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="El usuario ya existe o hubo un error")
+
+@app.delete("/api/admin/users/{username}")
+async def delete_user(username: str, current_user: User = Depends(get_current_user)):
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    if username == current_user.username:
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("DELETE FROM auth_users WHERE username = :u"), {"u": username})
+            conn.commit()
+            return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints de Reportes (Protegidos) ---
+
 @app.get("/api/reporte/{gerencia}/consolidado")
-async def get_reporte_consolidado_gerencia(gerencia: str):
+async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
@@ -83,7 +209,7 @@ async def get_reporte_consolidado_gerencia(gerencia: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/tramite/{trata}")
-async def get_reporte_tramite_historico(gerencia: str, trata: str):
+async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
     try:
         # Calcular los 12 meses: Actual + 11 anteriores
@@ -105,6 +231,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                 propios_sql = ", ".join([f"'{p}'" for p in propios])
                 sql = f"""
                     SELECT anio, mes, 
+                           'INTERVENCIONES' as "DETALLE TRATA",
                            SUM("ING") as "ING", 
                            SUM("EGR_EF") as "EGR_EF", 
                            SUM("EGR_NE") as "EGR_NE",
@@ -119,7 +246,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
                 """
             else:
                 sql = f"""
-                    SELECT anio, mes, "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
+                    SELECT anio, mes, "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
                     FROM mvw_reporte_historico_{gerencia_clean}
                     WHERE "COD TRATA" = '{trata}'
                       AND (anio, mes) IN ({months_filter})
@@ -137,66 +264,80 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/tramite/{trata}/stock_detail")
-async def get_reporte_tramite_stock_detail(gerencia: str, trata: str):
+async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User = Depends(get_current_user)):
+    """Detalle de Stock Propio Actual - usa la MISMA lógica que las vistas históricas."""
     gerencia_clean = gerencia.lower()
     if gerencia_clean not in TRAMITES_CONFIG: raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
-    buzzers = BUZZERS_MAP.get(gerencia_clean, [])
-    whitelist_users = WHITELISTS.get(gerencia_clean, [])
-    sector_whitelist = whitelist_users + buzzers
-    sector_whitelist_sql = ", ".join([f"'{u}'" for u in sector_whitelist])
 
     try:
         with engine.connect() as conn:
-            if trata == 'INTERVENCIONES':
-                sql = f"""
-                    SELECT id_expediente, expediente, fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
-                    FROM mvw_stock_actual_detalle
-                    WHERE trata NOT IN ({", ".join([f"'{t}'" for t in TRAMITES_CONFIG[gerencia_clean].keys() if t != 'INTERVENCIONES'])})
-                      AND trata != 'MDUG0102B' AND gerencia = '{gerencia_clean}'
-                """
-            else:
-                sql = f"""
-                    SELECT id_expediente, expediente, fecha_ing, dias_stock as dias, analista_actual as analista, is_subs
-                    FROM mvw_stock_actual_detalle
-                    WHERE trata = '{trata}' AND gerencia = '{gerencia_clean}'
-                """
+            buzzers = BUZZERS_MAP.get(gerencia_clean, [])
+            whitelist_users = WHITELISTS.get(gerencia_clean, [])
+            sector_whitelist = whitelist_users + buzzers
+            sector_whitelist_sql = ", ".join([f"'{u}'" for u in sector_whitelist])
+
+            # Usamos la vista materializada optimizada para el detalle
+            sql = f"""
+                SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
+                       dias_ultimo_movimiento as dias, analista_actual as analista
+                FROM mvw_stock_actual_detalle
+                WHERE trata_reporte = '{trata}' 
+                  AND gerencia = '{gerencia_clean}'
+                  AND is_subs = 0
+                  AND analista_actual IN ({sector_whitelist_sql})
+            """
             result = conn.execute(text(sql))
             rows = result.fetchall()
+
             
-            # Formatear la respuesta enfocada en STOCK ACTUAL PROPIO
+            # Formatear la respuesta enfocada en STOCK ACTUAL PROPIO REAL
             propio_month_counts = {}
             analyst_data = {}
             ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
             
-            # Solo procesamos para el detalle lo que es STOCK PROPIO (is_subs = 0)
-            propio_rows = [r for r in rows if r.is_subs == 0]
-            
-            for row in propio_rows:
-                m_key = row.fecha_ing.strftime("%Y-%m")
+            for row in rows:
+                # La antigüedad del stock se mide por el ÚLTIMO MOVIMIENTO (fecha_ultimo_pase)
+                if row.fecha_ultimo_pase:
+                    m_key = row.fecha_ultimo_pase.strftime("%Y-%m")
+                else:
+                    m_key = row.fecha_ing.strftime("%Y-%m") if row.fecha_ing else "sin-fecha"
                 propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
+                
                 analista = row.analista or "SIN ASIGNAR"
                 if analista not in analyst_data:
                     analyst_data[analista] = {r[2]: 0 for r in ranges}
                     analyst_data[analista]["TOTAL"] = 0
+                
+                # Clasificar por días desde el último movimiento
+                dias = row.dias if row.dias is not None else 0
                 for start, end, label in ranges:
-                    if start <= row.dias < end:
+                    if start <= dias < end:
                         analyst_data[analista][label] += 1
                         break
                 analyst_data[analista]["TOTAL"] += 1
             
             return {
+                "stock_propio_count": len(rows),
                 "month_distribution": [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())],
                 "analyst_distribution": [{"analista": name, **counts} for name, counts in analyst_data.items()],
                 "expedientes": [
-                    {**dict(r._mapping), "fecha_ing": r.fecha_ing.strftime("%Y-%m-%d %H:%M:%S") if r.fecha_ing else None} 
-                    for r in propio_rows[:1000]
+                    {
+                        "id_expediente": r.id_expediente,
+                        "expediente": r.expediente,
+                        "fecha_ing": r.fecha_ing.strftime("%Y-%m-%d %H:%M:%S") if r.fecha_ing else None,
+                        "fecha_ultimo_pase": r.fecha_ultimo_pase.strftime("%Y-%m-%d %H:%M:%S") if r.fecha_ultimo_pase else None,
+                        "dias": r.dias if r.dias is not None else 0,
+                        "analista": r.analista
+                    } 
+                    for r in rows[:1000]
                 ]
             }
     except Exception as e:
+        logger.error(f"Error en stock_detail: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/intervenciones/detalle")
-async def get_intervenciones_detalle(gerencia: str):
+async def get_intervenciones_detalle(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
@@ -207,14 +348,13 @@ async def get_intervenciones_detalle(gerencia: str):
 
     try:
         with engine.connect() as conn:
-            # Consultamos directamente el stock actual de la gerencia, excluyendo los propios
+            # Consultamos directamente el stock actual usando la columna trata_reporte
             sql = f"""
                 SELECT trata, descripcion as detalle, dias_stock
                 FROM mvw_stock_actual_detalle
                 WHERE is_subs = 0 
                   AND gerencia = '{gerencia_clean}'
-                  AND trata NOT IN ({propios_sql})
-                  AND trata != 'MDUG0102B'
+                  AND trata_reporte = 'INTERVENCIONES'
             """
             result = conn.execute(text(sql))
             rows = [dict(r._mapping) for r in result.fetchall()]

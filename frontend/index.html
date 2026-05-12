@@ -13,12 +13,40 @@
 </head>
 
 <body>
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="login-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <img src="https://buenosaires.gob.ar/sites/default/files/2024-01/logo-ba.svg" alt="Logo BA" class="login-logo">
+                <h1>SGDU Analytics</h1>
+                <p>Gestión de Datos y Operativa</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Usuario</label>
+                    <input type="text" id="login-username" required placeholder="nicolas">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <div id="login-error" class="login-error"></div>
+                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Iniciar Sesión</button>
+            </form>
+        </div>
+    </div>
+
     <header>
         <div class="logo-container" onclick="showView('landing')" style="cursor: pointer;">
             <div class="logo-text">Tablero SGDU</div>
         </div>
         <nav id="main-nav">
             <span class="header-tag">Secretaría de Gestión y Desarrollo Urbano</span>
+            <div class="auth-controls" id="auth-controls" style="display: none;">
+                <span id="display-username" style="font-weight: 600; color: var(--primary-dark);"></span>
+                <button id="admin-btn" class="btn-secondary" style="display: none;" onclick="showView('admin')">Admin Usuarios</button>
+                <button onclick="logout()" class="btn-logout">Salir</button>
+            </div>
         </nav>
     </header>
 
@@ -228,41 +256,134 @@
             </div>
         </section>
 
-        <!-- Vista 9: Detalle de Trámite (Chart.js) -->
+        <!-- Vista 9: Detalle de Trámite (Layout Mejorado) -->
         <section id="trata_detail" class="view-container">
             <div class="breadcrumbs">
                 <span onclick="showView('landing')">Inicio</span> /
-                <span id="trata_detail_parent_link" onclick="showView('dgroc')">DGROC</span> / 
-                <span id="trata_detail_back" onclick="showView('dgroc')" style="cursor: pointer; text-decoration: underline;">Volver</span> / 
+                <span id="trata_detail_parent_link" style="cursor: pointer; text-decoration: underline;">DGROC</span> / 
+                <span id="trata_detail_back" style="cursor: pointer; text-decoration: underline;">Volver</span> / 
                 Detalle Trámite
             </div>
-            <h1 class="landing-title" id="trata_detail_title">Detalle de Trámite</h1>
-            <p>Evolución de los últimos 12 meses</p>
 
-            <div class="chart-container" style="position: relative; height:80vh; width:100%; max-width: 1200px; margin: 0 auto; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-top: 2rem;">
-                <canvas id="trata-chart"></canvas>
+            <!-- Cabecera con Indicador de Stock Actual -->
+            <div class="trata-header-card">
+                <div class="trata-header-main">
+                    <div class="trata-title-container">
+                        <h1 id="trata_detail_title">Nombre del Trámite</h1>
+                        <p id="trata_detail_subtitle" class="trata-subtitle">MDUG0000X</p>
+                    </div>
+                    <div class="header-stock-indicators">
+                        <div class="header-stock-tag prop-tag">
+                            <span class="stock-label">Stock Propio</span>
+                            <span id="header-stock-propio" class="stock-value">0</span>
+                        </div>
+                        <div class="header-stock-tag subs-tag">
+                            <span class="stock-label">Subsanaciones</span>
+                            <span id="header-stock-subs" class="stock-value">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="trata-nav-tabs">
+                    <button class="tab-btn active" onclick="switchTrataSection('stock')">STOCK</button>
+                    <button class="tab-btn" onclick="switchTrataSection('metas')">METAS</button>
+                </div>
             </div>
 
-            <!-- Nuevos Componentes de Stock -->
-            <div class="trata-extra-analysis" style="margin-top: 2rem;">
-                <div class="analysis-section">
-                    <h3 class="section-title">Antigüedad Stock (por mes de ingreso)</h3>
-                    <div class="chart-container small-chart">
-                        <canvas id="stock-age-chart"></canvas>
+            <!-- SECCIÓN: STOCK -->
+            <div id="section-stock" class="trata-section active">
+                <div class="chart-container-wrapper">
+                    <div class="chart-box main-evolution">
+                        <h3>Evolución Histórica (12 meses)</h3>
+                        <div class="chart-canvas-container">
+                            <canvas id="trata-chart"></canvas>
+                        </div>
                     </div>
                 </div>
 
-                <div class="analysis-section" style="margin-top: 3rem;">
-                    <h3 class="section-title">Stock según Analista</h3>
-                    <div id="analyst-table-container" class="matrix-table-container">
-                        <!-- La tabla se generará dinámicamente -->
+                <div class="trata-extra-analysis">
+                    <div class="analysis-section">
+                        <h3 class="section-title">Antigüedad Stock (Meses del último movimiento)</h3>
+                        <div class="chart-container small-chart">
+                            <canvas id="stock-age-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h3 class="section-title">Detalle de Stock Propio (Mes en curso)</h3>
+                        <div id="analyst-table-container" class="matrix-table-container">
+                            <!-- Tabla dinámica -->
+                        </div>
+                    </div>
+
+                    <div id="intervenciones-detail-container" class="analysis-section" style="display: none;">
+                        <h3 class="section-title">Desglose de Tratas (Intervenciones)</h3>
+                        <div id="intervenciones-table-wrapper" class="matrix-table-container">
+                            <!-- Tabla dinámica -->
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div id="intervenciones-detail-container" class="analysis-section" style="margin-top: 3rem; display: none;">
-                    <h3 class="section-title">Desglose de Tratas (Intervenciones)</h3>
-                    <div id="intervenciones-table-wrapper" class="matrix-table-container">
-                        <!-- La tabla se generará dinámicamente -->
+            <!-- SECCIÓN: METAS -->
+            <div id="section-metas" class="trata-section">
+                <div class="metas-container-card">
+                    <div class="meta-semaphore-wrapper">
+                        <div class="meta-semaphore-container" style="max-width: 500px; margin: 0 auto;">
+                            <div class="meta-label">
+                                <span>Avance de Metas del Mes</span>
+                                <span id="meta-percentage">0%</span>
+                            </div>
+                            <div class="meta-progress-bar">
+                                <div id="meta-progress-fill" class="progress-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="placeholder-content" style="border: none; padding-top: 2rem;">
+                        <div class="placeholder-icon">🎯</div>
+                        <h2>Módulo de Metas</h2>
+                        <p>Aquí se visualizarán los objetivos mensuales detallados y el cumplimiento por analista.</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Vista Admin: Gestión de Usuarios -->
+        <section id="admin" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Administración de Usuarios
+            </div>
+            <h1 class="landing-title">Gestión de Usuarios</h1>
+            
+            <div class="admin-grid">
+                <div class="admin-card">
+                    <h3>Crear Nuevo Usuario</h3>
+                    <form id="create-user-form">
+                        <div class="form-group">
+                            <label>Nombre de Usuario</label>
+                            <input type="text" id="new-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Contraseña</label>
+                            <input type="password" id="new-password" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Rol</label>
+                            <select id="new-role">
+                                <option value="user">Usuario (Solo Lectura)</option>
+                                <option value="admin">Administrador (Gestión)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-primary" style="margin-top: 1rem;">Crear Usuario</button>
+                    </form>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Usuarios Existentes</h3>
+                    <div id="users-table-container">
+                        <!-- Se llenará vía JS -->
                     </div>
                 </div>
             </div>

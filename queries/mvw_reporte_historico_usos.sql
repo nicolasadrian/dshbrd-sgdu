@@ -58,27 +58,14 @@ ingresos AS (
     GROUP BY 1, 2, 3
 ),
 egresos_efectivos AS (
-    -- Egresos para trámites propios (GEDO firmado por el responsable)
+    -- Tanto para los tramites puros de USOS como las INTERVENCIONES, el acto que se considera para el egreso es DICTAMEN/ANEXO/INFORME FIRMADO POR FOVERDAGUER/MIZONCA/DALUNNI
     SELECT g.id_expediente, i.trata, i.gerencia, MIN(g.fecha_creacion)::date as fecha_egr
     FROM mvw_datos_gedo_secgdu g
     JOIN ingresos i ON g.id_expediente = i.id_expediente
     JOIN tramites_metadata tm ON i.trata = tm.trata
-    WHERE g.acronimo = ANY(tm.acronimos_list) 
+    WHERE (g.acronimo ILIKE 'DICTAMEN%' OR g.acronimo ILIKE 'ANEXO%' OR g.acronimo ILIKE 'INFORME%')
       AND g.fecha_creacion >= i.fecha_ing
       AND g.usuario_creador IN ('FOVERDAGUER', 'MIZONCA', 'DALUNNI')
-      AND i.trata != 'INTERVENCIONES'
-    GROUP BY 1, 2, 3
-
-    UNION ALL
-
-    -- EGRESO EFECTIVO PARA INTERVENCIONES: Último pase de salida realizado por un analista hacia fuera del área
-    SELECT p.id_expediente, 'INTERVENCIONES' as trata, i.gerencia, MAX(p.fecha)::date as fecha_egr
-    FROM pases_pre_filtrados p
-    JOIN ingresos i ON p.id_expediente = i.id_expediente
-    WHERE i.trata = 'INTERVENCIONES'
-      AND p.fecha > i.fecha_ing
-      AND p.remitente IN ('ALEPABLOCASTRO', 'ARVASR', 'AUZONMJ', 'BBORGIA', 'BILLAUDL', 'CLAUDIAVARELA', 'DALUNNI', 'DIMEGLIOA', 'EDUARDODIAZ', 'ELIANACABRERA', 'FOVERDAGUER', 'JBMENDY', 'JLSCIA', 'JLSCIARROTTA', 'LASALAMI', 'LTROLDAN', 'MAYASTUY', 'MERCADOEA', 'MFALAPPA', 'MIZONCA', 'MOCANA', 'MOURER', 'MPSIMONI', 'MYASTUY', 'PGLEISS', 'PORTAC', 'ROCCOR', 'SOFIAZANI', 'VKAUFMAN')
-      AND p.destinatario NOT IN ('ALEPABLOCASTRO', 'ARVASR', 'AUZONMJ', 'BBORGIA', 'BILLAUDL', 'CLAUDIAVARELA', 'DALUNNI', 'DIMEGLIOA', 'EDUARDODIAZ', 'ELIANACABRERA', 'FOVERDAGUER', 'JBMENDY', 'JLSCIA', 'JLSCIARROTTA', 'LASALAMI', 'LTROLDAN', 'MAYASTUY', 'MERCADOEA', 'MFALAPPA', 'MIZONCA', 'MOCANA', 'MOURER', 'MPSIMONI', 'MYASTUY', 'PGLEISS', 'PORTAC', 'ROCCOR', 'SOFIAZANI', 'VKAUFMAN', 'DGIUR-12', 'DGIUR-ADMISIBILIDADUSOS', 'DGIUR-EGOUS', 'SVC_DGIURUSOS')
     GROUP BY 1, 2, 3
 ),
 egresos_no_efectivos AS (
@@ -87,12 +74,12 @@ egresos_no_efectivos AS (
     JOIN ingresos i ON p.id_expediente = i.id_expediente
     WHERE (p.estado = 'Guarda Temporal' OR p.destinatario = 'GUARDA TEMPORAL') 
       AND p.fecha > i.fecha_ing 
-      AND i.trata != 'INTERVENCIONES' -- Intervenciones no tienen egreso no efectivo (Guarda)
-      -- Excluimos si ya tiene un egreso efectivo
+      AND i.trata != 'INTERVENCIONES'
       AND NOT EXISTS (
           SELECT 1 FROM egresos_efectivos ee 
           WHERE ee.id_expediente = i.id_expediente 
           AND ee.trata = i.trata
+          AND ee.fecha_egr < p.fecha
       )
     GROUP BY 1, 2, 3
 ),
