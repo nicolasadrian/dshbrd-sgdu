@@ -123,16 +123,29 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
-@app.get("/health")
+@app.get("/api/health")
 async def health_check():
+    db_var = "None"
+    if os.getenv("DATABASE_URL"): db_var = "DATABASE_URL"
+    elif os.getenv("DATABASE_URL_PUBLIC"): db_var = "DATABASE_URL_PUBLIC"
+    elif os.getenv("DATABASE_URL_LOCAL"): db_var = "DATABASE_URL_LOCAL"
+    
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-            db_host = DATABASE_URL.split('@')[-1].split(':')[0]
-            db_name = DATABASE_URL.split('/')[-1]
-            return {"status": "ok", "database": "connected", "host": f"***{db_host[-4:]}", "db": db_name}
+            return {
+                "status": "online",
+                "database": "connected",
+                "detected_var": db_var,
+                "db_name": DATABASE_URL.split('/')[-1].split('?')[0]
+            }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {
+            "status": "error",
+            "database": "disconnected",
+            "error": str(e),
+            "detected_var": db_var
+        }
 
 @app.get("/api/admin/users")
 async def list_users(current_user: User = Depends(get_current_user)):
