@@ -52,22 +52,19 @@ class User(BaseModel):
     username: str
     role: str
 
-# Conexión a la base de datos
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    DATABASE_URL = os.getenv("DATABASE_URL_PUBLIC")
-if not DATABASE_URL:
-    DATABASE_URL = os.getenv("DATABASE_URL_LOCAL")
-if not DATABASE_URL:
-    # Fallback final por si falla todo el entorno
-    DATABASE_URL = "postgresql://postgres:lenovo@localhost:5432/sade_db"
+# Función para obtener el motor de DB de forma segura
+def get_engine():
+    db_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PUBLIC") or os.getenv("DATABASE_URL_LOCAL")
+    if not db_url:
+        db_url = "postgresql://postgres:lenovo@localhost:5432/sade_db"
+    
+    # Corregir prefijo para SQLAlchemy si viene de Heroku/Vercel legacy
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+    return create_engine(db_url, pool_size=5, max_overflow=10)
 
-if DATABASE_URL:
-    logger.info(f"Base de Datos detectada (IP: {DATABASE_URL.split('@')[-1].split(':')[0]})")
-else:
-    logger.error("CRITICO: No se detectó ninguna URL de base de datos")
-
-engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
+engine = get_engine()
 
 # Utilidades de Seguridad
 def verify_password(plain_password, hashed_password):
@@ -174,14 +171,22 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
     try:
         hashed = bcrypt.hashpw(user_data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         with engine.connect() as conn:
-            conn.execute(
-                text("INSERT INTO auth_users (username, password_hash, role) VALUES (:u, :p, :r)"),
-                {"u": user_data.username, "p": hashed, "r": user_data.role}
-            )
+            # Intentar insertar con el nombre nuevo, si falla probamos con el viejo
+            try:
+                conn.execute(
+                    text("INSERT INTO auth_users (username, hashed_password, role) VALUES (:u, :p, :r)"),
+                    {"u": user_data.username, "p": hashed, "r": user_data.role}
+                )
+            except Exception:
+                conn.execute(
+                    text("INSERT INTO auth_users (username, password_hash, role) VALUES (:u, :p, :r)"),
+                    {"u": user_data.username, "p": hashed, "r": user_data.role}
+                )
             conn.commit()
             return {"status": "ok", "message": f"Usuario {user_data.username} creado"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail="El usuario ya existe o hubo un error")
+        logger.error(f"Error creando usuario: {e}")
+        raise HTTPException(status_code=400, detail=f"Error: {str(e)}")
 
 @app.delete("/api/admin/users/{username}")
 async def delete_user(username: str, current_user: User = Depends(get_current_user)):
