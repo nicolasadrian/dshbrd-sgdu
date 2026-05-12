@@ -10,6 +10,10 @@ import bcrypt
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from typing import Optional
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 try:
     from .config import TRAMITES_CONFIG, WHITELISTS, BUZZERS_MAP
@@ -55,8 +59,10 @@ if not DATABASE_URL:
 if not DATABASE_URL:
     DATABASE_URL = os.getenv("DATABASE_URL_LOCAL")
 if not DATABASE_URL:
+    # Fallback final por si falla todo el entorno
     DATABASE_URL = "postgresql://postgres:lenovo@localhost:5432/sade_db"
 
+logger.info(f"Conectando a base de datos: {DATABASE_URL.split('@')[-1]}") # Log seguro
 engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
 
 # Utilidades de Seguridad
@@ -92,10 +98,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
         with engine.connect() as conn:
-            query = text("SELECT username, hashed_password, role FROM auth_users WHERE username = :u")
-            result = conn.execute(query, {"u": form_data.username}).fetchone()
+            # Intentamos con el nombre nuevo, si falla probamos con el viejo
+            try:
+                query = text("SELECT username, hashed_password as pwd, role FROM auth_users WHERE username = :u")
+                result = conn.execute(query, {"u": form_data.username}).fetchone()
+            except Exception:
+                query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
+                result = conn.execute(query, {"u": form_data.username}).fetchone()
             
-            if not result or not verify_password(form_data.password, result[1]):
+            if not result or not verify_password(form_data.password, result['pwd']):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Usuario o contraseña incorrectos",
