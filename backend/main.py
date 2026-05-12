@@ -106,7 +106,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
                 query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
                 result = conn.execute(query, {"u": form_data.username}).fetchone()
             
-            if not result or not verify_password(form_data.password, result['pwd']):
+            if not result or not verify_password(form_data.password, result[1]):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Usuario o contraseña incorrectos",
@@ -116,7 +116,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             access_token = create_access_token(data={"sub": result[0], "role": result[2]})
             return {"access_token": access_token, "token_type": "bearer", "username": result[0], "role": result[2]}
     except Exception as e:
-        if isinstance(e, HTTPException): raise e
         logger.error(f"Error en login: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
 
