@@ -62,7 +62,11 @@ if not DATABASE_URL:
     # Fallback final por si falla todo el entorno
     DATABASE_URL = "postgresql://postgres:lenovo@localhost:5432/sade_db"
 
-logger.info(f"Conectando a base de datos: {DATABASE_URL.split('@')[-1]}") # Log seguro
+if DATABASE_URL:
+    logger.info(f"Base de Datos detectada (IP: {DATABASE_URL.split('@')[-1].split(':')[0]})")
+else:
+    logger.error("CRITICO: No se detectó ninguna URL de base de datos")
+
 engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
 
 # Utilidades de Seguridad
