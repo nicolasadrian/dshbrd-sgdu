@@ -550,6 +550,15 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         animateValue('header-stock-propio', 0, latest.STOCK_PROPIO || 0, 1500);
         animateValue('header-stock-subs', 0, latest.STOCK_SUBS || 0, 1500);
 
+        // --- TOTALES 12 MESES ---
+        const totalIng = data.reduce((acc, d) => acc + (d.ING || 0), 0);
+        const totalEgrEf = data.reduce((acc, d) => acc + (d.EGR_EF || 0), 0);
+        const totalEgrNe = data.reduce((acc, d) => acc + (d.EGR_NE || 0), 0);
+
+        animateValue('summary-total-ing', 0, totalIng, 1500);
+        animateValue('summary-total-egr-ef', 0, totalEgrEf, 1500);
+        animateValue('summary-total-egr-ne', 0, totalEgrNe, 1500);
+
         // --- LÓGICA DE SEMÁFORO (Sección Metas) ---
         let progress = 0;
         if (latest.ING > 0) {

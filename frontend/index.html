@@ -17,18 +17,19 @@
     <div id="login-overlay" class="login-overlay">
         <div class="login-card">
             <div class="login-header">
-                <img src="https://buenosaires.gob.ar/sites/default/files/2024-01/logo-ba.svg" alt="Logo BA" class="login-logo">
-                <h1>SGDU Analytics</h1>
-                <p>Gestión de Datos y Operativa</p>
+                <img src="https://buenosaires.gob.ar/sites/default/files/2024-01/logo-ba.svg" alt="Logo BA"
+                    class="login-logo">
+                <h1>Tablero SGDU</h1>
+                <p>Secretaría de Gestión y Desarrollo Urbano</p>
             </div>
             <form id="login-form">
                 <div class="form-group">
                     <label>Usuario</label>
-                    <input type="text" id="login-username" required placeholder="nicolas">
+                    <input type="text" id="login-username" required placeholder="Usuario">
                 </div>
                 <div class="form-group">
                     <label>Contraseña</label>
-                    <input type="password" id="login-password" required placeholder="••••••••">
+                    <input type="password" id="login-password" required placeholder="Contraseña">
                 </div>
                 <div id="login-error" class="login-error"></div>
                 <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Iniciar Sesión</button>
@@ -44,7 +45,8 @@
             <span class="header-tag">Secretaría de Gestión y Desarrollo Urbano</span>
             <div class="auth-controls" id="auth-controls" style="display: none;">
                 <span id="display-username" style="font-weight: 600; color: var(--primary-dark);"></span>
-                <button id="admin-btn" class="btn-secondary" style="display: none;" onclick="showView('admin')">Admin Usuarios</button>
+                <button id="admin-btn" class="btn-secondary" style="display: none;" onclick="showView('admin')">Admin
+                    Usuarios</button>
                 <button onclick="logout()" class="btn-logout">Salir</button>
             </div>
         </nav>
@@ -260,8 +262,8 @@
         <section id="trata_detail" class="view-container">
             <div class="breadcrumbs">
                 <span onclick="showView('landing')">Inicio</span> /
-                <span id="trata_detail_parent_link" style="cursor: pointer; text-decoration: underline;">DGROC</span> / 
-                <span id="trata_detail_back" style="cursor: pointer; text-decoration: underline;">Volver</span> / 
+                <span id="trata_detail_parent_link" style="cursor: pointer; text-decoration: underline;">DGROC</span> /
+                <span id="trata_detail_back" style="cursor: pointer; text-decoration: underline;">Volver</span> /
                 Detalle Trámite
             </div>
 
@@ -283,7 +285,7 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="trata-nav-tabs">
                     <button class="tab-btn active" onclick="switchTrataSection('stock')">STOCK</button>
                     <button class="tab-btn" onclick="switchTrataSection('metas')">METAS</button>
@@ -292,6 +294,21 @@
 
             <!-- SECCIÓN: STOCK -->
             <div id="section-stock" class="trata-section active">
+                <div class="summary-cards-container">
+                    <div class="summary-card">
+                        <span class="summary-label">Ingresos (Ultimos 12 meses)</span>
+                        <span id="summary-total-ing" class="summary-value">0</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Egresos Efectivos (Ultimos 12 meses)</span>
+                        <span id="summary-total-egr-ef" class="summary-value">0</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Egresos No Efectivos (Ultimos 12 meses)</span>
+                        <span id="summary-total-egr-ne" class="summary-value">0</span>
+                    </div>
+                </div>
+
                 <div class="chart-container-wrapper">
                     <div class="chart-box main-evolution">
                         <h3>Evolución Histórica (12 meses)</h3>
@@ -339,7 +356,7 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="placeholder-content" style="border: none; padding-top: 2rem;">
                         <div class="placeholder-icon">🎯</div>
                         <h2>Módulo de Metas</h2>
@@ -356,7 +373,7 @@
                 <span onclick="showView('landing')">Inicio</span> / Administración de Usuarios
             </div>
             <h1 class="landing-title">Gestión de Usuarios</h1>
-            
+
             <div class="admin-grid">
                 <div class="admin-card">
                     <h3>Crear Nuevo Usuario</h3>
@@ -400,10 +417,12 @@
                     <p id="modal-trata-info" style="color: #cbd5e1; font-size: 0.9rem; margin-top: 5px;"></p>
                 </div>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <button id="btn-download-csv" class="btn-download" style="padding: 8px 15px; font-size: 0.85rem; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
+                    <button id="btn-download-csv" class="btn-download"
+                        style="padding: 8px 15px; font-size: 0.85rem; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
                         Descargar CSV
                     </button>
-                    <span class="close-modal" onclick="closeModal('stock-drilldown-modal')" style="cursor: pointer; font-size: 2rem;">&times;</span>
+                    <span class="close-modal" onclick="closeModal('stock-drilldown-modal')"
+                        style="cursor: pointer; font-size: 2rem;">&times;</span>
                 </div>
             </div>
             <div id="modal-table-container" class="matrix-table-container" style="padding: 20px;">
@@ -417,7 +436,8 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h2>Metodología de Cálculo</h2>
-                <span class="close-modal" onclick="closeModal('help-modal')" style="cursor: pointer; font-size: 2rem;">&times;</span>
+                <span class="close-modal" onclick="closeModal('help-modal')"
+                    style="cursor: pointer; font-size: 2rem;">&times;</span>
             </div>
             <div id="help-modal-body" class="help-body" style="padding: 20px;">
                 <!-- Contenido dinámico -->

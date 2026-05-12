@@ -35,7 +35,7 @@ subsanaciones_historicas AS (
 SELECT 
     cfg.gerencia as "GERENCIA",
     cfg.trata_reporte as "COD TRATA",
-    (SELECT nombre_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = cfg.tratas_incluidas[1] LIMIT 1) as "DETALLE TRATA",
+    (SELECT descripcion FROM mvw_expedientes_tratas_secgdu WHERE trata = cfg.tratas_incluidas[1] LIMIT 1) as "DETALLE TRATA",
     per.anio,
     per.mes,
     COUNT(DISTINCT l.id_expediente) FILTER (WHERE l.fecha_ing >= date_trunc('month', per.fin_mes) AND l.fecha_ing <= per.fin_mes) as "ING",

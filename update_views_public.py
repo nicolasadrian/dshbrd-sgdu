@@ -2,14 +2,16 @@ import psycopg2
 import os
 import re
 import time
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # --- CONFIGURACIÓN ---
 # Se utilizan las mismas credenciales que en sync_public.py
 LOCAL_URL = os.getenv('DATABASE_URL_LOCAL', 'postgresql://postgres:lenovo@localhost:5432/sade_db')
-REMOTE_URL = os.getenv('DATABASE_URL_PUBLIC', 'postgresql://postgres:frQB7%7D0%26p~.C_.X%40Ymu(1tAO7@34.136.69.128:5432/prefapp')
+REMOTE_URL = os.getenv('DATABASE_URL_PUBLIC', 'postgresql://postgres:frQB7%7D0%26p~.C_.X%40Ymu(1tAO7@34.136.69.128:5432/sade_db')
 QUERIES_DIR = 'queries'
 
 # Orden de prioridad para evitar errores de dependencia
@@ -104,7 +106,7 @@ def main():
         return
 
     # 1. Limpiar sesiones remotas
-    kill_remote_sessions()
+    # kill_remote_sessions()
 
     # 2. Desplegar vistas
     print(f"\n>>> Desplegando vistas desde '{QUERIES_DIR}'...")

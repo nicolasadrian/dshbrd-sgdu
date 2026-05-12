@@ -51,6 +51,10 @@ class User(BaseModel):
 # Conexión a la base de datos
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
+    DATABASE_URL = os.getenv("DATABASE_URL_PUBLIC")
+if not DATABASE_URL:
+    DATABASE_URL = os.getenv("DATABASE_URL_LOCAL")
+if not DATABASE_URL:
     DATABASE_URL = "postgresql://postgres:lenovo@localhost:5432/sade_db"
 
 engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20)
@@ -88,7 +92,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
         with engine.connect() as conn:
-            query = text("SELECT username, password_hash, role FROM auth_users WHERE username = :u")
+            query = text("SELECT username, hashed_password, role FROM auth_users WHERE username = :u")
             result = conn.execute(query, {"u": form_data.username}).fetchone()
             
             if not result or not verify_password(form_data.password, result[1]):

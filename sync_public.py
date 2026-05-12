@@ -4,13 +4,15 @@ import sys
 import os
 import tempfile
 import re
-from dotenv import load_dotenv
-
-load_dotenv() # Carga variables desde el archivo .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass # Si no está instalado, sigue adelante con las variables de entorno o defaults
 
 # --- CONFIGURACIÓN ---
 LOCAL_URL = os.getenv('DATABASE_URL_LOCAL', 'postgresql://postgres:lenovo@localhost:5432/sade_db')
-REMOTE_URL = os.getenv('DATABASE_URL_PUBLIC', 'postgresql://postgres:frQB7%7D0%26p~.C_.X%40Ymu(1tAO7@34.136.69.128:5432/prefapp')
+REMOTE_URL = os.getenv('DATABASE_URL_PUBLIC', 'postgresql://postgres:frQB7%7D0%26p~.C_.X%40Ymu(1tAO7@34.136.69.128:5432/sade_db')
 
 BASE_TABLES = [
     "mvw_expedientes_tratas_secgdu",

@@ -27,10 +27,10 @@ pases_pre_filtrados AS (
     FROM mvw_ee_pases_secgdu p
 ),
 buzones_ingreso AS (
-    SELECT unstack FROM unstack(ARRAY['DGROC-OBRASDEMO'])
+    SELECT unnest FROM unnest(ARRAY['DGROC-OBRASDEMO'])
 ),
 analistas_area AS (
-    SELECT unstack FROM unstack(ARRAY['AGUEROJO', 'AKRACOFF', 'ALVAREZ.M', 'ARAOZLUIS', 'ATENCIOAL', 'DALBORAF', 'DGROC-ESPERAINSTALACIONES', 'DGROC-OBRASDEMO', 'ENCISOA', 'EPARLATO', 'ERDOCIAINA', 'JBARRACO', 'JLGARMENDIA', 'JTERRILE', 'MYUSHU', 'S.SANCHEZPAZ', 'SCAVALLARO'])
+    SELECT unnest FROM unnest(ARRAY['AGUEROJO', 'AKRACOFF', 'ALVAREZ.M', 'ARAOZLUIS', 'ATENCIOAL', 'DALBORAF', 'DGROC-ESPERAINSTALACIONES', 'DGROC-OBRASDEMO', 'ENCISOA', 'EPARLATO', 'ERDOCIAINA', 'JBARRACO', 'JLGARMENDIA', 'JTERRILE', 'MYUSHU', 'S.SANCHEZPAZ', 'SCAVALLARO'])
 ),
 ingresos_raw AS (
     SELECT p.id_expediente, 'regularizacion' as gerencia_buzon, ec.trata as trata_orig, MIN(p.fecha)::date as fecha_ing
