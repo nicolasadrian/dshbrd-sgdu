@@ -6,3 +6,4 @@ python-dotenv
 pandas
 python-jose[cryptography]
 bcrypt
+python-multipart
