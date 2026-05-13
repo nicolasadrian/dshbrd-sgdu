@@ -1,120 +1,45 @@
--- Vista Materializada: CONTABLE
-DROP MATERIALIZED VIEW IF EXISTS mvw_reporte_historico_contable;
+-- REFACTOR FINAL: Reporte Histórico CONTABLE (Súper Optimizado)
+DROP MATERIALIZED VIEW IF EXISTS mvw_reporte_historico_contable CASCADE;
 
 CREATE MATERIALIZED VIEW mvw_reporte_historico_contable AS
-WITH tramites_metadata (gerencia, trata, nombre_trata, acronimos_list) AS (
-    VALUES 
-    ('contable', 'MDUG0901A', 'Registro de Profesionales de Obras y Catastro', ARRAY['IF']),
-    ('contable', 'MDUG1501J', 'Permiso de Ejecución de Obra Civil.', ARRAY['IFPDO']),
-    ('contable', 'MDUG3001A', 'Registro de Plano de Obra Civil: Registro en Etapa Proyecto (CONTINUAN A PERMISOS)', ARRAY['IFPDO']),
-    ('contable', 'MDUG3402A', 'Permiso Temprano de Ejecución de Obra Civil.', ARRAY['IFPEO', 'IFPDO']),
-    ('contable', 'INTERVENCIONES', 'Intervenciones', ARRAY['IFPDO', 'IFPEO'])
-),
-periodos AS (
+WITH periodos AS (
     SELECT 
-        EXTRACT(YEAR FROM s.d)::int as anio, 
-        EXTRACT(MONTH FROM s.d)::int as mes,
-        (s.d + interval '1 month' - interval '1 day')::date as fin_mes
+        EXTRACT(YEAR FROM s.d)::int as anio, EXTRACT(MONTH FROM s.d)::int as mes,
+        (s.d + interval '1 month' - interval '1 day')::date as fin_mes,
+        date_trunc('month', s.d)::date as inicio_mes
     FROM generate_series('2025-01-01'::date, '2026-12-01'::date, '1 month'::interval) s(d)
 ),
-expedientes_target AS (
-    SELECT id_expediente, trata, CASE WHEN estado ILIKE 'Subsanaci%' OR estado ILIKE 'Subsanación%' THEN 1 ELSE 0 END as is_subs
-    FROM mvw_expedientes_tratas_secgdu
+lifecycle AS (
+    SELECT * FROM v_expedientes_lifecycle WHERE gerencia = 'contable'
 ),
-pases_pre_filtrados AS (
-    SELECT p.id_expediente, p.fecha, p.destinatario, 
-           LAG(p.destinatario) OVER (PARTITION BY p.id_expediente ORDER BY p.fecha) as remitente
-    FROM mvw_ee_pases_secgdu p
-),
-buzones_ingreso AS (
-    SELECT unnest FROM unnest(ARRAY['DGROC-CONTABLE', 'DGROC-OBRASADMIN'])
-),
-analistas_area AS (
-    SELECT unnest FROM unnest(ARRAY['AMONTEVERDE', 'AMORINC', 'CARLOSDUARTE', 'CAROJAS', 'COLOTTAP', 'CPENDON', 'DAS', 'DASTUGUEO', 'DEGODOY', 'DGROC-AUTOMAT', 'DGROC-CONTABLE', 'DGROC-DCG', 'DGROC-DESCARGOS', 'DGROC-DTACONT', 'DGROC-DTARPS', 'DGROC-LEGAJOS', 'DGROC-OBRASADMIN', 'DGROC-PENDIENTESDEPAGO', 'DGROC-REVISIONCONTABLE', 'DIAZBAR', 'DKRENZ', 'EDEFEO', 'FABIANSANTILLAN', 'FMHERRERA', 'FSPANTI', 'GARCIASEBA', 'HRICCIARDI', 'JOSEMARIAORTIZ', 'JPOMAR', 'JULILOPARDO', 'LAMORGIAKA', 'LBARRIENTOS', 'LICETB', 'M.ROSSO', 'MARQUEZMAR', 'MARTINEZCLA', 'MLAURITO', 'MMALACALZA', 'NMONTEVERDE', 'NMORENO', 'POVIEDO', 'PRESAF', 'PVACEVEDO', 'RIVERAMA', 'ROBLEDOE', 'RODRIGUEZLEA', 'RODRIGUEZMAGD', 'ROSARIODECRIS', 'SCHULERG', 'SENING', 'SMERMOZ', 'SORIAD', 'SPOSAROAL', 'TATOJ', 'TIRENDIC', 'TOMIPITES', 'VICSOLMORE', 'VILLACRI'])
-),
-ingresos_raw AS (
-    SELECT p.id_expediente, 'contable' as gerencia_buzon, ec.trata as trata_orig, MIN(p.fecha)::date as fecha_ing
-    FROM pases_pre_filtrados p
-    JOIN expedientes_target ec ON p.id_expediente = ec.id_expediente
-    WHERE p.destinatario IN (SELECT * FROM buzones_ingreso)
+stats_base AS (
+    SELECT 
+        l.trata_reporte, p.anio, p.mes,
+        COUNT(DISTINCT l.id_expediente) FILTER (WHERE l.fecha_ing >= p.inicio_mes AND l.fecha_ing <= p.fin_mes) as ing,
+        COUNT(DISTINCT l.id_expediente) FILTER (WHERE l.fecha_egr >= p.inicio_mes AND l.fecha_egr <= p.fin_mes AND l.tipo_egr = 'EFECTIVO') as egr_ef,
+        COUNT(DISTINCT l.id_expediente) FILTER (WHERE l.fecha_egr >= p.inicio_mes AND l.fecha_egr <= p.fin_mes AND l.tipo_egr = 'NO_EFECTIVO') as egr_ne,
+        COUNT(DISTINCT l.id_expediente) FILTER (WHERE l.fecha_ing <= p.fin_mes AND (l.fecha_egr IS NULL OR l.fecha_egr > p.fin_mes)) as stock_bruto
+    FROM lifecycle l
+    CROSS JOIN periodos p
     GROUP BY 1, 2, 3
 ),
-ingresos AS (
-    SELECT ir.id_expediente, ir.gerencia_buzon as gerencia,
-           CASE 
-                WHEN EXISTS (SELECT 1 FROM tramites_metadata tm WHERE tm.trata = ir.trata_orig AND tm.trata != 'INTERVENCIONES') THEN ir.trata_orig
-                ELSE 'INTERVENCIONES'
-           END as trata,
-           MIN(ir.fecha_ing) as fecha_ing
-    FROM ingresos_raw ir
+subs_mensuales AS (
+    SELECT 
+        l.trata_reporte, p.anio, p.mes,
+        COUNT(DISTINCT t.id_expediente) as stock_subs
+    FROM mvw_pases_timeline t
+    JOIN lifecycle l ON t.id_expediente = l.id_expediente
+    CROSS JOIN periodos p
+    WHERE t.is_subs = 1 AND t.fecha_inicio <= p.fin_mes AND (t.fecha_fin IS NULL OR t.fecha_fin > p.fin_mes)
     GROUP BY 1, 2, 3
-),
-egresos_efectivos_puros AS (
-    SELECT g.id_expediente, i.trata, i.gerencia, MIN(g.fecha_creacion)::date as fecha_egr
-    FROM mvw_datos_gedo_secgdu g
-    JOIN ingresos i ON g.id_expediente = i.id_expediente
-    JOIN tramites_metadata tm ON i.trata = tm.trata
-    WHERE (
-        (i.trata = 'MDUG0901A' AND g.acronimo ILIKE 'IF%' AND g.usuario_creador IN ('FABIANSANTILLAN', 'LICETB')) OR
-        (i.trata = 'MDUG1501J' AND g.acronimo = 'IFPDO' AND i.trata_orig != 'MDUG1501K') OR
-        (i.trata = 'MDUG3001A' AND g.acronimo = 'IFPDO') OR
-        (i.trata = 'MDUG3402A' AND (g.acronimo = 'IFPEO' OR g.acronimo = 'IFPDO'))
-    )
-    AND g.fecha_creacion >= i.fecha_ing
-    AND i.trata != 'INTERVENCIONES'
-    GROUP BY 1, 2, 3
-),
-egresos_intervenciones AS (
-    SELECT p.id_expediente, 'INTERVENCIONES' as trata, i.gerencia, MAX(p.fecha)::date as fecha_egr
-    FROM pases_pre_filtrados p
-    JOIN ingresos i ON p.id_expediente = i.id_expediente
-    WHERE i.trata = 'INTERVENCIONES'
-      AND p.fecha > i.fecha_ing
-      AND p.remitente IN (SELECT * FROM analistas_area)
-      AND p.destinatario NOT IN (SELECT * FROM analistas_area)
-    GROUP BY 1, 2, 3
-),
-egresos_efectivos AS (
-    SELECT * FROM egresos_efectivos_puros
-    UNION ALL
-    SELECT * FROM egresos_intervenciones
-),
-egresos_no_efectivos AS (
-    SELECT p.id_expediente, i.trata, i.gerencia, MIN(p.fecha)::date as fecha_egr
-    FROM mvw_ee_pases_secgdu p
-    JOIN ingresos i ON p.id_expediente = i.id_expediente
-    WHERE (p.estado = 'Guarda Temporal' OR p.destinatario = 'GUARDA TEMPORAL') 
-      AND p.fecha > i.fecha_ing 
-      AND i.trata != 'INTERVENCIONES'
-      AND NOT EXISTS (
-          SELECT 1 FROM egresos_efectivos ee 
-          WHERE ee.id_expediente = i.id_expediente 
-          AND ee.trata = i.trata
-          AND ee.fecha_egr < p.fecha
-      )
-    GROUP BY 1, 2, 3
-),
-status_final AS (
-    SELECT i.id_expediente, i.trata, i.gerencia, i.fecha_ing, COALESCE(ee.fecha_egr, en.fecha_egr) as fecha_egr,
-           CASE WHEN ee.id_expediente IS NOT NULL THEN 'EF' WHEN en.id_expediente IS NOT NULL THEN 'NE' ELSE NULL END as tipo_egr,
-           ec.is_subs
-    FROM ingresos i
-    JOIN expedientes_target ec ON i.id_expediente = ec.id_expediente
-    LEFT JOIN egresos_efectivos ee ON i.id_expediente = ee.id_expediente AND i.trata = ee.trata
-    LEFT JOIN egresos_no_efectivos en ON i.id_expediente = en.id_expediente AND i.trata = en.trata AND ee.id_expediente IS NULL
 )
 SELECT 
-    tm.gerencia as "GERENCIA", tm.trata as "COD TRATA", tm.nombre_trata as "DETALLE TRATA", per.anio, per.mes,
-    COUNT(*) FILTER (WHERE s.fecha_ing >= date_trunc('month', per.fin_mes) AND s.fecha_ing <= per.fin_mes) as "ING",
-    COUNT(*) FILTER (WHERE s.fecha_egr >= date_trunc('month', per.fin_mes) AND s.fecha_egr <= per.fin_mes AND s.tipo_egr = 'EF') as "EGR_EF",
-    COUNT(*) FILTER (WHERE s.fecha_egr >= date_trunc('month', per.fin_mes) AND s.fecha_egr <= per.fin_mes AND s.tipo_egr = 'NE') as "EGR_NE",
-    COUNT(*) FILTER (WHERE s.fecha_ing <= per.fin_mes AND (s.fecha_egr IS NULL OR s.fecha_egr > per.fin_mes) AND s.is_subs = 1) as "STOCK_SUBS",
-    COUNT(*) FILTER (WHERE s.fecha_ing <= per.fin_mes AND (s.fecha_egr IS NULL OR s.fecha_egr > per.fin_mes) AND s.is_subs = 0 AND (
-        SELECT p.destinatario FROM mvw_ee_pases_secgdu p WHERE p.id_expediente = s.id_expediente AND p.fecha <= per.fin_mes ORDER BY p.fecha DESC LIMIT 1
-    ) IN (SELECT * FROM analistas_area)) as "STOCK_PROPIO",
-    array_to_string(tm.acronimos_list, ', ') as acronimos
-FROM tramites_metadata tm
-CROSS JOIN periodos per
-LEFT JOIN status_final s ON tm.trata = s.trata AND tm.gerencia = s.gerencia
-GROUP BY 1, 2, 3, 4, 5, tm.acronimos_list
-ORDER BY 1, 2, 4, 5;
+    cfg.gerencia as "GERENCIA", cfg.trata_reporte as "COD TRATA", p.anio, p.mes,
+    COALESCE(s.ing, 0) as "ING", COALESCE(s.egr_ef, 0) as "EGR_EF", COALESCE(s.egr_ne, 0) as "EGR_NE",
+    COALESCE(sm.stock_subs, 0) as "STOCK_SUBS", (COALESCE(s.stock_bruto, 0) - COALESCE(sm.stock_subs, 0)) as "STOCK_PROPIO"
+FROM cfg_gestion_metas cfg
+CROSS JOIN periodos p
+LEFT JOIN stats_base s ON cfg.trata_reporte = s.trata_reporte AND p.anio = s.anio AND p.mes = s.mes
+LEFT JOIN subs_mensuales sm ON cfg.trata_reporte = sm.trata_reporte AND p.anio = sm.anio AND p.mes = sm.mes
+WHERE cfg.gerencia = 'contable'
+ORDER BY 1, 2, 3, 4;

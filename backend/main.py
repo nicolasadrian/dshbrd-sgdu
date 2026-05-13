@@ -54,11 +54,12 @@ class User(BaseModel):
 
 # Función para obtener el motor de DB de forma segura
 def get_engine():
-    db_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PUBLIC") or os.getenv("DATABASE_URL_LOCAL")
+    # En localhost priorizamos la local, en Vercel se usará DATABASE_URL o PUBLIC
+    db_url = os.getenv("DATABASE_URL_LOCAL") or os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PUBLIC")
     if not db_url:
         db_url = "postgresql://postgres:lenovo@localhost:5432/sade_db"
     
-    # Corregir prefijo para SQLAlchemy si viene de Heroku/Vercel legacy
+    # Corregir prefijo para SQLAlchemy
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
@@ -98,14 +99,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 @app.post("/api/auth/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
-        with engine.connect() as conn:
-            # Intentamos con el nombre nuevo, si falla probamos con el viejo
+        with engine.begin() as conn:
             try:
                 query = text("SELECT username, hashed_password as pwd, role FROM auth_users WHERE username = :u")
                 result = conn.execute(query, {"u": form_data.username}).fetchone()
-            except Exception:
-                query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
-                result = conn.execute(query, {"u": form_data.username}).fetchone()
+                if not result:
+                    query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
+                    result = conn.execute(query, {"u": form_data.username}).fetchone()
+            except Exception as e:
+                conn.rollback()
+                logger.error(f"Error en DB: {e}")
+                raise HTTPException(status_code=500, detail="Error de base de datos")
             
             if not result or not verify_password(form_data.password, result[1]):
                 raise HTTPException(
