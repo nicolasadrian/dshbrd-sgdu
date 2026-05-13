@@ -201,7 +201,7 @@ async def health_check():
 
 @app.get("/api/admin/users")
 async def list_users(current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() != 'administrador':
+    if current_user.role.lower() not in ['admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         with engine.connect() as conn:
@@ -215,7 +215,7 @@ async def list_users(current_user: User = Depends(get_current_user)):
 
 @app.put("/api/admin/users/{username}")
 async def update_user(username: str, data: UserUpdate, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() != 'administrador':
+    if current_user.role.lower() not in ['admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         updates = []
@@ -255,7 +255,7 @@ class UserCreate(BaseModel):
 
 @app.post("/api/admin/users")
 async def create_user(user_data: UserCreate, current_user: User = Depends(get_current_user)):
-    if current_user.role != 'admin':
+    if current_user.role.lower() not in ['admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         hashed = bcrypt.hashpw(user_data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -279,7 +279,7 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
 
 @app.delete("/api/admin/users/{username}")
 async def delete_user(username: str, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() != 'administrador':
+    if current_user.role.lower() not in ['admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     if username == current_user.username:
         raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
