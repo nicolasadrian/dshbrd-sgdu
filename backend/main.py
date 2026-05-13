@@ -68,8 +68,8 @@ def get_engine():
 engine = get_engine()
 
 # Utilidades de Seguridad
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+def verify_password(plain_password, password_hash):
+    return bcrypt.checkpw(plain_password.encode('utf-8'), password_hash.encode('utf-8'))
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -176,7 +176,7 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
             # Intentar insertar con el nombre nuevo, si falla probamos con el viejo
             try:
                 conn.execute(
-                    text("INSERT INTO auth_users (username, hashed_password, role) VALUES (:u, :p, :r)"),
+                    text("INSERT INTO auth_users (username, password_hash, role) VALUES (:u, :p, :r)"),
                     {"u": user_data.username, "p": hashed, "r": user_data.role}
                 )
             except Exception:
