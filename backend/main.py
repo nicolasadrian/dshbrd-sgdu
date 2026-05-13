@@ -47,10 +47,25 @@ class Token(BaseModel):
     token_type: str
     username: str
     role: str
+    full_name: str
+    sector: str
+    needs_password_change: bool
 
 class User(BaseModel):
     username: str
     role: str
+    full_name: Optional[str] = None
+    sector: Optional[str] = None
+
+class PasswordChange(BaseModel):
+    new_password: str
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    role: Optional[str] = None
+    sector: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
 
 # Función para obtener el motor de DB de forma segura
 def get_engine():
@@ -97,33 +112,64 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 # --- Endpoints de Autenticación ---
 
 @app.post("/api/auth/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(from_data: OAuth2PasswordRequestForm = Depends()):
+    # Obtenemos la IP del cliente (simplificado para FastAPI)
+    client_ip = "0.0.0.0" # En producción se puede obtener de request.client.host
+    
     try:
         with engine.begin() as conn:
-            try:
-                # Vamos directo a password_hash que es el nombre real en tu DB
-                query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
-                result = conn.execute(query, {"u": form_data.username}).fetchone()
-            except Exception as e:
-                # No es necesario hacer rollback explícito aquí porque engine.begin() lo hace al capturar la excepción
-                logger.error(f"Error crítico en consulta de login: {e}")
-                raise HTTPException(status_code=500, detail="Error de conexión con la base de datos")
+            query = text("""
+                SELECT username, password_hash, role, full_name, sector, needs_password_change 
+                FROM auth_users WHERE username = :u
+            """)
+            result = conn.execute(query, {"u": from_data.username}).fetchone()
             
-            # BYPASS TEMPORAL PARA NICOLAS (ELIMINAR LUEGO)
-            if result and form_data.username == "nicolas" and form_data.password == "Nico1990":
-                pass
-            elif not result or not verify_password(form_data.password, result[1]):
+            if not result or not verify_password(from_data.password, result[1]):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Usuario o contraseña incorrectos",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             
-            access_token = create_access_token(data={"sub": result[0], "role": result[2]})
-            return {"access_token": access_token, "token_type": "bearer", "username": result[0], "role": result[2]}
+            # Registrar log de acceso
+            conn.execute(
+                text("INSERT INTO user_access_logs (username, ip_address) VALUES (:u, :ip)"),
+                {"u": result[0], "ip": client_ip}
+            )
+            
+            access_token = create_access_token(data={
+                "sub": result[0], 
+                "role": result[2],
+                "name": result[3]
+            })
+            
+            return {
+                "access_token": access_token, 
+                "token_type": "bearer", 
+                "username": result[0], 
+                "role": result[2],
+                "full_name": result[3] or result[0],
+                "sector": result[4] or "General",
+                "needs_password_change": result[5]
+            }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error en login: {e}")
         raise HTTPException(status_code=500, detail="Error interno del servidor")
+
+@app.post("/api/auth/change-password")
+async def change_password(data: PasswordChange, current_user: User = Depends(get_current_user)):
+    try:
+        hashed = bcrypt.hashpw(data.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE auth_users SET password_hash = :p, needs_password_change = FALSE WHERE username = :u"),
+                {"p": hashed, "u": current_user.username}
+            )
+            return {"status": "ok", "message": "Contraseña actualizada correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/auth/me", response_model=User)
 async def get_me(current_user: User = Depends(get_current_user)):
@@ -155,12 +201,50 @@ async def health_check():
 
 @app.get("/api/admin/users")
 async def list_users(current_user: User = Depends(get_current_user)):
-    if current_user.role != 'admin':
+    if current_user.role.lower() != 'administrador':
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT id, username, role, created_at FROM auth_users ORDER BY username"))
+            result = conn.execute(text("""
+                SELECT id, username, role, full_name, sector, email, needs_password_change, created_at 
+                FROM auth_users ORDER BY username
+            """))
             return [dict(r._mapping) for r in result]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/users/{username}")
+async def update_user(username: str, data: UserUpdate, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() != 'administrador':
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        updates = []
+        params = {"u": username}
+        
+        if data.full_name is not None:
+            updates.append("full_name = :fn")
+            params["fn"] = data.full_name
+        if data.role is not None:
+            updates.append("role = :r")
+            params["r"] = data.role
+        if data.sector is not None:
+            updates.append("sector = :s")
+            params["s"] = data.sector
+        if data.email is not None:
+            updates.append("email = :e")
+            params["e"] = data.email
+        if data.password:
+            updates.append("password_hash = :p")
+            params["p"] = bcrypt.hashpw(data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            updates.append("needs_password_change = TRUE")
+
+        if not updates:
+            return {"status": "ok", "message": "Nada que actualizar"}
+
+        sql = f"UPDATE auth_users SET {', '.join(updates)} WHERE username = :u"
+        with engine.begin() as conn:
+            conn.execute(text(sql), params)
+            return {"status": "ok", "message": "Usuario actualizado"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -195,14 +279,13 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
 
 @app.delete("/api/admin/users/{username}")
 async def delete_user(username: str, current_user: User = Depends(get_current_user)):
-    if current_user.role != 'admin':
+    if current_user.role.lower() != 'administrador':
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     if username == current_user.username:
         raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
     try:
-        with engine.connect() as conn:
+        with engine.begin() as conn:
             conn.execute(text("DELETE FROM auth_users WHERE username = :u"), {"u": username})
-            conn.commit()
             return {"status": "ok"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -34,7 +34,7 @@ body {
 /* Header GCBA Style */
 header {
     background: var(--white);
-    padding: 0.6rem 5%;
+    padding: 0.6rem 2%;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -42,6 +42,13 @@ header {
     top: 0;
     z-index: 1000;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+#main-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1.5rem;
 }
 
 .logo-text {
@@ -287,6 +294,12 @@ main {
     box-shadow: 0 0 0 4px rgba(0, 118, 187, 0.1);
 }
 
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
 .login-error {
     background: #fef2f2;
     color: #ef4444;
@@ -309,28 +322,45 @@ main {
 .auth-controls {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
-    background: #f1f5f9;
-    padding: 0.5rem 1.5rem;
-    border-radius: 100px;
+    gap: 0.75rem;
+    background: #f8fafc;
+    padding: 4px 6px 4px 12px;
+    border-radius: 8px;
     border: 1px solid #e2e8f0;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
 }
 
-#display-username {
-    font-size: 0.9rem;
+.user-info-banner {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    padding-right: 10px;
+    border-right: 1px solid #e2e8f0;
+}
+
+.user-fullname {
+    font-weight: 700;
     color: var(--primary-dark);
+    font-size: 0.85rem;
+    line-height: 1.1;
+}
+
+.user-sector {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
 }
 
 .btn-logout {
     background: #fee2e2;
     color: #ef4444;
     border: none;
-    padding: 6px 14px;
-    border-radius: 50px;
+    padding: 5px 10px;
+    border-radius: 6px;
     font-weight: 700;
     cursor: pointer;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     transition: var(--transition);
 }
 
@@ -395,38 +425,99 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.5rem;
-    border: 1px solid #f1f5f9;
-    border-radius: 16px;
-    margin-bottom: 1rem;
-    transition: all 0.3s ease;
-    background: #f8fafc;
+    padding: 1.25rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
 }
 
 .user-row:hover {
-    background: white;
-    transform: translateX(5px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     border-color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-.user-row:last-child { margin-bottom: 0; }
-
 .user-info-main {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: white;
+}
+
+.user-avatar.role-admin { background: var(--primary-dark); }
+.user-avatar.role-user { background: var(--secondary); }
+
+.user-details {
     display: flex;
     flex-direction: column;
 }
 
-.user-username {
+.user-name-full {
     font-weight: 700;
     color: var(--primary-dark);
     font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
-.user-meta {
+.current-user-tag {
+    background: var(--success);
+    color: white;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 800;
+}
+
+.user-meta-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.badge-role {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 800;
+}
+
+.badge-role.role-admin { background: #e0f2fe; color: #0369a1; }
+.badge-role.role-user { background: #f1f5f9; color: #475569; }
+
+.user-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-edit-user {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 700;
     font-size: 0.75rem;
-    color: #94a3b8;
-    margin-top: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-edit-user:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
 }
 
 .btn-delete {

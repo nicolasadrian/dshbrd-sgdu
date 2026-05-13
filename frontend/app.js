@@ -30,18 +30,26 @@ async function def_fetch(url, options = {}) {
 function initAuth() {
     const loginOverlay = document.getElementById('login-overlay');
     const authControls = document.getElementById('auth-controls');
-    const displayUsername = document.getElementById('display-username');
+    const displayFullName = document.getElementById('display-fullname');
+    const displaySector = document.getElementById('display-sector');
     const adminBtn = document.getElementById('admin-btn');
 
     if (authToken && currentUser) {
         loginOverlay.style.display = 'none';
         authControls.style.display = 'flex';
-        displayUsername.innerText = currentUser.username;
+        displayFullName.innerText = currentUser.full_name || currentUser.username;
+        displaySector.innerText = currentUser.sector || "General";
         
-        if (currentUser.role === 'admin') {
+        const role = (currentUser.role || "").toLowerCase();
+        if (role === 'administrador' || role === 'admin') {
             adminBtn.style.display = 'block';
         } else {
             adminBtn.style.display = 'none';
+        }
+
+        // Si necesita cambio de clave, forzar modal
+        if (currentUser.needs_password_change) {
+            document.getElementById('change-password-modal').style.display = 'flex';
         }
     } else {
         loginOverlay.style.display = 'flex';
@@ -70,13 +78,21 @@ async function login(username, password) {
 
         const data = await response.json();
         authToken = data.access_token;
-        currentUser = { username: data.username, role: data.role };
+        currentUser = { 
+            username: data.username, 
+            role: data.role, 
+            full_name: data.full_name,
+            sector: data.sector,
+            needs_password_change: data.needs_password_change
+        };
 
         localStorage.setItem('sgdu_token', authToken);
         localStorage.setItem('sgdu_user', JSON.stringify(currentUser));
 
         initAuth();
-        handleRouting();
+        if (!currentUser.needs_password_change) {
+            handleRouting();
+        }
     } catch (error) {
         if (errorDiv) {
             errorDiv.innerText = error.message;
@@ -131,7 +147,8 @@ function showView(viewId, updateHash = true) {
     }
 
     // Seguridad: Solo admin puede ver la vista de admin
-    if (viewId === 'admin' && (!currentUser || currentUser.role !== 'admin')) {
+    const role = (currentUser?.role || "").toLowerCase();
+    if (viewId === 'admin' && (role !== 'administrador' && role !== 'admin')) {
         showView('landing');
         return;
     }
@@ -424,12 +441,15 @@ window.addEventListener('DOMContentLoaded', () => {
             const username = document.getElementById('new-username').value;
             const password = document.getElementById('new-password').value;
             const role = document.getElementById('new-role').value;
+            const full_name = document.getElementById('new-fullname').value;
+            const sector = document.getElementById('new-sector').value;
+            const email = document.getElementById('new-email').value;
             
             try {
                 const resp = await def_fetch(`${API_BASE}/admin/users`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, role })
+                    body: JSON.stringify({ username, password, role, full_name, sector, email })
                 });
                 if (resp && resp.ok) {
                     alert('Usuario creado correctamente');
@@ -441,6 +461,77 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 alert('Error al crear usuario');
+            }
+        });
+    }
+
+    // Event listener para cambio de contraseña forzado
+    const changePwdForm = document.getElementById('change-password-form');
+    if (changePwdForm) {
+        changePwdForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const p1 = document.getElementById('new-secure-password').value;
+            const p2 = document.getElementById('confirm-secure-password').value;
+            const errDiv = document.getElementById('change-password-error');
+            
+            if (p1 !== p2) {
+                errDiv.innerText = "Las contraseñas no coinciden";
+                return;
+            }
+
+            try {
+                const resp = await def_fetch(`${API_BASE}/auth/change-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_password: p1 })
+                });
+
+                if (resp && resp.ok) {
+                    alert('Contraseña actualizada. ¡Bienvenido!');
+                    document.getElementById('change-password-modal').style.display = 'none';
+                    currentUser.needs_password_change = false;
+                    localStorage.setItem('sgdu_user', JSON.stringify(currentUser));
+                    handleRouting();
+                } else {
+                    const err = await resp.json();
+                    errDiv.innerText = err.detail;
+                }
+            } catch (err) {
+                errDiv.innerText = "Error al conectar con el servidor";
+            }
+        });
+    }
+
+    // Event listener para editar usuario
+    const editUserForm = document.getElementById('edit-user-form');
+    if (editUserForm) {
+        editUserForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('edit-username-hidden').value;
+            const full_name = document.getElementById('edit-fullname').value;
+            const role = document.getElementById('edit-role').value;
+            const password = document.getElementById('edit-password').value;
+            
+            const data = { full_name, role };
+            if (password) data.password = password;
+
+            try {
+                const resp = await def_fetch(`${API_BASE}/admin/users/${username}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (resp && resp.ok) {
+                    alert('Usuario actualizado');
+                    closeModal('edit-user-modal');
+                    loadUsers();
+                } else {
+                    const err = await resp.json();
+                    alert(err.detail);
+                }
+            } catch (err) {
+                alert("Error al actualizar");
             }
         });
     }
@@ -907,23 +998,30 @@ async function loadUsers() {
         
         users.forEach(u => {
             const isMe = u.username === currentUser.username;
+            const roleLabel = (u.role || "").toUpperCase();
+            const roleClass = (u.role || "").toLowerCase() === 'administrador' ? 'role-admin' : 'role-user';
+
             html += `
                 <div class="user-row">
-                    <div class="user-info-main" style="display: flex; flex-direction: row; align-items: center; gap: 1rem;">
-                        <div style="background: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                            ${u.role === 'admin' ? '🛡️' : '👤'}
+                    <div class="user-info-main">
+                        <div class="user-avatar ${roleClass}">
+                            ${(u.full_name || u.username).substring(0, 1).toUpperCase()}
                         </div>
-                        <div style="display: flex; flex-direction: column;">
-                            <span class="user-username" style="display: flex; align-items: center;">
-                                ${u.username} 
-                                ${isMe ? '<span class="trata-id-tag" style="background: var(--primary); color: white; margin-left: 8px; font-size: 0.6rem;">SESIÓN ACTUAL</span>' : ''}
+                        <div class="user-details">
+                            <span class="user-name-full">
+                                ${u.full_name || 'Sin nombre'} 
+                                ${isMe ? '<span class="current-user-tag">TÚ</span>' : ''}
                             </span>
-                            <span class="user-meta">Rol: <strong>${u.role.toUpperCase()}</strong> • Creado el ${new Date(u.created_at).toLocaleDateString()}</span>
+                            <span class="user-meta-sub">
+                                <strong>@${u.username}</strong> • ${u.sector || 'S/D'} • 
+                                <span class="badge-role ${roleClass}">${roleLabel}</span>
+                            </span>
                         </div>
                     </div>
                     <div class="user-actions">
-                        <button onclick="deleteUser('${u.username}')" class="btn-delete" ${isMe ? 'disabled' : ''} title="${isMe ? 'No puedes eliminarte a ti mismo' : 'Eliminar usuario'}">
-                            ${isMe ? 'Protegido' : 'Eliminar'}
+                        <button onclick="openEditUser('${u.username}', '${u.full_name}', '${u.role}')" class="btn-edit-user">Editar</button>
+                        <button onclick="deleteUser('${u.username}')" class="btn-delete" ${isMe ? 'disabled' : ''}>
+                            Eliminar
                         </button>
                     </div>
                 </div>
@@ -952,4 +1050,12 @@ async function deleteUser(username) {
     } catch (error) {
         alert('Error al eliminar usuario');
     }
+}
+
+function openEditUser(username, fullname, role) {
+    document.getElementById('edit-username-hidden').value = username;
+    document.getElementById('edit-fullname').value = fullname !== 'null' ? fullname : '';
+    document.getElementById('edit-role').value = role;
+    document.getElementById('edit-password').value = '';
+    document.getElementById('edit-user-modal').style.display = 'flex';
 }
