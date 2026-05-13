@@ -101,15 +101,13 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     try:
         with engine.begin() as conn:
             try:
-                query = text("SELECT username, hashed_password as pwd, role FROM auth_users WHERE username = :u")
+                # Vamos directo a password_hash que es el nombre real en tu DB
+                query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
                 result = conn.execute(query, {"u": form_data.username}).fetchone()
-                if not result:
-                    query = text("SELECT username, password_hash as pwd, role FROM auth_users WHERE username = :u")
-                    result = conn.execute(query, {"u": form_data.username}).fetchone()
             except Exception as e:
-                conn.rollback()
-                logger.error(f"Error en DB: {e}")
-                raise HTTPException(status_code=500, detail="Error de base de datos")
+                # No es necesario hacer rollback explícito aquí porque engine.begin() lo hace al capturar la excepción
+                logger.error(f"Error crítico en consulta de login: {e}")
+                raise HTTPException(status_code=500, detail="Error de conexión con la base de datos")
             
             if not result or not verify_password(form_data.password, result[1]):
                 raise HTTPException(
