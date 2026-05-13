@@ -41,6 +41,7 @@ function initAuth() {
         displaySector.innerText = currentUser.sector || "General";
         
         const role = (currentUser.role || "").toLowerCase();
+        
         if (role === 'administrador' || role === 'admin') {
             adminBtn.style.display = 'block';
         } else {
@@ -146,50 +147,33 @@ function showView(viewId, updateHash = true) {
         return;
     }
 
-    // Seguridad: Solo admin puede ver la vista de admin
     const role = (currentUser?.role || "").toLowerCase();
+
+    // Seguridad: Solo admin puede ver la vista de admin
     if (viewId === 'admin' && (role !== 'administrador' && role !== 'admin')) {
         showView('landing');
         return;
+    }
+
+    views.forEach(v => {
+        v.classList.remove('active');
+        v.style.display = 'none';
+    });
+    
+    targetView.style.display = 'block';
+    setTimeout(() => targetView.classList.add('active'), 10);
+    
+    if (updateHash) {
+        window.location.hash = `#/${viewId}`;
     }
 
     if (viewId === 'admin') {
         loadUsers();
     }
 
-    // Ocultar todas las vistas y limpiar estados de animación previos
-    views.forEach(v => {
-        v.classList.remove('active');
-        v.style.display = 'none';
-        gsap.set(v, { clearProps: "all" }); // LIMPIEZA TOTAL DE GSAP
-    });
-
-    // Activar la vista seleccionada con limpieza de estados previos
-    targetView.style.display = 'block';
-    targetView.classList.add('active');
-    
-    // Resetear scroll al cambiar de vista
-    window.scrollTo(0, 0);
-    
-    // Asegurar opacidad 1 y limpiar transformaciones previas antes de la animación
-    gsap.killTweensOf(targetView);
-    gsap.set(targetView, { opacity: 1, y: 0, clearProps: "transform" });
-    
-    gsap.from(targetView, { 
-        opacity: 0, 
-        y: 10, 
-        duration: 0.3, 
-        ease: "power2.out"
-    });
-
-    if (updateHash) {
-        window.location.hash = `#/${viewId}`;
-    }
-
-    // Lista oficial de gerencias que requieren carga de matriz
+    // Carga de reportes si es una vista de gerencia
     const gerencias = ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
     if (gerencias.includes(viewId)) {
-        // Pequeño delay para asegurar que el DOM se renderizó
         setTimeout(() => loadConsolidatedReport(viewId), 50);
     }
 }
@@ -333,8 +317,9 @@ function renderMatrixTable(container, data) {
     sortedTrataIds.forEach(trataId => {
         const group = groups[trataId];
         const gerenciaKey = container.id.split('-').pop();
-        const safeName = group.name.replace(/'/g, "\\'");
-        const safeAcronimos = (group.acronimos || '').replace(/'/g, "\\'");
+        const groupName = group.name || trataId;
+        const safeName = groupName.toString().replace(/'/g, "\\'");
+        const safeAcronimos = (group.acronimos || '').toString().replace(/'/g, "\\'");
 
         html += `
             <tr class="trata-group-header">
@@ -541,22 +526,6 @@ let currentChart = null;
 let currentStockAgeChart = null;
 let currentStockData = { expedientes: [], trataName: "", trataCode: "" };
 
-function switchTrataSection(sectionId) {
-    // Actualizar botones
-    const btns = document.querySelectorAll('.tab-btn');
-    btns.forEach(btn => {
-        if (btn.innerText.toLowerCase() === sectionId) btn.classList.add('active');
-        else btn.classList.remove('active');
-    });
-
-    // Actualizar secciones
-    const sections = document.querySelectorAll('.trata-section');
-    sections.forEach(s => {
-        if (s.id === `section-${sectionId}`) s.classList.add('active');
-        else s.classList.remove('active');
-    });
-}
-
 async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true) {
     const views = document.querySelectorAll('.view-container');
     views.forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
@@ -574,6 +543,14 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     document.getElementById('header-stock-propio').innerText = '0';
     document.getElementById('header-stock-subs').innerText = '0';
 
+    // Control de permisos para la pestaña METAS
+    const role = (currentUser?.role || "").toLowerCase();
+    const canSeeMetas = role === 'administrador' || role === 'admin' || role === 'seguimiento';
+    const metasTabBtn = document.querySelector('.tab-btn[onclick*="metas"]');
+    if (metasTabBtn) {
+        metasTabBtn.style.display = canSeeMetas ? 'block' : 'none';
+    }
+    
     if (updateHash) {
         window.location.hash = `#/${gerencia}/${trataCode}`;
     }
@@ -591,7 +568,11 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     const ageChartCtx = document.getElementById('stock-age-chart');
     if (ageChartCtx) ageChartCtx.parentElement.innerHTML = '<canvas id="stock-age-chart"></canvas>';
 
-    document.getElementById('trata_detail_title').innerText = trataName;
+    if (trataCode === 'INTERVENCIONES') {
+        document.getElementById('trata_detail_title').innerText = 'INTERVENCIONES';
+    } else {
+        document.getElementById('trata_detail_title').innerText = trataName;
+    }
     document.getElementById('trata_detail_subtitle').innerText = trataCode;
 
     // Determinar la dirección superior (DGROC o DGIUR)
@@ -605,10 +586,13 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     parentLink.onclick = () => showView(parentDir);
 
     const backBtn = document.getElementById('trata_detail_back');
-    backBtn.innerText = gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' ');
-    backBtn.onclick = () => {
-        window.location.hash = `#/${gerencia}`;
-    };
+    if (backBtn && gerencia) {
+        const cleanGerencia = gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' ');
+        backBtn.innerText = cleanGerencia;
+        backBtn.onclick = () => {
+            window.location.hash = `#/${gerencia}`;
+        };
+    }
 
     const intervContainer = document.getElementById('intervenciones-detail-container');
     if (intervContainer) {
@@ -700,6 +684,14 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 }
 
 function switchTrataSection(sectionId) {
+    const role = (currentUser?.role || "").toLowerCase();
+    const canSeeMetas = role === 'administrador' || role === 'admin' || role === 'seguimiento';
+
+    if (sectionId === 'metas' && !canSeeMetas) {
+        alert("No tienes permisos para ver esta sección.");
+        return;
+    }
+
     // Ocultar todas las secciones
     document.querySelectorAll('.trata-section').forEach(s => s.classList.remove('active'));
     // Desactivar todos los botones
@@ -712,7 +704,8 @@ function switchTrataSection(sectionId) {
     // Activar botón (buscando por el texto o el onclick)
     const buttons = document.querySelectorAll('.tab-btn');
     buttons.forEach(btn => {
-        if (btn.getAttribute('onclick').includes(`'${sectionId}'`)) {
+        const clickAttr = btn.getAttribute('onclick') || "";
+        if (clickAttr.includes(`'${sectionId}'`)) {
             btn.classList.add('active');
         }
     });

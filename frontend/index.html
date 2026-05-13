@@ -456,20 +456,24 @@
     <!-- Modal de Cambio de Contraseña Forzado -->
     <div id="change-password-modal" class="modal" style="backdrop-filter: blur(10px); background: rgba(0,0,0,0.8);">
         <div class="modal-content" style="max-width: 400px; padding: 30px;">
-            <div class="modal-header" style="border: none; text-align: center; flex-direction: column;">
-                <h2 style="color: var(--primary-dark);">Seguridad</h2>
-                <p style="color: #64748b; margin-top: 10px;">Por ser tu primer ingreso, debes cambiar tu contraseña.</p>
+            <div class="modal-header" style="border: none; text-align: center; flex-direction: column; padding-bottom: 0; background: white !important;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
+                <h2 style="color: var(--primary-dark); font-size: 1.5rem; margin-bottom: 0.5rem;">Seguridad de la Cuenta</h2>
+                <p style="color: #475569; font-size: 0.95rem; line-height: 1.4; padding: 0 10px;">
+                    ¡Bienvenido al Tablero SGDU!<br>
+                    Por ser tu <strong>primer ingreso</strong>, es necesario que personalices tu contraseña para proteger tu acceso.
+                </p>
             </div>
-            <form id="change-password-form" style="margin-top: 20px;">
+            <form id="change-password-form" style="margin-top: 25px; background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <div class="form-group">
-                    <label>Nueva Contraseña</label>
-                    <input type="password" id="new-secure-password" required minlength="6" class="form-input">
+                    <label style="color: #64748b; font-size: 0.75rem;">Nueva Contraseña</label>
+                    <input type="password" id="new-secure-password" required minlength="6" class="form-input" placeholder="Mínimo 6 caracteres">
                 </div>
                 <div class="form-group" style="margin-top: 15px;">
-                    <label>Repetir Contraseña</label>
-                    <input type="password" id="confirm-secure-password" required minlength="6" class="form-input">
+                    <label style="color: #64748b; font-size: 0.75rem;">Confirmar Nueva Contraseña</label>
+                    <input type="password" id="confirm-secure-password" required minlength="6" class="form-input" placeholder="Repite la contraseña">
                 </div>
-                <div id="change-password-error" class="login-error" style="margin-top: 10px;"></div>
+                <div id="change-password-error" class="login-error" style="margin-top: 10px; display: none;"></div>
                 <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">Actualizar y Entrar</button>
             </form>
         </div>
@@ -502,6 +506,19 @@
                 </div>
                 <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">Guardar Cambios</button>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal de Ayuda / Metodología -->
+    <div id="help-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                <h2 style="color: var(--primary-dark); font-size: 1.2rem;">Ayuda y Metodología</h2>
+                <span class="close-modal" onclick="closeModal('help-modal')" style="color: #64748b; cursor: pointer; font-size: 2rem;">&times;</span>
+            </div>
+            <div id="help-modal-body" style="padding: 25px; line-height: 1.6; color: #334155;">
+                <!-- Se llena vía JS en openHelpModal -->
+            </div>
         </div>
     </div>
 

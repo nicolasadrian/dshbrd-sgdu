@@ -351,23 +351,17 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
         with engine.connect() as conn:
             # Seleccionamos directamente los valores de la vista histórica para asegurar consistencia total con la tabla
             if trata == 'INTERVENCIONES':
-                propios = list(TRAMITES_CONFIG.get(gerencia_clean, {}).keys())
-                propios_sql = ", ".join([f"'{p}'" for p in propios])
+                # Ahora que INTERVENCIONES es una fila real en la vista histórica, la consultamos directamente
                 sql = f"""
-                    SELECT anio, mes, 
-                           'INTERVENCIONES' as "DETALLE TRATA",
-                           SUM("ING") as "ING", 
-                           SUM("EGR_EF") as "EGR_EF", 
-                           SUM("EGR_NE") as "EGR_NE",
-                           SUM("STOCK_PROPIO") as "STOCK_PROPIO",
-                           SUM("STOCK_SUBS") as "STOCK_SUBS"
+                    SELECT anio, mes, "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
                     FROM mvw_reporte_historico_{gerencia_clean}
-                    WHERE "COD TRATA" NOT IN ({propios_sql})
-                      AND "COD TRATA" != 'MDUG0102B'
+                    WHERE "COD TRATA" = 'INTERVENCIONES'
                       AND (anio, mes) IN ({months_filter})
-                    GROUP BY anio, mes
                     ORDER BY anio DESC, mes DESC
                 """
+                result = conn.execute(text(sql))
+                df = pd.DataFrame(result.fetchall(), columns=result.keys())
+                return df.to_dict(orient='records')
             else:
                 sql = f"""
                     SELECT anio, mes, "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
@@ -395,49 +389,65 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
 
     try:
         with engine.connect() as conn:
-            buzzers = BUZZERS_MAP.get(gerencia_clean, [])
-            whitelist_users = WHITELISTS.get(gerencia_clean, [])
-            sector_whitelist = whitelist_users + buzzers
-            sector_whitelist_sql = ", ".join([f"'{u}'" for u in sector_whitelist])
+            # Obtener configuración de analistas y buzones directamente de la DB para esta trata
+            cfg_query = text("""
+                SELECT buzones_ingreso, analistas_oficiales 
+                FROM cfg_gestion_metas 
+                WHERE gerencia = :g AND trata_reporte = :t
+            """)
+            cfg_res = conn.execute(cfg_query, {"g": gerencia_clean, "t": trata}).fetchone()
+            
+            if not cfg_res:
+                return {"stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
+            
+            # Combinar buzones y analistas para el filtro de la vista
+            sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
+            if not sector_whitelist:
+                return {"stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
 
             # Usamos la vista materializada optimizada para el detalle
             sql = f"""
                 SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
                        dias_ultimo_movimiento as dias, analista_actual as analista
                 FROM mvw_stock_actual_detalle
-                WHERE trata_reporte = '{trata}' 
-                  AND gerencia = '{gerencia_clean}'
+                WHERE trata_reporte = :t 
+                  AND gerencia = :g
                   AND is_subs = 0
-                  AND analista_actual IN ({sector_whitelist_sql})
+                  AND analista_actual = ANY(:whitelist)
             """
-            result = conn.execute(text(sql))
-            rows = result.fetchall()
+            result = conn.execute(text(sql), {"t": trata, "g": gerencia_clean, "whitelist": sector_whitelist})
+            rows = [dict(r._mapping) for r in result.fetchall()]
 
-            
             # Formatear la respuesta enfocada en STOCK ACTUAL PROPIO REAL
             propio_month_counts = {}
             analyst_data = {}
             ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
             
             for row in rows:
-                # La antigüedad del stock se mide por el ÚLTIMO MOVIMIENTO (fecha_ultimo_pase)
-                if row.fecha_ultimo_pase:
-                    m_key = row.fecha_ultimo_pase.strftime("%Y-%m")
+                f_pase = row.get('fecha_ultimo_pase')
+                f_ing = row.get('fecha_ing')
+                
+                if f_pase and hasattr(f_pase, 'strftime'):
+                    m_key = f_pase.strftime("%Y-%m")
+                elif f_ing and hasattr(f_ing, 'strftime'):
+                    m_key = f_ing.strftime("%Y-%m")
                 else:
-                    m_key = row.fecha_ing.strftime("%Y-%m") if row.fecha_ing else "sin-fecha"
+                    m_key = "sin-fecha"
+                    
                 propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
                 
-                analista = row.analista or "SIN ASIGNAR"
+                analista = row.get('analista') or "SIN ASIGNAR"
                 if analista not in analyst_data:
                     analyst_data[analista] = {r[2]: 0 for r in ranges}
                     analyst_data[analista]["TOTAL"] = 0
                 
                 # Clasificar por días desde el último movimiento
-                dias = row.dias if row.dias is not None else 0
+                dias = row.get('dias') if row.get('dias') is not None else 0
                 for start, end, label in ranges:
                     if start <= dias < end:
                         analyst_data[analista][label] += 1
                         break
+                    
                 analyst_data[analista]["TOTAL"] += 1
             
             return {
@@ -446,12 +456,12 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 "analyst_distribution": [{"analista": name, **counts} for name, counts in analyst_data.items()],
                 "expedientes": [
                     {
-                        "id_expediente": r.id_expediente,
-                        "expediente": r.expediente,
-                        "fecha_ing": r.fecha_ing.strftime("%Y-%m-%d %H:%M:%S") if r.fecha_ing else None,
-                        "fecha_ultimo_pase": r.fecha_ultimo_pase.strftime("%Y-%m-%d %H:%M:%S") if r.fecha_ultimo_pase else None,
-                        "dias": r.dias if r.dias is not None else 0,
-                        "analista": r.analista
+                        "id_expediente": r.get("id_expediente"),
+                        "expediente": r.get("expediente"),
+                        "fecha_ing": r.get("fecha_ing").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ing") and hasattr(r.get("fecha_ing"), "strftime") else None,
+                        "fecha_ultimo_pase": r.get("fecha_ultimo_pase").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ultimo_pase") and hasattr(r.get("fecha_ultimo_pase"), "strftime") else None,
+                        "dias": r.get("dias") if r.get("dias") is not None else 0,
+                        "analista": r.get("analista")
                     } 
                     for r in rows[:1000]
                 ]
@@ -466,21 +476,31 @@ async def get_intervenciones_detalle(gerencia: str, current_user: User = Depends
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
     
-    # Lista de trámites propios para excluir del desglose de intervenciones
-    propios = list(TRAMITES_CONFIG[gerencia_clean].keys())
-    propios_sql = ", ".join([f"'{p}'" for p in propios])
-
     try:
         with engine.connect() as conn:
             # Consultamos directamente el stock actual usando la columna trata_reporte
+            # Obtenemos primero la lista de analistas/buzones para esta gerencia (INTERVENCIONES)
+            cfg_query = text("""
+                SELECT buzones_ingreso, analistas_oficiales 
+                FROM cfg_gestion_metas 
+                WHERE gerencia = :g AND trata_reporte = 'INTERVENCIONES'
+            """)
+            cfg_res = conn.execute(cfg_query, {"g": gerencia_clean}).fetchone()
+            
+            if not cfg_res: return []
+            
+            sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
+            if not sector_whitelist: return []
+
             sql = f"""
-                SELECT trata, descripcion as detalle, dias_stock
+                SELECT trata, descripcion as detalle, dias_ultimo_movimiento as dias_stock
                 FROM mvw_stock_actual_detalle
                 WHERE is_subs = 0 
-                  AND gerencia = '{gerencia_clean}'
+                  AND gerencia = :g
                   AND trata_reporte = 'INTERVENCIONES'
+                  AND analista_actual = ANY(:whitelist)
             """
-            result = conn.execute(text(sql))
+            result = conn.execute(text(sql), {"g": gerencia_clean, "whitelist": sector_whitelist})
             rows = [dict(r._mapping) for r in result.fetchall()]
             if not rows: return []
             df = pd.DataFrame(rows)
