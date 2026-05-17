@@ -5,6 +5,7 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
 // --- ESTADO DE AUTENTICACIÓN ---
 let authToken = localStorage.getItem('sgdu_token');
 let currentUser = JSON.parse(localStorage.getItem('sgdu_user') || 'null');
+let metasChart = null;
 
 // Helper para fetch con autenticación
 // Helper para fetch con autenticación
@@ -120,7 +121,7 @@ const BUZZERS_DOCS = {
     'catastro': 'DGROC-CIC, DGROC-COPIAPLANO, DGROC-DCATDES, DGROC-DCATPOL o DGROC-DCATTIT',
     'contable': 'DGROC-CONTABLE o DGROC-OBRASADMIN',
     'instalaciones': 'DGROC-ELECTRICAS, DGROC-ELEVADORES, DGROC-INCENDIO, DGROC-SANITARIAS o DGROC-TERMICAS',
-    'regularizacion': 'DGROC-OBRASDEMO',
+    'conforme': 'DGROC-OBRASDEMO',
     'etapa_proyecto': 'DGROC-OBRASTECNICA',
     'aviso_obra': 'DGROC-AUTOMAT',
     'morfologia': 'DGIUR-03, DGIUR-ADMISIBILIDADMORFO, DGIUR-CONSULTASESPECIFICAS, DGIUR-CURVERIFICACION o DGIUR-DGIUR-PERMISO TEMPRANO',
@@ -129,14 +130,17 @@ const BUZZERS_DOCS = {
 };
 
 const ANALYSTS_DOCS = {
-    'catastro': ["ACOSTAPA", "AFAHLER", "AGUSMAZZONI", "ALEALFONSIN", "ALEGREM", "ARGENTOES", "BARTROLIG", "CABRERAM", "CANALEAL", "CARBONELLIM", "CHIANETTAR", "CIOPKOG", "CISTERNACA", "COHENCAD", "CONTIL", "CONVERTID", "DELGADODE", "DIBIASEO", "DIEZGASTON", "DIHARCEP", "DURSIM", "ECIJAN", "FMARCHISELLA", "FOLLONIERLE", "FREIXASC", "GARCIASIL", "GILESJP", "GONZALEZAMA", "GONZALEZHORAC", "GUZMANO", "IGARZABALP", "JTIRADO", "LAGUNAMA", "LBELLY", "LOISIG", "LUCCIC", "M.NAPOLI", "MALATTOR", "MANNOP", "MARCHETTIJ", "MHOSBALIKCIYAN", "MOSCOVICHA", "NCITRANGOLO", "NOGUERAH", "NPONZO", "NQUINTERNO", "PONZOS", "ROLDANG", "SALGUEROM", "SORIAANDREA", "TARRUA", "TAVELLAE", "VEGAJ", "VILLAGI", "WVIRGILIO"],
-    'regularizacion': ["AGUEROJO", "AKRACOFF", "ALVAREZ.M", "ARAOZLUIS", "ATENCIOAL", "DALBORAF", "ENCISOA", "EPARLATO", "ERDOCIAINA", "JBARRACO", "JLGARMENDIA", "JTERRILE", "MYUSHU", "S.SANCHEZPAZ", "SCAVALLARO"],
+    'catastro': ["ACOSTAPA", "AFAHLER", "AGUSMAZZONI", "ALEALFONSIN", "ALEGREM", "ARGENTOES", "BARTROLIG", "CABRERAM", "CANALEAL", "CARBONELLIM", "CHIANETTAR", "CIOPKOG", "CISTERNACA", "COHENCAD", "CONTIL", "CONVERTID", "DELGADODE", "DGROC-CIC", "DGROC-COPIAPLANO", "DGROC-DCATDES", "DGROC-DCATMEN", "DGROC-DCATPOL", "DGROC-DCATTIT", "DIBIASEO", "DIEZGASTON", "DIHARCEP", "DURSIM", "ECIJAN", "FMARCHISELLA", "FOLLONIERLE", "FREIXASC", "GARCIASIL", "GILESJP", "GONZALEZAMA", "GONZALEZHORAC", "GUZMANO", "IGARZABALP", "JTIRADO", "LAGUNAMA", "LBELLY", "LOISIG", "LUCCIC", "M.NAPOLI", "MALATTOR", "MANNOP", "MARCHETTIJ", "MHOSBALIKCIYAN", "MOSCOVICHA", "NCITRANGOLO", "NOGUERAH", "NPONZO", "NQUINTERNO", "PONZOS", "ROLDANG", "SALGUEROM", "SORIAANDREA", "TARRUA", "TAVELLAE", "VEGAJ", "VILLAGI", "WVIRGILIO"],
+    'aph': ["CHANTIRRO", "CHEZOM", "DAMATOG", "DESANTISA", "DGIUR-21", "DGIUR-ADMISIBILIDADAPH", "DGIUR-ADMISIMIDIDADAPH", "GALAMA", "GONZALEZNIETOR", "HERENUFE", "LSANTINMOLINA", "MARIANALVAREZ", "NASALVATIERRA", "PIOLON", "SVC_DGIURADMAPH", "VASTAM"],
+    'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DGIUR-12", "DGIUR-ADMISIBILIDADUSOS", "DGIUR-EGOUS", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "SVC_DGIURUSOS", "VKAUFMAN"],
+    'conforme': ["AGUEROJO", "AKRACOFF", "ALVAREZ.M", "ARAOZLUIS", "ATENCIOAL", "DALBORAF", "DGROC-ESPERAINSTALACIONES", "DGROC-OBRASDEMO", "ENCISOA", "EPARLATO", "ERDOCIAINA", "JBARRACO", "JLGARMENDIA", "JTERRILE", "MYUSHU", "S.SANCHEZPAZ", "SCAVALLARO"],
     'instalaciones': ["AQUINOLUCAS", "ARENAJ", "ARGUELLOJ", "BATALLANJ", "BENITOG", "BRIANMARTINEZ", "CORNAZM", "FICARRAR", "GAGLIARDIA", "LOPARDOC", "QUEIJASGUILLINP", "ROBLEDOJO", "ROLDANMI", "RUDAC", "SARIDISD", "TOLESANOA", "AURENA", "BATALLANGE", "BRITANP", "GUARDADOB", "JDECIMA", "PEREZGA", "RODRIGUEZESTEBAN", "RODRIGUEZNE", "SILESC", "VILLAGAB", "ABCRAGNO", "AGARCIAFIGUEROA", "CABRERAARI", "CAFELICE", "CAPOZZOG", "CSALGUERO", "DARANGURI", "DMOFFA", "FUHRY", "GONMAR", "J.OLIVERA", "LOPEZFE", "MARIANELAROCARO", "MBALDOME", "MLMAMONE", "MTRENQUE", "NIEVAL", "PCHERBENCO", "RADAA", "RIOSFE", "ROMANOFLA", "SANTACRUZ", "CANTARELLTORRES", "CIRIAE", "LOIACONOANA", "MCDIAMANTI", "POUSAF", "ARGUELLOSOL", "COSSM", "EIERACI", "HAMALAG", "RUIZMA", "BRITANG", "ENCISOROMERO", "PITTERIE", "WIERZBICKIIGOR"],
     'contable': ["AMONTEVERDE", "AMORINC", "CARLOSDUARTE", "CAROJAS", "COLOTTAP", "CPENDON", "DAS", "DASTUGUEO", "DEGODOY", "DIAZBAR", "DKRENZ", "EDEFEO", "FABIANSANTILLAN", "FMHERRERA", "FSPANTI", "GARCIASEBA", "HRICCIARDI", "JOSEMARIAORTIZ", "JPOMAR", "JULILOPARDO", "LAMORGIAKA", "LBARRIENTOS", "LICETB", "M.ROSSO", "MARQUEZMAR", "MARTINEZCLA", "MLAURITO", "MMALACALZA", "NMONTEVERDE", "NMORENO", "POVIEDO", "PRESAF", "PVACEVEDO", "RIVERAMA", "ROBLEDOE", "RODRIGUEZLEA", "RODRIGUEZMAGD", "ROSARIODECRIS", "SCHULERG", "SENING", "SMERMOZ", "SORIAD", "SPOSAROAL", "TATOJ", "TIRENDIC", "TOMIPITES", "VICSOLMORE", "VILLACRI"],
-    'etapa_proyecto': ["A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", "DIMASOM", "DNKAINSKY", "FORGIONEA", "GAILLURJP", "GARRIONDO", "JOSEFINA.P", "M.SANCHEZ", "MARCE.TOSONI", "MARCETOSONI", "MARCETOSONI1", "MBRISA", "MCANOGARAY", "MCARLUCCIO", "MGALLARDOC", "MSTIBERTI", "NLOPEZQUIROGA", "ROCABERTJ", "SPUET", "TALAMOM", "VERA"],
+    'etapa_proyecto': ["A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", "DGROC-OBRASTECNICA", "DIMASOM", "DNKAINSKY", "FORGIONEA", "GAILLURJP", "GARRIONDO", "JOSEFINA.P", "M.SANCHEZ", "MARCE.TOSONI", "MARCETOSONI", "MARCETOSONI1", "MBRISA", "MCANOGARAY", "MCARLUCCIO", "MGALLARDOC", "MSTIBERTI", "NLOPEZQUIROGA", "ROCABERTJ", "SPUET", "TALAMOM", "VERA"],
     'morfologia': ["A.GUZMAN", "AGARTEAGA", "ALANDAZURI", "ALFONSOGA", "CAROLINAPRADO", "CGAMARRA", "CGENTILINI", "DANCOLOMBO", "ECAYSSIALS", "EVELYNTORRES", "FORFANO", "FOTTOGALLI", "FRANGARAY", "GBERNASCONI", "GCABADGIUR", "IANELUSTONDO", "IVALDES", "LNSPERTINO", "M.SABATINO", "MANUELALVELO", "MILAGROSTOURON", "MILENAAZULMORENO", "MLOBIANCOCRIADO", "MPLANS1", "MREIDMAN", "MVOSKIAN", "NASILANES", "NCASALE", "OVERRINA", "PTEIGA", "ROCAM", "SBONDOREVSKY", "SCABANELLAS", "SDAVIDOVSKY", "TOSELLIR", "VVINICIUS"],
     'aph': ["CHANTIRRO", "CHEZOM", "DAMATOG", "DESANTISA", "GALAMA", "GONZALEZNIETOR", "HERENUFE", "LSANTINMOLINA", "MARIANALVAREZ", "NASALVATIERRA", "PIOLON", "VASTAM"],
-    'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "VKAUFMAN"]
+    'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "VKAUFMAN"],
+    'aviso_obra': ["DGROC-AUTOMAT"]
 };
 
 function showView(viewId, updateHash = true) {
@@ -171,8 +175,12 @@ function showView(viewId, updateHash = true) {
         loadUsers();
     }
 
+    if (viewId === 'metas') {
+        loadMetasData();
+    }
+
     // Carga de reportes si es una vista de gerencia
-    const gerencias = ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+    const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
     if (gerencias.includes(viewId)) {
         setTimeout(() => loadConsolidatedReport(viewId), 50);
     }
@@ -317,26 +325,37 @@ function renderMatrixTable(container, data) {
     sortedTrataIds.forEach(trataId => {
         const group = groups[trataId];
         const gerenciaKey = container.id.split('-').pop();
-        const groupName = group.name || trataId;
-        const safeName = groupName.toString().replace(/'/g, "\\'");
-        const safeAcronimos = (group.acronimos || '').toString().replace(/'/g, "\\'");
+        const rawName = group.name || trataId;
+        const groupName = rawName.toString().replace(/\r?\n|\r/g, ' ').trim();
+        const safeName = groupName.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        const safeAcronimos = (group.acronimos || '').toString().replace(/\r?\n|\r/g, ' ').replace(/'/g, '').replace(/"/g, '&quot;').trim();
 
         html += `
             <tr class="trata-group-header">
                 <td style="background: var(--primary-dark); color: white; border-top-left-radius: 8px; border-bottom-left-radius: 8px;">
                     <div class="trata-title-wrapper">
                         <a href="#" class="trata-link" style="color: white;" onclick="event.preventDefault(); showTrataDetail('${gerenciaKey}', '${trataId}', '${safeName}')">
-                            ${group.name.toUpperCase()}
+                            ${groupName.toUpperCase()}
                         </a>
                         <span class="info-icon" onclick="event.stopPropagation(); openHelpModal('${trataId}', '${gerenciaKey}', '${safeName}', '${safeAcronimos}')">i</span>
                         <span class="trata-id-tag" style="background: rgba(255,255,255,0.2); color: white;">${trataId}</span>
                     </div>
                 </td>
-                ${allMonths.map((mk, i) => `
-                    <td style="background: var(--primary-dark); color: rgba(255,255,255,0.7); font-size: 0.75rem; text-align: center; vertical-align: middle; ${i === allMonths.length - 1 ? 'border-top-right-radius: 8px; border-bottom-right-radius: 8px;' : ''}">
-                        ${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br>${mk.split('-')[0]}
-                    </td>
-                `).join('')}
+                ${allMonths.map((mk, i) => {
+                    const now = new Date();
+                    const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+                    const isCurrent = mk === currentMonthKey;
+                    
+                    const cellStyle = isCurrent 
+                        ? 'background: var(--primary) !important; color: white !important; font-weight: 800; border-left: 2px solid rgba(255, 255, 255, 0.25); border-right: 2px solid rgba(255, 255, 255, 0.25);' 
+                        : 'background: var(--primary-dark); color: rgba(255,255,255,0.7);';
+                        
+                    return `
+                        <td style="${cellStyle} font-size: 0.75rem; text-align: center; vertical-align: middle; ${i === allMonths.length - 1 ? 'border-top-right-radius: 8px; border-bottom-right-radius: 8px;' : ''}">
+                            ${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br>${mk.split('-')[0]}
+                        </td>
+                    `;
+                }).join('')}
             </tr>`;
 
         const metrics = [
@@ -361,7 +380,17 @@ function renderMatrixTable(container, data) {
                     else if (metric.field === 'STOCK_TOTAL') val = (row.STOCK_PROPIO || 0) + (row.STOCK_SUBS || 0);
                     else val = row[metric.field];
                 }
-                html += `<td class="metric-value">${val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-'}</td>`;
+                
+                const now = new Date();
+                const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+                const isCurrent = mk === currentMonthKey;
+                
+                const cellClass = isCurrent ? 'metric-value current-month-cell' : 'metric-value';
+                const cellStyle = isCurrent 
+                    ? 'font-weight: 700 !important; background-color: rgba(0, 159, 227, 0.05) !important; border-left: 2px solid rgba(0, 159, 227, 0.15) !important; border-right: 2px solid rgba(0, 159, 227, 0.15) !important;' 
+                    : '';
+                    
+                html += `<td class="${cellClass}" style="${cellStyle}">${val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-'}</td>`;
             });
             html += `</tr>`;
         });
@@ -525,6 +554,9 @@ window.addEventListener('DOMContentLoaded', () => {
 let currentChart = null;
 let currentStockAgeChart = null;
 let currentStockData = { expedientes: [], trataName: "", trataCode: "" };
+let currentGerencia = "";
+let currentTrataCode = "";
+let currentTrataName = "";
 
 async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true) {
     const views = document.querySelectorAll('.view-container');
@@ -533,6 +565,10 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     const detailView = document.getElementById('trata_detail');
     detailView.style.display = 'block';
     detailView.classList.add('active');
+    
+    currentGerencia = gerencia; // Guardar gerencia actual para el módulo de metas
+    currentTrataCode = trataCode; // Guardar trata actual
+    currentTrataName = trataName; // Guardar nombre actual
     
     // Resetear a sección STOCK
     switchTrataSection('stock');
@@ -557,6 +593,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     
     if (currentChart) { currentChart.destroy(); currentChart = null; }
     if (currentStockAgeChart) { currentStockAgeChart.destroy(); currentStockAgeChart = null; }
+    if (metasChart) { metasChart.destroy(); metasChart = null; }
     
     document.getElementById('analyst-table-container').innerHTML = '<div style="padding: 20px; text-align: center; color: #64748b;">Cargando análisis de stock...</div>';
     
@@ -620,6 +657,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         // Actualizar título real si no estaba disponible
         if (latest["DETALLE TRATA"]) {
             document.getElementById('trata_detail_title').innerText = latest["DETALLE TRATA"];
+            document.getElementById('breadcrumb_trata_name').innerText = latest["DETALLE TRATA"];
         }
 
         animateValue('header-stock-propio', 0, latest.STOCK_PROPIO || 0, 1500);
@@ -709,6 +747,10 @@ function switchTrataSection(sectionId) {
             btn.classList.add('active');
         }
     });
+
+    if (sectionId === 'metas') {
+        loadMetasData();
+    }
 }
 
 function animateValue(id, start, end, duration) {
@@ -729,16 +771,18 @@ function animateSemaphore(targetPercent) {
     const fill = document.getElementById('meta-progress-fill');
     const label = document.getElementById('meta-percentage');
     
-    gsap.to(fill, { width: `${targetPercent}%`, duration: 1.5, ease: "power2.out" });
+    if (fill) gsap.to(fill, { width: `${targetPercent}%`, duration: 1.5, ease: "power2.out" });
     
-    let counter = { val: 0 };
-    gsap.to(counter, {
-        val: targetPercent,
-        duration: 1.5,
-        onUpdate: function() {
-            label.innerText = `${Math.round(counter.val)}%`;
-        }
-    });
+    if (label) {
+        let counter = { val: 0 };
+        gsap.to(counter, {
+            val: targetPercent,
+            duration: 1.5,
+            onUpdate: function() {
+                label.innerText = `${Math.round(counter.val)}%`;
+            }
+        });
+    }
 }
 
 function renderStockAgeChart(monthDist) {
@@ -853,8 +897,8 @@ async function loadIntervencionesDetail(gerencia) {
         data.forEach(item => {
             html += `
                 <tr>
-                    <td style="font-weight:600; font-family:monospace;">${item.trata}</td>
-                    <td style="font-size:0.85rem;">${item.detalle}</td>
+                    <td class="code-cell clickable-analyst" onclick="openTrataDrillDown('${item.trata}')">${item.trata}</td>
+                    <td>${item.detalle}</td>
                     ${ranges.map(r => `<td>${item[r] || '-'}</td>`).join('')}
                     <td style="font-weight:700;">${item.TOTAL}</td>
                 </tr>`;
@@ -869,13 +913,31 @@ async function loadIntervencionesDetail(gerencia) {
 
 function openDrillDown(analista) {
     const modal = document.getElementById('stock-drilldown-modal');
-    document.getElementById('modal-analyst-name').innerText = analista;
-    document.getElementById('modal-trata-info').innerText = `Trámite: ${currentStockData.trataName}`;
+    document.getElementById('modal-analyst-name').innerText = `Analista: ${analista}`;
+    document.getElementById('modal-trata-info').innerText = `Gestión de Stock: ${currentStockData.trataName}`;
     const filtered = currentStockData.expedientes.filter(e => e.analista === analista);
     let html = `<table class="matrix-table"><thead><tr><th>Expediente</th><th>ID</th><th>Fecha Ingreso</th><th>Días</th></tr></thead><tbody>`;
-    filtered.forEach(e => { html += `<tr><td>${e.expediente}</td><td>${e.id_expediente}</td><td>${new Date(e.fecha_ing).toLocaleDateString()}</td><td>${e.dias}</td></tr>`; });
+    filtered.forEach(e => { html += `<tr><td class="code-cell">${e.expediente}</td><td class="code-cell">${e.id_expediente}</td><td>${new Date(e.fecha_ing).toLocaleDateString()}</td><td>${e.dias}</td></tr>`; });
     document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
-    document.getElementById('btn-download-csv').onclick = () => downloadCSV(analista, filtered);
+    document.getElementById('btn-download-csv').onclick = () => downloadExcel(`Stock_${analista}`, filtered);
+    modal.style.display = 'flex';
+}
+
+function openTrataDrillDown(trataCode) {
+    const modal = document.getElementById('stock-drilldown-modal');
+    document.getElementById('modal-analyst-name').innerText = `Trámite: ${trataCode}`;
+    document.getElementById('modal-trata-info').innerText = `Desglose de Intervención de Terceros`;
+    
+    // Filtramos los expedientes por el código de trata (limpiando espacios)
+    const filtered = currentStockData.expedientes.filter(e => (e.trata || '').trim() === trataCode.trim());
+    
+    let html = `<table class="matrix-table"><thead><tr><th>Expediente</th><th>ID</th><th>Analista</th><th>Días</th></tr></thead><tbody>`;
+    filtered.forEach(e => { 
+        html += `<tr><td class="code-cell">${e.expediente}</td><td class="code-cell">${e.id_expediente}</td><td>${e.analista || 'SIN ASIGNAR'}</td><td>${e.dias}</td></tr>`; 
+    });
+    
+    document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
+    document.getElementById('btn-download-csv').onclick = () => downloadExcel(`Trata_${trataCode}`, filtered);
     modal.style.display = 'flex';
 }
 
@@ -884,84 +946,148 @@ function closeModal(id) { document.getElementById(id || 'stock-drilldown-modal')
 function openHelpModal(trataCode, gerencia, trataName, acronimosFromData) {
     const modal = document.getElementById('help-modal');
     const body = document.getElementById('help-modal-body');
-    const buzzers = BUZZERS_DOCS[gerencia] || 'Buzones oficiales del área';
-    
-    // Si no vienen acrónimos del consolidado (ej. vista de detalle directo), intentamos un fallback o mensaje genérico
-    const acros = acronimosFromData || 'Documentos de resolución oficiales autorizados para este sector';
-    const analystsList = (ANALYSTS_DOCS[gerencia] || []).join(', ');
-    
     let content = '';
+
+    const cleanGerencia = (gerencia || '').toLowerCase() === 'regularizacion' ? 'conforme' : (gerencia || '').toLowerCase();
+    
+    // Buzones de ingreso oficiales para esta gerencia
+    const buzonesRaw = BUZZERS_DOCS[cleanGerencia] || '';
+    const buzonesArray = buzonesRaw 
+        ? buzonesRaw.split(/, | o /).map(b => b.trim()).filter(b => b.length > 0)
+        : [];
+    const buzonesHtml = buzonesArray.length > 0
+        ? buzonesArray.map(b => `<span>${b}</span>`).join('')
+        : '<span>No especificados para esta gerencia</span>';
+
+    // Analistas para esta gerencia
+    const analystsArray = ANALYSTS_DOCS[cleanGerencia] || [];
+    const analystsHtml = analystsArray.length > 0
+        ? analystsArray.map(a => `<span>${a}</span>`).join('')
+        : '<span>No hay analistas configurados</span>';
 
     if (trataCode === 'INTERVENCIONES') {
         content = `
-            <div class="help-section">
-                <h3><span class="help-badge badge-ing">Lógica de Ingresos</span></h3>
-                <p>Se registra un ingreso cuando un expediente con un <strong>código de trata externo</strong> (distinto a los habituales de la gerencia) entra a uno de los buzones oficiales:</p>
-                <div class="acronym-list">${buzzers}</div>
+            <div class="help-card">
+                <div class="help-card-body">
+                    <h4>Metodología de Ingreso</h4>
+                    <p>Primer registro de recepción en la Gerencia (Trata Externa).</p>
+                    <div class="help-list-box">
+                        <div class="tag-grid">
+                            ${buzonesHtml}
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="help-section">
-                <h3><span class="help-badge badge-egr">Lógica de Egresos (Pase Efectivo)</span></h3>
-                <p>Al no existir un documento GEDO de cierre único para intervenciones, el egreso se mide por movimiento:</p>
-                <p><strong>• Egreso Contabilizado:</strong> Cuando un analista realiza un <strong>Pase a Destinatario Externo</strong> (fuera de la gerencia).</p>
-                <p><strong>• Exclusión:</strong> Los pases internos o hacia buzones del mismo sector no cuentan como egresos; el trámite sigue en stock.</p>
-            </div>
-            <div class="help-section">
-                <h3><span class="help-badge badge-stk">Stock de Intervenciones</span></h3>
-                <p>Representa expedientes de otras áreas que requieren opinión o acción técnica de este sector. Se considera stock mientras el expediente esté en manos de un analista oficial del área.</p>
-                <p style="font-size:0.85rem; color:#64748b; margin-top:10px;"><strong>Analistas Oficiales:</strong> ${analystsList}</p>
+            <div class="help-card">
+                <div class="help-card-body">
+                    <h4>Lógica de Egreso (Pase Externo)</h4>
+                    <p>Finalización por movimiento físico o pase fuera de la estructura de la Gerencia.</p>
+                </div>
             </div>`;
     } else {
+        // Egresos por acrónimo (Acto Administrativo)
+        const cleanAcro = acronimosFromData 
+            ? acronimosFromData.replace(/'/g, '').split(',').map(a => a.trim()).filter(a => a.length > 0)
+            : [];
+            
+        const acroHtml = cleanAcro.length > 0 
+            ? cleanAcro.map(a => `<span class="acro-badge">${a}</span>`).join('')
+            : '<span class="acro-badge" style="background: #e2e8f0; color: #64748b; font-weight: normal; padding: 6px 12px;">No requiere acrónimos (Egreso por pase físico u otra resolución)</span>';
+
         content = `
-            <div class="help-section">
-                <h3><span class="help-badge badge-ing">Metodología de Ingresos</span></h3>
-                <p>Se contabiliza el ingreso cuando el expediente (Código <strong>${trataCode}</strong>) toca por primera vez cualquiera de los buzones oficiales:</p>
-                <div class="acronym-list">${buzzers}</div>
+            <div class="help-card">
+                <div class="help-card-body">
+                    <h4>Puntos de Ingreso Oficiales</h4>
+                    <p>Se marca el inicio del ciclo al tocar cualquiera de estos buzones:</p>
+                    <div class="tag-grid">
+                        ${buzonesHtml}
+                    </div>
+                </div>
             </div>
-            <div class="help-section">
-                <h3><span class="help-badge badge-egr">Metodología de Egresos</span></h3>
-                <p><strong>• Egreso Efectivo:</strong> Se produce cuando el analista genera un documento <strong>GEDO</strong> con fecha posterior al ingreso y con alguno de estos acrónimos autorizados:</p>
-                <div class="acronym-list" style="background:#f0fdf4; border-color:#bbf7d0; color:#166534;">${acros}</div>
-                <p><strong>• Egreso No Efectivo:</strong> Cuando el trámite se envía a <strong>Guarda Temporal</strong> finalizando su ciclo operativo sin resolución.</p>
+            <div class="help-card">
+                <div class="help-card-body">
+                    <h4>Egresos por Acto Administrativo</h4>
+                    <p>Resolución mediante vinculación de documentos GEDO autorizados:</p>
+                    <div class="acro-flex" style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                        ${acroHtml}
+                    </div>
+                </div>
             </div>
-            <div class="help-section">
-                <h3><span class="help-badge badge-stk">Cálculo de Stock ACTUAL</span></h3>
-                <p><strong>• Stock Propio:</strong> Expedientes ingresados sin egreso, cuya ubicación actual es la bandeja de un <strong>Analista Oficial</strong> o un Buzón de Entrada del sector.</p>
-                <p style="font-size:0.85rem; color:#64748b; margin:10px 0;"><strong>Usuarios considerados en el análisis:</strong> ${analystsList}</p>
-                <p><strong>• Subsanaciones (Excluidas):</strong> Expedientes en estado de subsanación. Aunque pertenecen al área, se visualizan solo en el gráfico de evolución histórica para no afectar la antigüedad de gestión directa.</p>
+            <div class="help-card">
+                <div class="help-card-body">
+                    <h4>Nómina de Analistas Monitoreados</h4>
+                    <p>El Stock consolidado incluye los expedientes en las bandejas de:</p>
+                    <div class="analyst-grid-scroll">
+                        ${analystsHtml}
+                    </div>
+                </div>
             </div>`;
     }
 
     body.innerHTML = `
-        <div style="margin-bottom:20px; border-bottom:2px solid #0076bb; padding-bottom:15px;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                <div>
-                    <h2 style="color:#002d47; font-size:1.4rem; margin:0;">${trataName}</h2>
-                    <p style="color:#64748b; margin:5px 0 0 0;">Metodología de Gestión</p>
-                </div>
-                <div style="text-align:right;">
-                    <span class="trata-id-tag" style="font-size:1rem; padding:5px 12px; background:#002d47; color:white;">Código: ${trataCode}</span>
-                    <div style="margin-top:8px;">
-                        <span class="trata-id-tag" style="background:#e0f2fe; color:#075985;">${gerencia.toUpperCase()}</span>
-                    </div>
-                </div>
+        <div class="help-modal-header" style="padding: 25px 25px 15px 25px;">
+            <div class="help-modal-title-box">
+                <h2>${trataName}</h2>
+                <span class="help-modal-code">Código: ${trataCode}</span>
             </div>
+            <div class="help-modal-gerencia">${cleanGerencia.toUpperCase()}</div>
         </div>
-        <div class="help-content-scroll" style="max-height: 50vh; overflow-y: auto; padding-right: 10px;">
+        <div class="help-content-scroll" style="flex: 1; overflow-y: auto; padding: 0 25px 30px 25px;">
             ${content}
         </div>
     `;
     modal.style.display = 'flex';
 }
 
-function downloadCSV(analista, data) {
-    const headers = ["EXPEDIENTE", "ID", "FECHA", "DIAS"];
-    let csv = "\uFEFF" + headers.join(";") + "\n";
-    data.forEach(e => csv += [e.expediente, e.id_expediente, e.fecha_ing, e.dias].join(";") + "\n");
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+function downloadExcel(filename, data) {
+    if (!data || data.length === 0) return;
+    
+    // Obtener cabeceras dinámicamente de las llaves del primer objeto
+    const headers = Object.keys(data[0]);
+    
+    let html = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta charset="utf-8">
+            <!--[if gte mso 9]>
+            <xml>
+                <x:ExcelWorkbook>
+                    <x:ExcelWorksheets>
+                        <x:ExcelWorksheet>
+                            <x:Name>Reporte SGDU</x:Name>
+                            <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+                        </x:ExcelWorksheet>
+                    </x:ExcelWorksheets>
+                </x:ExcelWorkbook>
+            </xml>
+            <![endif]-->
+            <style>
+                table { border-collapse: collapse; }
+                th { background-color: #0076bb; color: white; font-weight: bold; border: 1px solid #ccc; }
+                td { border: 1px solid #ccc; }
+            </style>
+        </head>
+        <body>
+            <table>
+                <thead>
+                    <tr>${headers.map(h => `<th>${h.toUpperCase()}</th>`).join('')}</tr>
+                </thead>
+                <tbody>
+                    ${data.map(row => `
+                        <tr>
+                            ${headers.map(h => `<td>${row[h] !== null ? row[h] : ''}</td>`).join('')}
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </body>
+        </html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Stock_${analista}.csv`);
+    link.setAttribute("download", `${filename}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1052,3 +1178,266 @@ function openEditUser(username, fullname, role) {
     document.getElementById('edit-password').value = '';
     document.getElementById('edit-user-modal').style.display = 'flex';
 }
+
+// --- METAS & PROYECCIONES ---
+async function loadMetasData() {
+    const gerencia = currentGerencia;
+    if (!gerencia) return;
+    
+    const cards = document.querySelectorAll('.meta-card-value');
+    
+    // Reset cards to loading
+    cards.forEach(c => c.innerText = "...");
+
+    try {
+        const trata = currentTrataCode;
+        console.log("Cargando metas para:", gerencia, "Trata:", trata);
+        
+        let url = `${API_BASE}/reporte/${gerencia}/metas`;
+        if (trata) url += `?trata=${trata}`;
+
+        const response = await def_fetch(url);
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(`Error ${response.status}: ${errBody.detail || 'Fallo en la API'}`);
+        }
+        const data = await response.json();
+        console.log("Datos de metas recibidos:", data);
+
+        if (!data || !data.metas || !data.history || !data.projection_target) {
+            console.warn("No se recibieron datos completos de metas para", gerencia);
+            return;
+        }
+
+        // 1. Update Cards
+        const updateVal = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined ? val : '--';
+        };
+
+        const history = data.history || [];
+        if (history.length > 0) {
+            const avgIng = data.metas.avg_ing;
+            const avgEgr = data.metas.avg_egr_actual;
+            const lastMonth = history[history.length - 1];
+            const lastIng = lastMonth.ingresos || 0;
+            const lastEgr = lastMonth.egresos_totales || 0;
+
+            const diffIng = lastIng - avgIng;
+            const diffEgr = lastEgr - avgEgr;
+
+            updateVal('meta-ing-prom-val', avgIng);
+            updateVal('meta-egr-prom-val', avgEgr);
+            updateVal('meta-ing-last-val', lastIng);
+            updateVal('meta-egr-last-val', lastEgr);
+            
+            const ingDiffEl = document.getElementById('meta-ing-last-diff');
+            if (ingDiffEl) {
+                ingDiffEl.innerHTML = `${diffIng >= 0 ? '▲ +' : '▼ '}${diffIng} vs promedio`;
+                ingDiffEl.style.color = diffIng > 0 ? '#ef4444' : '#10b981';
+            }
+            
+            const egrDiffEl = document.getElementById('meta-egr-last-diff');
+            if (egrDiffEl) {
+                egrDiffEl.innerHTML = `${diffEgr >= 0 ? '▲ +' : '▼ '}${diffEgr} vs promedio`;
+                egrDiffEl.style.color = diffEgr >= 0 ? '#10b981' : '#ef4444';
+            }
+
+            // --- Monitor de Avance Mensual (Real-time tracking of current month) ---
+            try {
+                const now = new Date();
+                const currentDay = now.getDate();
+                const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const timeProgressPct = Math.round((currentDay / totalDays) * 100);
+                
+                // Actual egresos of the current month
+                const actualEgr = lastEgr;
+                const targetEgr = avgEgr;
+                const egrProgressPct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
+                
+                // 1. Actualizar Relleno de Barra (Egresos)
+                const egrBar = document.getElementById('meta-egr-progress-bar');
+                if (egrBar) {
+                    egrBar.style.width = `${Math.min(100, egrProgressPct)}%`;
+                }
+                const egrLegendVal = document.getElementById('meta-egr-legend-val');
+                if (egrLegendVal) {
+                    egrLegendVal.innerText = `${egrProgressPct}% (${actualEgr} / ${targetEgr} exp)`;
+                }
+                
+                // 2. Actualizar Aguja Vertical (Tiempo del Mes)
+                const timeNeedle = document.getElementById('meta-time-needle');
+                if (timeNeedle) {
+                    timeNeedle.style.left = `${Math.min(100, timeProgressPct)}%`;
+                }
+                const timeLegendVal = document.getElementById('meta-time-legend-val');
+                if (timeLegendVal) {
+                    timeLegendVal.innerText = `${timeProgressPct}% (${currentDay} / ${totalDays} días)`;
+                }
+            } catch (progressErr) {
+                console.error("Error actualizando Monitor de Avance:", progressErr);
+            }
+
+            // Bottom cards (Noviembre 2026)
+            const maint = data.metas.meta_mantenimiento;
+            const clean = data.metas.meta_limpieza_objetivo;
+            const totalMeta = data.metas.meta_total_recomendada;
+            
+            updateVal('meta-obj-ing-prom-val', avgIng);
+            updateVal('meta-obj-75-val', maint);
+            updateVal('meta-obj-25-val', clean);
+            updateVal('meta-obj-tot-val', totalMeta);
+
+            const diffTotEgr = totalMeta - avgEgr;
+            const totDiffEl = document.getElementById('meta-obj-tot-diff');
+            if (totDiffEl) {
+                totDiffEl.innerHTML = `Se requiere ${diffTotEgr >= 0 ? '▲ +' : '▼ '}${diffTotEgr} vs egreso promedio actual`;
+                totDiffEl.style.color = diffTotEgr >= 0 ? '#f59e0b' : '#10b981';
+            }
+        }
+
+        // 2. Render Chart
+        renderMetasChart(data);
+    } catch (err) {
+        console.error("Error en loadMetasData:", err);
+    }
+}
+
+function renderMetasChart(data) {
+    const canvas = document.getElementById('metasProjectionChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (metasChart) metasChart.destroy();
+
+    const labels = [...data.history.map(d => d.mes_label), ...data.projection_target.map(d => d.mes_label)];
+    const historyCount = data.history.length;
+
+    metasChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Ingresos',
+                    data: [...data.history.map(d => d.ingresos), ...data.projection_target.map(d => d.ingresos)],
+                    borderColor: '#38bdf8',
+                    backgroundColor: (context) => {
+                        const chart = context.chart;
+                        const {ctx: chartCtx, chartArea} = chart;
+                        if (!chartArea) return 'rgba(56, 189, 248, 0.1)';
+                        const gradient = chartCtx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(56, 189, 248, 0.18)');
+                        gradient.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+                        return gradient;
+                    },
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: (ctx) => ctx.dataIndex < historyCount ? 3 : 0
+                },
+                {
+                    label: 'Egresos (Objetivo)',
+                    data: [...data.history.map(d => d.egresos_totales), ...data.projection_target.map(d => d.egresos_totales)],
+                    borderColor: '#f43f5e',
+                    borderWidth: 3,
+                    segment: {
+                        borderDash: (ctx) => ctx.p0DataIndex >= historyCount - 1 ? [5, 5] : []
+                    },
+                    tension: 0.4,
+                    pointRadius: (ctx) => ctx.dataIndex < historyCount ? 3 : 0
+                },
+                {
+                    label: 'Stock Sector (Objetivo Cero)',
+                    data: [...data.history.map(d => d.stock_sector), ...data.projection_target.map(d => d.stock_sector)],
+                    borderColor: '#f59e0b',
+                    borderWidth: 3,
+                    backgroundColor: 'transparent',
+                    tension: 0.4,
+                    yAxisID: 'y1',
+                    segment: {
+                        borderDash: (ctx) => ctx.p0DataIndex >= historyCount - 1 ? [5, 5] : []
+                    },
+                    pointRadius: (ctx) => ctx.dataIndex < historyCount ? 3 : 0
+                },
+                {
+                    label: 'Stock Corriente (<=3m)',
+                    data: [...data.history.map(d => d.stock_corriente), ...data.projection_target.map(d => d.stock_corriente)],
+                    borderColor: '#10b981',
+                    backgroundColor: 'transparent',
+                    tension: 0.4,
+                    yAxisID: 'y1',
+                    segment: {
+                        borderDash: (ctx) => ctx.p0DataIndex >= historyCount - 1 ? [5, 5] : []
+                    },
+                    pointRadius: (ctx) => ctx.dataIndex < historyCount ? 3 : 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Outfit', size: 11, weight: '600' }, color: '#64748b' }
+                },
+                y: {
+                    title: { display: true, text: 'Volumen Mensual', font: { family: 'Outfit', weight: 'bold', size: 12 }, color: '#475569' },
+                    beginAtZero: true,
+                    grid: { color: 'rgba(226, 232, 240, 0.6)', drawBorder: false },
+                    ticks: { font: { family: 'Outfit', size: 11 }, color: '#64748b' }
+                },
+                y1: {
+                    position: 'right',
+                    title: { display: true, text: 'Stock (Expedientes)', font: { family: 'Outfit', weight: 'bold', size: 12 }, color: '#475569' },
+                    beginAtZero: true,
+                    grid: { display: false },
+                    ticks: { font: { family: 'Outfit', size: 11 }, color: '#64748b' }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    bodyColor: '#f1f5f9',
+                    titleFont: { family: 'Outfit', weight: 'bold', size: 13 },
+                    bodyFont: { family: 'Outfit', size: 12 },
+                    padding: 12,
+                    cornerRadius: 8,
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    displayColors: true,
+                    boxPadding: 6
+                },
+                legend: {
+                    position: 'top',
+                    labels: { usePointStyle: true, font: { family: 'Outfit', size: 12, weight: '600' }, color: '#475569' }
+                },
+                annotation: {
+                    annotations: {
+                        todayLine: {
+                            type: 'line',
+                            xMin: Math.max(0, historyCount - 1),
+                            xMax: Math.max(0, historyCount - 1),
+                            borderColor: '#94a3b8',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                display: true,
+                                content: 'INICIO PROYECCIÓN',
+                                position: 'start',
+                                backgroundColor: '#475569',
+                                color: 'white',
+                                font: { family: 'Outfit', size: 10, weight: 'bold' },
+                                padding: 6,
+                                borderRadius: 4
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+

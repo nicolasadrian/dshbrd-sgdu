@@ -542,41 +542,73 @@ main {
     cursor: not-allowed;
 }
 
+/* --- ESTILOS DE TABLAS ESTÁNDAR (Principales) --- */
 .matrix-table {
     width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
+    border-collapse: separate; 
+    border-spacing: 0;
+    font-size: 0.875rem;
+    font-family: 'Outfit', sans-serif;
+    background: white;
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    border: 1px solid #e2e8f0;
-    margin-top: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    border: 1px solid #eef2f6;
+    margin-top: 1.5rem;
     overflow: hidden;
-}
-
-.matrix-table-wrapper {
-    overflow-x: auto;
 }
 
 .matrix-table thead th {
     background: #f8fafc;
-    color: #64748b;
-    padding: 1rem;
+    color: #475569;
+    padding: 0.75rem 1rem;
     font-weight: 700;
     text-transform: uppercase;
+    font-size: 0.7rem;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #f1f5f9;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.matrix-table tbody td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-family: 'Outfit', sans-serif;
+    transition: background 0.2s ease;
+}
+
+.matrix-table tr {
+    height: auto;
+}
+
+/* --- ESTILOS ULTRA-COMPACTOS (Solo para Modales y Detalle) --- */
+.modal .matrix-table, .matrix-table-container .matrix-table {
     font-size: 0.75rem;
-    border-bottom: 2px solid #e2e8f0;
-    border-right: 1px solid #f1f5f9;
+    margin-top: 0.5rem;
 }
 
-.trata-group-header {
-    background: #f1f5f9;
+.modal .matrix-table thead th, .matrix-table-container .matrix-table thead th {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.65rem;
 }
 
+.modal .matrix-table tbody td, .matrix-table-container .matrix-table tbody td {
+    padding: 2px 6px !important;
+    line-height: 1.1;
+}
+
+.modal .matrix-table tr, .matrix-table-container .matrix-table tr {
+    height: 1px;
+}
+
+/* Reducir espacio en los grupos de trámite */
 .trata-title-wrapper {
-    padding: 0.75rem 1rem;
+    padding: 2px 4px !important;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
 }
 
 .trata-link {
@@ -584,27 +616,70 @@ main {
     font-weight: 800;
     color: var(--primary-dark);
     text-decoration: none;
-    letter-spacing: -0.01em;
 }
 
-.trata-id-tag {
-    background: #cbd5e1;
-    color: #475569;
-    font-size: 0.7rem;
-    padding: 0.2rem 0.6rem;
-    border-radius: 4px;
-    font-weight: 700;
+/* Tablas específicas de Analistas y Detalle */
+.analyst-table, .matrix-table-container table {
+    border: none;
+    box-shadow: none;
+    border-radius: 8px;
+    margin-top: 1rem;
 }
 
-.metric-row:hover {
-    background: #f8fafc;
-}
+/* Estilos compactos centralizados arriba */
 
-.metric-label {
-    padding: 0.6rem 1rem 0.6rem 2rem;
-    color: #64748b;
+/* Celdas con códigos (Tratas, Expedientes) */
+.code-cell {
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
     font-weight: 600;
     font-size: 0.8rem;
+    color: #475569;
+    letter-spacing: -0.02em;
+}
+
+.clickable-analyst {
+    color: var(--primary);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.clickable-analyst:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.trata-group-header {
+    background: #f1f5f9;
+}
+
+/* Estilo compacto centralizado arriba */
+
+/* --- MÉTRICAS COMPACTAS SOLO EN MODALES --- */
+.modal .metric-row td, .matrix-table-container .metric-row td {
+    padding: 2px 8px !important;
+    height: 20px;
+}
+
+.modal .metric-label, .matrix-table-container .metric-label {
+    font-size: 0.7rem;
+    padding: 2px 8px !important;
+}
+
+.modal .metric-value, .matrix-table-container .metric-value {
+    font-size: 0.8rem;
+    padding: 2px 8px !important;
+}
+
+/* --- MÉTRICAS ESTÁNDAR PARA VISTA GENERAL --- */
+.metric-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: #fcfcfc;
+    padding: 0.6rem 1rem;
     border-bottom: 1px solid #f1f5f9;
 }
 
@@ -612,10 +687,16 @@ main {
     padding: 0.6rem 1rem;
     text-align: center;
     font-weight: 700;
-    color: var(--text-main);
+    font-size: 0.9rem;
+    color: var(--primary-dark);
     border-bottom: 1px solid #f1f5f9;
-    border-right: 1px solid #f1f5f9;
 }
+
+.row-stock-tot { background: #f0f9ff; font-weight: 800; }
+.row-ing { color: var(--success); }
+.row-egr-tot { color: var(--primary); }
+
+/* Los estilos compactos ya están definidos arriba */
 
 /* Resaltado de Filas por Categoría */
 .row-ing       { background-color: #fefce8 !important; } /* Amarillo */
@@ -660,18 +741,7 @@ main {
     margin-top: 1.5rem;
 }
 
-.matrix-table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 0.85rem;
-}
-
-.matrix-table thead th {
-    background: #f1f5f9;
-    color: #475569;
-    padding: 1rem;
-    font-weight: 700;
-    text-transform: uppercase;
+/* Estilos consolidados */
     font-size: 0.7rem;
     letter-spacing: 0.05em;
     border-bottom: 2px solid #cbd5e1;
@@ -1390,4 +1460,453 @@ body::after, body::before, html::after, html::before {
     .meta-semaphore-container {
         width: 100%;
     }
+}
+
+/* --- Help Modal Premium Styles --- */
+.help-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.help-modal-title-box h2 {
+    margin: 0 !important;
+    color: var(--primary-dark);
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.help-modal-code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #f1f5f9;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #475569;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+.help-modal-gerencia {
+    background: var(--primary);
+    color: white;
+    padding: 0.4rem 1rem;
+    border-radius: 50px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+.help-card {
+    display: flex;
+    gap: 1.25rem;
+    background: #ffffff;
+    border: 1px solid #eef2f6;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    align-items: flex-start;
+}
+
+.help-card:hover {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border-color: #cbd5e1;
+}
+
+.help-card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.help-card-icon.ing { background: #eff6ff; color: #1e40af; }
+.help-card-icon.egr { background: #f0fdf4; color: #166534; }
+.help-card-icon.stk { background: #fff7ed; color: #9a3412; }
+
+.help-card-body {
+    flex: 1;
+}
+
+.help-card-body h4 {
+    margin: 0 0 0.5rem 0 !important;
+    color: var(--primary-dark);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.help-card-body p {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.tag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.tag-grid span {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.acro-flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.75rem;
+}
+
+.acro-badge {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+    padding: 0.3rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.analyst-grid-scroll {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.4rem;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.analyst-grid-scroll span {
+    font-size: 0.65rem;
+    color: #64748b;
+    padding: 0.25rem 0.5rem;
+    background: white;
+    border: 1px solid #edf2f7;
+    border-radius: 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Metas Section Styles */
+#section-metas {
+    background-color: #f8fafc;
+    padding: 2rem;
+    border-radius: 24px;
+    margin-top: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.metas-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 1200px) {
+    .metas-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .metas-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.meta-card {
+    background: #ffffff;
+    padding: 30px 24px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.meta-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
+}
+
+.meta-card.highlight {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border: none;
+    color: white;
+}
+
+.meta-card.warning {
+    border-top: 5px solid #f59e0b;
+}
+
+.meta-card-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 15px;
+}
+
+.highlight .meta-card-label {
+    color: #38bdf8;
+}
+
+.meta-card-value {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-bottom: 10px;
+    line-height: 1;
+}
+
+.highlight .meta-card-value {
+    color: #ffffff;
+}
+
+.meta-card-sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: auto;
+}
+
+.highlight .meta-card-sub {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.meta-simulator-container {
+    margin-top: 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+    border-radius: 24px;
+    padding: 30px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+.simulator-panel {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.sim-header {
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.sim-header h3 {
+    font-family: 'Outfit';
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: #0f172a;
+    margin-bottom: 5px;
+}
+
+.sim-header p {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.sim-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    margin-bottom: 35px;
+}
+
+.sim-control-item {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sim-control-item label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.sim-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.sim-input-number {
+    width: 100%;
+    padding: 12px 45px 12px 15px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    transition: all 0.3s ease;
+}
+
+.sim-input-number:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
+.sim-unit {
+    position: absolute;
+    right: 15px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #94a3b8;
+}
+
+.sim-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.sim-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    outline: none;
+}
+
+.sim-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #38bdf8;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.sim-badge {
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 45px;
+    text-align: center;
+}
+
+.sim-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.sim-result-card {
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.sim-result-card.highlight {
+    background: #0f172a;
+    color: white;
+    border: none;
+}
+
+.sim-res-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.highlight .sim-res-label {
+    color: #38bdf8;
+}
+
+.sim-res-val {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.sim-result-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border-color: #38bdf8;
+}
+
+.sim-result-card.highlight:hover {
+    background: #1e293b;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.3);
+}
+
+.sim-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.2);
+}
+
+/* Color para la serie simulada */
+.sim-res-val {
+    color: #1e293b;
+}
+
+.highlight .sim-res-val {
+    color: #ffffff;
+}
+
+.selector-metas {
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    background: white;
+    font-family: inherit;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 200px;
+}
+
+.selector-metas:focus {
+    outline: none;
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.1);
+}
+
+.chart-container-full {
+    animation: fadeIn 0.8s ease-out;
 }

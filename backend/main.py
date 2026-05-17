@@ -295,6 +295,9 @@ async def delete_user(username: str, current_user: User = Depends(get_current_us
 @app.get("/api/reporte/{gerencia}/consolidado")
 async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+        
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
     
@@ -316,25 +319,330 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
     
     try:
         with engine.connect() as conn:
-            sql = f"""
-                WITH config_order AS (
-                    SELECT * FROM (VALUES {", ".join([f"('{c}', {i})" for i, c in enumerate(trata_codes)])}) as t(trata_code, ord)
-                )
-                SELECT h.* FROM mvw_reporte_historico_{gerencia_clean} h
-                JOIN config_order o ON h."COD TRATA" = o.trata_code
-                WHERE (h.anio, h.mes) IN ({months_filter})
-                ORDER BY o.ord, h.anio DESC, h.mes DESC
-            """
-            result = conn.execute(text(sql))
+            # Si la gerencia usa el nuevo esquema modular (vistas mv_gerencia_...)
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+                # Generamos los meses en formato 'YYYY-MM' para coincidir con mes_label
+                modular_months = []
+                m_y, m_m = now.year, now.month
+                for _ in range(5):
+                    modular_months.append(f"'{m_y}-{str(m_m).zfill(2)}'")
+                    m_m -= 1
+                    if m_m == 0: m_m = 12; m_y -= 1
+                modular_filter = ", ".join(modular_months)
+
+                # Definir tabla de egresos de intervenciones (Contable tiene nombre distinto)
+                interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+
+                sql = f"""
+                    WITH periodos(mes_label) AS (
+                        SELECT * FROM (VALUES {", ".join([f"({m})" for m in modular_months])}) as t(m)
+                    ),
+                    ing AS (
+                        SELECT to_char(fecha_ingreso, 'YYYY-MM') as mes_label, 
+                               CASE WHEN trata = ANY(:tratas_oficiales) THEN trata ELSE 'INTERVENCIONES' END as trata, 
+                               COUNT(*) as cant
+                        FROM mv_{gerencia_clean}_ingresos_eventos
+                        GROUP BY 1, 2
+                    ),
+                    egr_ef AS (
+                        -- Egresos Oficiales
+                        SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, trata, COUNT(*) as cant
+                        FROM mv_{gerencia_clean}_gedos_egreso
+                        GROUP BY 1, 2
+                        UNION ALL
+                        -- Egresos Intervenciones
+                        SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, 'INTERVENCIONES' as trata, COUNT(*) as cant
+                        FROM {interv_egr_table}
+                        GROUP BY 1, 2
+                    ),
+                    egr_ne AS (
+                        SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, 
+                               CASE WHEN trata = ANY(:tratas_oficiales) THEN trata ELSE 'INTERVENCIONES' END as trata, 
+                               COUNT(*) as cant
+                        FROM mv_{gerencia_clean}_egresos_no_efectivos
+                        GROUP BY 1, 2
+                    ),
+                    stock_data AS (
+                        -- Stock Histórico Oficial e Intervenciones
+                        SELECT mes_label, 
+                               CASE WHEN trata = ANY(:tratas_oficiales) THEN trata ELSE 'INTERVENCIONES' END as trata,
+                               SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END) as stock_propio,
+                               SUM(CASE WHEN categoria = 'SUBSANACION' THEN cant_expedientes ELSE 0 END) as stock_subs
+                        FROM mv_{gerencia_clean}_stock_historico
+                        GROUP BY 1, 2
+                    ),
+                    config_order AS (
+                        SELECT * FROM (VALUES {", ".join([f"('{c}', {i})" for i, c in enumerate(trata_codes)])}) as t(trata_code, ord)
+                    ),
+                    current_stock AS (
+                        -- Foto de HOY para el mes actual
+                        SELECT trata, COUNT(*) as cant FROM mv_{gerencia_clean}_stock_propio GROUP BY 1
+                        UNION ALL
+                        SELECT 'INTERVENCIONES' as trata, COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_stock GROUP BY 1
+                    ),
+                    current_subs AS (
+                        -- Foto de HOY para subsanaciones
+                        SELECT trata, COUNT(*) as cant FROM mv_{gerencia_clean}_subsanaciones GROUP BY 1
+                        UNION ALL
+                        SELECT 'INTERVENCIONES' as trata, COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_subs GROUP BY 1
+                    )
+                    SELECT 
+                        split_part(p.mes_label, '-', 1)::int as anio,
+                        split_part(p.mes_label, '-', 2)::int as mes,
+                        et.descripcion_trata as "DETALLE TRATA",
+                        et.trata as "COD TRATA",
+                        COALESCE(i.cant, 0) as "ING",
+                        COALESCE(ef.cant, 0) as "EGR_EF",
+                        COALESCE(ne.cant, 0) as "EGR_NE",
+                        -- Lógica de Stock Real Time
+                        CASE 
+                            WHEN p.mes_label = to_char(now(), 'YYYY-MM')
+                            THEN COALESCE(MAX(cs.cant), 0) 
+                            ELSE COALESCE(SUM(s.stock_propio), 0) 
+                        END as "STOCK_PROPIO",
+                        CASE 
+                            WHEN p.mes_label = to_char(now(), 'YYYY-MM')
+                            THEN COALESCE(MAX(csub.cant), 0) 
+                            ELSE COALESCE(SUM(s.stock_subs), 0) 
+                        END as "STOCK_SUBS"
+                    FROM periodos p
+                    CROSS JOIN (
+                        SELECT DISTINCT trata, descripcion_trata FROM mvw_expedientes_tratas_secgdu 
+                        WHERE trata IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
+                        UNION ALL
+                        SELECT 'INTERVENCIONES', 'Intervenciones'
+                    ) et
+                    JOIN config_order o ON et.trata = o.trata_code
+                    LEFT JOIN ing i ON i.mes_label = p.mes_label AND i.trata = et.trata
+                    LEFT JOIN egr_ef ef ON ef.mes_label = p.mes_label AND ef.trata = et.trata
+                    LEFT JOIN egr_ne ne ON ne.mes_label = p.mes_label AND ne.trata = et.trata
+                    LEFT JOIN stock_data s ON s.mes_label = p.mes_label AND s.trata = et.trata
+                    LEFT JOIN current_stock cs ON cs.trata = et.trata
+                    LEFT JOIN current_subs csub ON csub.trata = et.trata
+                    GROUP BY p.mes_label, 1, 2, 3, 4, o.ord, i.cant, ef.cant, ne.cant
+                    ORDER BY o.ord, anio DESC, mes DESC
+                """
+                params = {"tratas_oficiales": trata_codes, "g": gerencia_clean}
+            else:
+                sql = f"""
+                    WITH config_order AS (
+                        SELECT * FROM (VALUES {", ".join([f"('{c}', {i})" for i, c in enumerate(trata_codes)])}) as t(trata_code, ord)
+                    )
+                    SELECT h.* FROM mvw_reporte_historico_{gerencia_clean} h
+                    JOIN config_order o ON h."COD TRATA" = o.trata_code
+                    WHERE (h.anio, h.mes) IN ({months_filter})
+                    ORDER BY o.ord, h.anio DESC, h.mes DESC
+                """
+                params = {}
+
+            result = conn.execute(text(sql), params)
             df = pd.DataFrame(result.fetchall(), columns=result.keys())
+            
+            # Enriquecer con acrónimos oficiales desde TRAMITES_CONFIG
+            config_for_g = TRAMITES_CONFIG.get(gerencia_clean, {})
+            df["acronimos"] = df["COD TRATA"].apply(lambda x: config_for_g.get(x, {}).get("acronimos", ""))
+            
             return df.to_dict(orient='records')
     except Exception as e:
         logger.error(f"Error en consolidado: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/reporte/{gerencia}/metas")
+async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, current_user: User = Depends(get_current_user)):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+    try:
+        with engine.connect() as conn:
+            # 1. Obtener Histórico (12 meses) desde la nueva vista 14
+            interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos"
+            
+            # Determinar filtros de trata
+            trata_filter = "TRUE"
+            egr_trata_filter = "TRUE"
+            if trata:
+                trata_clean = trata.strip()
+                if trata_clean == 'INTERVENCIONES':
+                    trata_filter = f"TRIM(trata) NOT IN (SELECT TRIM(unnest(tratas_incluidas)) FROM cfg_gestion_metas WHERE gerencia = '{gerencia_clean}')"
+                    egr_trata_filter = "TRIM(trata) = 'INTERVENCIONES'"
+                else:
+                    trata_filter = f"TRIM(trata) = '{trata_clean}'"
+                    egr_trata_filter = f"TRIM(trata) = '{trata_clean}'"
+
+            sql_hist = f"""
+                WITH ing AS (
+                    SELECT to_char(fecha_ingreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                    FROM mv_{gerencia_clean}_ingresos_eventos
+                    WHERE {trata_filter}
+                    GROUP BY 1
+                ),
+                egr AS (
+                    SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                    FROM (
+                        SELECT fecha_egreso, trata FROM mv_{gerencia_clean}_gedos_egreso
+                        UNION ALL
+                        SELECT fecha_egreso, 'INTERVENCIONES' as trata FROM {interv_egr_table}
+                    ) t_egr
+                    WHERE {egr_trata_filter}
+                    GROUP BY 1
+                ),
+                egr_ne AS (
+                    SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                    FROM mv_{gerencia_clean}_egresos_no_efectivos
+                    WHERE {trata_filter}
+                    GROUP BY 1
+                ),
+                stock AS (
+                    SELECT mes_label, SUM(stock_sector) as sector, SUM(stock_corriente) as corriente
+                    FROM mv_{gerencia_clean}_metas_historico
+                    WHERE {trata_filter}
+                    GROUP BY 1
+                )
+                SELECT 
+                    s.mes_label,
+                    COALESCE(i.cant, 0) as ingresos,
+                    COALESCE(e.cant, 0) + COALESCE(ne.cant, 0) as egresos_totales,
+                    COALESCE(s.sector, 0) as stock_sector,
+                    COALESCE(s.corriente, 0) as stock_corriente,
+                    FALSE as es_proyeccion
+                FROM stock s
+                LEFT JOIN ing i ON i.mes_label = s.mes_label
+                LEFT JOIN egr e ON e.mes_label = s.mes_label
+                LEFT JOIN egr_ne ne ON ne.mes_label = s.mes_label
+                ORDER BY s.mes_label ASC
+            """
+            
+            result = conn.execute(text(sql_hist))
+            hist_data = [dict(row._mapping) for row in result]
+            
+            if not hist_data:
+                return {"history": [], "projection": [], "metas": {}}
+
+            # 2. Calcular Mediana para Proyección (basado en últimos 6 meses completos, excluyendo el mes en curso)
+            current_month_str = datetime.now().strftime('%Y-%m')
+            complete_months = [d for d in hist_data if d['mes_label'] < current_month_str]
+            recent = complete_months[-6:] if len(complete_months) >= 6 else complete_months
+            
+            def calculate_median(values):
+                if not values:
+                    return 0
+                sorted_vals = sorted(values)
+                n = len(sorted_vals)
+                mid = n // 2
+                if n % 2 == 1:
+                    return sorted_vals[mid]
+                else:
+                    return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2.0
+
+            avg_ing = calculate_median([float(d['ingresos']) for d in recent])
+            avg_egr = calculate_median([float(d['egresos_totales']) for d in recent])
+            current_sector = float(hist_data[-1]['stock_sector'])
+            current_corriente = float(hist_data[-1]['stock_corriente'])
+            
+            # Metas de Capacidad Recomendada (Para llegar a Cero Stock Propio y un Stock Corriente de Flujo Saludable)
+            # Definimos el "Stock Corriente Friccional Saludable" igual a los ingresos promedio (WIP saludable)
+            healthy_corriente_target = avg_ing
+            excess_corriente = max(0.0, current_corriente - healthy_corriente_target)
+            
+            # Aplicamos la lógica de planificación de capacidad con esfuerzo 75% / 25%:
+            # - El 75% de la capacidad objetivo (esfuerzo para ingresos) debe cubrir al menos el 100% del ingreso promedio: T >= avg_ing / 0.75
+            # - El 25% de la capacidad objetivo (esfuerzo para stock) debe cubrir al menos la cuota de limpieza mensual requerida (Sector / 6 y Exceso Corriente / 3): T >= meta_limpieza_requerida / 0.25
+            meta_maint = avg_ing
+            meta_clean_required = (current_sector / 6.0) + (excess_corriente / 3.0)
+            
+            # Capacidad recomendada total que garantiza cumplir ambas restricciones con un split 75/25
+            meta_total_target = max(meta_maint / 0.75, meta_clean_required / 0.25)
+            
+            # Distribución exacta 75/25 de la capacidad recomendada
+            meta_maint_allocated = meta_total_target * 0.75
+            meta_clean_allocated = meta_total_target * 0.25
+            
+            # 3. Generar Proyecciones (Escenario A: Actual, Escenario B: Objetivo)
+            projection_current = []
+            projection_target = []
+            
+            try:
+                last_date = datetime.strptime(hist_data[-1]['mes_label'], '%Y-%m')
+            except:
+                last_date = datetime.now()
+
+            temp_sector_current = current_sector
+            temp_corriente_target = current_corriente
+            temp_sector_target = current_sector
+            
+            for i in range(1, 8): # Proyectamos 7 meses (hasta dic 2026)
+                next_month = last_date + timedelta(days=31*i)
+                mes_label = next_month.strftime('%Y-%m')
+                
+                # Escenario Actual (Capacidad constante)
+                # El stock sectorial cambia por la diferencia entre ingresos y egresos actuales
+                delta_current = avg_ing - avg_egr
+                temp_sector_current = max(0, temp_sector_current + delta_current)
+                projection_current.append({
+                    "mes_label": mes_label,
+                    "ingresos": round(avg_ing),
+                    "egresos_totales": round(avg_egr),
+                    "stock_sector": round(temp_sector_current),
+                    "stock_corriente": round(current_corriente),
+                    "es_proyeccion": True,
+                    "escenario": "actual"
+                })
+                
+                # Escenario Objetivo (Capacidad aumentada)
+                # En los meses 1, 2, 3: limpiamos corriente excedente (exceso/3 por mes) y sector (S/6 por mes)
+                # En los meses 4, 5, 6: corriente queda estabilizada en su nivel saludable, solo limpiamos sector (S/6 por mes)
+                # En el mes 7+: el stock sectorial es 0 y corriente está en su flujo normal, volvemos a mantenimiento puro (Egresos = Ingresos).
+                if i <= 3:
+                    temp_corriente_target = max(healthy_corriente_target, temp_corriente_target - (excess_corriente / 3.0)) if current_corriente > healthy_corriente_target else current_corriente
+                    temp_sector_target = max(0.0, temp_sector_target - (current_sector / 6.0))
+                    clean_req = (current_sector / 6.0) + (excess_corriente / 3.0)
+                    monthly_target = max(avg_ing / 0.75, clean_req / 0.25)
+                elif i <= 6:
+                    temp_corriente_target = min(current_corriente, healthy_corriente_target)
+                    temp_sector_target = max(0.0, temp_sector_target - (current_sector / 6.0))
+                    clean_req = (current_sector / 6.0)
+                    monthly_target = max(avg_ing / 0.75, clean_req / 0.25)
+                else:
+                    temp_corriente_target = min(current_corriente, healthy_corriente_target)
+                    temp_sector_target = 0.0
+                    monthly_target = avg_ing
+                
+                projection_target.append({
+                    "mes_label": mes_label,
+                    "ingresos": round(avg_ing),
+                    "egresos_totales": round(monthly_target),
+                    "stock_sector": round(temp_sector_target),
+                    "stock_corriente": round(temp_corriente_target),
+                    "es_proyeccion": True,
+                    "escenario": "objetivo"
+                })
+
+            # 4. Metadatos para las tarjetas
+            capacidad_limpieza_actual = avg_egr * 0.25
+            meses_barrido_estimado = current_sector / capacidad_limpieza_actual if capacidad_limpieza_actual > 0 else 999
+
+            return {
+                "history": hist_data,
+                "projection_current": projection_current,
+                "projection_target": projection_target,
+                "metas": {
+                    "avg_ing": round(avg_ing),
+                    "avg_egr_actual": round(avg_egr),
+                    "meta_mantenimiento": round(meta_maint_allocated),
+                    "meta_limpieza_objetivo": round(meta_clean_allocated),
+                    "meta_total_recomendada": round(meta_total_target),
+                    "meses_barrido_actual": round(meses_barrido_estimado)
+                }
+            }
+    except Exception as e:
+        logger.error(f"Error en metas proyección: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/reporte/{gerencia}/tramite/{trata}")
 async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
     try:
         # Calcular los 12 meses: Actual + 11 anteriores
         now = datetime.now()
@@ -349,9 +657,72 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
         months_filter = ", ".join(months_list)
 
         with engine.connect() as conn:
-            # Seleccionamos directamente los valores de la vista histórica para asegurar consistencia total con la tabla
+            # Obtener el nombre descriptivo de la trata
             if trata == 'INTERVENCIONES':
-                # Ahora que INTERVENCIONES es una fila real en la vista histórica, la consultamos directamente
+                nombre_trata = "Intervenciones"
+            else:
+                trata_info = conn.execute(text("SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                nombre_trata = trata_info[0] if trata_info else trata
+
+            # Seleccionamos directamente los valores de la vista histórica para asegurar consistencia total con la tabla
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+                # Usamos el ecosistema modular para el gráfico histórico de 12 meses
+                # Filtro especial para agrupar intervenciones si es necesario
+                trata_filter = f"trata = '{trata}'" if trata != 'INTERVENCIONES' else f"trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = '{gerencia_clean}')"
+                
+                # Definir tabla de egresos de intervenciones (Contable tiene nombre distinto)
+                interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+
+                sql = f"""
+                    WITH periodos AS (
+                        SELECT DISTINCT mes_label FROM mv_{gerencia_clean}_stock_historico
+                        ORDER BY mes_label DESC LIMIT 12
+                    ),
+                    ing AS (
+                        SELECT to_char(fecha_ingreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                        FROM mv_{gerencia_clean}_ingresos_eventos WHERE {trata_filter}
+                        GROUP BY 1
+                    ),
+                    egr_ef AS (
+                        -- Egresos (Combinamos oficial e intervenciones si es el caso)
+                        SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                        FROM (
+                            SELECT fecha_egreso, trata FROM mv_{gerencia_clean}_gedos_egreso
+                            UNION ALL
+                            SELECT fecha_egreso, 'INTERVENCIONES' as trata FROM {interv_egr_table}
+                        ) t_egr
+                        WHERE {'trata = \'INTERVENCIONES\'' if trata == 'INTERVENCIONES' else f"trata = '{trata}'"}
+                        GROUP BY 1
+                    ),
+                    egr_ne AS (
+                        SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                        FROM mv_{gerencia_clean}_egresos_no_efectivos WHERE {trata_filter}
+                        GROUP BY 1
+                    ),
+                    stock_data AS (
+                        SELECT mes_label, 
+                               SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END) as stock_propio,
+                               SUM(CASE WHEN categoria = 'SUBSANACION' THEN cant_expedientes ELSE 0 END) as stock_subs
+                        FROM mv_{gerencia_clean}_stock_historico WHERE {trata_filter}
+                        GROUP BY 1
+                    )
+                    SELECT 
+                        split_part(p.mes_label, '-', 1)::int as anio,
+                        split_part(p.mes_label, '-', 2)::int as mes,
+                        '{nombre_trata}'::text as "DETALLE TRATA",
+                        COALESCE(i.cant, 0) as "ING",
+                        COALESCE(ef.cant, 0) as "EGR_EF",
+                        COALESCE(ne.cant, 0) as "EGR_NE",
+                        COALESCE(s.stock_propio, 0) as "STOCK_PROPIO",
+                        COALESCE(s.stock_subs, 0) as "STOCK_SUBS"
+                    FROM periodos p
+                    LEFT JOIN ing i ON i.mes_label = p.mes_label
+                    LEFT JOIN egr_ef ef ON ef.mes_label = p.mes_label
+                    LEFT JOIN egr_ne ne ON ne.mes_label = p.mes_label
+                    LEFT JOIN stock_data s ON s.mes_label = p.mes_label
+                    ORDER BY anio DESC, mes DESC
+                """
+            elif trata == 'INTERVENCIONES':
                 sql = f"""
                     SELECT anio, mes, "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
                     FROM mvw_reporte_historico_{gerencia_clean}
@@ -359,9 +730,6 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                       AND (anio, mes) IN ({months_filter})
                     ORDER BY anio DESC, mes DESC
                 """
-                result = conn.execute(text(sql))
-                df = pd.DataFrame(result.fetchall(), columns=result.keys())
-                return df.to_dict(orient='records')
             else:
                 sql = f"""
                     SELECT anio, mes, "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
@@ -385,75 +753,124 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
 async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User = Depends(get_current_user)):
     """Detalle de Stock Propio Actual - usa la MISMA lógica que las vistas históricas."""
     gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
     if gerencia_clean not in TRAMITES_CONFIG: raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
 
     try:
         with engine.connect() as conn:
+            # Obtener el nombre descriptivo de la trata
+            if trata == 'INTERVENCIONES':
+                nombre_trata = "Intervenciones"
+            else:
+                trata_info = conn.execute(text("SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                nombre_trata = trata_info[0] if trata_info else trata
+
             # Obtener configuración de analistas y buzones directamente de la DB para esta trata
             cfg_query = text("""
                 SELECT buzones_ingreso, analistas_oficiales 
                 FROM cfg_gestion_metas 
                 WHERE gerencia = :g AND trata_reporte = :t
             """)
-            cfg_res = conn.execute(cfg_query, {"g": gerencia_clean, "t": trata}).fetchone()
+            # Mapeo de lookup de configuración (Instalaciones y Contable tienen tablas propias de configuración)
+            trata_cfg_lookup = gerencia_clean.upper() if gerencia_clean in ['instalaciones', 'contable'] else trata
+            cfg_res = conn.execute(cfg_query, {"g": gerencia_clean, "t": trata_cfg_lookup}).fetchone()
             
             if not cfg_res:
-                return {"stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
+                return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
             
             # Combinar buzones y analistas para el filtro de la vista
             sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
             if not sector_whitelist:
-                return {"stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
+                return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
 
             # Usamos la vista materializada optimizada para el detalle
-            sql = f"""
-                SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
-                       dias_ultimo_movimiento as dias, analista_actual as analista
-                FROM mvw_stock_actual_detalle
-                WHERE trata_reporte = :t 
-                  AND gerencia = :g
-                  AND is_subs = 0
-                  AND analista_actual = ANY(:whitelist)
-            """
-            result = conn.execute(text(sql), {"t": trata, "g": gerencia_clean, "whitelist": sector_whitelist})
-            rows = [dict(r._mapping) for r in result.fetchall()]
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+                # Mapeamos los nombres de columnas de tu nueva vista a lo que espera el front
+                # Si la trata no es de las "oficiales", es una intervención
+                trata_codes = list(TRAMITES_CONFIG[gerencia_clean].keys())
+                is_official = trata in [t for t in trata_codes if t != 'INTERVENCIONES']
+                view_name = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
+                
+                sql = f"""
+                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
+                           fecha_recepcion_analista as fecha_ultimo_pase, 
+                           dias_en_poder_actual as dias, analista, trata
+                    FROM {view_name}
+                    WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
+                """
+                result = conn.execute(text(sql))
+                rows = [dict(r._mapping) for r in result.fetchall()]
 
-            # Formatear la respuesta enfocada en STOCK ACTUAL PROPIO REAL
-            propio_month_counts = {}
-            analyst_data = {}
-            ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
-            
-            for row in rows:
-                f_pase = row.get('fecha_ultimo_pase')
-                f_ing = row.get('fecha_ing')
+                # --- PROCESAMIENTO DE RANGOS Y ANTIGÜEDAD PARA INSTALACIONES ---
+                analyst_data = {}
+                propio_month_counts = {}
+                ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
                 
-                if f_pase and hasattr(f_pase, 'strftime'):
-                    m_key = f_pase.strftime("%Y-%m")
-                elif f_ing and hasattr(f_ing, 'strftime'):
-                    m_key = f_ing.strftime("%Y-%m")
-                else:
-                    m_key = "sin-fecha"
+                for row in rows:
+                    analista = row.get('analista') or 'SIN ASIGNAR'
+                    dias = row.get('dias') or 0
+                    f_pase = row.get('fecha_ultimo_pase')
                     
-                propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
-                
-                analista = row.get('analista') or "SIN ASIGNAR"
-                if analista not in analyst_data:
-                    analyst_data[analista] = {r[2]: 0 for r in ranges}
-                    analyst_data[analista]["TOTAL"] = 0
-                
-                # Clasificar por días desde el último movimiento
-                dias = row.get('dias') if row.get('dias') is not None else 0
-                for start, end, label in ranges:
-                    if start <= dias < end:
-                        analyst_data[analista][label] += 1
-                        break
+                    # Agrupación por mes (Antigüedad Real)
+                    if f_pase and hasattr(f_pase, 'strftime'):
+                        m_key = f_pase.strftime("%Y-%m")
+                        propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
+
+                    # Agrupación por Analista y Rango
+                    if analista not in analyst_data:
+                        analyst_data[analista] = {"analista": analista, "TOTAL": 0}
+                        for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
                     
-                analyst_data[analista]["TOTAL"] += 1
+                    analyst_data[analista]["TOTAL"] += 1
+                    for r_min, r_max, r_name in ranges:
+                        if r_min <= dias < r_max:
+                            analyst_data[analista][r_name] += 1
+                            break
+                
+                # Formatear month_dist para el gráfico
+                month_dist = [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())]
+            else:
+                sql = f"""
+                    SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
+                           dias_ultimo_movimiento as dias, analista_actual as analista
+                    FROM mvw_stock_actual_detalle
+                    WHERE trata_reporte = :t 
+                      AND gerencia = :g
+                      AND is_subs = 0
+                      AND analista_actual = ANY(:whitelist)
+                """
+                result = conn.execute(text(sql), {"t": trata, "g": gerencia_clean, "whitelist": sector_whitelist})
+                rows = [dict(r._mapping) for r in result.fetchall()]
+
+                # Distribución para otras gerencias
+                query_month = text(f"SELECT anio || '-' || LPAD(mes::text, 2, '0') as periodo, COUNT(*) as cantidad FROM mvw_reporte_historico_{gerencia_clean} WHERE \"COD TRATA\" = :t GROUP BY 1 ORDER BY 1")
+                res_month = conn.execute(query_month, {"t": trata})
+                month_dist = [dict(row) for row in res_month.mappings()]
+                
+                # --- PROCESAMIENTO DE RANGOS Y ANALISTAS ---
+                analyst_data = {}
+                ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
+                
+                for row in rows:
+                    analista = row.get('analista') or 'SIN ASIGNAR'
+                    dias = row.get('dias') or 0
+                    
+                    if analista not in analyst_data:
+                        analyst_data[analista] = {"analista": analista, "TOTAL": 0}
+                        for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
+                    
+                    analyst_data[analista]["TOTAL"] += 1
+                    for r_min, r_max, r_name in ranges:
+                        if r_min <= dias < r_max:
+                            analyst_data[analista][r_name] += 1
+                            break
             
             return {
+                "nombre_trata": nombre_trata,
                 "stock_propio_count": len(rows),
-                "month_distribution": [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())],
-                "analyst_distribution": [{"analista": name, **counts} for name, counts in analyst_data.items()],
+                "month_distribution": month_dist,
+                "analyst_distribution": list(analyst_data.values()),
                 "expedientes": [
                     {
                         "id_expediente": r.get("id_expediente"),
@@ -461,7 +878,8 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         "fecha_ing": r.get("fecha_ing").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ing") and hasattr(r.get("fecha_ing"), "strftime") else None,
                         "fecha_ultimo_pase": r.get("fecha_ultimo_pase").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ultimo_pase") and hasattr(r.get("fecha_ultimo_pase"), "strftime") else None,
                         "dias": r.get("dias") if r.get("dias") is not None else 0,
-                        "analista": r.get("analista")
+                        "analista": r.get("analista"),
+                        "trata": r.get("trata")
                     } 
                     for r in rows[:1000]
                 ]
@@ -473,34 +891,45 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
 @app.get("/api/reporte/{gerencia}/intervenciones/detalle")
 async def get_intervenciones_detalle(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
     
     try:
         with engine.connect() as conn:
-            # Consultamos directamente el stock actual usando la columna trata_reporte
-            # Obtenemos primero la lista de analistas/buzones para esta gerencia (INTERVENCIONES)
-            cfg_query = text("""
-                SELECT buzones_ingreso, analistas_oficiales 
-                FROM cfg_gestion_metas 
-                WHERE gerencia = :g AND trata_reporte = 'INTERVENCIONES'
-            """)
-            cfg_res = conn.execute(cfg_query, {"g": gerencia_clean}).fetchone()
-            
-            if not cfg_res: return []
-            
-            sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
-            if not sector_whitelist: return []
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+                # Consumimos de la nueva vista modular para intervenciones
+                sql = f"""
+                    SELECT trata, descripcion_trata as detalle, dias_en_poder_actual as dias_stock
+                    FROM mv_{gerencia_clean}_intervenciones_stock
+                """
+                result = conn.execute(text(sql))
+            else:
+                # Consultamos directamente el stock actual usando la columna trata_reporte
+                # Obtenemos primero la lista de analistas/buzones para esta gerencia (INTERVENCIONES)
+                cfg_query = text("""
+                    SELECT buzones_ingreso, analistas_oficiales 
+                    FROM cfg_gestion_metas 
+                    WHERE gerencia = :g AND trata_reporte = 'INTERVENCIONES'
+                """)
+                cfg_res = conn.execute(cfg_query, {"g": gerencia_clean}).fetchone()
+                
+                if not cfg_res: return []
+                
+                sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
+                if not sector_whitelist: return []
 
-            sql = f"""
-                SELECT trata, descripcion as detalle, dias_ultimo_movimiento as dias_stock
-                FROM mvw_stock_actual_detalle
-                WHERE is_subs = 0 
-                  AND gerencia = :g
-                  AND trata_reporte = 'INTERVENCIONES'
-                  AND analista_actual = ANY(:whitelist)
-            """
-            result = conn.execute(text(sql), {"g": gerencia_clean, "whitelist": sector_whitelist})
+                sql = """
+                    SELECT trata, descripcion as detalle, dias_ultimo_movimiento as dias_stock
+                    FROM mvw_stock_actual_detalle
+                    WHERE is_subs = 0 
+                      AND gerencia = :g
+                      AND trata_reporte = 'INTERVENCIONES'
+                      AND analista_actual = ANY(:whitelist)
+                """
+                result = conn.execute(text(sql), {"g": gerencia_clean, "whitelist": sector_whitelist})
+            
             rows = [dict(r._mapping) for r in result.fetchall()]
             if not rows: return []
             df = pd.DataFrame(rows)
