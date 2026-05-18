@@ -1910,3 +1910,106 @@ body::after, body::before, html::after, html::before {
 .chart-container-full {
     animation: fadeIn 0.8s ease-out;
 }
+
+/* --- ESTILOS MEJORADOS PARA MODALES DE DESCARGA --- */
+.download-modal-body {
+    padding: 2rem;
+}
+.download-modal-desc {
+    color: #475569;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+}
+.download-actions-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+.download-actions-row button {
+    background: none;
+    border: none;
+    color: #0076bb;
+    cursor: pointer;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    padding: 0;
+    transition: color 0.2s;
+}
+.download-actions-row button:hover {
+    color: #002d47;
+}
+.download-chk-list {
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem;
+    background: #f8fafc;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+.download-chk-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+.download-chk-card:hover {
+    border-color: #0076bb;
+    background: #f0f7ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 118, 187, 0.08);
+}
+.download-chk-card input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #0076bb;
+    cursor: pointer;
+}
+.download-chk-card span {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    color: #334155;
+    font-weight: 500;
+}
+.download-footer-buttons {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+/* --- BOTON DESCARGAR EXCEL INVERTIDO --- */
+.btn-download-excel {
+    background: var(--primary-dark);
+    color: white;
+    border: 1.5px solid var(--primary-dark);
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    font-family: 'Outfit', sans-serif;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.btn-download-excel:hover {
+    background: white;
+    color: var(--primary-dark);
+    border-color: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
+}

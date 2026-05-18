@@ -6,6 +6,7 @@ const API_BASE = window.location.origin.includes('localhost') || window.location
 let authToken = localStorage.getItem('sgdu_token');
 let currentUser = JSON.parse(localStorage.getItem('sgdu_user') || 'null');
 let metasChart = null;
+let currentIntervencionesData = null;
 
 // Helper para fetch con autenticación
 // Helper para fetch con autenticación
@@ -860,9 +861,8 @@ function renderAnalystTable(analystDist) {
     let html = `<table class="matrix-table analyst-table"><thead><tr><th>ANALISTA</th>${ranges.map(r => `<th>${r.replace(' dias', 'd')}</th>`).join('')}<th>TOTAL</th></tr></thead><tbody>`;
     
     analystDist.forEach(row => {
-        const analistaEscaped = row.analista.replace(/'/g, "\\'");
         html += `<tr>
-            <td class="clickable-analyst" onclick="openDrillDown('${analistaEscaped}')">${row.analista}</td>
+            <td>${row.analista}</td>
             ${ranges.map(r => `<td>${row[r] || '-'}</td>`).join('')}
             <td style="font-weight:700;">${row.TOTAL}</td>
         </tr>`;
@@ -875,6 +875,8 @@ async function loadIntervencionesDetail(gerencia) {
     try {
         const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/intervenciones/detalle`);
         const data = await response.json();
+        currentIntervencionesData = data;
+        currentGerencia = gerencia;
         if (!data || data.length === 0) { 
             wrapper.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b;">No hay stock de intervenciones externas.</div>'; 
             return; 
@@ -897,7 +899,7 @@ async function loadIntervencionesDetail(gerencia) {
         data.forEach(item => {
             html += `
                 <tr>
-                    <td class="code-cell clickable-analyst" onclick="openTrataDrillDown('${item.trata}')">${item.trata}</td>
+                    <td class="code-cell">${item.trata}</td>
                     <td>${item.detalle}</td>
                     ${ranges.map(r => `<td>${item[r] || '-'}</td>`).join('')}
                     <td style="font-weight:700;">${item.TOTAL}</td>
@@ -919,7 +921,6 @@ function openDrillDown(analista) {
     let html = `<table class="matrix-table"><thead><tr><th>Expediente</th><th>ID</th><th>Fecha Ingreso</th><th>Días</th></tr></thead><tbody>`;
     filtered.forEach(e => { html += `<tr><td class="code-cell">${e.expediente}</td><td class="code-cell">${e.id_expediente}</td><td>${new Date(e.fecha_ing).toLocaleDateString()}</td><td>${e.dias}</td></tr>`; });
     document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
-    document.getElementById('btn-download-csv').onclick = () => downloadExcel(`Stock_${analista}`, filtered);
     modal.style.display = 'flex';
 }
 
@@ -937,11 +938,273 @@ function openTrataDrillDown(trataCode) {
     });
     
     document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
-    document.getElementById('btn-download-csv').onclick = () => downloadExcel(`Trata_${trataCode}`, filtered);
     modal.style.display = 'flex';
 }
 
 function closeModal(id) { document.getElementById(id || 'stock-drilldown-modal').style.display = 'none'; }
+
+// --- FUNCIONES DESCARGA POR ANTIGÜEDAD DE STOCK ---
+function openStockAgeDownloadModal() {
+    if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
+        alert("No hay expedientes en el stock de esta trata para descargar.");
+        return;
+    }
+    
+    // Obtener meses únicos de los expedientes actuales
+    const monthsSet = new Set();
+    currentStockData.expedientes.forEach(e => {
+        if (e.fecha_ultimo_pase) {
+            const m = e.fecha_ultimo_pase.substring(0, 7); // "YYYY-MM"
+            monthsSet.add(m);
+        }
+    });
+    
+    const sortedMonths = Array.from(monthsSet).sort().reverse();
+    
+    const listContainer = document.getElementById('stock-age-months-list');
+    listContainer.innerHTML = '';
+    
+    if (sortedMonths.length === 0) {
+        listContainer.innerHTML = '<div style="color: #64748b; text-align: center; padding: 15px; font-size: 0.9rem;">No se encontraron períodos válidos de último movimiento.</div>';
+        document.getElementById('stock-age-download-modal').style.display = 'flex';
+        return;
+    }
+    
+    sortedMonths.forEach(m => {
+        const [y, mNum] = m.split('-');
+        const labelText = `${MESES[parseInt(mNum)-1]} ${y}`;
+        const itemHtml = `
+            <label class="download-chk-card">
+                <input type="checkbox" name="stock-age-month-chk" value="${m}" checked>
+                <span>${labelText}</span>
+            </label>
+        `;
+        listContainer.insertAdjacentHTML('beforeend', itemHtml);
+    });
+    
+    const modal = document.getElementById('stock-age-download-modal');
+    modal.style.display = 'flex';
+    gsap.fromTo(modal.querySelector('.modal-content'), 
+        { scale: 0.9, opacity: 0, y: 30 }, 
+        { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" }
+    );
+}
+
+function toggleAllStockAgeMonths(checked) {
+    const checkboxes = document.querySelectorAll('input[name="stock-age-month-chk"]');
+    checkboxes.forEach(cb => cb.checked = checked);
+}
+
+function triggerStockAgeDownload() {
+    const checkedBoxes = document.querySelectorAll('input[name="stock-age-month-chk"]:checked');
+    const selectedMonths = Array.from(checkedBoxes).map(cb => cb.value);
+    
+    if (selectedMonths.length === 0) {
+        alert("Debe seleccionar al menos un período para descargar.");
+        return;
+    }
+    
+    // Filtrar expedientes del stock que corresponden a los meses elegidos
+    const filtered = currentStockData.expedientes.filter(e => {
+        if (!e.fecha_ultimo_pase) return false;
+        const m = e.fecha_ultimo_pase.substring(0, 7);
+        return selectedMonths.includes(m);
+    });
+    
+    if (filtered.length === 0) {
+        alert("No hay expedientes en el stock para los períodos seleccionados.");
+        return;
+    }
+    
+    // Formatear datos legibles para el Excel consolidado
+    const excelData = filtered.map(e => ({
+        "EXPEDIENTE": e.expediente,
+        "ID EXPEDIENTE": e.id_expediente,
+        "TRATA": e.trata || currentStockData.trataCode,
+        "TRAMITE (DESCRIPCION)": e.descripcion_trata || "S/D",
+        "DETALLE (MOTIVO)": e.descripcion || "S/D",
+        "ESTADO ACTUAL SADE": e.estado_expediente || "S/D",
+        "FECHA CARATULACION": e.caratula ? e.caratula.substring(0, 10) : "S/D",
+        "FECHA INGRESO A GERENCIA": e.fecha_ing ? e.fecha_ing.substring(0, 10) : "S/D",
+        "FECHA ULTIMO PASE": e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : "S/D",
+        "DIAS EN PODER ACTUAL": e.dias,
+        "DIAS ACUMULADOS EN GERENCIA": e.dias_en_gerencia || 0,
+        "ANALISTA ASIGNADO": e.analista || "SIN ASIGNAR"
+    }));
+    
+    const filename = `Stock_${currentStockData.trataCode}_Antiguedad_${selectedMonths.join('_')}`;
+    downloadExcel(filename, excelData);
+    closeModal('stock-age-download-modal');
+}
+
+function openStockAnalystDownloadModal() {
+    if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
+        alert("No hay expedientes en el stock de esta trata para descargar.");
+        return;
+    }
+    
+    // Obtener analistas únicos de los expedientes actuales
+    const analystsSet = new Set();
+    currentStockData.expedientes.forEach(e => {
+        const name = e.analista || "SIN ASIGNAR";
+        analystsSet.add(name);
+    });
+    
+    const sortedAnalysts = Array.from(analystsSet).sort((a, b) => {
+        if (a === "SIN ASIGNAR") return 1;
+        if (b === "SIN ASIGNAR") return -1;
+        return a.localeCompare(b);
+    });
+    
+    const listContainer = document.getElementById('stock-analysts-list');
+    listContainer.innerHTML = '';
+    
+    if (sortedAnalysts.length === 0) {
+        listContainer.innerHTML = '<div style="color: #64748b; text-align: center; padding: 15px; font-size: 0.9rem;">No se encontraron analistas activos.</div>';
+        document.getElementById('stock-analyst-download-modal').style.display = 'flex';
+        return;
+    }
+    
+    sortedAnalysts.forEach(analyst => {
+        const itemHtml = `
+            <label class="download-chk-card">
+                <input type="checkbox" name="stock-analyst-chk" value="${analyst}" checked>
+                <span>${analyst}</span>
+            </label>
+        `;
+        listContainer.insertAdjacentHTML('beforeend', itemHtml);
+    });
+    
+    const modal = document.getElementById('stock-analyst-download-modal');
+    modal.style.display = 'flex';
+    gsap.fromTo(modal.querySelector('.modal-content'), 
+        { scale: 0.9, opacity: 0, y: 30 }, 
+        { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" }
+    );
+}
+
+function toggleAllStockAnalysts(checked) {
+    const checkboxes = document.querySelectorAll('input[name="stock-analyst-chk"]');
+    checkboxes.forEach(cb => cb.checked = checked);
+}
+
+function triggerStockAnalystDownload() {
+    const checkedBoxes = document.querySelectorAll('input[name="stock-analyst-chk"]:checked');
+    const selectedAnalysts = Array.from(checkedBoxes).map(cb => cb.value);
+    
+    if (selectedAnalysts.length === 0) {
+        alert("Debe seleccionar al menos un analista para descargar.");
+        return;
+    }
+    
+    // Filtrar expedientes del stock que corresponden a los analistas elegidos
+    const filtered = currentStockData.expedientes.filter(e => {
+        const name = e.analista || "SIN ASIGNAR";
+        return selectedAnalysts.includes(name);
+    });
+    
+    if (filtered.length === 0) {
+        alert("No hay expedientes en el stock para los analistas seleccionados.");
+        return;
+    }
+    
+    // Formatear datos legibles para el Excel consolidado
+    const excelData = filtered.map(e => ({
+        "EXPEDIENTE": e.expediente,
+        "ID EXPEDIENTE": e.id_expediente,
+        "TRATA": e.trata || currentStockData.trataCode,
+        "TRAMITE (DESCRIPCION)": e.descripcion_trata || "S/D",
+        "DETALLE (MOTIVO)": e.descripcion || "S/D",
+        "ESTADO ACTUAL SADE": e.estado_expediente || "S/D",
+        "FECHA CARATULACION": e.caratula ? e.caratula.substring(0, 10) : "S/D",
+        "FECHA INGRESO A GERENCIA": e.fecha_ing ? e.fecha_ing.substring(0, 10) : "S/D",
+        "FECHA ULTIMO PASE": e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : "S/D",
+        "DIAS EN PODER ACTUAL": e.dias,
+        "DIAS ACUMULADOS EN GERENCIA": e.dias_en_gerencia || 0,
+        "ANALISTA ASIGNADO": e.analista || "SIN ASIGNAR"
+    }));
+    
+    const filename = `Stock_${currentStockData.trataCode}_Analistas`;
+    downloadExcel(filename, excelData);
+    closeModal('stock-analyst-download-modal');
+}
+
+// --- FUNCIONES DESCARGA POR INTERVENCIONES ---
+function openIntervencionesDownloadModal() {
+    if (!currentIntervencionesData || currentIntervencionesData.length === 0) {
+        alert("No hay datos de intervenciones disponibles para descargar.");
+        return;
+    }
+    
+    const listContainer = document.getElementById('stock-intervenciones-list');
+    listContainer.innerHTML = '';
+    
+    currentIntervencionesData.forEach(item => {
+        const itemHtml = `
+            <label class="download-chk-card">
+                <input type="checkbox" name="stock-intervencion-chk" value="${item.trata}" checked>
+                <span><strong>${item.trata}</strong> - ${item.detalle}</span>
+            </label>
+        `;
+        listContainer.insertAdjacentHTML('beforeend', itemHtml);
+    });
+    
+    const modal = document.getElementById('stock-intervenciones-download-modal');
+    modal.style.display = 'flex';
+    gsap.fromTo(modal.querySelector('.modal-content'), 
+        { scale: 0.9, opacity: 0, y: 30 }, 
+        { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(1.5)" }
+    );
+}
+
+function toggleAllIntervenciones(checked) {
+    const checkboxes = document.querySelectorAll('input[name="stock-intervencion-chk"]');
+    checkboxes.forEach(cb => cb.checked = checked);
+}
+
+function triggerIntervencionesDownload() {
+    const checkedBoxes = document.querySelectorAll('input[name="stock-intervencion-chk"]:checked');
+    const selectedTratas = Array.from(checkedBoxes).map(cb => cb.value);
+    
+    if (selectedTratas.length === 0) {
+        alert("Debe seleccionar al menos una trata para descargar.");
+        return;
+    }
+    
+    // Filtrar expedientes individuales correspondientes a las tratas seleccionadas
+    if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
+        alert("No hay datos de expedientes individuales disponibles para descargar.");
+        return;
+    }
+    
+    const filtered = currentStockData.expedientes.filter(e => selectedTratas.includes(e.trata));
+    
+    if (filtered.length === 0) {
+        alert("No hay expedientes individuales en el stock para las tratas seleccionadas.");
+        return;
+    }
+    
+    // Formatear columnas profesionales de forma legible para el Excel consolidado con el máximo detalle
+    const excelData = filtered.map(e => ({
+        "EXPEDIENTE": e.expediente,
+        "ID EXPEDIENTE": e.id_expediente,
+        "TRATA": e.trata || "S/D",
+        "TRAMITE (DESCRIPCION)": e.descripcion_trata || "S/D",
+        "DETALLE (MOTIVO)": e.descripcion || "S/D",
+        "ESTADO ACTUAL SADE": e.estado_expediente || "S/D",
+        "FECHA CARATULACION": e.caratula ? e.caratula.substring(0, 10) : "S/D",
+        "FECHA INGRESO A GERENCIA": e.fecha_ing ? e.fecha_ing.substring(0, 10) : "S/D",
+        "FECHA ULTIMO PASE": e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : "S/D",
+        "DIAS EN PODER ACTUAL": e.dias,
+        "DIAS ACUMULADOS EN GERENCIA": e.dias_en_gerencia || 0,
+        "ANALISTA ASIGNADO": e.analista || "SIN ASIGNAR"
+    }));
+    
+    const cleanGerencia = (currentGerencia || "Intervenciones").toUpperCase();
+    const filename = `Stock_Intervenciones_Detalle_${cleanGerencia}`;
+    downloadExcel(filename, excelData);
+    closeModal('stock-intervenciones-download-modal');
+}
 
 function openHelpModal(trataCode, gerencia, trataName, acronimosFromData) {
     const modal = document.getElementById('help-modal');

@@ -795,7 +795,10 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 sql = f"""
                     SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
                            fecha_recepcion_analista as fecha_ultimo_pase, 
-                           dias_en_poder_actual as dias, analista, trata
+                           dias_en_poder_actual as dias, analista, trata, 
+                           (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = {view_name}.id_expediente LIMIT 1) as caratula,
+                           descripcion_trata, descripcion, estado_expediente,
+                           (CURRENT_DATE - fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
                     FROM {view_name}
                     WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
                 """
@@ -833,7 +836,12 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
             else:
                 sql = f"""
                     SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
-                           dias_ultimo_movimiento as dias, analista_actual as analista
+                           dias_ultimo_movimiento as dias, analista_actual as analista, trata,
+                           (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as caratula,
+                           (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion_trata,
+                           (SELECT descripcion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion,
+                           (SELECT estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as estado_expediente,
+                           dias_stock as dias_en_gerencia
                     FROM mvw_stock_actual_detalle
                     WHERE trata_reporte = :t 
                       AND gerencia = :g
@@ -879,7 +887,12 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         "fecha_ultimo_pase": r.get("fecha_ultimo_pase").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ultimo_pase") and hasattr(r.get("fecha_ultimo_pase"), "strftime") else None,
                         "dias": r.get("dias") if r.get("dias") is not None else 0,
                         "analista": r.get("analista"),
-                        "trata": r.get("trata")
+                        "trata": r.get("trata"),
+                        "caratula": r.get("caratula").strftime("%Y-%m-%d %H:%M:%S") if r.get("caratula") and hasattr(r.get("caratula"), "strftime") else (str(r.get("caratula"))[:19] if r.get("caratula") else None),
+                        "descripcion_trata": r.get("descripcion_trata"),
+                        "descripcion": r.get("descripcion"),
+                        "estado_expediente": r.get("estado_expediente"),
+                        "dias_en_gerencia": r.get("dias_en_gerencia") if r.get("dias_en_gerencia") is not None else 0
                     } 
                     for r in rows[:1000]
                 ]

@@ -324,21 +324,39 @@
 
                 <div class="trata-extra-analysis">
                     <div class="analysis-section">
-                        <h3 class="section-title">Antigüedad Stock (Meses del último movimiento)</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 class="section-title" style="margin-bottom: 0;">Antigüedad Stock (Meses del último movimiento)</h3>
+                            <button id="download-stock-age-btn" class="btn-download-excel" onclick="openStockAgeDownloadModal()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Descargar Excel
+                            </button>
+                        </div>
                         <div class="chart-container small-chart">
                             <canvas id="stock-age-chart"></canvas>
                         </div>
                     </div>
 
                     <div class="analysis-section">
-                        <h3 class="section-title">Detalle de Stock Propio (Mes en curso)</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 class="section-title" style="margin-bottom: 0;">Detalle de Stock Propio (Mes en curso)</h3>
+                            <button id="download-full-stock-btn" class="btn-download-excel" onclick="openStockAnalystDownloadModal()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Descargar Excel
+                            </button>
+                        </div>
                         <div id="analyst-table-container" class="matrix-table-container">
                             <!-- Tabla dinámica -->
                         </div>
                     </div>
 
                     <div id="intervenciones-detail-container" class="analysis-section" style="display: none;">
-                        <h3 class="section-title">Desglose de Tratas (Intervenciones)</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 class="section-title" style="margin-bottom: 0;">Desglose de Tratas (Intervenciones)</h3>
+                            <button id="download-intervenciones-btn" class="btn-download-excel" onclick="openIntervencionesDownloadModal()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                Descargar Excel
+                            </button>
+                        </div>
                         <div id="intervenciones-table-wrapper" class="matrix-table-container">
                             <!-- Tabla dinámica -->
                         </div>
@@ -637,19 +655,12 @@
     <!-- Modal de Detalles de Stock -->
     <div id="stock-drilldown-modal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <h2 id="modal-analyst-name">Nombre Analista</h2>
-                    <p id="modal-trata-info" style="color: #64748b; font-size: 0.9rem; margin-top: 5px;"></p>
+                    <h2 id="modal-analyst-name" style="margin: 0; color: var(--primary-dark);">Nombre Analista</h2>
+                    <p id="modal-trata-info" style="color: #64748b; font-size: 0.9rem; margin-top: 5px; margin-bottom: 0;"></p>
                 </div>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <button id="btn-download-csv" class="btn-download"
-                        style="padding: 8px 15px; font-size: 0.85rem; background: var(--accent); color: var(--primary-dark); border: none; border-radius: 6px; font-weight: 700; cursor: pointer;">
-                        Descargar Excel
-                    </button>
-                    <span class="close-modal" onclick="closeModal('stock-drilldown-modal')"
-                        style="cursor: pointer; font-size: 2rem;">&times;</span>
-                </div>
+                <span class="close-modal" onclick="closeModal('stock-drilldown-modal')" style="cursor: pointer; font-size: 2rem;">&times;</span>
             </div>
             <div id="modal-table-container" class="matrix-table-container" style="padding: 20px;">
                 <!-- Tabla dinámica -->
@@ -721,6 +732,93 @@
             </div>
             <span class="close-modal" onclick="closeModal('help-modal')" 
                   style="position: absolute; top: 20px; right: 25px; color: #64748b; cursor: pointer; font-size: 2rem; z-index: 10;">&times;</span>
+        </div>
+    </div>
+
+    <!-- Modal de Selección de Meses para Descarga de Stock -->
+    <div id="stock-age-download-modal" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2 style="margin: 0; color: white; font-size: 1.4rem;">Descargar por Antigüedad</h2>
+                <span class="close-modal" onclick="closeModal('stock-age-download-modal')" style="cursor: pointer; font-size: 2rem; color: white;">&times;</span>
+            </div>
+            <div class="download-modal-body">
+                <p class="download-modal-desc">
+                    Seleccione los períodos del último movimiento que desea incluir en el reporte de Excel consolidado:
+                </p>
+                
+                <div class="download-actions-row">
+                    <button type="button" onclick="toggleAllStockAgeMonths(true)">Seleccionar todos</button>
+                    <button type="button" onclick="toggleAllStockAgeMonths(false)" style="color: #64748b;">Deseleccionar todos</button>
+                </div>
+                
+                <div id="stock-age-months-list" class="download-chk-list">
+                    <!-- Se puebla dinámicamente con JS -->
+                </div>
+                
+                <div class="download-footer-buttons">
+                    <button type="button" class="btn-secondary" onclick="closeModal('stock-age-download-modal')" style="padding: 10px 20px;">Cancelar</button>
+                    <button type="button" class="btn-primary" onclick="triggerStockAgeDownload()" style="padding: 10px 20px;">Descargar Excel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Selección de Analistas para Descarga de Stock -->
+    <div id="stock-analyst-download-modal" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2 style="margin: 0; color: white; font-size: 1.4rem;">Descargar por Analista</h2>
+                <span class="close-modal" onclick="closeModal('stock-analyst-download-modal')" style="cursor: pointer; font-size: 2rem; color: white;">&times;</span>
+            </div>
+            <div class="download-modal-body">
+                <p class="download-modal-desc">
+                    Seleccione los analistas autorizados que desea incluir en el reporte de Excel consolidado:
+                </p>
+                
+                <div class="download-actions-row">
+                    <button type="button" onclick="toggleAllStockAnalysts(true)">Seleccionar todos</button>
+                    <button type="button" onclick="toggleAllStockAnalysts(false)" style="color: #64748b;">Deseleccionar todos</button>
+                </div>
+                
+                <div id="stock-analysts-list" class="download-chk-list">
+                    <!-- Se puebla dinámicamente con JS -->
+                </div>
+                
+                <div class="download-footer-buttons">
+                    <button type="button" class="btn-secondary" onclick="closeModal('stock-analyst-download-modal')" style="padding: 10px 20px;">Cancelar</button>
+                    <button type="button" class="btn-primary" onclick="triggerStockAnalystDownload()" style="padding: 10px 20px;">Descargar Excel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Selección de Tratas para Descarga de Intervenciones -->
+    <div id="stock-intervenciones-download-modal" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2 style="margin: 0; color: white; font-size: 1.4rem;">Descargar Intervenciones</h2>
+                <span class="close-modal" onclick="closeModal('stock-intervenciones-download-modal')" style="cursor: pointer; font-size: 2rem; color: white;">&times;</span>
+            </div>
+            <div class="download-modal-body">
+                <p class="download-modal-desc">
+                    Seleccione los trámites de intervención externa que desea incluir en el reporte de Excel consolidado:
+                </p>
+                
+                <div class="download-actions-row">
+                    <button type="button" onclick="toggleAllIntervenciones(true)">Seleccionar todos</button>
+                    <button type="button" onclick="toggleAllIntervenciones(false)" style="color: #64748b;">Deseleccionar todos</button>
+                </div>
+                
+                <div id="stock-intervenciones-list" class="download-chk-list">
+                    <!-- Se puebla dinámicamente con JS -->
+                </div>
+                
+                <div class="download-footer-buttons">
+                    <button type="button" class="btn-secondary" onclick="closeModal('stock-intervenciones-download-modal')" style="padding: 10px 20px;">Cancelar</button>
+                    <button type="button" class="btn-primary" onclick="triggerIntervencionesDownload()" style="padding: 10px 20px;">Descargar Excel</button>
+                </div>
+            </div>
         </div>
     </div>
 
