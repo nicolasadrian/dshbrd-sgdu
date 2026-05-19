@@ -1900,7 +1900,7 @@ async function loadSeguimientoData() {
         console.error("Error al cargar seguimiento:", err);
         container.innerHTML = `
             <div class="error-message" style="grid-column: 1 / -1;">
-                <div class="error-icon">⚠️</div>
+                <div class="error-icon">!</div>
                 <h3>Error en la carga</h3>
                 <p>No pudimos consolidar los datos de seguimiento. Por favor, reintenta.</p>
                 <button class="btn-primary" style="margin-top:1rem;" onclick="loadSeguimientoData()">Reintentar Carga</button>
@@ -2003,7 +2003,7 @@ function filterAndRenderSeguimiento() {
     if (filtered.length === 0) {
         container.innerHTML = `
             <div class="error-message" style="grid-column: 1 / -1; margin: 2rem auto; width: 100%;">
-                <div class="error-icon">ℹ️</div>
+                <div class="error-icon">i</div>
                 <h3>Sin trámites coincidentes</h3>
                 <p>Modifica los filtros de búsqueda o gerencia para encontrar lo que buscas.</p>
             </div>`;
@@ -2244,7 +2244,7 @@ function filterAndRenderSLA() {
     if (filtered.length === 0) {
         container.innerHTML = `
             <div class="error-message" style="grid-column: 1 / -1; margin: 2rem auto; width: 100%;">
-                <div class="error-icon">ℹ️</div>
+                <div class="error-icon">i</div>
                 <h3>Sin trámites coincidentes</h3>
                 <p>Modifica los filtros de búsqueda o de área para encontrar lo que buscas.</p>
             </div>`;
@@ -2274,7 +2274,7 @@ function filterAndRenderSLA() {
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                         <span class="badge-gerencia ${t.gerencia}">${gerenciaDisplay}</span>
                         <button class="btn-cell-download" onclick="exportSlaCardDetail(event, '${t.gerencia}', '${t["COD TRATA"]}')" title="Descargar validación Excel" style="background: rgba(0, 118, 187, 0.05); border: none; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.2s; font-size: 0.7rem; font-weight: 700; gap: 4px;">
-                            <span style="font-size: 11px;">📥</span> Excel
+                            Excel
                         </button>
                     </div>
                 </div>
