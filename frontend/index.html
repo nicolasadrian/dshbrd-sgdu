@@ -40,18 +40,22 @@
 
     <header>
         <div class="logo-container" onclick="showView('landing')" style="cursor: pointer; display: flex; align-items: center; gap: 15px;">
-            <img src="assets/logo-ba.svg" alt="BA" style="height: 35px;">
-            <div class="logo-text" style="border-left: 1px solid #cbd5e1; padding-left: 15px; font-size: 1.5rem;">Tablero SGDU</div>
+            <img src="assets/logo-ba.svg" alt="BA" style="height: 38px;">
+            <div style="border-left: 1px solid #cbd5e1; padding-left: 15px; display: flex; flex-direction: column; justify-content: center; gap: 2px;">
+                <div class="logo-text" style="font-size: 1.4rem; font-weight: 700; line-height: 1.1; color: var(--primary-dark);">Tablero SGDU</div>
+                <span class="header-tag" style="font-size: 0.72rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.4px;">Secretaría de Gestión y Desarrollo Urbano</span>
+            </div>
         </div>
         <nav id="main-nav">
-            <span class="header-tag">Secretaría de Gestión y Desarrollo Urbano</span>
-            <div class="auth-controls" id="auth-controls" style="display: none;">
-                <div class="user-info-banner">
+            <div class="auth-controls" id="auth-controls" style="display: none; align-items: center; gap: 2rem;">
+                <button id="seguimiento-btn" class="btn-header-nav" style="display: none;" onclick="showView('seguimiento')">Seguimiento</button>
+                <button id="admin-btn" class="btn-header-nav" style="display: none;" onclick="showView('admin')">Admin Usuarios</button>
+                
+                <div class="user-profile-block">
                     <span id="display-fullname" class="user-fullname"></span>
                     <span id="display-sector" class="user-sector"></span>
                 </div>
-                <button id="admin-btn" class="btn-secondary" style="display: none;" onclick="showView('admin')">Admin Usuarios</button>
-                <button onclick="logout()" class="btn-logout">Salir</button>
+                <button onclick="logout()" class="btn-header-logout">Salir</button>
             </div>
         </nav>
     </header>
@@ -399,8 +403,21 @@
                         background: linear-gradient(90deg, #38bdf8, var(--primary));
                         border-radius: 9999px;
                         width: 0%;
-                        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+                        transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s ease, box-shadow 0.5s ease;
                         box-shadow: 0 0 10px rgba(0, 159, 227, 0.2);
+                    }
+                    
+                    .meta-egr-bar-fill.perf-high {
+                        background: linear-gradient(90deg, #34d399, #10b981) !important;
+                        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3) !important;
+                    }
+                    .meta-egr-bar-fill.perf-mid {
+                        background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
+                        box-shadow: 0 0 10px rgba(245, 158, 11, 0.3) !important;
+                    }
+                    .meta-egr-bar-fill.perf-low {
+                        background: linear-gradient(90deg, #f87171, #ef4444) !important;
+                        box-shadow: 0 0 10px rgba(239, 68, 68, 0.3) !important;
                     }
                     
                     .meta-time-needle-line {
@@ -541,12 +558,12 @@
                         <div class="meta-card-sub">Mediana Últimos 6 Meses</div>
                     </div>
                     <div class="meta-card">
-                        <div class="meta-card-label">Ingresos Último Mes</div>
+                        <div class="meta-card-label">Ingresos Mes en Curso</div>
                         <div id="meta-ing-last-val" class="meta-card-value">--</div>
                         <div id="meta-ing-last-diff" class="meta-card-sub" style="font-weight: 600;">-- vs promedio</div>
                     </div>
                     <div class="meta-card">
-                        <div class="meta-card-label">Egresos Último Mes</div>
+                        <div class="meta-card-label">Egresos Mes en Curso</div>
                         <div id="meta-egr-last-val" class="meta-card-value">--</div>
                         <div id="meta-egr-last-diff" class="meta-card-sub" style="font-weight: 600;">-- vs promedio</div>
                     </div>
@@ -592,6 +609,94 @@
                 </div>
             </div>
 
+        </section>
+
+        <!-- Vista 12: Seguimiento de Tratas -->
+        <section id="seguimiento" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Seguimiento y Gestión de Tratas
+            </div>
+            <h1 class="landing-title">Panel de Seguimiento y Ritmo Mensual</h1>
+            <p style="margin-bottom: 2rem;">Visualización unificada del avance de egresos y ritmos de gestión para todas las tratas oficiales.</p>
+
+            <!-- Controles de Búsqueda, Filtro y Ordenamiento -->
+            <div class="filter-controls-container" style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2.5rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1;">
+                    <!-- Búsqueda -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Buscar Trámite / Trata</label>
+                        <input type="text" id="seguimiento-search" class="form-input" placeholder="Buscar por código (MDUG...) o nombre..." oninput="filterAndRenderSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                    </div>
+                    
+                    <!-- Filtro por Gerencia -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 200px;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Filtrar por Área / Gerencia</label>
+                        <select id="seguimiento-filter-gerencia" onchange="filterAndRenderSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todas las Áreas</option>
+                            <option value="catastro">Catastro (DGROC)</option>
+                            <option value="instalaciones">Instalaciones (DGROC)</option>
+                            <option value="conforme">Conforme (DGROC)</option>
+                            <option value="contable">Contable (DGROC)</option>
+                            <option value="etapa_proyecto">Etapa Proyecto (DGROC)</option>
+                            <option value="aviso_obra">Aviso de Obra (DGROC)</option>
+                            <option value="morfologia">Morfología Urbana (DGIUR)</option>
+                            <option value="aph">Protección Histórica APH (DGIUR)</option>
+                            <option value="usos">Usos del Suelo (DGIUR)</option>
+                        </select>
+                    </div>
+
+                    <!-- Ordenamiento -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 220px;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Ordenar Resultados</label>
+                        <select id="seguimiento-sort" onchange="filterAndRenderSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="PERF_DESC">Mejor Rendimiento al Peor</option>
+                            <option value="PERF_ASC">Peor Rendimiento al Mejor</option>
+                            <option value="NAME_ASC">Nombre (A-Z)</option>
+                            <option value="CODE_ASC">Código de Trata</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Selector de Vista (Lista / Grilla) -->
+                <div class="view-toggle-container" style="display: flex; background: #f8fafc; border-radius: 12px; padding: 4px; border: 1px solid #cbd5e1; gap: 4px; align-self: center;">
+                    <button type="button" id="btn-view-list" class="view-toggle-btn active" onclick="setSeguimientoViewMode('list')" style="background: white; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Outfit'; font-size: 0.82rem; font-weight: 700; color: var(--primary-dark); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        Lista
+                    </button>
+                    <button type="button" id="btn-view-grid" class="view-toggle-btn" onclick="setSeguimientoViewMode('grid')" style="background: transparent; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Outfit'; font-size: 0.82rem; font-weight: 700; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
+                        Grilla
+                    </button>
+                </div>
+
+                <!-- Resumen Rápido global -->
+                <div id="seguimiento-summary-badge" style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px 18px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; color: #334155; text-align: right; min-width: 150px;">
+                    Cargando tratas...
+                </div>
+            </div>
+
+            <!-- Resumen de Cumplimiento por Rangos -->
+            <div class="compliance-summary-grid">
+                <div class="compliance-card comp-low" id="card-comp-0-25" onclick="toggleComplianceFilter('0-25')">
+                    <div id="comp-count-0-25" class="comp-card-val">0</div>
+                    <div class="comp-card-label">0% a 25% de avance</div>
+                </div>
+                <div class="compliance-card comp-mid-low" id="card-comp-25-50" onclick="toggleComplianceFilter('25-50')">
+                    <div id="comp-count-25-50" class="comp-card-val">0</div>
+                    <div class="comp-card-label">25% a 50% de avance</div>
+                </div>
+                <div class="compliance-card comp-mid-high" id="card-comp-50-75" onclick="toggleComplianceFilter('50-75')">
+                    <div id="comp-count-50-75" class="comp-card-val">0</div>
+                    <div class="comp-card-label">50% a 75% de avance</div>
+                </div>
+                <div class="compliance-card comp-high" id="card-comp-75-100" onclick="toggleComplianceFilter('75-100')">
+                    <div id="comp-count-75-100" class="comp-card-val">0</div>
+                    <div class="comp-card-label">Más del 75% de avance</div>
+                </div>
+            </div>
+
+            <!-- Contenedor Principal de Tratas (Grid de Tarjetas) -->
+            <div id="seguimiento-grid-container" class="seguimiento-grid">
+                <!-- Se llenará dinámicamente -->
+            </div>
         </section>
 
         <!-- Vista Admin: Gestión de Usuarios -->

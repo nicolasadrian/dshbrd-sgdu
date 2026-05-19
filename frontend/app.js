@@ -7,6 +7,8 @@ let authToken = localStorage.getItem('sgdu_token');
 let currentUser = JSON.parse(localStorage.getItem('sgdu_user') || 'null');
 let metasChart = null;
 let currentIntervencionesData = null;
+let seguimientoViewMode = localStorage.getItem('sgdu_seguimiento_view_mode') || 'list';
+let activeComplianceFilter = null;
 
 // Helper para fetch con autenticación
 // Helper para fetch con autenticación
@@ -48,6 +50,15 @@ function initAuth() {
             adminBtn.style.display = 'block';
         } else {
             adminBtn.style.display = 'none';
+        }
+
+        const seguimientoBtn = document.getElementById('seguimiento-btn');
+        if (seguimientoBtn) {
+            if (role === 'administrador' || role === 'admin' || role === 'seguimiento') {
+                seguimientoBtn.style.display = 'block';
+            } else {
+                seguimientoBtn.style.display = 'none';
+            }
         }
 
         // Si necesita cambio de clave, forzar modal
@@ -160,6 +171,12 @@ function showView(viewId, updateHash = true) {
         return;
     }
 
+    // Seguridad: Solo admin o seguimiento pueden ver la vista de seguimiento
+    if (viewId === 'seguimiento' && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+        showView('landing');
+        return;
+    }
+
     views.forEach(v => {
         v.classList.remove('active');
         v.style.display = 'none';
@@ -178,6 +195,10 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'metas') {
         loadMetasData();
+    }
+
+    if (viewId === 'seguimiento') {
+        loadSeguimientoData();
     }
 
     // Carga de reportes si es una vista de gerencia
@@ -572,7 +593,7 @@ let currentGerencia = "";
 let currentTrataCode = "";
 let currentTrataName = "";
 
-async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true) {
+async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true, fromSeguimiento = false) {
     const views = document.querySelectorAll('.view-container');
     views.forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
     
@@ -633,16 +654,28 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     
     // Actualizar Breadcrumbs
     const parentLink = document.getElementById('trata_detail_parent_link');
-    parentLink.innerText = parentDir.toUpperCase();
-    parentLink.onclick = () => showView(parentDir);
+    if (fromSeguimiento) {
+        parentLink.innerText = 'SEGUIMIENTO';
+        parentLink.onclick = () => showView('seguimiento');
+    } else {
+        parentLink.innerText = parentDir.toUpperCase();
+        parentLink.onclick = () => showView(parentDir);
+    }
 
     const backBtn = document.getElementById('trata_detail_back');
     if (backBtn && gerencia) {
-        const cleanGerencia = gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' ');
-        backBtn.innerText = cleanGerencia;
-        backBtn.onclick = () => {
-            window.location.hash = `#/${gerencia}`;
-        };
+        if (fromSeguimiento) {
+            backBtn.innerText = 'Volver a Seguimiento';
+            backBtn.onclick = () => {
+                showView('seguimiento');
+            };
+        } else {
+            const cleanGerencia = gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' ');
+            backBtn.innerText = cleanGerencia;
+            backBtn.onclick = () => {
+                window.location.hash = `#/${gerencia}`;
+            };
+        }
     }
 
     const intervContainer = document.getElementById('intervenciones-detail-container');
@@ -1571,10 +1604,18 @@ async function loadMetasData() {
                 const targetEgr = avgEgr;
                 const egrProgressPct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
                 
+                let perfClass = 'perf-mid';
+                if (egrProgressPct >= timeProgressPct) {
+                    perfClass = 'perf-high';
+                } else if (egrProgressPct < timeProgressPct * 0.6) {
+                    perfClass = 'perf-low';
+                }
+                
                 // 1. Actualizar Relleno de Barra (Egresos)
                 const egrBar = document.getElementById('meta-egr-progress-bar');
                 if (egrBar) {
                     egrBar.style.width = `${Math.min(100, egrProgressPct)}%`;
+                    egrBar.className = `meta-egr-bar-fill ${perfClass}`;
                 }
                 const egrLegendVal = document.getElementById('meta-egr-legend-val');
                 if (egrLegendVal) {
@@ -1676,7 +1717,6 @@ function renderMetasChart(data) {
                     borderWidth: 3,
                     backgroundColor: 'transparent',
                     tension: 0.4,
-                    yAxisID: 'y1',
                     segment: {
                         borderDash: (ctx) => ctx.p0DataIndex >= historyCount - 1 ? [5, 5] : []
                     },
@@ -1688,7 +1728,6 @@ function renderMetasChart(data) {
                     borderColor: '#10b981',
                     backgroundColor: 'transparent',
                     tension: 0.4,
-                    yAxisID: 'y1',
                     segment: {
                         borderDash: (ctx) => ctx.p0DataIndex >= historyCount - 1 ? [5, 5] : []
                     },
@@ -1706,16 +1745,9 @@ function renderMetasChart(data) {
                     ticks: { font: { family: 'Outfit', size: 11, weight: '600' }, color: '#64748b' }
                 },
                 y: {
-                    title: { display: true, text: 'Volumen Mensual', font: { family: 'Outfit', weight: 'bold', size: 12 }, color: '#475569' },
+                    title: { display: true, text: 'Volumen / Expedientes', font: { family: 'Outfit', weight: 'bold', size: 12 }, color: '#475569' },
                     beginAtZero: true,
                     grid: { color: 'rgba(226, 232, 240, 0.6)', drawBorder: false },
-                    ticks: { font: { family: 'Outfit', size: 11 }, color: '#64748b' }
-                },
-                y1: {
-                    position: 'right',
-                    title: { display: true, text: 'Stock (Expedientes)', font: { family: 'Outfit', weight: 'bold', size: 12 }, color: '#475569' },
-                    beginAtZero: true,
-                    grid: { display: false },
                     ticks: { font: { family: 'Outfit', size: 11 }, color: '#64748b' }
                 }
             },
@@ -1762,6 +1794,313 @@ function renderMetasChart(data) {
             }
         }
     });
+}
+
+// --- SEGUIMIENTO Y GESTIÓN DE TRATAS ---
+let seguimientoTratasData = [];
+
+async function loadSeguimientoData() {
+    const container = document.getElementById('seguimiento-grid-container');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="loading-overlay" style="grid-column: 1 / -1;">
+            <span class="loader"></span>
+            <h2 style="margin-top: 1rem; color: var(--primary-dark);">Cargando panel de seguimiento...</h2>
+            <p style="color: #64748b;">Consolidando avance físico y ritmos mensuales de todas las tratas...</p>
+        </div>`;
+
+    const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+    
+    try {
+        // Cargar en paralelo todos los consolidados
+        const promises = gerencias.map(g => 
+            def_fetch(`${API_BASE}/reporte/${g}/consolidado`)
+                .then(r => r && r.ok ? r.json() : [])
+                .catch(() => [])
+        );
+        
+        const results = await Promise.all(promises);
+        
+        seguimientoTratasData = [];
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // 1-indexed
+        const currentMonthStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`;
+        
+        for (let idx = 0; idx < gerencias.length; idx++) {
+            const g = gerencias[idx];
+            const rawData = results[idx];
+            if (!rawData || rawData.length === 0) continue;
+            
+            // Agrupar registros por trata
+            const groups = {};
+            rawData.forEach(row => {
+                const key = row["COD TRATA"];
+                if (!key) return;
+                if (!groups[key]) {
+                    groups[key] = {
+                        trataCode: key,
+                        trataName: row["DETALLE TRATA"] || key,
+                        gerencia: g,
+                        records: []
+                    };
+                }
+                groups[key].records.push(row);
+            });
+            
+            // Procesar cada trata para obtener el mes actual y medinas anteriores
+            Object.values(groups).forEach(gTrata => {
+                // Registro del mes actual
+                const currentRecord = gTrata.records.find(r => r.anio === currentYear && r.mes === currentMonth);
+                const actualEgr = currentRecord ? ((currentRecord.EGR_EF || 0) + (currentRecord.EGR_NE || 0)) : 0;
+                
+                // Obtener el valor de Egresos Promedio (mediana de 6 meses) del backend
+                const firstRecord = gTrata.records[0];
+                const targetEgr = firstRecord ? (firstRecord.meta_egr_prom || 0) : 0;
+                const progressPct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : (actualEgr > 0 ? 100 : 0);
+                
+                // Para evitar duplicación, por ejemplo de INTERVENCIONES en varias gerencias
+                // lo identificamos unívocamente combinándolo con su gerencia
+                seguimientoTratasData.push({
+                    trataCode: gTrata.trataCode,
+                    trataName: gTrata.trataName.toString().replace(/\r?\n|\r/g, ' ').trim(),
+                    gerencia: g,
+                    actualEgr: actualEgr,
+                    targetEgr: targetEgr,
+                    progressPct: progressPct
+                });
+            });
+        }
+        
+        filterAndRenderSeguimiento();
+        setSeguimientoViewMode(seguimientoViewMode);
+    } catch (err) {
+        console.error("Error al cargar seguimiento:", err);
+        container.innerHTML = `
+            <div class="error-message" style="grid-column: 1 / -1;">
+                <div class="error-icon">⚠️</div>
+                <h3>Error en la carga</h3>
+                <p>No pudimos consolidar los datos de seguimiento. Por favor, reintenta.</p>
+                <button class="btn-primary" style="margin-top:1rem;" onclick="loadSeguimientoData()">Reintentar Carga</button>
+            </div>`;
+    }
+}
+
+function filterAndRenderSeguimiento() {
+    const searchVal = document.getElementById('seguimiento-search').value.toLowerCase().trim();
+    const gerenciaFilter = document.getElementById('seguimiento-filter-gerencia').value;
+    const sortVal = document.getElementById('seguimiento-sort').value;
+    
+    // 1. Filtrado
+    let filtered = seguimientoTratasData.filter(t => {
+        const matchesSearch = t.trataCode.toLowerCase().includes(searchVal) || t.trataName.toLowerCase().includes(searchVal);
+        const matchesGerencia = gerenciaFilter === 'ALL' || t.gerencia === gerenciaFilter;
+        return matchesSearch && matchesGerencia;
+    });
+    
+    // 2. Ordenamiento
+    if (sortVal === 'PERF_DESC') {
+        filtered.sort((a, b) => b.progressPct - a.progressPct);
+    } else if (sortVal === 'PERF_ASC') {
+        filtered.sort((a, b) => a.progressPct - b.progressPct);
+    } else if (sortVal === 'NAME_ASC') {
+        filtered.sort((a, b) => a.trataName.localeCompare(b.trataName));
+    } else if (sortVal === 'CODE_ASC') {
+        filtered.sort((a, b) => a.trataCode.localeCompare(b.trataCode));
+    }
+    
+    // 2.5. Calcular contadores de cumplimiento por rangos (antes de aplicar el filtro de rango en sí para conservar los conteos generales)
+    let count0_25 = 0;
+    let count25_50 = 0;
+    let count50_75 = 0;
+    let count75Plus = 0;
+    
+    filtered.forEach(t => {
+        if (t.progressPct < 25) {
+            count0_25++;
+        } else if (t.progressPct < 50) {
+            count25_50++;
+        } else if (t.progressPct < 75) {
+            count50_75++;
+        } else {
+            count75Plus++;
+        }
+    });
+    
+    const el0_25 = document.getElementById('comp-count-0-25');
+    const el25_50 = document.getElementById('comp-count-25-50');
+    const el50_75 = document.getElementById('comp-count-50-75');
+    const el75Plus = document.getElementById('comp-count-75-100');
+    
+    if (el0_25) el0_25.innerText = count0_25;
+    if (el25_50) el25_50.innerText = count25_50;
+    if (el50_75) el50_75.innerText = count50_75;
+    if (el75Plus) el75Plus.innerText = count75Plus;
+
+    // 2.7. Aplicar filtro de rango de cumplimiento (si está activo alguno)
+    if (activeComplianceFilter) {
+        filtered = filtered.filter(t => {
+            if (activeComplianceFilter === '0-25') return t.progressPct < 25;
+            if (activeComplianceFilter === '25-50') return t.progressPct >= 25 && t.progressPct < 50;
+            if (activeComplianceFilter === '50-75') return t.progressPct >= 50 && t.progressPct < 75;
+            if (activeComplianceFilter === '75-100') return t.progressPct >= 75;
+            return true;
+        });
+    }
+
+    // 2.8. Actualizar clases de enfoque activo/atenuado de las tarjetas
+    const gridEl = document.querySelector('.compliance-summary-grid');
+    if (gridEl) {
+        if (activeComplianceFilter) {
+            gridEl.classList.add('has-active');
+        } else {
+            gridEl.classList.remove('has-active');
+        }
+    }
+    
+    const ranges = ['0-25', '25-50', '50-75', '75-100'];
+    ranges.forEach(r => {
+        const el = document.getElementById(`card-comp-${r}`);
+        if (el) {
+            if (activeComplianceFilter === r) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        }
+    });
+
+    // 3. Renderizar
+    const container = document.getElementById('seguimiento-grid-container');
+    const summaryBadge = document.getElementById('seguimiento-summary-badge');
+    
+    if (summaryBadge) {
+        summaryBadge.innerText = `${filtered.length} trámites encontrados`;
+    }
+    
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="error-message" style="grid-column: 1 / -1; margin: 2rem auto; width: 100%;">
+                <div class="error-icon">ℹ️</div>
+                <h3>Sin trámites coincidentes</h3>
+                <p>Modifica los filtros de búsqueda o gerencia para encontrar lo que buscas.</p>
+            </div>`;
+        return;
+    }
+    
+    const now = new Date();
+    const currentDay = now.getDate();
+    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const timeProgressPct = Math.round((currentDay / totalDays) * 100);
+    
+    let html = '';
+    filtered.forEach(t => {
+        let perfClass = 'perf-mid';
+        if (t.progressPct >= timeProgressPct) {
+            perfClass = 'perf-high';
+        } else if (t.progressPct < timeProgressPct * 0.6) {
+            perfClass = 'perf-low';
+        }
+        
+        const gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : t.gerencia.toUpperCase());
+        
+        html += `
+            <article class="trata-track-card" onclick="showTrataFromSeguimiento('${t.gerencia}', '${t.trataCode}', '${t.trataName.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                <div class="trata-track-header">
+                    <div class="trata-track-title-block">
+                        <h3 class="trata-track-name">${t.trataName.toUpperCase()}</h3>
+                        <span class="trata-track-code">${t.trataCode}</span>
+                    </div>
+                    <span class="badge-gerencia ${t.gerencia}">${gerenciaDisplay}</span>
+                </div>
+                
+                <div class="trata-track-metrics">
+                    <div class="metric-mini-box">
+                        <span class="metric-mini-label">Egresados</span>
+                        <span class="metric-mini-value">${t.actualEgr}</span>
+                    </div>
+                    <div class="metric-mini-box">
+                        <span class="metric-mini-label">Esperado</span>
+                        <span class="metric-mini-value">${t.targetEgr}</span>
+                    </div>
+                    <div class="metric-mini-box">
+                        <span class="metric-mini-label">Avance</span>
+                        <span class="metric-mini-value ${perfClass}">${t.progressPct}%</span>
+                    </div>
+                </div>
+                
+                <div class="trata-track-progress-block">
+                    <div class="progress-track-bar">
+                        <div class="progress-track-fill ${perfClass}" style="width: ${Math.min(100, t.progressPct)}%;"></div>
+                        <div class="progress-track-needle" style="left: ${Math.min(100, timeProgressPct)}%;"></div>
+                    </div>
+                    <div class="progress-track-labels">
+                        <span>Avance: ${t.progressPct}%</span>
+                        <span>Mes: ${timeProgressPct}%</span>
+                    </div>
+                </div>
+            </article>
+        `;
+    });
+    
+    container.innerHTML = html;
+    gsap.from(".trata-track-card", { opacity: 0, scale: 0.95, duration: 0.4, stagger: 0.03, ease: "power2.out" });
+}
+
+function showTrataFromSeguimiento(gerencia, trataCode, trataName) {
+    // Redirigir a showTrataDetail marcando fromSeguimiento = true
+    showTrataDetail(gerencia, trataCode, trataName, true, true);
+}
+
+function setSeguimientoViewMode(mode) {
+    seguimientoViewMode = mode;
+    localStorage.setItem('sgdu_seguimiento_view_mode', mode);
+
+    const container = document.getElementById('seguimiento-grid-container');
+    if (container) {
+        if (mode === 'grid') {
+            container.classList.add('view-grid');
+        } else {
+            container.classList.remove('view-grid');
+        }
+    }
+
+    const btnList = document.getElementById('btn-view-list');
+    const btnGrid = document.getElementById('btn-view-grid');
+
+    if (btnList && btnGrid) {
+        if (mode === 'grid') {
+            btnGrid.classList.add('active');
+            btnGrid.style.background = 'white';
+            btnGrid.style.color = 'var(--primary-dark)';
+            btnGrid.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+
+            btnList.classList.remove('active');
+            btnList.style.background = 'transparent';
+            btnList.style.color = '#64748b';
+            btnList.style.boxShadow = 'none';
+        } else {
+            btnList.classList.add('active');
+            btnList.style.background = 'white';
+            btnList.style.color = 'var(--primary-dark)';
+            btnList.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+
+            btnGrid.classList.remove('active');
+            btnGrid.style.background = 'transparent';
+            btnGrid.style.color = '#64748b';
+            btnGrid.style.boxShadow = 'none';
+        }
+    }
+}
+
+function toggleComplianceFilter(range) {
+    if (activeComplianceFilter === range) {
+        activeComplianceFilter = null;
+    } else {
+        activeComplianceFilter = range;
+    }
+    filterAndRenderSeguimiento();
 }
 
 

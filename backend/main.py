@@ -292,6 +292,80 @@ async def delete_user(username: str, current_user: User = Depends(get_current_us
 
 # --- Endpoints de Reportes (Protegidos) ---
 
+def calculate_trata_expected_egresos(conn, gerencia_clean: str, trata: Optional[str] = None) -> int:
+    try:
+        interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+        trata_filter = "TRUE"
+        egr_trata_filter = "TRUE"
+        if trata:
+            trata_clean = trata.strip()
+            if trata_clean == 'INTERVENCIONES':
+                trata_filter = f"TRIM(trata) NOT IN (SELECT TRIM(unnest(tratas_incluidas)) FROM cfg_gestion_metas WHERE gerencia = '{gerencia_clean}')"
+                egr_trata_filter = "TRIM(trata) = 'INTERVENCIONES'"
+            else:
+                trata_filter = f"TRIM(trata) = '{trata_clean}'"
+                egr_trata_filter = f"TRIM(trata) = '{trata_clean}'"
+
+        # Generate last 6 complete months in python
+        now = datetime.now()
+        curr_y, curr_m = now.year, now.month
+        curr_m -= 1
+        if curr_m == 0:
+            curr_m = 12
+            curr_y -= 1
+            
+        complete_months = []
+        for _ in range(6):
+            complete_months.append(f"{curr_y}-{str(curr_m).zfill(2)}")
+            curr_m -= 1
+            if curr_m == 0:
+                curr_m = 12
+                curr_y -= 1
+
+        sql_hist = f"""
+            WITH periodos(mes_label) AS (
+                SELECT * FROM (VALUES {", ".join([f"('{m}')" for m in complete_months])}) as t(m)
+            ),
+            egr AS (
+                SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                FROM (
+                    SELECT fecha_egreso, trata FROM mv_{gerencia_clean}_gedos_egreso
+                    UNION ALL
+                    SELECT fecha_egreso, 'INTERVENCIONES' as trata FROM {interv_egr_table}
+                ) t_egr
+                WHERE {egr_trata_filter}
+                GROUP BY 1
+            ),
+            egr_ne AS (
+                SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                FROM mv_{gerencia_clean}_egresos_no_efectivos
+                WHERE {trata_filter}
+                GROUP BY 1
+            )
+            SELECT 
+                p.mes_label,
+                COALESCE(e.cant, 0) + COALESCE(ne.cant, 0) as egresos_totales
+            FROM periodos p
+            LEFT JOIN egr e ON e.mes_label = p.mes_label
+            LEFT JOIN egr_ne ne ON ne.mes_label = p.mes_label
+            ORDER BY p.mes_label ASC
+        """
+        result = conn.execute(text(sql_hist))
+        hist_data = [dict(row._mapping) for row in result]
+        if not hist_data:
+            return 0
+        sorted_vals = sorted([float(d['egresos_totales']) for d in hist_data])
+        n = len(sorted_vals)
+        mid = n // 2
+        if n % 2 == 1:
+            val = sorted_vals[mid]
+        else:
+            val = (sorted_vals[mid - 1] + sorted_vals[mid]) / 2.0
+        return round(val)
+    except Exception as e:
+        logger.error(f"Error calculate_trata_expected_egresos: {e}")
+        return 0
+
 @app.get("/api/reporte/{gerencia}/consolidado")
 async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
@@ -387,10 +461,11 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
                         SELECT 'INTERVENCIONES' as trata, COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_subs GROUP BY 1
                     )
                     SELECT 
-                        split_part(p.mes_label, '-', 1)::int as anio,
-                        split_part(p.mes_label, '-', 2)::int as mes,
+                        et.trata as "COD TRATA", 
                         et.descripcion_trata as "DETALLE TRATA",
-                        et.trata as "COD TRATA",
+                        p.mes_label,
+                        to_number(split_part(p.mes_label, '-', 1), '9999') as anio,
+                        to_number(split_part(p.mes_label, '-', 2), '99') as mes,
                         COALESCE(i.cant, 0) as "ING",
                         COALESCE(ef.cant, 0) as "EGR_EF",
                         COALESCE(ne.cant, 0) as "EGR_NE",
@@ -438,9 +513,15 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
             result = conn.execute(text(sql), params)
             df = pd.DataFrame(result.fetchall(), columns=result.keys())
             
+            # Precalcular meta_egr_prom para cada trata en la base de datos
+            expected_targets = {}
+            for t_code in trata_codes + ['INTERVENCIONES']:
+                expected_targets[t_code] = calculate_trata_expected_egresos(conn, gerencia_clean, t_code)
+
             # Enriquecer con acrónimos oficiales desde TRAMITES_CONFIG
             config_for_g = TRAMITES_CONFIG.get(gerencia_clean, {})
             df["acronimos"] = df["COD TRATA"].apply(lambda x: config_for_g.get(x, {}).get("acronimos", ""))
+            df["meta_egr_prom"] = df["COD TRATA"].apply(lambda x: expected_targets.get(x, 0))
             
             return df.to_dict(orient='records')
     except Exception as e:

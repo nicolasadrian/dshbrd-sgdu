@@ -322,20 +322,20 @@ main {
 .auth-controls {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    background: #f8fafc;
-    padding: 4px 6px 4px 12px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+    gap: 1.5rem;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
 }
 
 .user-info-banner {
     display: flex;
     flex-direction: column;
     text-align: right;
-    padding-right: 10px;
-    border-right: 1px solid #e2e8f0;
+    padding-right: 0;
+    border-right: none;
 }
 
 .user-fullname {
@@ -2013,3 +2013,422 @@ body::after, body::before, html::after, html::before {
     transform: translateY(-1px);
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
 }
+
+/* --- MINIMALIST CELL DOWNLOAD BUTTON --- */
+.btn-cell-download {
+    background: none;
+    border: none;
+    padding: 4px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.btn-cell-download:hover {
+    background-color: rgba(0, 159, 227, 0.1);
+    color: var(--primary) !important;
+    transform: scale(1.15);
+}
+
+.btn-cell-download svg {
+    display: block;
+    color: currentColor;
+    transition: color 0.2s ease;
+}
+
+.current-month-cell-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+
+/* --- SEGUIMIENTO VIEW --- */
+.seguimiento-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.seguimiento-grid.view-grid {
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)) !important;
+}
+
+.trata-track-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+    padding: 1.5rem;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+}
+
+.trata-track-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 25, 40, 0.08);
+    border-color: var(--primary);
+}
+
+.trata-track-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #0076bb, #38bdf8);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.trata-track-card:hover::before {
+    opacity: 1;
+}
+
+.trata-track-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+}
+
+.trata-track-title-block {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.trata-track-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin: 0;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+}
+
+.trata-track-code {
+    font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.badge-gerencia {
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
+}
+
+/* Colores de badges de gerencia */
+.badge-gerencia.catastro { background: #eff6ff; color: #1d4ed8; }
+.badge-gerencia.instalaciones { background: #f0fdf4; color: #15803d; }
+.badge-gerencia.conforme { background: #ecfdf5; color: #047857; }
+.badge-gerencia.contable { background: #fef2f2; color: #b91c1c; }
+.badge-gerencia.etapa_proyecto { background: #faf5ff; color: #6b21a8; }
+.badge-gerencia.aviso_obra { background: #fff7ed; color: #c2410c; }
+.badge-gerencia.morfologia { background: #fff1f2; color: #be123c; }
+.badge-gerencia.aph { background: #fdf2f8; color: #be185d; }
+.badge-gerencia.usos { background: #f0fdfa; color: #0f766e; }
+
+.trata-track-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 0.75rem;
+    margin-bottom: 1.25rem;
+    border: 1px solid #f1f5f9;
+}
+
+.metric-mini-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.metric-mini-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
+}
+
+.metric-mini-value {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.metric-mini-value.perf-high { color: #10b981; }
+.metric-mini-value.perf-mid { color: #f59e0b; }
+.metric-mini-value.perf-low { color: #ef4444; }
+
+.trata-track-progress-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.progress-track-bar {
+    position: relative;
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 9999px;
+    overflow: visible; /* para la aguja */
+    margin: 4px 0;
+}
+
+.progress-track-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #38bdf8, var(--primary));
+    border-radius: 9999px;
+    transition: width 0.5s ease, background 0.5s ease;
+}
+
+.progress-track-fill.perf-high {
+    background: linear-gradient(90deg, #34d399, #10b981) !important;
+}
+
+.progress-track-fill.perf-mid {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
+}
+
+.progress-track-fill.perf-low {
+    background: linear-gradient(90deg, #f87171, #ef4444) !important;
+}
+
+.progress-track-needle {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    background: #0f172a;
+    z-index: 5;
+    transition: left 0.5s ease;
+}
+
+.progress-track-needle::before {
+    content: 'Hoy';
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0f172a;
+    color: white;
+    font-size: 0.55rem;
+    font-weight: 800;
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-track-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    color: #64748b;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+/* --- PREMIUM HEADER BUTTONS --- */
+.btn-header-nav {
+    background: transparent;
+    color: #475569;
+    border: none;
+    padding: 6px 0;
+    border-radius: 0;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: 'Outfit', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s ease, opacity 0.2s ease;
+    box-shadow: none;
+    position: relative;
+}
+
+.btn-header-nav::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: var(--primary);
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 0.25s ease;
+}
+
+.btn-header-nav:hover {
+    background: transparent;
+    color: var(--primary);
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-header-nav:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+/* --- USER PROFILE BLOCK --- */
+.user-profile-block {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: default;
+}
+
+.user-fullname {
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 0.88rem;
+    white-space: nowrap;
+}
+
+.user-sector {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: rgba(0, 118, 187, 0.08);
+    padding: 2px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.btn-header-logout {
+    background: transparent;
+    color: #64748b;
+    border: none;
+    padding: 6px 0;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-family: 'Outfit', sans-serif;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-header-logout:hover {
+    color: #ef4444;
+}
+
+
+/* --- COMPLIANCE SUMMARY CARDS --- */
+.compliance-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.compliance-card {
+    background: var(--white);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    border: 2px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.compliance-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+}
+
+/* Semáforos para las tarjetas */
+.compliance-card.comp-low::before { background: #ef4444; }
+.compliance-card.comp-mid-low::before { background: #f97316; }
+.compliance-card.comp-mid-high::before { background: #eab308; }
+.compliance-card.comp-high::before { background: #10b981; }
+
+.compliance-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.05);
+}
+
+.comp-card-val {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    font-family: 'Outfit', sans-serif;
+}
+
+.compliance-card.comp-low .comp-card-val { color: #ef4444; }
+.compliance-card.comp-mid-low .comp-card-val { color: #f97316; }
+.compliance-card.comp-mid-high .comp-card-val { color: #d97706; }
+.compliance-card.comp-high .comp-card-val { color: #10b981; }
+
+.comp-card-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* Tarjeta activa / filtrando */
+.compliance-card.active {
+    transform: scale(1.03) translateY(-4px);
+    box-shadow: 0 10px 20px -3px rgba(0,0,0,0.12), 0 4px 8px -2px rgba(0,0,0,0.06);
+}
+
+.compliance-card.comp-low.active { border-color: #ef4444; background: #fff5f5; }
+.compliance-card.comp-mid-low.active { border-color: #f97316; background: #fffaf0; }
+.compliance-card.comp-mid-high.active { border-color: #eab308; background: #fefdf0; }
+.compliance-card.comp-high.active { border-color: #10b981; background: #f0fdf4; }
+
+/* Efecto cuando otra tarjeta está activa (atenuado suave) */
+.compliance-summary-grid.has-active .compliance-card:not(.active) {
+    opacity: 0.55;
+    transform: scale(0.97);
+    filter: grayscale(20%);
+}
+
