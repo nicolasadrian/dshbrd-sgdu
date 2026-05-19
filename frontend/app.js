@@ -390,8 +390,21 @@ function renderMatrixTable(container, data) {
                 const cellStyle = isCurrent 
                     ? 'font-weight: 700 !important; background-color: rgba(0, 159, 227, 0.05) !important; border-left: 2px solid rgba(0, 159, 227, 0.15) !important; border-right: 2px solid rgba(0, 159, 227, 0.15) !important;' 
                     : '';
+                
+                let cellHTML = val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-';
+                
+                if (isCurrent && val !== undefined && val !== '-' && val !== 0) {
+                    cellHTML = `
+                        <div class="current-month-cell-content">
+                            <span>${cellHTML}</span>
+                            <button class="btn-cell-download" onclick="downloadCellDetail('${gerenciaKey}', '${trataId}', '${metric.field}', '${mk}')" title="Descargar detalle en Excel">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                            </button>
+                        </div>
+                    `;
+                }
                     
-                html += `<td class="${cellClass}" style="${cellStyle}">${val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-'}</td>`;
+                html += `<td class="${cellClass}" style="${cellStyle}">${cellHTML}</td>`;
             });
             html += `</tr>`;
         });
@@ -1356,6 +1369,46 @@ function downloadExcel(filename, data) {
     document.body.removeChild(link);
 }
 
+async function downloadCellDetail(gerencia, trata, metrica, periodo) {
+    const metricaLabelMap = {
+        'ING': 'Ingresos',
+        'EGR_EF': 'Egresos_Efectivos',
+        'EGR_NE': 'Egresos_No_Efectivos',
+        'EGR_TOT': 'Egresos_Totales',
+        'STOCK_PROPIO': 'Stock_Propio',
+        'STOCK_SUBS': 'Subsanacion_Abierta',
+        'STOCK_TOTAL': 'Stock_Total'
+    };
+    const label = metricaLabelMap[metrica] || metrica;
+    const filename = `Detalle_${gerencia.toUpperCase()}_${trata}_${label}_${periodo}`;
+    
+    // Cambiar temporalmente el botón a estado cargando
+    const btn = event.currentTarget;
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="loader" style="width: 10px; height: 10px; border-width: 1.5px; border-color: var(--primary) transparent transparent transparent; display: inline-block;"></span>`;
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trata}/detalle_periodo?periodo=${periodo}&metrica=${metrica}`);
+        if (!response || !response.ok) {
+            alert("No se pudo obtener el detalle de los expedientes.");
+            return;
+        }
+        const data = await response.json();
+        if (!data || data.length === 0) {
+            alert("No hay expedientes registrados para este período y métrica.");
+            return;
+        }
+        downloadExcel(filename, data);
+    } catch (error) {
+        console.error("Error al descargar detalle:", error);
+        alert("Error al procesar la descarga.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
+}
+
 window.onclick = function(e) { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; }
 
 // --- FUNCIONES ADMIN ---
@@ -1572,8 +1625,13 @@ function renderMetasChart(data) {
     const ctx = canvas.getContext('2d');
     if (metasChart) metasChart.destroy();
 
-    const labels = [...data.history.map(d => d.mes_label), ...data.projection_target.map(d => d.mes_label)];
-    const historyCount = data.history.length;
+    // Filtrar el histórico para el gráfico excluyendo el mes incompleto en curso
+    const currentMonthStr = new Date().toISOString().substring(0, 7); // "YYYY-MM"
+    const chartHistory = data.history.filter(d => d.mes_label < currentMonthStr);
+    const historyDataForChart = chartHistory.length > 0 ? chartHistory : data.history;
+
+    const labels = [...historyDataForChart.map(d => d.mes_label), ...data.projection_target.map(d => d.mes_label)];
+    const historyCount = historyDataForChart.length;
 
     metasChart = new Chart(ctx, {
         type: 'line',
@@ -1581,8 +1639,8 @@ function renderMetasChart(data) {
             labels: labels,
             datasets: [
                 {
-                    label: 'Ingresos',
-                    data: [...data.history.map(d => d.ingresos), ...data.projection_target.map(d => d.ingresos)],
+                    label: 'Ingresos / Ingresos Esperados',
+                    data: [...historyDataForChart.map(d => d.ingresos), ...data.projection_target.map(d => d.ingresos)],
                     borderColor: '#38bdf8',
                     backgroundColor: (context) => {
                         const chart = context.chart;
@@ -1594,12 +1652,15 @@ function renderMetasChart(data) {
                         return gradient;
                     },
                     fill: true,
+                    segment: {
+                        borderDash: (ctx) => ctx.p0DataIndex >= historyCount - 1 ? [5, 5] : []
+                    },
                     tension: 0.4,
                     pointRadius: (ctx) => ctx.dataIndex < historyCount ? 3 : 0
                 },
                 {
                     label: 'Egresos (Objetivo)',
-                    data: [...data.history.map(d => d.egresos_totales), ...data.projection_target.map(d => d.egresos_totales)],
+                    data: [...historyDataForChart.map(d => d.egresos_totales), ...data.projection_target.map(d => d.egresos_totales)],
                     borderColor: '#f43f5e',
                     borderWidth: 3,
                     segment: {
@@ -1610,7 +1671,7 @@ function renderMetasChart(data) {
                 },
                 {
                     label: 'Stock Sector (Objetivo Cero)',
-                    data: [...data.history.map(d => d.stock_sector), ...data.projection_target.map(d => d.stock_sector)],
+                    data: [...historyDataForChart.map(d => d.stock_sector), ...data.projection_target.map(d => d.stock_sector)],
                     borderColor: '#f59e0b',
                     borderWidth: 3,
                     backgroundColor: 'transparent',
@@ -1623,7 +1684,7 @@ function renderMetasChart(data) {
                 },
                 {
                     label: 'Stock Corriente (<=3m)',
-                    data: [...data.history.map(d => d.stock_corriente), ...data.projection_target.map(d => d.stock_corriente)],
+                    data: [...historyDataForChart.map(d => d.stock_corriente), ...data.projection_target.map(d => d.stock_corriente)],
                     borderColor: '#10b981',
                     backgroundColor: 'transparent',
                     tension: 0.4,
