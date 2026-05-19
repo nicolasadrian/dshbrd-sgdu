@@ -61,6 +61,15 @@ function initAuth() {
             }
         }
 
+        const slaBtn = document.getElementById('sla-btn');
+        if (slaBtn) {
+            if (role === 'administrador' || role === 'admin' || role === 'seguimiento') {
+                slaBtn.style.display = 'block';
+            } else {
+                slaBtn.style.display = 'none';
+            }
+        }
+
         // Si necesita cambio de clave, forzar modal
         if (currentUser.needs_password_change) {
             document.getElementById('change-password-modal').style.display = 'flex';
@@ -171,8 +180,8 @@ function showView(viewId, updateHash = true) {
         return;
     }
 
-    // Seguridad: Solo admin o seguimiento pueden ver la vista de seguimiento
-    if (viewId === 'seguimiento' && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+    // Seguridad: Solo admin o seguimiento pueden ver la vista de seguimiento o SLA
+    if ((viewId === 'seguimiento' || viewId === 'sla') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
         showView('landing');
         return;
     }
@@ -199,6 +208,10 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'seguimiento') {
         loadSeguimientoData();
+    }
+
+    if (viewId === 'sla') {
+        loadSLAReporte();
     }
 
     // Carga de reportes si es una vista de gerencia
@@ -654,7 +667,10 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
     
     // Actualizar Breadcrumbs
     const parentLink = document.getElementById('trata_detail_parent_link');
-    if (fromSeguimiento) {
+    if (fromSeguimiento === 'sla') {
+        parentLink.innerText = 'SLA';
+        parentLink.onclick = () => showView('sla');
+    } else if (fromSeguimiento) {
         parentLink.innerText = 'SEGUIMIENTO';
         parentLink.onclick = () => showView('seguimiento');
     } else {
@@ -664,7 +680,12 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 
     const backBtn = document.getElementById('trata_detail_back');
     if (backBtn && gerencia) {
-        if (fromSeguimiento) {
+        if (fromSeguimiento === 'sla') {
+            backBtn.innerText = 'Volver a SLA';
+            backBtn.onclick = () => {
+                showView('sla');
+            };
+        } else if (fromSeguimiento) {
             backBtn.innerText = 'Volver a Seguimiento';
             backBtn.onclick = () => {
                 showView('seguimiento');
@@ -2101,6 +2122,236 @@ function toggleComplianceFilter(range) {
         activeComplianceFilter = range;
     }
     filterAndRenderSeguimiento();
+}
+
+// --- SLA TIEMPOS DE TRAMITACIÓN ---
+let slaReporteData = [];
+let activeSlaRangeFilter = null;
+
+async function loadSLAReporte() {
+    const container = document.getElementById('sla-grid-container');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="loading-overlay" style="grid-column: 1 / -1;">
+            <span class="loader"></span>
+            <h2 style="margin-top: 1rem; color: var(--primary-dark);">Analizando tiempos de resolución (SLA)...</h2>
+            <p style="color: #64748b;">Consolidando carátulas y egresos efectivos de todas las gerencias...</p>
+        </div>`;
+
+    const gerenciaFilter = document.getElementById('sla-filter-gerencia').value;
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/sla?gerencia=${gerenciaFilter}`);
+        if (!response || !response.ok) throw new Error("Fallo al conectar con la API de SLA");
+        
+        slaReporteData = await response.json();
+        filterAndRenderSLA();
+    } catch (err) {
+        console.error("Error al cargar SLA:", err);
+        container.innerHTML = `
+            <div class="error-message" style="grid-column: 1 / -1;">
+                <div class="error-icon">⚠️</div>
+                <h3>Error en la carga</h3>
+                <p>No pudimos consolidar los datos de SLA. Por favor, reintenta.</p>
+                <button class="btn-primary" style="margin-top:1rem;" onclick="loadSLAReporte()">Reintentar Carga</button>
+            </div>`;
+    }
+}
+
+function filterAndRenderSLA() {
+    const searchVal = document.getElementById('sla-search').value.toLowerCase().trim();
+    const sortVal = document.getElementById('sla-sort').value;
+    
+    // 1. Filtrar por búsqueda
+    let filtered = slaReporteData.filter(t => {
+        const name = (t["DETALLE TRATA"] || '').toLowerCase();
+        const code = (t["COD TRATA"] || '').toLowerCase();
+        return code.includes(searchVal) || name.includes(searchVal);
+    });
+    
+    // 2. Ordenar
+    if (sortVal === 'AVG_DESC') {
+        filtered.sort((a, b) => (b.promedio_dias || 0) - (a.promedio_dias || 0));
+    } else if (sortVal === 'AVG_ASC') {
+        filtered.sort((a, b) => (a.promedio_dias || 0) - (b.promedio_dias || 0));
+    } else if (sortVal === 'RESOLVED_DESC') {
+        filtered.sort((a, b) => (b.total_resueltos || 0) - (a.total_resueltos || 0));
+    } else if (sortVal === 'NAME_ASC') {
+        filtered.sort((a, b) => (a["DETALLE TRATA"] || '').localeCompare(b["DETALLE TRATA"] || ''));
+    }
+    
+    // 3. Contar rangos de SLA basados en promedio_dias
+    let countFast = 0;
+    let countNormal = 0;
+    let countSlow = 0;
+    let countDelayed = 0;
+    
+    filtered.forEach(t => {
+        const avg = t.promedio_dias || 0;
+        if (avg <= 15) countFast++;
+        else if (avg <= 45) countNormal++;
+        else if (avg <= 90) countSlow++;
+        else countDelayed++;
+    });
+    
+    const elFast = document.getElementById('sla-count-fast');
+    const elNormal = document.getElementById('sla-count-normal');
+    const elSlow = document.getElementById('sla-count-slow');
+    const elDelayed = document.getElementById('sla-count-delayed');
+    
+    if (elFast) elFast.innerText = countFast;
+    if (elNormal) elNormal.innerText = countNormal;
+    if (elSlow) elSlow.innerText = countSlow;
+    if (elDelayed) elDelayed.innerText = countDelayed;
+    
+    // 4. Aplicar filtro por rango de SLA si está activo
+    if (activeSlaRangeFilter) {
+        filtered = filtered.filter(t => {
+            const avg = t.promedio_dias || 0;
+            if (activeSlaRangeFilter === 'fast') return avg <= 15;
+            if (activeSlaRangeFilter === 'normal') return avg > 15 && avg <= 45;
+            if (activeSlaRangeFilter === 'slow') return avg > 45 && avg <= 90;
+            if (activeSlaRangeFilter === 'delayed') return avg > 90;
+            return true;
+        });
+    }
+    
+    // 5. Actualizar la visualización de los botones de rango (active / has-active)
+    const gridEl = document.querySelector('#sla .compliance-summary-grid');
+    if (gridEl) {
+        if (activeSlaRangeFilter) {
+            gridEl.classList.add('has-active');
+        } else {
+            gridEl.classList.remove('has-active');
+        }
+    }
+    
+    const ranges = ['fast', 'normal', 'slow', 'delayed'];
+    ranges.forEach(r => {
+        const el = document.getElementById(`card-sla-${r}`);
+        if (el) {
+            if (activeSlaRangeFilter === r) {
+                el.classList.add('active');
+            } else {
+                el.classList.remove('active');
+            }
+        }
+    });
+    
+    // 6. Renderizar las tarjetas
+    const container = document.getElementById('sla-grid-container');
+    if (filtered.length === 0) {
+        container.innerHTML = `
+            <div class="error-message" style="grid-column: 1 / -1; margin: 2rem auto; width: 100%;">
+                <div class="error-icon">ℹ️</div>
+                <h3>Sin trámites coincidentes</h3>
+                <p>Modifica los filtros de búsqueda o de área para encontrar lo que buscas.</p>
+            </div>`;
+        return;
+    }
+    
+    let html = '';
+    filtered.forEach(t => {
+        const avg = t.promedio_dias || 0;
+        let perfClass = 'perf-mid';
+        
+        if (avg <= 15) {
+            perfClass = 'perf-high';
+        } else if (avg > 45) {
+            perfClass = 'perf-low';
+        }
+        
+        const gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : t.gerencia.toUpperCase());
+        
+        html += `
+            <article class="trata-track-card" onclick="showTrataFromSla('${t.gerencia}', '${t["COD TRATA"]}', '${(t["DETALLE TRATA"] || t["COD TRATA"]).replace(/'/g, "\\'")}')" style="cursor: pointer; padding: 1.5rem;">
+                <div class="trata-track-header" style="margin-bottom: 1.2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <div class="trata-track-title-block" style="flex: 1;">
+                        <h3 class="trata-track-name" style="font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); line-height: 1.2;">${(t["DETALLE TRATA"] || t["COD TRATA"]).toUpperCase()}</h3>
+                        <span class="trata-track-code" style="font-size: 0.75rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${t["COD TRATA"]}</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                        <span class="badge-gerencia ${t.gerencia}">${gerenciaDisplay}</span>
+                        <button class="btn-cell-download" onclick="exportSlaCardDetail(event, '${t.gerencia}', '${t["COD TRATA"]}')" title="Descargar validación Excel" style="background: rgba(0, 118, 187, 0.05); border: none; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.2s; font-size: 0.7rem; font-weight: 700; gap: 4px;">
+                            <span style="font-size: 11px;">📥</span> Excel
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="trata-track-metrics" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
+                        <span class="metric-mini-label" style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Resueltos</span>
+                        <span class="metric-mini-value" style="font-size: 1.6rem; font-weight: 800; color: #334155;">${t.total_resueltos}</span>
+                    </div>
+                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
+                        <span class="metric-mini-label" style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Promedio</span>
+                        <span class="metric-mini-value ${perfClass}" style="font-size: 1.6rem; font-weight: 800;">${avg}d</span>
+                    </div>
+                </div>
+            </article>
+        `;
+    });
+    
+    container.innerHTML = html;
+    gsap.from("#sla-grid-container .trata-track-card", { opacity: 0, scale: 0.95, duration: 0.4, stagger: 0.03, ease: "power2.out" });
+}
+
+function showTrataFromSla(gerencia, trataCode, trataName) {
+    showTrataDetail(gerencia, trataCode, trataName, true, 'sla');
+}
+
+function toggleSlaRangeFilter(range) {
+    if (activeSlaRangeFilter === range) {
+        activeSlaRangeFilter = null;
+    } else {
+        activeSlaRangeFilter = range;
+    }
+    filterAndRenderSLA();
+}
+
+async function exportSlaCardDetail(event, gerencia, trataCode) {
+    event.stopPropagation(); // Evita navegar a la vista detalle de la trata
+    
+    const btn = event.currentTarget;
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="loader" style="width: 10px; height: 10px; border-width: 1.5px; border-color: var(--primary) transparent transparent transparent; display: inline-block;"></span>`;
+    
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/sla/expedientes?gerencia=${gerencia}&trata=${trataCode}`);
+        if (!response || !response.ok) {
+            alert("No se pudo obtener el detalle de los expedientes.");
+            return;
+        }
+        const data = await response.json();
+        if (!data || data.length === 0) {
+            alert("No hay expedientes resueltos registrados en el último año para este trámite.");
+            return;
+        }
+        
+        // Formatear datos para exportación clara
+        const cleanData = data.map(r => ({
+            'Gerencia': r.gerencia.toUpperCase(),
+            'Expediente': r.expediente,
+            'Trámite (Trata)': r.trata,
+            'Descripción Trámite': r.descripcion_trata,
+            'Fecha Carátula': r.fecha_caratula,
+            'Fecha Egreso': r.fecha_egreso,
+            'Días Brutos': r.dias_brutos,
+            'Días Subsanación (Descontados)': r.dias_subsanacion,
+            'Días Netos (SLA)': r.dias_netos_sla
+        }));
+        
+        const filename = `Val_SLA_${gerencia.toUpperCase()}_${trataCode}`;
+        downloadExcel(filename, cleanData);
+    } catch (err) {
+        console.error("Error al exportar SLA:", err);
+        alert("Error al procesar la exportación.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+    }
 }
 
 

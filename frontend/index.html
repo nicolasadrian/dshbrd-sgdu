@@ -49,6 +49,7 @@
         <nav id="main-nav">
             <div class="auth-controls" id="auth-controls" style="display: none; align-items: center; gap: 2rem;">
                 <button id="seguimiento-btn" class="btn-header-nav" style="display: none;" onclick="showView('seguimiento')">Seguimiento</button>
+                <button id="sla-btn" class="btn-header-nav" style="display: none;" onclick="showView('sla')">SLA</button>
                 <button id="admin-btn" class="btn-header-nav" style="display: none;" onclick="showView('admin')">Admin Usuarios</button>
                 
                 <div class="user-profile-block">
@@ -695,6 +696,84 @@
 
             <!-- Contenedor Principal de Tratas (Grid de Tarjetas) -->
             <div id="seguimiento-grid-container" class="seguimiento-grid">
+                <!-- Se llenará dinámicamente -->
+            </div>
+        </section>
+
+        <!-- Vista SLA: Tiempos de Tramitación -->
+        <section id="sla" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / SLA Tiempos de Resolución
+            </div>
+            
+            <div class="section-header-flex" style="margin-bottom: 2rem;">
+                <div>
+                    <h1 class="section-title" style="font-size: 1.8rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">Análisis de Tiempos de Tramitación (SLA)</h1>
+                    <p class="section-subtitle" style="font-size: 0.95rem; color: #64748b; margin-top: 4px;">Días corridos desde la Caratulación de cada expediente hasta su resolución o Egreso Efectivo.</p>
+                </div>
+            </div>
+
+            <!-- Controles de Búsqueda, Filtro y Ordenamiento (SLA) -->
+            <div class="filter-controls-container" style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2.5rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                    <!-- Búsqueda -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscar Trámite / Trata</label>
+                        <input type="text" id="sla-search" class="form-input" placeholder="Buscar por código o nombre..." oninput="filterAndRenderSLA()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                    </div>
+                    
+                    <!-- Filtro por Gerencia -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 200px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Filtrar por Área / Gerencia</label>
+                        <select id="sla-filter-gerencia" onchange="loadSLAReporte()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todas las Gerencias</option>
+                            <option value="CATASTRO">Catastro (DGROC)</option>
+                            <option value="INSTALACIONES">Instalaciones (DGROC)</option>
+                            <option value="REGULARIZACION">Regularización y Conforme (DGROC)</option>
+                            <option value="CONTABLE">Contable (DGROC)</option>
+                            <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
+                            <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
+                            <option value="MORFOLOGIA">Morfología Urbana (DGIUR)</option>
+                            <option value="APH">Protección Histórica APH (DGIUR)</option>
+                            <option value="USOS">Usos del Suelo (DGIUR)</option>
+                        </select>
+                    </div>
+
+                    <!-- Ordenamiento -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Ordenar Resultados</label>
+                        <select id="sla-sort" onchange="filterAndRenderSLA()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="AVG_DESC">Mayor Promedio Primero</option>
+                            <option value="AVG_ASC">Menor Promedio Primero</option>
+                            <option value="RESOLVED_DESC">Más Resueltos Primero</option>
+                            <option value="NAME_ASC">Nombre (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de Cumplimiento por Rangos de SLA -->
+            <div class="compliance-summary-grid">
+                <div class="compliance-card comp-high" id="card-sla-fast" onclick="toggleSlaRangeFilter('fast')">
+                    <div id="sla-count-fast" class="comp-card-val">0</div>
+                    <div class="comp-card-label">Rápido (≤ 15 días)</div>
+                </div>
+                <div class="compliance-card comp-mid-high" id="card-sla-normal" onclick="toggleSlaRangeFilter('normal')">
+                    <div id="sla-count-normal" class="comp-card-val">0</div>
+                    <div class="comp-card-label">Normal (16 a 45 días)</div>
+                </div>
+                <div class="compliance-card comp-mid-low" id="card-sla-slow" onclick="toggleSlaRangeFilter('slow')">
+                    <div id="sla-count-slow" class="comp-card-val">0</div>
+                    <div class="comp-card-label">Lento (46 a 90 días)</div>
+                </div>
+                <div class="compliance-card comp-low" id="card-sla-delayed" onclick="toggleSlaRangeFilter('delayed')">
+                    <div id="sla-count-delayed" class="comp-card-val">0</div>
+                    <div class="comp-card-label">Crítico (> 90 días)</div>
+                </div>
+            </div>
+
+            <!-- Contenedor Principal de Tratas (Grid de Tarjetas de SLA) -->
+            <div id="sla-grid-container" class="seguimiento-grid view-grid">
                 <!-- Se llenará dinámicamente -->
             </div>
         </section>

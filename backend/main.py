@@ -1367,6 +1367,113 @@ async def get_tramite_detalle_periodo(
         logger.error(f"Error en detalle_periodo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/reporte/sla")
+async def get_sla_report(gerencia: Optional[str] = 'ALL', current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            where_clause = ""
+            params = {}
+            if gerencia and gerencia != 'ALL':
+                g_clean = gerencia.lower()
+                if g_clean == 'conforme':
+                    g_clean = 'regularizacion'
+                where_clause = "WHERE gerencia = :g"
+                params = {"g": g_clean}
+                
+            sql = f"""
+                SELECT 
+                    gerencia,
+                    trata AS "COD TRATA",
+                    descripcion_trata AS "DETALLE TRATA",
+                    COUNT(*) AS total_resueltos,
+                    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias_resolucion)::numeric, 1) AS mediana_dias,
+                    ROUND(AVG(dias_resolucion)::numeric, 1) AS promedio_dias,
+                    MAX(dias_resolucion) AS max_dias,
+                    MIN(dias_resolucion) AS min_dias
+                FROM mvw_sla_tramites
+                {where_clause}
+                GROUP BY gerencia, trata, descripcion_trata
+                ORDER BY gerencia, trata
+            """
+            
+            result = conn.execute(text(sql), params)
+            df = pd.DataFrame(result.fetchall(), columns=result.keys())
+            
+            records = []
+            for _, row in df.iterrows():
+                row_dict = row.to_dict()
+                g = row_dict["gerencia"]
+                t_code = row_dict["COD TRATA"]
+                
+                # Enriquecer con acrónimos y nombre si está en config
+                g_cfg = TRAMITES_CONFIG.get(g, {})
+                t_cfg = g_cfg.get(t_code, {})
+                row_dict["acronimos"] = t_cfg.get("acronimos", "")
+                if t_cfg.get("nombre"):
+                    row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
+                
+                med = row_dict.get("mediana_dias")
+                row_dict["mediana_dias"] = float(med) if (med is not None and not pd.isna(med)) else 0.0
+                
+                prom = row_dict.get("promedio_dias")
+                row_dict["promedio_dias"] = float(prom) if (prom is not None and not pd.isna(prom)) else 0.0
+                
+                total = row_dict.get("total_resueltos")
+                row_dict["total_resueltos"] = int(total) if (total is not None and not pd.isna(total)) else 0
+                
+                max_d = row_dict.get("max_dias")
+                row_dict["max_dias"] = int(max_d) if (max_d is not None and not pd.isna(max_d)) else 0
+                
+                min_d = row_dict.get("min_dias")
+                row_dict["min_dias"] = int(min_d) if (min_d is not None and not pd.isna(min_d)) else 0
+                
+                records.append(row_dict)
+                
+            return records
+    except Exception as e:
+        logger.error(f"Error en reporte/sla: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/sla/expedientes")
+async def get_sla_expedientes(
+    gerencia: str,
+    trata: str,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    gerencia,
+                    expediente,
+                    trata,
+                    descripcion_trata,
+                    fecha_caratula::date AS fecha_caratula,
+                    fecha_egreso::date AS fecha_egreso,
+                    (fecha_egreso::date - fecha_caratula::date) AS dias_brutos,
+                    ((fecha_egreso::date - fecha_caratula::date) - dias_resolucion) AS dias_subsanacion,
+                    dias_resolucion AS dias_netos_sla
+                FROM mvw_sla_tramites
+                WHERE gerencia = :gerencia AND trata = :trata
+                ORDER BY fecha_egreso DESC
+            """
+            result = conn.execute(text(sql), {"gerencia": gerencia, "trata": trata})
+            rows = [dict(row._mapping) for row in result.fetchall()]
+            
+            for r in rows:
+                if r["fecha_caratula"]:
+                    r["fecha_caratula"] = str(r["fecha_caratula"])
+                if r["fecha_egreso"]:
+                    r["fecha_egreso"] = str(r["fecha_egreso"])
+                r["dias_subsanacion"] = int(r["dias_subsanacion"])
+                r["dias_brutos"] = int(r["dias_brutos"])
+                r["dias_netos_sla"] = int(r["dias_netos_sla"])
+                
+            return rows
+    except Exception as e:
+        logger.error(f"Error en reporte/sla/expedientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     import sys

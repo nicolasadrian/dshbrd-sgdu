@@ -2432,3 +2432,18 @@ body::after, body::before, html::after, html::before {
     filter: grayscale(20%);
 }
 
+/* Colores de performance para textos de Mediana de SLA */
+span.perf-high {
+    color: #10b981 !important;
+    font-weight: 700;
+}
+span.perf-mid {
+    color: #d97706 !important;
+    font-weight: 700;
+}
+span.perf-low {
+    color: #ef4444 !important;
+    font-weight: 700;
+}
+
+
