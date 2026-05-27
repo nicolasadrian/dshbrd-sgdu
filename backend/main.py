@@ -975,14 +975,15 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 view_name = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
                 
                 sql = f"""
-                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
-                           fecha_recepcion_analista as fecha_ultimo_pase, 
-                           dias_en_poder_actual as dias, analista, trata, 
-                           (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = {view_name}.id_expediente LIMIT 1) as caratula,
-                           descripcion_trata, descripcion, estado_expediente,
-                           (CURRENT_DATE - fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
+                    SELECT {view_name}.id_expediente, {view_name}.expediente, {view_name}.fecha_primer_ingreso_gerencia as fecha_ing, 
+                           {view_name}.fecha_recepcion_analista as fecha_ultimo_pase, 
+                           {view_name}.dias_en_poder_actual as dias, {view_name}.analista, {view_name}.trata, 
+                           ext.fecha_creacion as caratula,
+                           ext.descripcion_trata, ext.descripcion, ext.estado as estado_expediente,
+                           (CURRENT_DATE - {view_name}.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
                     FROM {view_name}
-                    WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
+                    LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = {view_name}.id_expediente
+                    WHERE {f"{view_name}.trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
                 """
                 result = conn.execute(text(sql))
                 rows = [dict(r._mapping) for r in result.fetchall()]
