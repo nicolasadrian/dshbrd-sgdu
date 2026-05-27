@@ -330,7 +330,7 @@ function buildSummaryHTML(data, allMonths, gerencia) {
                 
             let cellHTML = val !== undefined && val !== '-' ? fmt(val) : '-';
             
-            if (isCurrent && val !== undefined && val !== '-' && val !== 0 && gerencia) {
+            if (val !== undefined && val !== '-' && val !== 0 && val !== '0' && gerencia) {
                 cellHTML = `
                     <div class="current-month-cell-content">
                         <span>${cellHTML}</span>
@@ -462,7 +462,7 @@ function renderMatrixTable(container, data) {
                 
                 let cellHTML = val !== undefined && val !== '-' ? val.toLocaleString('es-AR') : '-';
                 
-                if (isCurrent && val !== undefined && val !== '-' && val !== 0) {
+                if (val !== undefined && val !== '-' && val !== 0 && val !== '0') {
                     cellHTML = `
                         <div class="current-month-cell-content">
                             <span>${cellHTML}</span>
