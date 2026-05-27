@@ -1,0 +1,295 @@
+-- Fixed: per-row INSERT ... ON CONFLICT upserts for instalaciones
+-- Run this file with psql -f sql/upsert_instalaciones_cfg_gestion_metas_fixed.sql
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2101A', ARRAY['MDUG2101A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFCIS','IFSMC','IFRSP'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+-- (repeat for each trata)
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2901A', ARRAY['MDUG2901A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2501A', ARRAY['MDUG2501A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2201A', ARRAY['MDUG2201A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2701A', ARRAY['MDUG2701A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2401A', ARRAY['MDUG2401A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2601A', ARRAY['MDUG2601A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG2301A', ARRAY['MDUG2301A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG3301A', ARRAY['MDUG3301A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG0904A', ARRAY['MDUG0904A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG0120A', ARRAY['MDUG0120A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MJGG1601A', ARRAY['MJGG1601A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG0101D', ARRAY['MDUG0101D'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MDUG0101G', ARRAY['MDUG0101G'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','MJGG1701A', ARRAY['MJGG1701A'], ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY['PROIN','PLINE','IFSMC'], NULL, true, NULL, ARRAY[]::text[]
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;
+
+-- Aggregator row: INTERVENCIONES
+INSERT INTO cfg_gestion_metas (
+  gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+  analistas_oficiales, acronimos_egreso, metas_mensuales, activo,
+  firmantes_egreso, buzones_ingreso_intervenciones
+) VALUES (
+  'instalaciones','INTERVENCIONES',
+  ARRAY['MDUG2101A','MDUG2901A','MDUG2501A','MDUG2201A','MDUG2701A','MDUG2401A','MDUG2601A','MDUG2301A','MDUG3301A','MDUG0904A','MDUG0120A','MJGG1601A','MDUG0101D','MDUG0101G','MJGG1701A'],
+  ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI'],
+  ARRAY['AQUINOLUCAS','ARENAJ','ARGUELLOJ','BATALLANJ','BENITOG','BRIANMARTINEZ','CORNAZM','FICARRAR','GAGLIARDIA','LOPARDOC','QUEIJASGUILLINP','ROBLEDOJO','ROLDANMI','RUDAC','SARIDISD','TOLESANOA','AURENA','BATALLANGE','BRITANP','GUARDADOB','JDECIMA','PEREZGA','RODRIGUEZESTEBAN','RODRIGUEZNE','SILESC','VILLAGAB'],
+  ARRAY[]::text[], NULL, true, NULL, ARRAY['DGROC-ELECTRICAS','DGROC-ELEVADORES','DGROC-INCENDIO','DGROC-SANITARIAS','DGROC-TERMICAS','DGROC-DCIMYE','DGROC-DCIELEV','DGROC-DCIDITI']
+) ON CONFLICT (gerencia, trata_reporte) DO UPDATE SET
+  tratas_incluidas = EXCLUDED.tratas_incluidas,
+  buzones_ingreso = EXCLUDED.buzones_ingreso,
+  analistas_oficiales = EXCLUDED.analistas_oficiales,
+  acronimos_egreso = EXCLUDED.acronimos_egreso,
+  metas_mensuales = EXCLUDED.metas_mensuales,
+  activo = EXCLUDED.activo,
+  firmantes_egreso = EXCLUDED.firmantes_egreso,
+  buzones_ingreso_intervenciones = EXCLUDED.buzones_ingreso_intervenciones;

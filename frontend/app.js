@@ -263,7 +263,7 @@ async function loadConsolidatedReport(gerencia) {
     }
 }
 
-function buildSummaryHTML(data, allMonths) {
+function buildSummaryHTML(data, allMonths, gerencia) {
     const totals = {};
     allMonths.forEach(mk => { totals[mk] = { ING: 0, EGR_EF: 0, EGR_NE: 0, STOCK_PROPIO: 0, STOCK_SUBS: 0 }; });
     data.forEach(row => {
@@ -307,7 +307,30 @@ function buildSummaryHTML(data, allMonths) {
             if (m.field === 'EGR_TOT') val = (t.EGR_EF || 0) + (t.EGR_NE || 0);
             else if (m.field === 'STOCK_TOTAL') val = (t.STOCK_PROPIO || 0) + (t.STOCK_SUBS || 0);
             else val = t[m.field] || 0;
-            html += `<td class="sum-val">${fmt(val)}</td>`;
+            
+            const now = new Date();
+            const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const isCurrent = mk === currentMonthKey;
+            
+            const cellClass = isCurrent ? 'sum-val current-month-cell' : 'sum-val';
+            const cellStyle = isCurrent 
+                ? 'font-weight: 700 !important; background-color: rgba(0, 159, 227, 0.05) !important; border-left: 2px solid rgba(0, 159, 227, 0.15) !important; border-right: 2px solid rgba(0, 159, 227, 0.15) !important;' 
+                : '';
+                
+            let cellHTML = val !== undefined && val !== '-' ? fmt(val) : '-';
+            
+            if (isCurrent && val !== undefined && val !== '-' && val !== 0 && gerencia) {
+                cellHTML = `
+                    <div class="current-month-cell-content">
+                        <span>${cellHTML}</span>
+                        <button class="btn-cell-download" onclick="downloadCellDetail('${gerencia}', 'ALL', '${m.field}', '${mk}')" title="Descargar detalle en Excel">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        </button>
+                    </div>
+                `;
+            }
+            
+            html += `<td class="${cellClass}" style="${cellStyle}">${cellHTML}</td>`;
         });
         html += `</tr>`;
     });
@@ -337,7 +360,8 @@ function renderMatrixTable(container, data) {
         return y1 === y2 ? m1 - m2 : y1 - y2;
     });
 
-    let html = buildSummaryHTML(data, allMonths);
+    const gerenciaKey = container.id.split('-').pop();
+    let html = buildSummaryHTML(data, allMonths, gerenciaKey);
 
     html += `
     <div class="main-card-container">
@@ -1453,7 +1477,15 @@ async function downloadCellDetail(gerencia, trata, metrica, periodo) {
             alert("No hay expedientes registrados para este período y métrica.");
             return;
         }
-        downloadExcel(filename, data);
+        // Eliminar columna de estado para la descarga de detalle (si existe)
+        const cleaned = data.map(row => {
+            const copy = Object.assign({}, row);
+            delete copy.ESTADO;
+            delete copy.estado;
+            delete copy['ESTADO ACTUAL SADE'];
+            return copy;
+        });
+        downloadExcel(filename, cleaned);
     } catch (error) {
         console.error("Error al descargar detalle:", error);
         alert("Error al procesar la descarga.");
@@ -1622,7 +1654,7 @@ async function loadMetasData() {
                 
                 // Actual egresos of the current month
                 const actualEgr = lastEgr;
-                const targetEgr = avgEgr;
+                const targetEgr = data.metas.meta_total_recomendada || avgEgr;
                 const egrProgressPct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
                 
                 let perfClass = 'perf-mid';
@@ -1660,10 +1692,10 @@ async function loadMetasData() {
             const maint = data.metas.meta_mantenimiento;
             const clean = data.metas.meta_limpieza_objetivo;
             const totalMeta = data.metas.meta_total_recomendada;
+            const duracion = data.metas.duracion_resolucion;
             
             updateVal('meta-obj-ing-prom-val', avgIng);
-            updateVal('meta-obj-75-val', maint);
-            updateVal('meta-obj-25-val', clean);
+            updateVal('meta-obj-duracion-val', duracion !== undefined ? `${duracion} días` : '--');
             updateVal('meta-obj-tot-val', totalMeta);
 
             const diffTotEgr = totalMeta - avgEgr;
@@ -1913,11 +1945,11 @@ function filterAndRenderSeguimiento() {
     const gerenciaFilter = document.getElementById('seguimiento-filter-gerencia').value;
     const sortVal = document.getElementById('seguimiento-sort').value;
     
-    // 1. Filtrado
+    // 1. Filtrado (ocultando aquellas tratas donde el egreso esperado sea 0)
     let filtered = seguimientoTratasData.filter(t => {
         const matchesSearch = t.trataCode.toLowerCase().includes(searchVal) || t.trataName.toLowerCase().includes(searchVal);
         const matchesGerencia = gerenciaFilter === 'ALL' || t.gerencia === gerenciaFilter;
-        return matchesSearch && matchesGerencia;
+        return matchesSearch && matchesGerencia && t.targetEgr > 0;
     });
     
     // 2. Ordenamiento
@@ -2070,8 +2102,7 @@ function filterAndRenderSeguimiento() {
 }
 
 function showTrataFromSeguimiento(gerencia, trataCode, trataName) {
-    // Redirigir a showTrataDetail marcando fromSeguimiento = true
-    showTrataDetail(gerencia, trataCode, trataName, true, true);
+    window.open(`#/${gerencia}/${trataCode}`, '_blank');
 }
 
 function setSeguimientoViewMode(mode) {
@@ -2172,26 +2203,34 @@ function filterAndRenderSLA() {
     
     // 2. Ordenar
     if (sortVal === 'AVG_DESC') {
-        filtered.sort((a, b) => (b.promedio_dias || 0) - (a.promedio_dias || 0));
+        filtered.sort((a, b) => {
+            const valA = a.duracion_total_mediana !== undefined ? a.duracion_total_mediana : (a.promedio_dias || 0);
+            const valB = b.duracion_total_mediana !== undefined ? b.duracion_total_mediana : (b.promedio_dias || 0);
+            return valB - valA;
+        });
     } else if (sortVal === 'AVG_ASC') {
-        filtered.sort((a, b) => (a.promedio_dias || 0) - (b.promedio_dias || 0));
+        filtered.sort((a, b) => {
+            const valA = a.duracion_total_mediana !== undefined ? a.duracion_total_mediana : (a.promedio_dias || 0);
+            const valB = b.duracion_total_mediana !== undefined ? b.duracion_total_mediana : (b.promedio_dias || 0);
+            return valA - valB;
+        });
     } else if (sortVal === 'RESOLVED_DESC') {
         filtered.sort((a, b) => (b.total_resueltos || 0) - (a.total_resueltos || 0));
     } else if (sortVal === 'NAME_ASC') {
         filtered.sort((a, b) => (a["DETALLE TRATA"] || '').localeCompare(b["DETALLE TRATA"] || ''));
     }
     
-    // 3. Contar rangos de SLA basados en promedio_dias
+    // 3. Contar rangos de SLA basados en duracion_total_mediana
     let countFast = 0;
     let countNormal = 0;
     let countSlow = 0;
     let countDelayed = 0;
     
     filtered.forEach(t => {
-        const avg = t.promedio_dias || 0;
-        if (avg <= 15) countFast++;
-        else if (avg <= 45) countNormal++;
-        else if (avg <= 90) countSlow++;
+        const val = t.duracion_total_mediana !== undefined ? t.duracion_total_mediana : (t.promedio_dias || 0);
+        if (val <= 15) countFast++;
+        else if (val <= 45) countNormal++;
+        else if (val <= 90) countSlow++;
         else countDelayed++;
     });
     
@@ -2208,11 +2247,11 @@ function filterAndRenderSLA() {
     // 4. Aplicar filtro por rango de SLA si está activo
     if (activeSlaRangeFilter) {
         filtered = filtered.filter(t => {
-            const avg = t.promedio_dias || 0;
-            if (activeSlaRangeFilter === 'fast') return avg <= 15;
-            if (activeSlaRangeFilter === 'normal') return avg > 15 && avg <= 45;
-            if (activeSlaRangeFilter === 'slow') return avg > 45 && avg <= 90;
-            if (activeSlaRangeFilter === 'delayed') return avg > 90;
+            const val = t.duracion_total_mediana !== undefined ? t.duracion_total_mediana : (t.promedio_dias || 0);
+            if (activeSlaRangeFilter === 'fast') return val <= 15;
+            if (activeSlaRangeFilter === 'normal') return val > 15 && val <= 45;
+            if (activeSlaRangeFilter === 'slow') return val > 45 && val <= 90;
+            if (activeSlaRangeFilter === 'delayed') return val > 90;
             return true;
         });
     }
@@ -2253,12 +2292,18 @@ function filterAndRenderSLA() {
     
     let html = '';
     filtered.forEach(t => {
-        const avg = t.promedio_dias || 0;
-        let perfClass = 'perf-mid';
+        const totalMed = (t.duracion_total_mediana !== undefined && t.duracion_total_mediana !== null) ? t.duracion_total_mediana : 0;
+        const netaMed = (t.duracion_neta_mediana !== undefined && t.duracion_neta_mediana !== null) ? t.duracion_neta_mediana : 0;
+        const subsMed = (t.duracion_subsanaciones_mediana !== undefined && t.duracion_subsanaciones_mediana !== null) ? t.duracion_subsanaciones_mediana : 0;
         
-        if (avg <= 15) {
+        const totalMedStr = `${totalMed}d`;
+        const netaMedStr = `${netaMed}d`;
+        const subsMedStr = subsMed > 0 ? `${subsMed}d` : 'Sin subs.';
+        
+        let perfClass = 'perf-mid';
+        if (totalMed <= 15) {
             perfClass = 'perf-high';
-        } else if (avg > 45) {
+        } else if (totalMed > 45) {
             perfClass = 'perf-low';
         }
         
@@ -2269,7 +2314,10 @@ function filterAndRenderSLA() {
                 <div class="trata-track-header" style="margin-bottom: 1.2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
                     <div class="trata-track-title-block" style="flex: 1;">
                         <h3 class="trata-track-name" style="font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); line-height: 1.2;">${(t["DETALLE TRATA"] || t["COD TRATA"]).toUpperCase()}</h3>
-                        <span class="trata-track-code" style="font-size: 0.75rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${t["COD TRATA"]}</span>
+                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+                            <span class="trata-track-code" style="font-size: 0.75rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${t["COD TRATA"]}</span>
+                            <span style="font-size: 0.75rem; color: #0284c7; font-weight: 600; background: #f0f9ff; padding: 2px 6px; border-radius: 4px;">${t.total_resueltos} resueltos</span>
+                        </div>
                     </div>
                     <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                         <span class="badge-gerencia ${t.gerencia}">${gerenciaDisplay}</span>
@@ -2279,14 +2327,18 @@ function filterAndRenderSLA() {
                     </div>
                 </div>
                 
-                <div class="trata-track-metrics" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
+                <div class="trata-track-metrics" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
                     <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Resueltos</span>
-                        <span class="metric-mini-value" style="font-size: 1.6rem; font-weight: 800; color: #334155;">${t.total_resueltos}</span>
+                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Duración Trámite</span>
+                        <span class="metric-mini-value" style="font-size: 1.25rem; font-weight: 800; color: #334155;">${totalMedStr}</span>
                     </div>
                     <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Promedio</span>
-                        <span class="metric-mini-value ${perfClass}" style="font-size: 1.6rem; font-weight: 800;">${avg}d</span>
+                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">En Gerencia</span>
+                        <span class="metric-mini-value ${perfClass}" style="font-size: 1.25rem; font-weight: 800;">${netaMedStr}</span>
+                    </div>
+                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
+                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">En Subsanación</span>
+                        <span class="metric-mini-value" style="font-size: 1.25rem; font-weight: 800; color: #475569;">${subsMedStr}</span>
                     </div>
                 </div>
             </article>
@@ -2298,7 +2350,7 @@ function filterAndRenderSLA() {
 }
 
 function showTrataFromSla(gerencia, trataCode, trataName) {
-    showTrataDetail(gerencia, trataCode, trataName, true, 'sla');
+    window.open(`#/${gerencia}/${trataCode}`, '_blank');
 }
 
 function toggleSlaRangeFilter(range) {

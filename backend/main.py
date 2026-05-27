@@ -515,13 +515,28 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
             
             # Precalcular meta_egr_prom para cada trata en la base de datos
             expected_targets = {}
-            for t_code in trata_codes + ['INTERVENCIONES']:
-                expected_targets[t_code] = calculate_trata_expected_egresos(conn, gerencia_clean, t_code)
+            try:
+                metas_query = f"SELECT TRIM(trata) as trata, nueva_meta_produccion FROM mv_metas_dinamicas_{gerencia_clean}"
+                res_metas = conn.execute(text(metas_query))
+                for row in res_metas:
+                    r_dict = row._mapping
+                    if r_dict["trata"]:
+                        expected_targets[str(r_dict["trata"]).strip().upper()] = round(r_dict["nueva_meta_produccion"] or 0)
+            except Exception as e:
+                import traceback
+                try:
+                    with open("c:\\Users\\Nicolas\\Documents\\dashboard_vscode\\dshbrd-sgdu\\backend_metas_error.txt", "w") as f_err:
+                        traceback.print_exc(file=f_err)
+                except Exception:
+                    pass
+                logger.warning(f"No se pudo consultar mv_metas_dinamicas_{gerencia_clean}, usando fallback: {e}")
+                for t_code in trata_codes + ['INTERVENCIONES']:
+                    expected_targets[t_code] = calculate_trata_expected_egresos(conn, gerencia_clean, t_code)
 
             # Enriquecer con acrónimos oficiales desde TRAMITES_CONFIG
             config_for_g = TRAMITES_CONFIG.get(gerencia_clean, {})
             df["acronimos"] = df["COD TRATA"].apply(lambda x: config_for_g.get(x, {}).get("acronimos", ""))
-            df["meta_egr_prom"] = df["COD TRATA"].apply(lambda x: expected_targets.get(x, 0))
+            df["meta_egr_prom"] = df["COD TRATA"].apply(lambda x: expected_targets.get(str(x).strip().upper(), 0))
             
             return df.to_dict(orient='records')
     except Exception as e:
@@ -574,8 +589,10 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                     GROUP BY 1
                 ),
                 stock AS (
-                    SELECT mes_label, SUM(stock_sector) as sector, SUM(stock_corriente) as corriente
-                    FROM mv_{gerencia_clean}_metas_historico
+                    SELECT mes_label, 
+                           SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END) as sector, 
+                           SUM(CASE WHEN categoria = 'SUBSANACION' THEN cant_expedientes ELSE 0 END) as corriente
+                    FROM mv_{gerencia_clean}_stock_historico
                     WHERE {trata_filter}
                     GROUP BY 1
                 )
@@ -620,9 +637,19 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             current_sector = float(hist_data[-1]['stock_sector'])
             current_corriente = float(hist_data[-1]['stock_corriente'])
             
-            # Metas de Capacidad Recomendada (Para llegar a Cero Stock Propio y un Stock Corriente de Flujo Saludable)
-            # Definimos el "Stock Corriente Friccional Saludable" igual a los ingresos promedio (WIP saludable)
-            healthy_corriente_target = avg_ing
+            # Obtener la duración mediana (en días) para calcular la acumulación real del pipeline (WIP según Ley de Little)
+            duracion_dias = 90.0  # Fallback de 3 meses (90 días)
+            if trata and trata != 'INTERVENCIONES':
+                try:
+                    dur_res = conn.execute(text(f"SELECT COALESCE(duracion_total_mediana, 90) FROM mv_tiempos_resolucion_{gerencia_clean} WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                    if dur_res:
+                        duracion_dias = float(dur_res[0])
+                except Exception as dur_err:
+                    logger.warning(f"Error obteniendo duracion de resolucion: {dur_err}")
+            
+            # WIP Saludable = Ingresos Promedio * (Mediana de Resolución en Meses)
+            # Si ingresan 100/mes y tardan 110 días (3.66 meses), el stock en flujo acumulado debe ser 100 * 3.66 = 366 expedientes
+            healthy_corriente_target = avg_ing * (duracion_dias / 30.0)
             excess_corriente = max(0.0, current_corriente - healthy_corriente_target)
             
             # Aplicamos la lógica de planificación de capacidad con esfuerzo 75% / 25%:
@@ -631,10 +658,26 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             meta_maint = avg_ing
             meta_clean_required = (current_sector / 6.0) + (excess_corriente / 3.0)
             
-            # Capacidad recomendada total que garantiza cumplir ambas restricciones con un split 75/25
-            meta_total_target = max(meta_maint / 0.75, meta_clean_required / 0.25)
+            # Capacidad recomendada total (Egresos Totales Estimados): Intentar leerla directamente de la tabla mv_metas_dinamicas
+            db_expected_target = None
+            try:
+                if trata and trata != 'INTERVENCIONES':
+                    meta_res = conn.execute(text(f"SELECT COALESCE(nueva_meta_produccion, 0) FROM mv_metas_dinamicas_{gerencia_clean} WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                    if meta_res:
+                        db_expected_target = float(meta_res[0])
+                else:
+                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(nueva_meta_produccion, 0)) FROM mv_metas_dinamicas_{gerencia_clean}")).fetchone()
+                    if sum_res and sum_res[0] is not None:
+                        db_expected_target = float(sum_res[0])
+            except Exception as meta_err:
+                logger.warning(f"Error obteniendo nueva_meta_produccion de mv_metas_dinamicas_{gerencia_clean}: {meta_err}")
+
+            if db_expected_target is not None:
+                meta_total_target = db_expected_target
+            else:
+                meta_total_target = max(meta_maint / 0.75, meta_clean_required / 0.25)
             
-            # Distribución exacta 75/25 de la capacidad recomendada
+            # Distribución de la capacidad recomendada
             meta_maint_allocated = meta_total_target * 0.75
             meta_clean_allocated = meta_total_target * 0.25
             
@@ -680,24 +723,35 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                     "escenario": "actual"
                 })
                 
-                # Escenario Objetivo (Capacidad aumentada)
-                # En los meses 1, 2, 3: limpiamos corriente excedente (exceso/3 por mes) y sector (S/6 por mes)
-                # En los meses 4, 5, 6: corriente queda estabilizada en su nivel saludable, solo limpiamos sector (S/6 por mes)
-                # En el mes 7+: el stock sectorial es 0 y corriente está en su flujo normal, volvemos a mantenimiento puro (Egresos = Ingresos).
-                if i <= 3:
-                    temp_corriente_target = max(healthy_corriente_target, temp_corriente_target - (excess_corriente_start / 3.0)) if proj_corriente_start > healthy_corriente_target else proj_corriente_start
-                    temp_sector_target = max(0.0, temp_sector_target - (proj_sector_start / 6.0))
-                    clean_req = (proj_sector_start / 6.0) + (excess_corriente_start / 3.0)
-                    monthly_target = max(avg_ing / 0.75, clean_req / 0.25)
-                elif i <= 6:
-                    temp_corriente_target = min(proj_corriente_start, healthy_corriente_target)
-                    temp_sector_target = max(0.0, temp_sector_target - (proj_sector_start / 6.0))
-                    clean_req = (proj_sector_start / 6.0)
-                    monthly_target = max(avg_ing / 0.75, clean_req / 0.25)
+                # Escenario Objetivo (Capacidad constante de la Nueva Meta de Producción)
+                monthly_target = meta_total_target
+                
+                # Capacidad dedicada a la liquidación del stock sectorial acumulado
+                if temp_sector_target > 0:
+                    backlog_cleared = proj_sector_start / 6.0
+                    temp_sector_target = max(0.0, temp_sector_target - backlog_cleared)
                 else:
-                    temp_corriente_target = min(proj_corriente_start, healthy_corriente_target)
+                    backlog_cleared = 0.0
                     temp_sector_target = 0.0
-                    monthly_target = avg_ing
+                
+                # A medida que se egresa menos stock sector, volcamos más capacidad a procesar el stock corriente (flujo)
+                flow_capacity = max(0.0, monthly_target - backlog_cleared)
+                
+                # Medida de ganancia de eficiencia basada en la liquidación del backlog sectorial
+                if proj_sector_start > 0:
+                    efficiency_gain = (proj_sector_start - temp_sector_target) / proj_sector_start
+                else:
+                    efficiency_gain = 1.0
+                
+                # El tiempo de tramitación efectivo disminuye (hasta un 40% de mejora o piso de 30 días) al erradicar el cuello de botella
+                target_optimized_duration = max(30.0, duracion_dias * 0.6)
+                effective_duration = duracion_dias - (duracion_dias - target_optimized_duration) * efficiency_gain
+                
+                # El piso saludable de stock corriente (WIP) disminuye dinámicamente con la reducción del tiempo de tramitación
+                dynamic_healthy_corriente = avg_ing * (effective_duration / 30.0)
+                
+                # El stock corriente fluctúa dinámicamente según la Ley de Conservación de Flujo, acotado por el piso saludable decreciente
+                temp_corriente_target = max(dynamic_healthy_corriente, temp_corriente_target + avg_ing - flow_capacity)
                 
                 projection_target.append({
                     "mes_label": mes_label,
@@ -708,6 +762,39 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                     "es_proyeccion": True,
                     "escenario": "objetivo"
                 })
+
+            # 3.5. Intentar cargar la planificación oficial desde la vista mv_plan_metas_{gerencia_clean}
+            projection_target_db = []
+            try:
+                plan_trata_filter = f"TRIM(trata) = '{trata}'" if trata and trata != 'INTERVENCIONES' else "TRUE"
+                plan_sql = f"""
+                    SELECT nro_mes, to_char(mes_calendario, 'YYYY-MM') as mes_label,
+                           SUM(COALESCE(ingresos_promedio, 0)) as ingresos,
+                           SUM(COALESCE(egresos_totales_plan, 0)) as egresos_totales,
+                           SUM(COALESCE(stock_sector_fin, 0)) as stock_sector,
+                           SUM(COALESCE(stock_corriente, 0)) as stock_corriente
+                    FROM mv_plan_metas_{gerencia_clean}
+                    WHERE {plan_trata_filter} AND mes_calendario >= '2026-06-01'
+                    GROUP BY 1, 2
+                    ORDER BY 1 ASC
+                """
+                plan_res = conn.execute(text(plan_sql))
+                for row in plan_res:
+                    r_dict = row._mapping
+                    projection_target_db.append({
+                        "mes_label": r_dict["mes_label"],
+                        "ingresos": round(float(r_dict["ingresos"])),
+                        "egresos_totales": round(float(r_dict["egresos_totales"])),
+                        "stock_sector": round(float(r_dict["stock_sector"])),
+                        "stock_corriente": round(float(r_dict["stock_corriente"])),
+                        "es_proyeccion": True,
+                        "escenario": "objetivo"
+                    })
+            except Exception as plan_err:
+                logger.warning(f"No se pudo consultar mv_plan_metas_{gerencia_clean}, usando fallback matemático: {plan_err}")
+
+            if projection_target_db:
+                projection_target = projection_target_db
 
             # 4. Metadatos para las tarjetas
             capacidad_limpieza_actual = avg_egr * 0.25
@@ -723,7 +810,8 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                     "meta_mantenimiento": round(meta_maint_allocated),
                     "meta_limpieza_objetivo": round(meta_clean_allocated),
                     "meta_total_recomendada": round(meta_total_target),
-                    "meses_barrido_actual": round(meses_barrido_estimado)
+                    "meses_barrido_actual": round(meses_barrido_estimado),
+                    "duracion_resolucion": round(duracion_dias)
                 }
             }
     except Exception as e:
@@ -878,25 +966,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 trata_info = conn.execute(text("SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
 
-            # Obtener configuración de analistas y buzones directamente de la DB para esta trata
-            cfg_query = text("""
-                SELECT buzones_ingreso, analistas_oficiales 
-                FROM cfg_gestion_metas 
-                WHERE gerencia = :g AND trata_reporte = :t
-            """)
-            # Mapeo de lookup de configuración (Instalaciones y Contable tienen tablas propias de configuración)
-            trata_cfg_lookup = gerencia_clean.upper() if gerencia_clean in ['instalaciones', 'contable'] else trata
-            cfg_res = conn.execute(cfg_query, {"g": gerencia_clean, "t": trata_cfg_lookup}).fetchone()
-            
-            if not cfg_res:
-                return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
-            
-            # Combinar buzones y analistas para el filtro de la vista
-            sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
-            if not sector_whitelist:
-                return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
-
-            # Usamos la vista materializada optimizada para el detalle
+            # Usamos la vista materializada optimizada para el detalle si está disponible
             if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
                 # Mapeamos los nombres de columnas de tu nueva vista a lo que espera el front
                 # Si la trata no es de las "oficiales", es una intervención
@@ -946,6 +1016,24 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 # Formatear month_dist para el gráfico
                 month_dist = [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())]
             else:
+                # Obtener configuración de analistas y buzones directamente de la DB para esta trata
+                cfg_query = text("""
+                    SELECT buzones_ingreso, analistas_oficiales 
+                    FROM cfg_gestion_metas 
+                    WHERE gerencia = :g AND trata_reporte = :t
+                """)
+                # Mapeo de lookup de configuración (Instalaciones y Contable tienen tablas propias de configuración)
+                trata_cfg_lookup = gerencia_clean.upper() if gerencia_clean in ['instalaciones', 'contable'] else trata
+                cfg_res = conn.execute(cfg_query, {"g": gerencia_clean, "t": trata_cfg_lookup}).fetchone()
+                
+                if not cfg_res:
+                    return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
+                
+                # Combinar buzones y analistas para el filtro de la vista
+                sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
+                if not sector_whitelist:
+                    return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
+
                 sql = f"""
                     SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
                            dias_ultimo_movimiento as dias, analista_actual as analista, trata,
@@ -1118,7 +1206,6 @@ async def get_tramite_detalle_periodo(
                 periodo_norm = f"{year:04d}-{month:02d}"
             except ValueError:
                 pass
-
     try:
         with engine.connect() as conn:
             # 1. Obtener lista de tratas incluidas oficiales
@@ -1133,236 +1220,546 @@ async def get_tramite_detalle_periodo(
                 "g": gerencia_clean
             }
             
-            if metrica == 'ING':
-                sql = f"""
-                    SELECT 
-                        t.expediente AS "EXPEDIENTE", 
-                        t.trata AS "TRAMITE", 
-                        to_char(t.fecha_ingreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
-                        t.buzon AS "BUZON INGRESO",
-                        e.usuario_modificador AS "ANALISTA",
-                        e.descripcion_trata AS "DETALLE TRATA", 
-                        e.descripcion AS "DESCRIPCION", 
-                        e.estado AS "ESTADO"
-                    FROM mv_{gerencia_clean}_ingresos_eventos t
-                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                    WHERE to_char(t.fecha_ingreso, 'YYYY-MM') = :periodo
-                      AND (:trata = 'INTERVENCIONES' AND t.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
-                           OR :trata != 'INTERVENCIONES' AND t.trata = :trata)
-                    ORDER BY t.fecha_ingreso DESC
-                """
-                
-            elif metrica == 'EGR_EF':
-                if is_official:
+            if trata == 'ALL':
+                # Query all tratas for the gerencia
+                if metrica == 'ING':
                     sql = f"""
                         SELECT 
                             t.expediente AS "EXPEDIENTE", 
                             t.trata AS "TRAMITE", 
-                            to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
-                            t.documento_egreso AS "DOCUMENTO EGRESO", 
-                            t.acronimo_egreso AS "ACRONIMO EGRESO", 
-                            t.usuario_egreso AS "USUARIO EGRESO",
+                            to_char(t.fecha_ingreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            t.buzon AS "BUZON INGRESO",
+                            e.usuario_modificador AS "ANALISTA",
                             e.descripcion_trata AS "DETALLE TRATA", 
                             e.descripcion AS "DESCRIPCION", 
                             e.estado AS "ESTADO"
-                        FROM mv_{gerencia_clean}_egresos_efectivos t
+                        FROM mv_{gerencia_clean}_ingresos_eventos t
                         LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                        WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
-                          AND t.trata = :trata
-                        ORDER BY t.fecha_egreso DESC
+                        WHERE to_char(t.fecha_ingreso, 'YYYY-MM') = :periodo
+                        ORDER BY t.fecha_ingreso DESC
                     """
-                else:
-                    # Intervenciones
+                elif metrica == 'EGR_EF':
                     interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
-                    
                     if gerencia_clean != 'contable':
                         sql = f"""
                             SELECT 
+                                'OFICIAL' AS "TIPO TRAMITE",
                                 t.expediente AS "EXPEDIENTE", 
                                 t.trata AS "TRAMITE", 
                                 to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
-                                t.usuario_que_envia AS "USUARIO QUE ENVIA", 
-                                t.destino_externo AS "DESTINO EXTERNO",
+                                t.documento_egreso AS "DOCUMENTO EGRESO/DESTINO", 
+                                t.acronimo_egreso AS "ACRONIMO EGRESO", 
+                                t.usuario_egreso AS "USUARIO EGRESO",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'INTERVENCION' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.destino_externo AS "DOCUMENTO EGRESO/DESTINO",
+                                '' AS "ACRONIMO EGRESO",
+                                t.usuario_que_envia AS "USUARIO EGRESO",
                                 t.descripcion_trata AS "DETALLE TRATA",
-                                e.descripcion AS "DESCRIPCION", 
                                 e.estado AS "ESTADO"
                             FROM {interv_egr_table} t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
-                            ORDER BY t.fecha_egreso DESC
+                            ORDER BY 4 DESC
                         """
                     else:
                         sql = f"""
                             SELECT 
+                                'OFICIAL' AS "TIPO TRAMITE",
                                 t.expediente AS "EXPEDIENTE", 
                                 t.trata AS "TRAMITE", 
                                 to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
-                                t.destino_actual AS "DESTINO ACTUAL", 
-                                t.dias_afuera AS "DIAS AFUERA",
+                                t.documento_egreso AS "DOCUMENTO EGRESO/DESTINO", 
+                                t.acronimo_egreso AS "ACRONIMO EGRESO", 
+                                t.usuario_egreso AS "USUARIO EGRESO",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'INTERVENCION' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.destino_actual AS "DOCUMENTO EGRESO/DESTINO",
+                                '' AS "ACRONIMO EGRESO",
+                                '' AS "USUARIO EGRESO",
                                 t.descripcion_trata AS "DETALLE TRATA",
-                                e.descripcion AS "DESCRIPCION", 
                                 e.estado AS "ESTADO"
                             FROM {interv_egr_table} t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
-                            ORDER BY t.fecha_egreso DESC
+                            ORDER BY 4 DESC
                         """
-                        
-            elif metrica == 'EGR_NE':
-                sql = f"""
-                    SELECT 
-                        t.expediente AS "EXPEDIENTE", 
-                        t.trata AS "TRAMITE", 
-                        to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA ULTIMO PASO",
-                        t.poseedor_actual AS "DESTINATARIO/BUZON",
-                        e.descripcion_trata AS "DETALLE TRATA", 
-                        e.descripcion AS "DESCRIPCION", 
-                        e.estado AS "ESTADO"
-                    FROM mv_{gerencia_clean}_egresos_no_efectivos t
-                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                    WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
-                      AND (:trata = 'INTERVENCIONES' AND t.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
-                           OR :trata != 'INTERVENCIONES' AND t.trata = :trata)
-                    ORDER BY t.fecha_ultimo_movimiento DESC
-                """
-                
-            elif metrica == 'EGR_TOT':
-                if is_official:
+                elif metrica == 'EGR_NE':
                     sql = f"""
                         SELECT 
-                            'EFECTIVO' AS "TIPO EGRESO",
                             t.expediente AS "EXPEDIENTE", 
                             t.trata AS "TRAMITE", 
-                            to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
-                            t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
+                            to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA ULTIMO PASO",
+                            t.poseedor_actual AS "DESTINATARIO/BUZON",
                             e.descripcion_trata AS "DETALLE TRATA", 
-                            e.estado AS "ESTADO"
-                        FROM mv_{gerencia_clean}_egresos_efectivos t
-                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                        WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
-                          AND t.trata = :trata
-                        UNION ALL
-                        SELECT 
-                            'NO EFECTIVO' AS "TIPO EGRESO",
-                            t.expediente AS "EXPEDIENTE", 
-                            t.trata AS "TRAMITE", 
-                            to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
-                            t.poseedor_actual AS "DETALLE EGRESO (DOC/BUZON)",
-                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
                             e.estado AS "ESTADO"
                         FROM mv_{gerencia_clean}_egresos_no_efectivos t
                         LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                         WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
-                          AND t.trata = :trata
-                        ORDER BY 4 DESC
+                        ORDER BY t.fecha_ultimo_movimiento DESC
                     """
-                else:
+                elif metrica == 'EGR_TOT':
                     interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+                    if gerencia_clean != 'contable':
+                        sql = f"""
+                            SELECT 
+                                'EFECTIVO' AS "TIPO EGRESO",
+                                'OFICIAL' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'EFECTIVO' AS "TIPO EGRESO",
+                                'INTERVENCION' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.destino_externo AS "DETALLE EGRESO (DOC/BUZON)",
+                                t.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM {interv_egr_table} t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'NO EFECTIVO' AS "TIPO EGRESO",
+                                CASE WHEN t.trata = ANY(:tratas_oficiales) THEN 'OFICIAL' ELSE 'INTERVENCION' END AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.poseedor_actual AS "DETALLE EGRESO (DOC/BUZON)",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_no_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
+                            ORDER BY 5 DESC
+                        """
+                    else:
+                        sql = f"""
+                            SELECT 
+                                'EFECTIVO' AS "TIPO EGRESO",
+                                'OFICIAL' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'EFECTIVO' AS "TIPO EGRESO",
+                                'INTERVENCION' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.destino_actual AS "DETALLE EGRESO (DOC/BUZON)",
+                                t.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM {interv_egr_table} t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'NO EFECTIVO' AS "TIPO EGRESO",
+                                CASE WHEN t.trata = ANY(:tratas_oficiales) THEN 'OFICIAL' ELSE 'INTERVENCION' END AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.poseedor_actual AS "DETALLE EGRESO (DOC/BUZON)",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_no_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
+                            ORDER BY 5 DESC
+                        """
+                    params["tratas_oficiales"] = trata_codes
+                elif metrica == 'STOCK_PROPIO':
                     sql = f"""
                         SELECT 
-                            'EFECTIVO' AS "TIPO EGRESO",
+                            'OFICIAL' AS "TIPO TRAMITE",
                             t.expediente AS "EXPEDIENTE", 
                             t.trata AS "TRAMITE", 
-                            to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_stock_propio t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        UNION ALL
+                        SELECT 
+                            'INTERVENCION' AS "TIPO TRAMITE",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            t.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_intervenciones_stock t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        ORDER BY "DIAS EN PODER" DESC
+                    """
+                elif metrica == 'STOCK_SUBS':
+                    sql = f"""
+                        SELECT 
+                            'OFICIAL' AS "TIPO TRAMITE",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_subsanaciones t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        UNION ALL
+                        SELECT 
+                            'INTERVENCION' AS "TIPO TRAMITE",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            t.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_intervenciones_subs t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        ORDER BY "DIAS EN PODER" DESC
+                    """
+                elif metrica == 'STOCK_TOTAL':
+                    sql = f"""
+                        SELECT 
+                            'STOCK PROPIO' AS "TIPO STOCK",
+                            'OFICIAL' AS "TIPO TRAMITE",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_stock_propio t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        UNION ALL
+                        SELECT 
+                            'STOCK PROPIO' AS "TIPO STOCK",
+                            'INTERVENCION' AS "TIPO TRAMITE",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
                             t.descripcion_trata AS "DETALLE TRATA", 
                             e.estado AS "ESTADO"
-                        FROM {interv_egr_table} t
+                        FROM mv_{gerencia_clean}_intervenciones_stock t
                         LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                        WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                         UNION ALL
                         SELECT 
-                            'NO EFECTIVO' AS "TIPO EGRESO",
+                            'SUBSANACION' AS "TIPO STOCK",
+                            'OFICIAL' AS "TIPO TRAMITE",
                             t.expediente AS "EXPEDIENTE", 
                             t.trata AS "TRAMITE", 
-                            to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
                             e.descripcion_trata AS "DETALLE TRATA", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_subsanaciones t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        UNION ALL
+                        SELECT 
+                            'SUBSANACION' AS "TIPO STOCK",
+                            'INTERVENCION' AS "TIPO TRAMITE",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            t.descripcion_trata AS "DETALLE TRATA", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_intervenciones_subs t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        ORDER BY 7 DESC
+                    """
+                else:
+                    raise HTTPException(status_code=400, detail="Métrica no soportada.")
+            else:
+                if metrica == 'ING':
+                    sql = f"""
+                        SELECT 
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_ingreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            t.buzon AS "BUZON INGRESO",
+                            e.usuario_modificador AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM mv_{gerencia_clean}_ingresos_eventos t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        WHERE to_char(t.fecha_ingreso, 'YYYY-MM') = :periodo
+                          AND (:trata = 'INTERVENCIONES' AND t.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
+                               OR :trata != 'INTERVENCIONES' AND t.trata = :trata)
+                        ORDER BY t.fecha_ingreso DESC
+                    """
+                    
+                elif metrica == 'EGR_EF':
+                    if is_official:
+                        sql = f"""
+                            SELECT 
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.documento_egreso AS "DOCUMENTO EGRESO", 
+                                t.acronimo_egreso AS "ACRONIMO EGRESO", 
+                                t.usuario_egreso AS "USUARIO EGRESO",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.descripcion AS "DESCRIPCION", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                              AND t.trata = :trata
+                            ORDER BY t.fecha_egreso DESC
+                        """
+                    else:
+                        # Intervenciones
+                        interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+                        
+                        if gerencia_clean != 'contable':
+                            sql = f"""
+                                SELECT 
+                                    t.expediente AS "EXPEDIENTE", 
+                                    t.trata AS "TRAMITE", 
+                                    to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                    t.usuario_que_envia AS "USUARIO QUE ENVIA", 
+                                    t.destino_externo AS "DESTINO EXTERNO",
+                                    t.descripcion_trata AS "DETALLE TRATA",
+                                    e.descripcion AS "DESCRIPCION", 
+                                    e.estado AS "ESTADO"
+                                FROM {interv_egr_table} t
+                                LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                                WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                                ORDER BY t.fecha_egreso DESC
+                            """
+                        else:
+                            sql = f"""
+                                SELECT 
+                                    t.expediente AS "EXPEDIENTE", 
+                                    t.trata AS "TRAMITE", 
+                                    to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                    t.destino_actual AS "DESTINO ACTUAL", 
+                                    t.dias_afuera AS "DIAS AFUERA",
+                                    t.descripcion_trata AS "DETALLE TRATA",
+                                    e.descripcion AS "DESCRIPCION", 
+                                    e.estado AS "ESTADO"
+                                FROM {interv_egr_table} t
+                                LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                                WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                                ORDER BY t.fecha_egreso DESC
+                            """
+                            
+                elif metrica == 'EGR_NE':
+                    sql = f"""
+                        SELECT 
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA ULTIMO PASO",
+                            t.poseedor_actual AS "DESTINATARIO/BUZON",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
                             e.estado AS "ESTADO"
                         FROM mv_{gerencia_clean}_egresos_no_efectivos t
                         LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                         WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
-                          AND t.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
-                        ORDER BY 4 DESC
+                          AND (:trata = 'INTERVENCIONES' AND t.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
+                               OR :trata != 'INTERVENCIONES' AND t.trata = :trata)
+                        ORDER BY t.fecha_ultimo_movimiento DESC
                     """
-                
-            elif metrica == 'STOCK_PROPIO':
-                stock_table = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
-                sql = f"""
-                    SELECT 
-                        t.expediente AS "EXPEDIENTE", 
-                        t.trata AS "TRAMITE", 
-                        to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
-                        to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
-                        t.dias_en_poder_actual AS "DIAS EN PODER", 
-                        t.analista AS "ANALISTA",
-                        e.descripcion_trata AS "DETALLE TRATA", 
-                        e.descripcion AS "DESCRIPCION", 
-                        e.estado AS "ESTADO"
-                    FROM {stock_table} t
-                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                    WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
-                    ORDER BY t.dias_en_poder_actual DESC
-                """
-                
-            elif metrica == 'STOCK_SUBS':
-                stock_table = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
-                sql = f"""
-                    SELECT 
-                        t.expediente AS "EXPEDIENTE", 
-                        t.trata AS "TRAMITE", 
-                        to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
-                        to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
-                        t.dias_en_poder_actual AS "DIAS EN PODER", 
-                        t.analista AS "ANALISTA",
-                        e.descripcion_trata AS "DETALLE TRATA", 
-                        e.descripcion AS "DESCRIPCION", 
-                        e.estado AS "ESTADO"
-                    FROM {stock_table} t
-                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                    WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
-                    ORDER BY t.dias_en_poder_actual DESC
-                """
-                
-            elif metrica == 'STOCK_TOTAL':
-                stock_table = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
-                subs_table = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
-                sql = f"""
-                    SELECT 
-                        'STOCK PROPIO' AS "TIPO STOCK",
-                        t.expediente AS "EXPEDIENTE", 
-                        t.trata AS "TRAMITE", 
-                        to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
-                        to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
-                        t.dias_en_poder_actual AS "DIAS EN PODER", 
-                        t.analista AS "ANALISTA",
-                        e.descripcion_trata AS "DETALLE TRATA", 
-                        e.estado AS "ESTADO"
-                    FROM {stock_table} t
-                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                    WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
-                    UNION ALL
-                    SELECT 
-                        'SUBSANACION' AS "TIPO STOCK",
-                        t.expediente AS "EXPEDIENTE", 
-                        t.trata AS "TRAMITE", 
-                        to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
-                        to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
-                        t.dias_en_poder_actual AS "DIAS EN PODER", 
-                        t.analista AS "ANALISTA",
-                        e.descripcion_trata AS "DETALLE TRATA", 
-                        e.estado AS "ESTADO"
-                    FROM {subs_table} t
-                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
-                    WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
-                    ORDER BY 6 DESC
-                """
-                
-            else:
-                raise HTTPException(status_code=400, detail="Métrica no soportada.")
-                
+                    
+                elif metrica == 'EGR_TOT':
+                    if is_official:
+                        sql = f"""
+                            SELECT 
+                                'EFECTIVO' AS "TIPO EGRESO",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.documento_egreso AS "DOCUMENTO EGRESO",
+                                t.acronimo_egreso AS "ACRONIMO EGRESO",
+                                t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                              AND t.trata = :trata
+                            UNION ALL
+                            SELECT 
+                                'NO EFECTIVO' AS "TIPO EGRESO",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                '' AS "DOCUMENTO EGRESO",
+                                '' AS "ACRONIMO EGRESO",
+                                t.poseedor_actual AS "DETALLE EGRESO (DOC/BUZON)",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_no_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
+                              AND t.trata = :trata
+                            ORDER BY 4 DESC
+                        """
+                    else:
+                        interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+                        sql = f"""
+                            SELECT 
+                                'EFECTIVO' AS "TIPO EGRESO",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                t.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM {interv_egr_table} t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
+                            UNION ALL
+                            SELECT 
+                                'NO EFECTIVO' AS "TIPO EGRESO",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_ultimo_movimiento, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                                e.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_egresos_no_efectivos t
+                            LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                            WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
+                              AND t.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
+                            ORDER BY 4 DESC
+                        """
+                    
+                elif metrica == 'STOCK_PROPIO':
+                    stock_table = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
+                    sql = f"""
+                        SELECT 
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM {stock_table} t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
+                        ORDER BY t.dias_en_poder_actual DESC
+                    """
+                    
+                elif metrica == 'STOCK_SUBS':
+                    stock_table = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
+                    sql = f"""
+                        SELECT 
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.descripcion AS "DESCRIPCION", 
+                            e.estado AS "ESTADO"
+                        FROM {stock_table} t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
+                        ORDER BY t.dias_en_poder_actual DESC
+                    """
+                    
+                elif metrica == 'STOCK_TOTAL':
+                    stock_table = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
+                    subs_table = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
+                    sql = f"""
+                        SELECT 
+                            'STOCK PROPIO' AS "TIPO STOCK",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.estado AS "ESTADO"
+                        FROM {stock_table} t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
+                        UNION ALL
+                        SELECT 
+                            'SUBSANACION' AS "TIPO STOCK",
+                            t.expediente AS "EXPEDIENTE", 
+                            t.trata AS "TRAMITE", 
+                            to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                            to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                            t.dias_en_poder_actual AS "DIAS EN PODER", 
+                            t.analista AS "ANALISTA",
+                            e.descripcion_trata AS "DETALLE TRATA", 
+                            e.estado AS "ESTADO"
+                        FROM {subs_table} t
+                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
+                        ORDER BY 6 DESC
+                    """
+                else:
+                    raise HTTPException(status_code=400, detail="Métrica no soportada.")
+                    
             result = conn.execute(text(sql), params)
             df = pd.DataFrame(result.fetchall(), columns=result.keys())
             return df.to_dict(orient='records')
-            
     except Exception as e:
         logger.error(f"Error en detalle_periodo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1371,64 +1768,85 @@ async def get_tramite_detalle_periodo(
 async def get_sla_report(gerencia: Optional[str] = 'ALL', current_user: User = Depends(get_current_user)):
     try:
         with engine.connect() as conn:
-            where_clause = ""
-            params = {}
+            gerencias_to_query = []
             if gerencia and gerencia != 'ALL':
                 g_clean = gerencia.lower()
                 if g_clean == 'conforme':
                     g_clean = 'regularizacion'
-                where_clause = "WHERE gerencia = :g"
-                params = {"g": g_clean}
-                
-            sql = f"""
-                SELECT 
-                    gerencia,
-                    trata AS "COD TRATA",
-                    descripcion_trata AS "DETALLE TRATA",
-                    COUNT(*) AS total_resueltos,
-                    ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias_resolucion)::numeric, 1) AS mediana_dias,
-                    ROUND(AVG(dias_resolucion)::numeric, 1) AS promedio_dias,
-                    MAX(dias_resolucion) AS max_dias,
-                    MIN(dias_resolucion) AS min_dias
-                FROM mvw_sla_tramites
-                {where_clause}
-                GROUP BY gerencia, trata, descripcion_trata
-                ORDER BY gerencia, trata
-            """
-            
-            result = conn.execute(text(sql), params)
-            df = pd.DataFrame(result.fetchall(), columns=result.keys())
-            
+                gerencias_to_query = [g_clean]
+            else:
+                gerencias_to_query = list(TRAMITES_CONFIG.keys())
+
             records = []
-            for _, row in df.iterrows():
-                row_dict = row.to_dict()
-                g = row_dict["gerencia"]
-                t_code = row_dict["COD TRATA"]
-                
-                # Enriquecer con acrónimos y nombre si está en config
-                g_cfg = TRAMITES_CONFIG.get(g, {})
-                t_cfg = g_cfg.get(t_code, {})
-                row_dict["acronimos"] = t_cfg.get("acronimos", "")
-                if t_cfg.get("nombre"):
-                    row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
-                
-                med = row_dict.get("mediana_dias")
-                row_dict["mediana_dias"] = float(med) if (med is not None and not pd.isna(med)) else 0.0
-                
-                prom = row_dict.get("promedio_dias")
-                row_dict["promedio_dias"] = float(prom) if (prom is not None and not pd.isna(prom)) else 0.0
-                
-                total = row_dict.get("total_resueltos")
-                row_dict["total_resueltos"] = int(total) if (total is not None and not pd.isna(total)) else 0
-                
-                max_d = row_dict.get("max_dias")
-                row_dict["max_dias"] = int(max_d) if (max_d is not None and not pd.isna(max_d)) else 0
-                
-                min_d = row_dict.get("min_dias")
-                row_dict["min_dias"] = int(min_d) if (min_d is not None and not pd.isna(min_d)) else 0
-                
-                records.append(row_dict)
-                
+            for g_clean in gerencias_to_query:
+                # Intentar leer de la nueva vista materializada
+                try:
+                    sql_tiempos = f"""
+                        SELECT 
+                            gerencia,
+                            trata AS "COD TRATA",
+                            tramite AS "DETALLE TRATA",
+                            total_expedientes_egresados AS total_resueltos,
+                            duracion_total_mediana AS duracion_total_mediana,
+                            duracion_total_promedio AS duracion_total_promedio,
+                            duracion_neta_mediana AS duracion_neta_mediana,
+                            duracion_subsanaciones_mediana AS duracion_subsanaciones_mediana
+                        FROM mv_tiempos_resolucion_{g_clean}
+                    """
+                    result = conn.execute(text(sql_tiempos))
+                    for row in result:
+                        row_dict = dict(row._mapping)
+                        
+                        # Mapear a los nombres esperados por el front antiguo como fallback
+                        row_dict["mediana_dias"] = float(row_dict.get("duracion_total_mediana") or 0.0)
+                        row_dict["promedio_dias"] = float(row_dict.get("duracion_total_mediana") or 0.0)
+                        row_dict["total_resueltos"] = int(row_dict.get("total_resueltos") or 0)
+                        
+                        # Enriquecer con acrónimos
+                        g_cfg = TRAMITES_CONFIG.get(g_clean, {})
+                        t_code = row_dict["COD TRATA"]
+                        t_cfg = g_cfg.get(t_code, {})
+                        row_dict["acronimos"] = t_cfg.get("acronimos", "")
+                        if t_cfg.get("nombre"):
+                            row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
+                            
+                        records.append(row_dict)
+                except Exception as e:
+                    logger.warning(f"No se pudo consultar mv_tiempos_resolucion_{g_clean}, usando fallback: {e}")
+                    # Fallback a mvw_sla_tramites
+                    sql_fallback = f"""
+                        SELECT 
+                            gerencia,
+                            trata AS "COD TRATA",
+                            descripcion_trata AS "DETALLE TRATA",
+                            COUNT(*) AS total_resueltos,
+                            ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias_resolucion)::numeric, 1) AS mediana_dias,
+                            ROUND(AVG(dias_resolucion)::numeric, 1) AS promedio_dias
+                        FROM mvw_sla_tramites
+                        WHERE gerencia = :g
+                        GROUP BY gerencia, trata, descripcion_trata
+                        ORDER BY trata
+                    """
+                    result = conn.execute(text(sql_fallback), {"g": g_clean})
+                    for row in result:
+                        row_dict = dict(row._mapping)
+                        
+                        # Asignar valores por defecto para los nuevos campos
+                        row_dict["duracion_total_mediana"] = float(row_dict.get("mediana_dias") or 0.0)
+                        row_dict["duracion_neta_mediana"] = float(row_dict.get("mediana_dias") or 0.0)
+                        row_dict["duracion_subsanaciones_mediana"] = 0.0
+                        row_dict["promedio_dias"] = float(row_dict.get("promedio_dias") or 0.0)
+                        row_dict["total_resueltos"] = int(row_dict.get("total_resueltos") or 0)
+                        
+                        # Enriquecer acrónimos
+                        g_cfg = TRAMITES_CONFIG.get(g_clean, {})
+                        t_code = row_dict["COD TRATA"]
+                        t_cfg = g_cfg.get(t_code, {})
+                        row_dict["acronimos"] = t_cfg.get("acronimos", "")
+                        if t_cfg.get("nombre"):
+                            row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
+                            
+                        records.append(row_dict)
             return records
     except Exception as e:
         logger.error(f"Error en reporte/sla: {e}")
@@ -1440,36 +1858,61 @@ async def get_sla_expedientes(
     trata: str,
     current_user: User = Depends(get_current_user)
 ):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+        
     try:
         with engine.connect() as conn:
-            sql = """
+            sql = f"""
+                WITH subs_dias AS (
+                    SELECT 
+                        id_expediente,
+                        COALESCE(SUM(
+                            CASE 
+                                WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
+                                ELSE (CURRENT_DATE - fecha_alta::date)
+                            END
+                        ), 0) AS dias_subs
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    GROUP BY id_expediente
+                )
                 SELECT 
-                    gerencia,
-                    expediente,
-                    trata,
-                    descripcion_trata,
-                    fecha_caratula::date AS fecha_caratula,
-                    fecha_egreso::date AS fecha_egreso,
-                    (fecha_egreso::date - fecha_caratula::date) AS dias_brutos,
-                    ((fecha_egreso::date - fecha_caratula::date) - dias_resolucion) AS dias_subsanacion,
-                    dias_resolucion AS dias_netos_sla
-                FROM mvw_sla_tramites
-                WHERE gerencia = :gerencia AND trata = :trata
-                ORDER BY fecha_egreso DESC
+                    '{gerencia_clean}'::text AS gerencia,
+                    u.expediente AS "EXPEDIENTE",
+                    u.trata AS "TRAMITE",
+                    u.descripcion_trata AS "DETALLE TRATA",
+                    to_char(u.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA CARATULA",
+                    to_char(e.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
+                    (e.fecha_egreso::date - u.fecha_creacion_ee::date) AS "DIAS BRUTOS",
+                    COALESCE(s.dias_subs, 0) AS "DIAS SUBSANACION",
+                    GREATEST(0, (e.fecha_egreso::date - u.fecha_creacion_ee::date) - COALESCE(s.dias_subs, 0)) AS "DIAS NETOS SLA"
+                FROM mv_{gerencia_clean}_universo u
+                INNER JOIN mv_{gerencia_clean}_egresos_efectivos e ON u.id_expediente = e.id_expediente
+                LEFT JOIN subs_dias s ON u.id_expediente = s.id_expediente
+                WHERE u.trata = :trata
+                ORDER BY e.fecha_egreso DESC
             """
-            result = conn.execute(text(sql), {"gerencia": gerencia, "trata": trata})
+            result = conn.execute(text(sql), {"trata": trata})
             rows = [dict(row._mapping) for row in result.fetchall()]
             
+            # Map for frontend expectations
+            mapped_rows = []
             for r in rows:
-                if r["fecha_caratula"]:
-                    r["fecha_caratula"] = str(r["fecha_caratula"])
-                if r["fecha_egreso"]:
-                    r["fecha_egreso"] = str(r["fecha_egreso"])
-                r["dias_subsanacion"] = int(r["dias_subsanacion"])
-                r["dias_brutos"] = int(r["dias_brutos"])
-                r["dias_netos_sla"] = int(r["dias_netos_sla"])
+                mapped_rows.append({
+                    "gerencia": r["gerencia"],
+                    "expediente": r["EXPEDIENTE"],
+                    "trata": r["TRAMITE"],
+                    "descripcion_trata": r["DETALLE TRATA"],
+                    "fecha_caratula": r["FECHA CARATULA"],
+                    "fecha_egreso": r["FECHA EGRESO"],
+                    "dias_brutos": int(r["DIAS BRUTOS"] or 0),
+                    "dias_subsanacion": int(r["DIAS SUBSANACION"] or 0),
+                    "dias_netos_sla": int(r["DIAS NETOS SLA"] or 0)
+                })
                 
-            return rows
+            return mapped_rows
     except Exception as e:
         logger.error(f"Error en reporte/sla/expedientes: {e}")
         raise HTTPException(status_code=500, detail=str(e))

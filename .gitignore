@@ -14,6 +14,11 @@ env/
 results/
 artifacts/
 scratch/
+docs/
+prompts/
+test/
+vistas/
+deploy/
 *.zip
 *.csv
 *.log
