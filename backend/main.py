@@ -890,13 +890,13 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                         -- Foto de HOY para el mes actual
                         SELECT COUNT(*) as cant FROM mv_{gerencia_clean}_stock_propio WHERE {trata_filter}
                         UNION ALL
-                        SELECT COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_stock WHERE {'trata = \'INTERVENCIONES\'' if trata == 'INTERVENCIONES' else 'FALSE'}
+                        SELECT COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_stock WHERE {'1=1' if trata == 'INTERVENCIONES' else 'FALSE'}
                     ),
                     current_subs AS (
                         -- Foto de HOY para subsanaciones
                         SELECT COUNT(*) as cant FROM mv_{gerencia_clean}_subsanaciones WHERE {trata_filter}
                         UNION ALL
-                        SELECT COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_subs WHERE {'trata = \'INTERVENCIONES\'' if trata == 'INTERVENCIONES' else 'FALSE'}
+                        SELECT COUNT(*) as cant FROM mv_{gerencia_clean}_intervenciones_subs WHERE {'1=1' if trata == 'INTERVENCIONES' else 'FALSE'}
                     )
                     SELECT 
                         split_part(p.mes_label, '-', 1)::int as anio,
