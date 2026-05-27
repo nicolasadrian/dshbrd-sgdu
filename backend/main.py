@@ -366,6 +366,32 @@ def calculate_trata_expected_egresos(conn, gerencia_clean: str, trata: Optional[
         logger.error(f"Error calculate_trata_expected_egresos: {e}")
         return 0
 
+@app.get("/api/reporte/{gerencia}/config/all")
+async def get_gerencia_config(gerencia: str, current_user: User = Depends(get_current_user)):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+    try:
+        with engine.connect() as conn:
+            query = text("""
+                SELECT trata_reporte, buzones_ingreso, analistas_oficiales, acronimos_egreso, buzones_ingreso_intervenciones
+                FROM cfg_gestion_metas
+                WHERE gerencia = :g
+            """)
+            result = conn.execute(query, {"g": gerencia_clean})
+            config_data = {}
+            for r in result.fetchall():
+                config_data[r[0]] = {
+                    "buzones_ingreso": r[1] or [],
+                    "analistas_oficiales": r[2] or [],
+                    "acronimos_egreso": r[3] or [],
+                    "buzones_ingreso_intervenciones": r[4] or []
+                }
+            return config_data
+    except Exception as e:
+        logger.error(f"Error fetching gerencia config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/reporte/{gerencia}/consolidado")
 async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
@@ -516,7 +542,7 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
             # Precalcular meta_egr_prom para cada trata en la base de datos
             expected_targets = {}
             try:
-                metas_query = f"SELECT TRIM(trata) as trata, nueva_meta_produccion FROM mv_metas_dinamicas_{gerencia_clean}"
+                metas_query = f"SELECT TRIM(trata) as trata, egresos_totales_plan as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'"
                 res_metas = conn.execute(text(metas_query))
                 for row in res_metas:
                     r_dict = row._mapping
@@ -658,19 +684,26 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             meta_maint = avg_ing
             meta_clean_required = (current_sector / 6.0) + (excess_corriente / 3.0)
             
-            # Capacidad recomendada total (Egresos Totales Estimados): Intentar leerla directamente de la tabla mv_metas_dinamicas
+            # Capacidad recomendada total (Egresos Totales Estimados): Leer directamente del plan de junio de la tabla mv_plan_metas
             db_expected_target = None
+            db_ingresos_esperados = None
             try:
                 if trata and trata != 'INTERVENCIONES':
-                    meta_res = conn.execute(text(f"SELECT COALESCE(nueva_meta_produccion, 0) FROM mv_metas_dinamicas_{gerencia_clean} WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                    meta_res = conn.execute(text(f"SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_esperados, 0) FROM mv_plan_metas_{gerencia_clean} WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1"), {"t": trata.strip().upper()}).fetchone()
                     if meta_res:
                         db_expected_target = float(meta_res[0])
+                        db_ingresos_esperados = float(meta_res[1])
                 else:
-                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(nueva_meta_produccion, 0)) FROM mv_metas_dinamicas_{gerencia_clean}")).fetchone()
+                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(egresos_totales_plan, 0)), SUM(COALESCE(ingresos_esperados, 0)) FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'")).fetchone()
                     if sum_res and sum_res[0] is not None:
                         db_expected_target = float(sum_res[0])
+                        db_ingresos_esperados = float(sum_res[1])
             except Exception as meta_err:
-                logger.warning(f"Error obteniendo nueva_meta_produccion de mv_metas_dinamicas_{gerencia_clean}: {meta_err}")
+                logger.warning(f"Error obteniendo egresos/ingresos de mv_plan_metas_{gerencia_clean}: {meta_err}")
+
+            if db_ingresos_esperados is not None:
+                avg_ing = db_ingresos_esperados
+                meta_maint = avg_ing
 
             if db_expected_target is not None:
                 meta_total_target = db_expected_target
@@ -769,7 +802,7 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                 plan_trata_filter = f"TRIM(trata) = '{trata}'" if trata and trata != 'INTERVENCIONES' else "TRUE"
                 plan_sql = f"""
                     SELECT nro_mes, to_char(mes_calendario, 'YYYY-MM') as mes_label,
-                           SUM(COALESCE(ingresos_promedio, 0)) as ingresos,
+                           SUM(COALESCE(ingresos_esperados, 0)) as ingresos,
                            SUM(COALESCE(egresos_totales_plan, 0)) as egresos_totales,
                            SUM(COALESCE(stock_sector_fin, 0)) as stock_sector,
                            SUM(COALESCE(stock_corriente, 0)) as stock_corriente

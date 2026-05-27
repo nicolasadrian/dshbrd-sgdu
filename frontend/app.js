@@ -9,6 +9,7 @@ let metasChart = null;
 let currentIntervencionesData = null;
 let seguimientoViewMode = localStorage.getItem('sgdu_seguimiento_view_mode') || 'list';
 let activeComplianceFilter = null;
+let currentGerenciaConfig = {};
 
 // Helper para fetch con autenticación
 // Helper para fetch con autenticación
@@ -234,6 +235,16 @@ async function loadConsolidatedReport(gerencia) {
         </div>`;
 
     try {
+        // Cargar configuración de gerencia dinámica (para tooltips / ayuda)
+        try {
+            const configResp = await def_fetch(`${API_BASE}/reporte/${gerencia}/config/all`);
+            if (configResp && configResp.ok) {
+                currentGerenciaConfig = await configResp.json();
+            }
+        } catch (err) {
+            console.error("Error loading gerencia config:", err);
+        }
+
         const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/consolidado`);
         if (!response.ok) {
             if (response.status === 500) throw new Error("La estructura de datos se está actualizando. Por favor, reintenta en unos instantes.");
@@ -1304,17 +1315,37 @@ function openHelpModal(trataCode, gerencia, trataName, acronimosFromData) {
 
     const cleanGerencia = (gerencia || '').toLowerCase() === 'regularizacion' ? 'conforme' : (gerencia || '').toLowerCase();
     
-    // Buzones de ingreso oficiales para esta gerencia
-    const buzonesRaw = BUZZERS_DOCS[cleanGerencia] || '';
-    const buzonesArray = buzonesRaw 
-        ? buzonesRaw.split(/, | o /).map(b => b.trim()).filter(b => b.length > 0)
-        : [];
+    // Si tenemos configuración dinámica para esta trata específica cargada de la DB
+    const dynConfig = currentGerenciaConfig && currentGerenciaConfig[trataCode];
+    
+    let buzonesArray = [];
+    let analystsArray = [];
+    let acronimosArray = [];
+    
+    if (dynConfig) {
+        buzonesArray = dynConfig.buzones_ingreso || [];
+        analystsArray = dynConfig.analistas_oficiales || [];
+        acronimosArray = dynConfig.acronimos_egreso || [];
+        // Si es INTERVENCIONES, podemos usar buzones_ingreso_intervenciones si está configurado en DB
+        if (trataCode === 'INTERVENCIONES' && dynConfig.buzones_ingreso_intervenciones && dynConfig.buzones_ingreso_intervenciones.length > 0) {
+            buzonesArray = dynConfig.buzones_ingreso_intervenciones;
+        }
+    } else {
+        // Fallback a los datos hardcodeados históricos por gerencia
+        const buzonesRaw = BUZZERS_DOCS[cleanGerencia] || '';
+        buzonesArray = buzonesRaw 
+            ? buzonesRaw.split(/, | o /).map(b => b.trim()).filter(b => b.length > 0)
+            : [];
+        analystsArray = ANALYSTS_DOCS[cleanGerencia] || [];
+        acronimosArray = acronimosFromData 
+            ? acronimosFromData.replace(/'/g, '').split(',').map(a => a.trim()).filter(a => a.length > 0)
+            : [];
+    }
+
     const buzonesHtml = buzonesArray.length > 0
         ? buzonesArray.map(b => `<span>${b}</span>`).join('')
         : '<span>No especificados para esta gerencia</span>';
 
-    // Analistas para esta gerencia
-    const analystsArray = ANALYSTS_DOCS[cleanGerencia] || [];
     const analystsHtml = analystsArray.length > 0
         ? analystsArray.map(a => `<span>${a}</span>`).join('')
         : '<span>No hay analistas configurados</span>';
@@ -1340,12 +1371,8 @@ function openHelpModal(trataCode, gerencia, trataName, acronimosFromData) {
             </div>`;
     } else {
         // Egresos por acrónimo (Acto Administrativo)
-        const cleanAcro = acronimosFromData 
-            ? acronimosFromData.replace(/'/g, '').split(',').map(a => a.trim()).filter(a => a.length > 0)
-            : [];
-            
-        const acroHtml = cleanAcro.length > 0 
-            ? cleanAcro.map(a => `<span class="acro-badge">${a}</span>`).join('')
+        const acroHtml = acronimosArray.length > 0 
+            ? acronimosArray.map(a => `<span class="acro-badge">${a}</span>`).join('')
             : '<span class="acro-badge" style="background: #e2e8f0; color: #64748b; font-weight: normal; padding: 6px 12px;">No requiere acrónimos (Egreso por pase físico u otra resolución)</span>';
 
         content = `
