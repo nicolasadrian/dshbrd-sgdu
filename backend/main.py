@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, text
@@ -9,7 +9,7 @@ import logging
 import bcrypt
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
@@ -849,6 +849,235 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             }
     except Exception as e:
         logger.error(f"Error en metas proyección: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/familia")
+async def get_reporte_familia(
+    trata: List[str] = Query(...), 
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # Group tratas by gerencia
+        trata_to_gerencia = {}
+        for g, cfg in TRAMITES_CONFIG.items():
+            for t in cfg.keys():
+                if t != 'INTERVENCIONES':
+                    trata_to_gerencia[t.upper()] = g.lower()
+
+        aggregated_history = {}
+        total_ingresos_esperados = 0
+        total_egresos_totales_plan = 0
+
+        with engine.connect() as conn:
+            for t_code in trata:
+                t_upper = t_code.strip().upper()
+                gerencia_clean = trata_to_gerencia.get(t_upper)
+                if not gerencia_clean:
+                    continue
+
+                # 1. Fetch June 2026 plan metas for this trata
+                try:
+                    meta_res = conn.execute(text(f"""
+                        SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_esperados, 0) 
+                        FROM mv_plan_metas_{gerencia_clean} 
+                        WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
+                    """), {"t": t_upper}).fetchone()
+                    if meta_res:
+                        total_egresos_totales_plan += float(meta_res[0])
+                        total_ingresos_esperados += float(meta_res[1])
+                except Exception as meta_err:
+                    logger.warning(f"Error fetching plan metas for {t_upper} in {gerencia_clean}: {meta_err}")
+
+                # 2. Fetch 12-month history for this trata
+                try:
+                    sql_hist = f"""
+                        WITH periodos AS (
+                            SELECT DISTINCT mes_label FROM mv_{gerencia_clean}_stock_historico
+                            ORDER BY mes_label DESC LIMIT 12
+                        ),
+                        ing AS (
+                            SELECT to_char(fecha_ingreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                            FROM mv_{gerencia_clean}_ingresos_eventos WHERE TRIM(trata) = :t
+                            GROUP BY 1
+                        ),
+                        egr_ef AS (
+                            SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                            FROM mv_{gerencia_clean}_gedos_egreso WHERE TRIM(trata) = :t
+                            GROUP BY 1
+                        ),
+                        egr_ne AS (
+                            SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                            FROM mv_{gerencia_clean}_egresos_no_efectivos WHERE TRIM(trata) = :t
+                            GROUP BY 1
+                        ),
+                        stock_data AS (
+                            SELECT mes_label, 
+                                   SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END) as stock_propio,
+                                   SUM(CASE WHEN categoria = 'SUBSANACION' THEN cant_expedientes ELSE 0 END) as stock_subs
+                            FROM mv_{gerencia_clean}_stock_historico WHERE TRIM(trata) = :t
+                            GROUP BY 1
+                        )
+                        SELECT 
+                            p.mes_label,
+                            COALESCE(i.cant, 0) as "ING",
+                            COALESCE(ef.cant, 0) as "EGR_EF",
+                            COALESCE(ne.cant, 0) as "EGR_NE",
+                            COALESCE(s.stock_propio, 0) as "STOCK_PROPIO",
+                            COALESCE(s.stock_subs, 0) as "STOCK_SUBS"
+                        FROM periodos p
+                        LEFT JOIN ing i ON i.mes_label = p.mes_label
+                        LEFT JOIN egr_ef ef ON ef.mes_label = p.mes_label
+                        LEFT JOIN egr_ne ne ON ne.mes_label = p.mes_label
+                        LEFT JOIN stock_data s ON s.mes_label = p.mes_label
+                        ORDER BY p.mes_label DESC
+                    """
+                    res_hist = conn.execute(text(sql_hist), {"t": t_upper})
+                    for row in res_hist:
+                        r_dict = row._mapping
+                        mes_label = r_dict["mes_label"]
+                        if mes_label not in aggregated_history:
+                            aggregated_history[mes_label] = {
+                                "mes_label": mes_label,
+                                "ING": 0,
+                                "EGR_EF": 0,
+                                "EGR_NE": 0,
+                                "STOCK_PROPIO": 0,
+                                "STOCK_SUBS": 0
+                            }
+                        aggregated_history[mes_label]["ING"] += int(r_dict["ING"])
+                        aggregated_history[mes_label]["EGR_EF"] += int(r_dict["EGR_EF"])
+                        aggregated_history[mes_label]["EGR_NE"] += int(r_dict["EGR_NE"])
+                        aggregated_history[mes_label]["STOCK_PROPIO"] += int(r_dict["STOCK_PROPIO"])
+                        aggregated_history[mes_label]["STOCK_SUBS"] += int(r_dict["STOCK_SUBS"])
+                except Exception as hist_err:
+                    logger.warning(f"Error fetching history for {t_upper} in {gerencia_clean}: {hist_err}")
+
+        # Format historical data sorted chronologically
+        history_list = sorted(list(aggregated_history.values()), key=lambda x: x["mes_label"])
+        
+        # Format month names and years for UI consumption
+        formatted_history = []
+        for h in history_list:
+            parts = h["mes_label"].split('-')
+            formatted_history.append({
+                "anio": int(parts[0]),
+                "mes": int(parts[1]),
+                "ING": h["ING"],
+                "EGR_EF": h["EGR_EF"],
+                "EGR_NE": h["EGR_NE"],
+                "STOCK_PROPIO": h["STOCK_PROPIO"],
+                "STOCK_SUBS": h["STOCK_SUBS"]
+            })
+
+        return {
+            "history": formatted_history,
+            "metas": {
+                "ingresos_esperados": round(total_ingresos_esperados),
+                "egresos_totales_plan": round(total_egresos_totales_plan)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error en reporte familia: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/familias_overview")
+async def get_reporte_familias_overview(current_user: User = Depends(get_current_user)):
+    FAMILIAS_CONFIG = {
+        "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
+        "Registros": ["MDUG3001A", "MDUG0104A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
+        "Incendio": ["MDUG2101A"],
+        "Conforme": ["MDUG0141A"],
+        "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
+        "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
+        "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
+        "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A"],
+        "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A"],
+        "Otros": ["MDUG0901A", "MDUG0120A", "MDUG0102B", "MDUG0107A", "MJGG1601A", "MDUG0904A", "MDUG3801A", "MJGG1701A", "MDUG1802A"]
+    }
+    
+    trata_to_gerencia = {}
+    for g, cfg in TRAMITES_CONFIG.items():
+        for t in cfg.keys():
+            if t != 'INTERVENCIONES':
+                trata_to_gerencia[t.upper()] = g.lower()
+
+    results = []
+    
+    try:
+        with engine.connect() as conn:
+            for family_name, tratas in FAMILIAS_CONFIG.items():
+                total_target = 0
+                total_actual = 0
+                
+                for t_code in tratas:
+                    t_upper = t_code.strip().upper()
+                    gerencia_clean = trata_to_gerencia.get(t_upper)
+                    if not gerencia_clean:
+                        continue
+                        
+                    try:
+                        meta_res = conn.execute(text(f"""
+                            SELECT COALESCE(egresos_totales_plan, 0)
+                            FROM mv_plan_metas_{gerencia_clean} 
+                            WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
+                        """), {"t": t_upper}).fetchone()
+                        if meta_res:
+                            total_target += float(meta_res[0])
+                    except Exception:
+                        pass
+                        
+                    try:
+                        sql_latest = f"""
+                            SELECT mes_label FROM mv_{gerencia_clean}_stock_historico
+                            ORDER BY mes_label DESC LIMIT 1
+                        """
+                        latest_row = conn.execute(text(sql_latest)).fetchone()
+                        if latest_row:
+                            mes_val = latest_row[0]
+                            egr_ef_res = conn.execute(text(f"""
+                                SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
+                                WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
+                            """), {"t": t_upper, "m": mes_val}).fetchone()
+                            
+                            egr_ne_res = conn.execute(text(f"""
+                                SELECT COUNT(*) FROM mv_{gerencia_clean}_egresos_no_efectivos
+                                WHERE TRIM(trata) = :t AND to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
+                            """), {"t": t_upper, "m": mes_val}).fetchone()
+                            
+                            if egr_ef_res:
+                                total_actual += int(egr_ef_res[0])
+                            if egr_ne_res:
+                                total_actual += int(egr_ne_res[0])
+                    except Exception:
+                        pass
+                
+                progress_pct = round((total_actual / total_target) * 100) if total_target > 0 else 0
+                
+                descriptions = {
+                    "Catastro": "14 trámites (Planos de mensura, PH, etc.)",
+                    "Registros": "5 trámites (Inicio de obras, Model BA, etc.)",
+                    "Incendio": "Prevención contra incendios",
+                    "Conforme": "Conforme a obra civil",
+                    "Instalaciones": "8 trámites (Sanitaria, Ventilación, Térmica, etc.)",
+                    "Otros": "9 trámites (Aviso de obra, Foguistas, etc.)",
+                    "Consultas de Usos": "5 trámites de localización y antenas",
+                    "Permisos": "3 trámites (Permiso civil, Demoliciones, etc.)",
+                    "Interpretaciones/Informe Urbanisitco": "Interpretación e informe urbanístico",
+                    "Consultas Obligatorias": "APH y Catalogados / General"
+                }
+                
+                results.append({
+                    "family_name": family_name,
+                    "actual_egr": round(total_actual),
+                    "target_egr": round(total_target),
+                    "progress_pct": progress_pct,
+                    "trata_count": len(tratas),
+                    "description": descriptions.get(family_name, "")
+                })
+                
+        return results
+    except Exception as e:
+        logger.error(f"Error in families overview: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/tramite/{trata}")

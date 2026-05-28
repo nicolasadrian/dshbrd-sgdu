@@ -215,6 +215,10 @@ function showView(viewId, updateHash = true) {
         loadSLAReporte();
     }
 
+    if (viewId === 'family') {
+        backToFamilySelector();
+    }
+
     // Carga de reportes si es una vista de gerencia
     const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
     if (gerencias.includes(viewId)) {
@@ -2432,5 +2436,429 @@ async function exportSlaCardDetail(event, gerencia, trataCode) {
         btn.innerHTML = originalHTML;
     }
 }
+
+
+// --- FAMILIAS DE TRÁMITES ---
+const FAMILIAS_CONFIG = {
+    "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
+    "Registros": ["MDUG3001A", "MDUG0104A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
+    "Incendio": ["MDUG2101A"],
+    "Conforme": ["MDUG0141A"],
+    "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
+    "Otros": ["MDUG0901A", "MDUG0120A", "MDUG0102B", "MDUG0107A", "MJGG1601A", "MDUG0904A", "MDUG3801A", "MJGG1701A", "MDUG1802A"],
+    "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
+    "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
+    "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A"],
+    "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A"]
+};
+
+const TRATA_NAMES_LOOKUP = {
+    "MDUG0134N": "Constitución De Estado Parcelario",
+    "MDUG3001A": "P. Obra E. Proy. / Conforme / R. Obras En Contra",
+    "MDUG0146A": "Solicitud De Copia De Plano",
+    "MDUG2101A": "Registro De Proyecto De Prevención Contra Incendios",
+    "MDUG0141A": "Registro De Plano Conforme A Obra Civil",
+    "MDUG2901A": "Registro De Proyecto De Elementos Guiados De Transporte",
+    "MDUG2301A": "Registro De Proyecto De Instalación Térmica",
+    "MDUG0104A": "Regularización De Obra En Contravención Ley 6478",
+    "MDUG0131B": "Plano De Propiedad Horizontal Nuevo",
+    "MDUG2201A": "Registro De Proyecto De Instalación Ventilación Mecánica",
+    "MDUG0901A": "Inscripción Al Registro De Profesionales De DGROC",
+    "MDUG4001A": "Consulta De Usos",
+    "MDUG0115B": "Plano De Mensura Particular",
+    "MDUG0120A": "Examen De Foguista",
+    "MDUG1501J": "Permiso De Ejecución De Obra Civil",
+    "MDUG3601A": "Interpretación Urbanística",
+    "MDUG1501H": "Certificado Catastral",
+    "MDUG0135A": "Solicitud De Consideración A La Dirección De Catastro",
+    "MDUG4102A": "Solicitud De Consulta De Usos",
+    "MDUG0102B": "Trámite Aviso De Obra",
+    "MDUG3301A": "Registro De Proyecto De Salas De Máquinas",
+    "MDUG0107A": "Fijación Línea De Frente Interno",
+    "MDUG2601A": "Registro De Proyecto De Instalación Sanitaria",
+    "MDUG2401A": "Registro De Proyecto De Instalación Electromecánica",
+    "MDUG3701A": "Consulta Obligatoria Para Inmuebles En APH O Catal",
+    "MDUG1501K": "Permiso De Demolición",
+    "MDUG0131A": "Plano De Propiedad Horizontal Modificatorio",
+    "MDUG3501A": "Consulta Obligatoria General",
+    "MDUG2501A": "Registro De Proyecto De Instalaciones Inflamables",
+    "MDUG2701A": "Registro De Proyecto De Instalación Eléctrica",
+    "MDUG3402A": "Permiso Temprano De Ejecución De Obra Civil",
+    "MJGG0302A": "Consulta De Uso No Conforme",
+    "MDUG0115F": "Plano De Mensura De Objeto Territorial",
+    "MDUG1502A": "Inicio De Obra Bajo Responsabilidad Profesional",
+    "MDUG0136B": "Consulta De Emplazamiento De Estructuras Soportes De Antenas",
+    "MJGG1601A": "Registro De Plano De Homologación De Equipos",
+    "MJGG0303A": "Consulta De Usos Con Intervención Del Consejo",
+    "MDUG0904A": "Ascenso De Categoría De Foguistas",
+    "MDUG0134C": "Solicitud De Certificado De Numeración Domiciliaria",
+    "MDUG0134E": "Solicitud De Certificado De Fijación De Línea",
+    "MDUG3801A": "Solicitudes Especiales Para Inmuebles En APH O Cat",
+    "MDUG0142A": "Modificación De Obra En Curso Bajo Responsabilidad Profesional",
+    "MDUG1501L": "Certificado De Cota De Parcela Nivel Cero",
+    "MDUG0115E": "Corrección Plano De Mensura",
+    "MDUG1801A": "Informe Urbanístico",
+    "MDUG0115G": "Determinación Del Límite En Altura En Zona Afectada Al Cinturón",
+    "MDUG0115C": "Anulación Plano De Mensura",
+    "MJGG1701A": "Transferencia De Titularidad De Instalación",
+    "MDUG4003A": "Registro Etapa Proyecto - Model BA",
+    "MDUG1802A": "Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor"
+};
+
+let familyChart = null;
+let currentFamily = "";
+
+function enterFamily(familyName) {
+    currentFamily = familyName;
+    
+    // Ocultar selector, mostrar dashboard
+    document.getElementById('family-selector-container').style.display = 'none';
+    document.getElementById('family-dashboard-container').style.display = 'block';
+    
+    // Cambiar título del dashboard
+    document.getElementById('family-dashboard-title').innerText = `Familia: ${familyName}`;
+    
+    // Generar checkboxes para la familia
+    const tratas = FAMILIAS_CONFIG[familyName] || [];
+    const container = document.getElementById('family-tratas-checkboxes');
+    if (container) {
+        container.innerHTML = tratas.map(t => {
+            const desc = TRATA_NAMES_LOOKUP[t] || "Trámite Especial";
+            return `
+                <label style="display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: background 0.2s; font-size: 0.82rem; font-weight: 600; color: #334155; user-select: none;">
+                    <input type="checkbox" value="${t}" checked onchange="loadFamilyData()" style="width: 15px; height: 15px; accent-color: var(--primary);">
+                    <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t} - ${desc}">
+                        <strong>${t}</strong> - ${desc}
+                    </span>
+                </label>
+            `;
+        }).join('');
+    }
+    
+    loadFamilyData();
+}
+
+async function backToFamilySelector() {
+    // Mostrar selector, ocultar dashboard
+    document.getElementById('family-selector-container').style.display = 'block';
+    document.getElementById('family-dashboard-container').style.display = 'none';
+    
+    // Limpiar gráficos
+    if (familyChart) {
+        familyChart.destroy();
+        familyChart = null;
+    }
+
+    const grid = document.getElementById('family-landing-grid');
+    if (!grid) return;
+
+    grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+            <span class="loader"></span>
+            <p style="margin-top: 1rem; color: #64748b; font-family: 'Outfit';">Consolidando métricas de familias...</p>
+        </div>
+    `;
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/familias_overview`);
+        if (!response || !response.ok) throw new Error("Error fetching families overview.");
+        
+        const data = await response.json();
+        
+        const now = new Date();
+        const currentDay = now.getDate();
+        const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const timeProgressPct = Math.round((currentDay / totalDays) * 100);
+
+        let html = '';
+        data.forEach(f => {
+            let perfClass = 'perf-mid';
+            if (f.progress_pct >= timeProgressPct) {
+                perfClass = 'perf-high';
+            } else if (f.progress_pct < timeProgressPct * 0.6) {
+                perfClass = 'perf-low';
+            }
+
+            html += `
+                <article class="trata-track-card" onclick="enterFamily('${f.family_name}')" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
+                    <div class="trata-track-header">
+                        <div class="trata-track-title-block">
+                            <h3 class="trata-track-name" style="font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.1rem; margin: 0;">${f.family_name.toUpperCase()}</h3>
+                            <span class="trata-track-code" style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${f.trata_count} TRÁMITES</span>
+                        </div>
+                        <span class="badge-gerencia catastro" style="background-color: rgba(0, 159, 227, 0.08); color: var(--primary); font-weight: 800; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; letter-spacing: 0.5px;">FAMILIA</span>
+                    </div>
+                    
+                    <p style="font-size: 0.8rem; color: #64748b; margin: 8px 0 16px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.description}">${f.description}</p>
+                    
+                    <div class="trata-track-metrics" style="background: #f8fafc; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; border: 1px solid #f1f5f9;">
+                        <div class="metric-mini-box">
+                            <span class="metric-mini-label">Egresos</span>
+                            <span class="metric-mini-value">${f.actual_egr.toLocaleString('es-AR')}</span>
+                        </div>
+                        <div class="metric-mini-box">
+                            <span class="metric-mini-label">Esperado</span>
+                            <span class="metric-mini-value">${f.target_egr.toLocaleString('es-AR')}</span>
+                        </div>
+                        <div class="metric-mini-box">
+                            <span class="metric-mini-label">Avance</span>
+                            <span class="metric-mini-value ${perfClass}">${f.progress_pct}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="trata-track-progress-block">
+                        <div class="progress-track-bar" style="height: 6px; background: #e2e8f0; border-radius: 3px; position: relative; margin-bottom: 8px;">
+                            <div class="progress-track-fill ${perfClass}" style="width: ${Math.min(100, f.progress_pct)}%; height: 100%; border-radius: 3px;"></div>
+                            <div class="progress-track-needle" style="left: ${Math.min(100, timeProgressPct)}%; height: 12px; width: 2px; background: #000; position: absolute; top: -3px; z-index: 2;"></div>
+                        </div>
+                        <div class="progress-track-labels" style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #64748b; font-weight: 600;">
+                            <span>Avance: ${f.progress_pct}%</span>
+                            <span>Mes: ${timeProgressPct}%</span>
+                        </div>
+                    </div>
+                </article>
+            `;
+        });
+        
+        grid.innerHTML = html;
+        if (window.gsap) {
+            gsap.from(".trata-track-card", { opacity: 0, y: 15, duration: 0.4, stagger: 0.05, ease: "power2.out" });
+        }
+    } catch (err) {
+        console.error("Error loading families overview:", err);
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit';">
+                <p>Error cargando el resumen de familias.</p>
+                <button class="btn-primary" onclick="backToFamilySelector()" style="margin-top: 1rem;">Reintentar</button>
+            </div>
+        `;
+    }
+}
+
+function selectFamilyTratas(checked) {
+    const checkboxes = document.querySelectorAll('#family-tratas-checkboxes input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = checked;
+    });
+    loadFamilyData();
+}
+
+function toggleFamilyDropdown(event) {
+    if (event) event.stopPropagation();
+    const panel = document.getElementById('family-dropdown-panel');
+    const arrow = document.getElementById('family-dropdown-arrow');
+    if (!panel) return;
+    if (panel.style.display === 'none' || !panel.style.display) {
+        panel.style.display = 'flex';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+    } else {
+        panel.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+// Cerrar desplegable de familias al hacer clic fuera
+document.addEventListener('click', function(e) {
+    const wrapper = document.querySelector('.family-filter-wrapper');
+    const panel = document.getElementById('family-dropdown-panel');
+    const arrow = document.getElementById('family-dropdown-arrow');
+    if (wrapper && panel && !wrapper.contains(e.target)) {
+        panel.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+});
+
+async function loadFamilyData() {
+    // Obtener los trámites que tienen el checkbox tildado
+    const checkboxes = document.querySelectorAll('#family-tratas-checkboxes input[type="checkbox"]:checked');
+    const allCheckboxes = document.querySelectorAll('#family-tratas-checkboxes input[type="checkbox"]');
+    const checkedTratas = Array.from(checkboxes).map(c => c.value);
+    
+    const dropdownText = document.getElementById('family-dropdown-text');
+    if (dropdownText) {
+        dropdownText.innerText = `${checkedTratas.length} de ${allCheckboxes.length} seleccionados`;
+    }
+    
+    if (checkedTratas.length === 0) {
+        // Ninguno seleccionado, limpiar widgets
+        document.getElementById('family-meta-ing-prom-val').innerText = '--';
+        document.getElementById('family-meta-obj-tot-val').innerText = '--';
+        document.getElementById('family-meta-avance-pct').innerText = '--';
+        document.getElementById('family-egr-progress-bar').style.width = '0%';
+        document.getElementById('family-egr-legend-val').innerText = '0% (0 / 0 exp)';
+        document.getElementById('family-table-container').innerHTML = `<p style="text-align: center; color: #64748b; padding: 2rem;">Seleccione al menos un trámite para ver el resumen consolidado.</p>`;
+        if (familyChart) {
+            familyChart.destroy();
+            familyChart = null;
+        }
+        return;
+    }
+
+    try {
+        const queryParams = checkedTratas.map(t => `trata=${t}`).join('&');
+        const response = await def_fetch(`${API_BASE}/reporte/familia?${queryParams}`);
+        if (!response.ok) throw new Error("Error cargando datos de familia.");
+        
+        const data = await response.json();
+        
+        // 1. Tarjetas de metas
+        const targetEgr = data.metas.egresos_totales_plan || 0;
+        const targetIng = data.metas.ingresos_esperados || 0;
+        
+        document.getElementById('family-meta-ing-prom-val').innerText = targetIng.toLocaleString('es-AR');
+        document.getElementById('family-meta-obj-tot-val').innerText = targetEgr.toLocaleString('es-AR');
+        
+        // Egresos del mes actual
+        const history = data.history || [];
+        let actualEgr = 0;
+        let actualIng = 0;
+        
+        if (history.length > 0) {
+            const lastMonth = history[history.length - 1];
+            actualEgr = (lastMonth.EGR_EF || 0) + (lastMonth.EGR_NE || 0);
+            actualIng = lastMonth.ING || 0;
+        }
+        
+        // Avance
+        const avancePct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
+        document.getElementById('family-meta-avance-pct').innerText = `${avancePct}%`;
+        
+        // 2. Monitor de ritmo y avance
+        const now = new Date();
+        const currentDay = now.getDate();
+        const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const timeProgressPct = Math.round((currentDay / totalDays) * 100);
+        
+        const egrProgressPct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
+        
+        let perfClass = 'perf-mid';
+        if (egrProgressPct >= timeProgressPct) {
+            perfClass = 'perf-high';
+        } else if (egrProgressPct < timeProgressPct * 0.6) {
+            perfClass = 'perf-low';
+        }
+        
+        const egrBar = document.getElementById('family-egr-progress-bar');
+        if (egrBar) {
+            egrBar.style.width = `${Math.min(100, egrProgressPct)}%`;
+            egrBar.className = `meta-egr-bar-fill ${perfClass}`;
+        }
+        
+        const egrLegendVal = document.getElementById('family-egr-legend-val');
+        if (egrLegendVal) {
+            egrLegendVal.innerText = `${egrProgressPct}% (${actualEgr} / ${targetEgr} exp)`;
+        }
+        
+        const timeNeedle = document.getElementById('family-time-needle');
+        if (timeNeedle) {
+            timeNeedle.style.left = `${Math.min(100, timeProgressPct)}%`;
+        }
+        
+        const timeLegendVal = document.getElementById('family-time-legend-val');
+        if (timeLegendVal) {
+            timeLegendVal.innerText = `${timeProgressPct}% (${currentDay} / ${totalDays} días)`;
+        }
+        
+        // 3. Tabla resumen consolidado (mes en curso + último semestre = últimas 7 entradas)
+        const slicedHistory = history.slice(-7);
+        const tableContainer = document.getElementById('family-table-container');
+        if (tableContainer) {
+            tableContainer.innerHTML = buildFamilySummaryTable(slicedHistory);
+        }
+        
+        // 4. Gráfico
+        renderFamilyChart(slicedHistory);
+
+    } catch (err) {
+        console.error("Error en loadFamilyData:", err);
+    }
+}
+
+function buildFamilySummaryTable(history) {
+    const fmt = n => n.toLocaleString('es-AR');
+    const allMonths = history.map(h => `${h.anio}-${h.mes}`);
+    
+    const metrics = [
+        { label: 'INGRESOS',             field: 'ING',          cls: 'row-ing' },
+        { label: 'EGRESOS EFECTIVOS',    field: 'EGR_EF',       cls: '' },
+        { label: 'EGRESOS NO EFECTIVOS', field: 'EGR_NE',       cls: '' },
+        { label: 'EGRESOS TOTALES',      field: 'EGR_TOT',      cls: 'row-egr-tot' },
+        { label: 'STOCK PROPIO',         field: 'STOCK_PROPIO', cls: 'row-stock-p' },
+        { label: 'SUBSANACIÓN ABIERTA',  field: 'STOCK_SUBS',   cls: 'row-stock-s' },
+        { label: 'STOCK TOTAL',          field: 'STOCK_TOTAL',  cls: 'row-stock-tot' }
+    ];
+
+    let html = `<div class="summary-section" style="margin-top: 2rem;">
+        <h3 class="summary-title">Resumen Histórico Consolidado (Familia)</h3>
+        <div class="summary-wrapper">
+            <table class="summary-table">
+                <thead><tr>
+                    <th class="sum-label-col">Indicador</th>
+                    ${allMonths.map(mk => `<th>${MESES[parseInt(mk.split('-')[1])-1].substring(0,3).toUpperCase()}<br><span class="sum-year">${mk.split('-')[0]}</span></th>`).join('')}
+                </tr></thead>
+                <tbody>`;
+
+    metrics.forEach(m => {
+        html += `<tr class="${m.cls}"><td class="sum-label">${m.label}</td>`;
+        history.forEach(h => {
+            const mk = `${h.anio}-${h.mes}`;
+            let val = 0;
+            if (m.field === 'EGR_TOT') val = (h.EGR_EF || 0) + (h.EGR_NE || 0);
+            else if (m.field === 'STOCK_TOTAL') val = (h.STOCK_PROPIO || 0) + (h.STOCK_SUBS || 0);
+            else val = h[m.field] || 0;
+            
+            const now = new Date();
+            const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
+            const isCurrent = mk === currentMonthKey;
+            
+            const cellClass = isCurrent ? 'sum-val current-month-cell' : 'sum-val';
+            const cellStyle = isCurrent 
+                ? 'font-weight: 700 !important; background-color: rgba(0, 159, 227, 0.05) !important; border-left: 2px solid rgba(0, 159, 227, 0.15) !important; border-right: 2px solid rgba(0, 159, 227, 0.15) !important;' 
+                : '';
+                
+            let cellHTML = val !== undefined && val !== '-' ? fmt(val) : '-';
+            html += `<td class="${cellClass}" style="${cellStyle}">${cellHTML}</td>`;
+        });
+        html += `</tr>`;
+    });
+
+    html += `</tbody></table></div></div>`;
+    return html;
+}
+
+function renderFamilyChart(history) {
+    const canvas = document.getElementById('familyProjectionChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (familyChart) familyChart.destroy();
+    
+    const sorted = [...history];
+    
+    familyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(h => `${MESES[h.mes - 1].substring(0,3).toUpperCase()} ${h.anio}`),
+            datasets: [
+                { label: 'Stock Propio', data: sorted.map(d => d.STOCK_PROPIO || 0), type: 'line', borderColor: '#EF4444', backgroundColor: '#EF4444', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 0 },
+                { label: 'Subsanación Abierta', data: sorted.map(d => d.STOCK_SUBS || 0), type: 'line', borderColor: '#F59E0B', backgroundColor: '#F59E0B', borderWidth: 3, tension: 0.3, pointRadius: 4, order: 1 },
+                { label: 'Ingresos', data: sorted.map(d => d.ING || 0), backgroundColor: '#002d47', borderRadius: 4, order: 2 },
+                { label: 'Egresos Efectivos', data: sorted.map(d => d.EGR_EF || 0), backgroundColor: '#0076bb', stack: 'egresos', borderRadius: 4, order: 3 },
+                { label: 'Egresos No Efectivos', data: sorted.map(d => d.EGR_NE || 0), backgroundColor: '#94A3B8', stack: 'egresos', order: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { family: 'Outfit', size: 12 } } }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
 
 

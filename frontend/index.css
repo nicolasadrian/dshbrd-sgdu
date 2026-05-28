@@ -119,11 +119,12 @@ main {
     margin-bottom: 3rem;
 }
 
-/* Navigation Cards (BOTONES VISIBLES) */
 .button-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
+    max-width: 1200px;
+    margin: 2rem auto 0 auto;
 }
 
 .nav-card {
@@ -2598,6 +2599,27 @@ span.perf-low {
     .landing-title {
         font-size: 1.7rem !important;
         line-height: 1.2 !important;
+    }
+}
+
+/* 3 Column Grid Layout for Familia de Trámites */
+.family-landing-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.5rem !important;
+    width: 100% !important;
+    margin-top: 1.5rem !important;
+}
+
+@media (max-width: 1200px) {
+    .family-landing-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .family-landing-grid {
+        grid-template-columns: 1fr !important;
     }
 }
 
