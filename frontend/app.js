@@ -2590,9 +2590,6 @@ async function backToFamilySelector() {
                             <h3 class="trata-track-name" style="font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.1rem; margin: 0;">${f.family_name.toUpperCase()}</h3>
                             <span class="trata-track-code" style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${f.trata_count} TRÁMITES</span>
                         </div>
-                        <span style="font-size: 0.72rem; font-weight: 800; color: ${f.variation_pct >= 0 ? '#10b981' : '#ef4444'}; display: inline-flex; align-items: center; gap: 4px; background: ${f.variation_pct >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}; padding: 4px 8px; border-radius: 6px; font-family: 'Outfit';">
-                            ${f.variation_pct >= 0 ? '▲ +' : '▼ '}${f.variation_pct}% vs ${prevMonthName}
-                        </span>
                     </div>
                     
                     <p style="font-size: 0.8rem; color: #64748b; margin: 8px 0 16px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.description}">${f.description}</p>
