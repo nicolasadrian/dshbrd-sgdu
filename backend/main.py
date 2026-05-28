@@ -864,6 +864,15 @@ async def get_reporte_familia(
                 if t != 'INTERVENCIONES':
                     trata_to_gerencia[t.upper()] = g.lower()
 
+        # Overrides requested by the user for Family dashboard views
+        trata_overrides = {
+            "MDUG3001A": "etapa_proyecto",
+            "MDUG0104A": "etapa_proyecto",
+            "MDUG1501J": "etapa_proyecto",
+            "MDUG0142A": "etapa_proyecto",
+            "MDUG4003A": "etapa_proyecto"
+        }
+
         aggregated_history = {}
         total_ingresos_esperados = 0
         total_egresos_totales_plan = 0
@@ -871,7 +880,7 @@ async def get_reporte_familia(
         with engine.connect() as conn:
             for t_code in trata:
                 t_upper = t_code.strip().upper()
-                gerencia_clean = trata_to_gerencia.get(t_upper)
+                gerencia_clean = trata_overrides.get(t_upper) or trata_to_gerencia.get(t_upper)
                 if not gerencia_clean:
                     continue
 
@@ -1001,6 +1010,15 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
             if t != 'INTERVENCIONES':
                 trata_to_gerencia[t.upper()] = g.lower()
 
+    # Overrides requested by the user for Family dashboard views
+    trata_overrides = {
+        "MDUG3001A": "etapa_proyecto",
+        "MDUG0104A": "etapa_proyecto",
+        "MDUG1501J": "etapa_proyecto",
+        "MDUG0142A": "etapa_proyecto",
+        "MDUG4003A": "etapa_proyecto"
+    }
+
     results = []
     
     try:
@@ -1012,7 +1030,7 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                 
                 for t_code in tratas:
                     t_upper = t_code.strip().upper()
-                    gerencia_clean = trata_to_gerencia.get(t_upper)
+                    gerencia_clean = trata_overrides.get(t_upper) or trata_to_gerencia.get(t_upper)
                     if not gerencia_clean:
                         continue
                         
