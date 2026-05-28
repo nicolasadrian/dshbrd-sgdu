@@ -2581,11 +2581,14 @@ async function backToFamilySelector() {
 
             html += `
                 <article class="trata-track-card" onclick="enterFamily('${f.family_name}')" style="cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;">
-                    <div class="trata-track-header">
+                    <div class="trata-track-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div class="trata-track-title-block">
                             <h3 class="trata-track-name" style="font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.1rem; margin: 0;">${f.family_name.toUpperCase()}</h3>
                             <span class="trata-track-code" style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${f.trata_count} TRÁMITES</span>
                         </div>
+                        <span style="font-size: 0.75rem; font-weight: 800; color: ${f.variation_pct >= 0 ? '#10b981' : '#ef4444'}; display: inline-flex; align-items: center; gap: 3px; background: ${f.variation_pct >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}; padding: 4px 8px; border-radius: 6px; font-family: 'Outfit';">
+                            ${f.variation_pct >= 0 ? '▲ +' : '▼ '}${f.variation_pct}%
+                        </span>
                     </div>
                     
                     <p style="font-size: 0.8rem; color: #64748b; margin: 8px 0 16px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.description}">${f.description}</p>
@@ -2721,6 +2724,40 @@ async function loadFamilyData() {
         // Avance
         const avancePct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
         document.getElementById('family-meta-avance-pct').innerText = `${avancePct}%`;
+
+        // Calcular variación MoM (mes actual vs anterior en base a la historia de la familia)
+        let variationPct = 0;
+        let showVariation = false;
+        if (history.length >= 2) {
+            const currentMonth = history[history.length - 1];
+            const prevMonth = history[history.length - 2];
+            const currentEgr = (currentMonth.EGR_EF || 0) + (currentMonth.EGR_NE || 0);
+            const prevEgr = (prevMonth.EGR_EF || 0) + (prevMonth.EGR_NE || 0);
+            
+            if (prevEgr > 0) {
+                variationPct = parseFloat((((currentEgr - prevEgr) / prevEgr) * 100).toFixed(1));
+                showVariation = true;
+            }
+        }
+        
+        const varCardVal = document.getElementById('family-meta-variation-val');
+        const varCardSub = document.getElementById('family-meta-variation-sub');
+        const varCard = document.getElementById('family-meta-variation-card');
+        
+        if (varCardVal && varCardSub) {
+            if (showVariation) {
+                const isPositive = variationPct >= 0;
+                varCardVal.innerText = `${isPositive ? '+' : ''}${variationPct}%`;
+                varCardVal.style.color = isPositive ? '#10b981' : '#ef4444';
+                varCardSub.innerText = `vs mes anterior (${isPositive ? 'Crecimiento ▲' : 'Decrecimiento ▼'})`;
+                if (varCard) varCard.style.borderLeft = `4px solid ${isPositive ? '#10b981' : '#ef4444'}`;
+            } else {
+                varCardVal.innerText = '--';
+                varCardVal.style.color = 'var(--text-main)';
+                varCardSub.innerText = 'vs mes anterior (Sin datos)';
+                if (varCard) varCard.style.borderLeft = 'none';
+            }
+        }
         
         // 2. Monitor de ritmo y avance
         const now = new Date();

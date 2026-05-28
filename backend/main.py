@@ -1008,6 +1008,7 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
             for family_name, tratas in FAMILIAS_CONFIG.items():
                 total_target = 0
                 total_actual = 0
+                total_prev = 0
                 
                 for t_code in tratas:
                     t_upper = t_code.strip().upper()
@@ -1027,13 +1028,13 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                         pass
                         
                     try:
-                        sql_latest = f"""
-                            SELECT mes_label FROM mv_{gerencia_clean}_stock_historico
-                            ORDER BY mes_label DESC LIMIT 1
+                        sql_months = f"""
+                            SELECT DISTINCT mes_label FROM mv_{gerencia_clean}_stock_historico
+                            ORDER BY mes_label DESC LIMIT 2
                         """
-                        latest_row = conn.execute(text(sql_latest)).fetchone()
-                        if latest_row:
-                            mes_val = latest_row[0]
+                        months_rows = conn.execute(text(sql_months)).fetchall()
+                        if len(months_rows) >= 1:
+                            mes_val = months_rows[0][0]
                             egr_ef_res = conn.execute(text(f"""
                                 SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
                                 WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
@@ -1048,10 +1049,31 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                                 total_actual += int(egr_ef_res[0])
                             if egr_ne_res:
                                 total_actual += int(egr_ne_res[0])
+                                
+                        if len(months_rows) >= 2:
+                            mes_prev = months_rows[1][0]
+                            egr_ef_prev = conn.execute(text(f"""
+                                SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
+                                WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
+                            """), {"t": t_upper, "m": mes_prev}).fetchone()
+                            
+                            egr_ne_prev = conn.execute(text(f"""
+                                SELECT COUNT(*) FROM mv_{gerencia_clean}_egresos_no_efectivos
+                                WHERE TRIM(trata) = :t AND to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
+                            """), {"t": t_upper, "m": mes_prev}).fetchone()
+                            
+                            if egr_ef_prev:
+                                total_prev += int(egr_ef_prev[0])
+                            if egr_ne_prev:
+                                total_prev += int(egr_ne_prev[0])
                     except Exception:
                         pass
                 
                 progress_pct = round((total_actual / total_target) * 100) if total_target > 0 else 0
+                
+                variation_pct = 0.0
+                if total_prev > 0:
+                    variation_pct = round(((total_actual - total_prev) / total_prev) * 100, 1)
                 
                 descriptions = {
                     "Catastro": "14 trámites (Planos de mensura, PH, etc.)",
@@ -1059,11 +1081,11 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                     "Incendio": "Prevención contra incendios",
                     "Conforme": "Conforme a obra civil",
                     "Instalaciones": "8 trámites (Sanitaria, Ventilación, Térmica, etc.)",
-                    "Otros": "9 trámites (Aviso de obra, Foguistas, etc.)",
                     "Consultas de Usos": "5 trámites de localización y antenas",
                     "Permisos": "3 trámites (Permiso civil, Demoliciones, etc.)",
                     "Interpretaciones/Informe Urbanisitco": "Interpretación e informe urbanístico",
-                    "Consultas Obligatorias": "APH y Catalogados / General"
+                    "Consultas Obligatorias": "APH y Catalogados / General",
+                    "Otros": "9 trámites (Aviso de obra, Foguistas, etc.)"
                 }
                 
                 results.append({
@@ -1071,6 +1093,7 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                     "actual_egr": round(total_actual),
                     "target_egr": round(total_target),
                     "progress_pct": progress_pct,
+                    "variation_pct": variation_pct,
                     "trata_count": len(tratas),
                     "description": descriptions.get(family_name, "")
                 })
