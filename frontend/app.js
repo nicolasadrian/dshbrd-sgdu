@@ -2516,7 +2516,7 @@ function enterFamily(familyName) {
     document.getElementById('family-dashboard-container').style.display = 'block';
     
     // Cambiar título del dashboard
-    document.getElementById('family-dashboard-title').innerText = `Familia: ${familyName}`;
+    document.getElementById('family-dashboard-title').innerText = familyName;
     
     // Generar checkboxes para la familia
     const tratas = FAMILIAS_CONFIG[familyName] || [];
