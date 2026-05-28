@@ -2586,7 +2586,6 @@ async function backToFamilySelector() {
                             <h3 class="trata-track-name" style="font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.1rem; margin: 0;">${f.family_name.toUpperCase()}</h3>
                             <span class="trata-track-code" style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${f.trata_count} TRÁMITES</span>
                         </div>
-                        <span class="badge-gerencia catastro" style="background-color: rgba(0, 159, 227, 0.08); color: var(--primary); font-weight: 800; padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; letter-spacing: 0.5px;">FAMILIA</span>
                     </div>
                     
                     <p style="font-size: 0.8rem; color: #64748b; margin: 8px 0 16px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${f.description}">${f.description}</p>
