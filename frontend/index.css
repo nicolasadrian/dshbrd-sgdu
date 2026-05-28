@@ -1621,12 +1621,12 @@ body::after, body::before, html::after, html::before {
 
 .metas-cards-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 24px;
     margin-bottom: 2rem;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
     .metas-cards-grid {
         grid-template-columns: repeat(2, 1fr);
     }

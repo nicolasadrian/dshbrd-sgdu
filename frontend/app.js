@@ -2596,11 +2596,11 @@ async function backToFamilySelector() {
                     <div class="trata-track-metrics" style="background: #f8fafc; border-radius: 8px; padding: 8px 12px; margin-bottom: 16px; border: 1px solid #f1f5f9;">
                         <div class="metric-mini-box">
                             <span class="metric-mini-label">Egresos</span>
-                            <span class="metric-mini-value">${f.actual_egr.toLocaleString('es-AR')}</span>
+                            <span class="metric-mini-value" style="font-size: 0.95rem;">${f.actual_egr.toLocaleString('es-AR')} <span style="font-size: 0.72rem; font-weight: 500; color: #64748b;">exp.</span></span>
                         </div>
                         <div class="metric-mini-box">
                             <span class="metric-mini-label">Esperado</span>
-                            <span class="metric-mini-value">${f.target_egr.toLocaleString('es-AR')}</span>
+                            <span class="metric-mini-value" style="font-size: 0.95rem;">${f.target_egr.toLocaleString('es-AR')} <span style="font-size: 0.72rem; font-weight: 500; color: #64748b;">exp.</span></span>
                         </div>
                         <div class="metric-mini-box">
                             <span class="metric-mini-label">Avance</span>
