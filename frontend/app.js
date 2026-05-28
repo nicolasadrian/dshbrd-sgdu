@@ -2570,6 +2570,10 @@ async function backToFamilySelector() {
         const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
         const timeProgressPct = Math.round((currentDay / totalDays) * 100);
 
+        // Calcular dinámicamente el nombre del mes anterior
+        const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const prevMonthName = MESES[prevMonthDate.getMonth()];
+
         let html = '';
         data.forEach(f => {
             let perfClass = 'perf-mid';
@@ -2587,7 +2591,7 @@ async function backToFamilySelector() {
                             <span class="trata-track-code" style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${f.trata_count} TRÁMITES</span>
                         </div>
                         <span style="font-size: 0.72rem; font-weight: 800; color: ${f.variation_pct >= 0 ? '#10b981' : '#ef4444'}; display: inline-flex; align-items: center; gap: 4px; background: ${f.variation_pct >= 0 ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)'}; padding: 4px 8px; border-radius: 6px; font-family: 'Outfit';">
-                            ${f.variation_pct >= 0 ? '▲ +' : '▼ '}${f.variation_pct}% vs mes anterior
+                            ${f.variation_pct >= 0 ? '▲ +' : '▼ '}${f.variation_pct}% vs ${prevMonthName}
                         </span>
                     </div>
                     
@@ -2728,6 +2732,7 @@ async function loadFamilyData() {
         // Calcular variación MoM (mes actual vs anterior en base a la historia de la familia)
         let variationPct = 0;
         let showVariation = false;
+        let prevMonthName = "";
         if (history.length >= 2) {
             const currentMonth = history[history.length - 1];
             const prevMonth = history[history.length - 2];
@@ -2737,6 +2742,7 @@ async function loadFamilyData() {
             if (prevEgr > 0) {
                 variationPct = parseFloat((((currentEgr - prevEgr) / prevEgr) * 100).toFixed(1));
                 showVariation = true;
+                prevMonthName = MESES[prevMonth.mes - 1];
             }
         }
         
@@ -2749,12 +2755,12 @@ async function loadFamilyData() {
                 const isPositive = variationPct >= 0;
                 varCardVal.innerText = `${isPositive ? '+' : ''}${variationPct}%`;
                 varCardVal.style.color = isPositive ? '#10b981' : '#ef4444';
-                varCardSub.innerText = `vs mes anterior (${isPositive ? 'Crecimiento ▲' : 'Decrecimiento ▼'})`;
+                varCardSub.innerText = `vs ${prevMonthName} (${isPositive ? 'Crecimiento ▲' : 'Decrecimiento ▼'})`;
                 if (varCard) varCard.style.borderLeft = `4px solid ${isPositive ? '#10b981' : '#ef4444'}`;
             } else {
                 varCardVal.innerText = '--';
                 varCardVal.style.color = 'var(--text-main)';
-                varCardSub.innerText = 'vs mes anterior (Sin datos)';
+                varCardSub.innerText = `vs ${prevMonthName || 'mes anterior'} (Sin datos)`;
                 if (varCard) varCard.style.borderLeft = 'none';
             }
         }
