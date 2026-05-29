@@ -193,3 +193,46 @@ Para las subsanaciones (EGRESO NO EFECTIVO) Se toma los expedientes detectados c
 --------------------------------------------------------------
 
 Tienes ahí los detalles de las áreas de DGIUR para iniciar, arranca con esto y vamos ajustando a medida que compare los resultados, recuerda trabajar las áreas por separado ya que algunas van a tener condiciones particulares que habrá que ajustar sobre área y tramite en partícular. Vamos con esto.
+
+
+
+
+====================================================================
+
+View datos de construccion
+
+Necesito cruzar en una vista, los datos de MVW_DATOS_GEDO_SECGDU cuando ACRONIMO = IFOCD y cruzar con la tabla DF_FORM_COMP_VALUE con los campos TRX_GEDO y ID_TRANSACTION 
+
+El problema es que en la 
+Tabla  DF_FORM_COMP_VALUE los datos que necesito que esten como columna en la nueva vista estan en la 
+Columa INPUT_NAME como valores en filas.
+Necesito
+Convertir los siguientes valores en columnas y de que columna sale el valor a aplicar
+
+ubicacion_dgseccion | VALUE_STR
+ubicacion_dgparcela | VALUE_STR
+ubicacion_dgmanzana | VALUE_STR
+ubicacion_dgcomuna | VALUE_STR
+ubicacion_dgbarrio | VALUE_STR
+
+sup_total | VALUE_DOUBLE
+sup_terreno | VALUE_DOUBLE
+sup_subsuelo | VALUE_DOUBLE
+sup_permiso | VALUE_DOUBLE
+sup_modificar | VALUE_DOUBLE
+sup_libre | VALUE_DOUBLE
+sup_existente | VALUE_DOUBLE
+sup_demoler | VALUE_DOUBLE
+sup_contravencion | VALUE_DOUBLE
+sup_construir | VALUE_DOUBLE
+sup_anti_reglamentaria | VALUE_DOUBLE
+sup_ampliar | VALUE_DOUBLE
+
+tipo_tarea | VALUE_STR
+tipo_obra | VALUE_STR
+
+subsuelos | VALUE_INT
+pisos | VALUE_INT
+
+usos_cur_cuatro | VALUE_STR
+uso_particular | VALUE_STR

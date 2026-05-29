@@ -1703,7 +1703,7 @@ async function loadMetasData() {
                 }
                 const egrLegendVal = document.getElementById('meta-egr-legend-val');
                 if (egrLegendVal) {
-                    egrLegendVal.innerText = `${egrProgressPct}% (${actualEgr} / ${targetEgr} exp)`;
+                    egrLegendVal.innerText = `${Math.min(100, egrProgressPct)}% (${actualEgr} / ${targetEgr} exp)`;
                 }
                 
                 // 2. Actualizar Aguja Vertical (Tiempo del Mes)
@@ -2110,7 +2110,7 @@ function filterAndRenderSeguimiento() {
                     </div>
                     <div class="metric-mini-box">
                         <span class="metric-mini-label">Avance</span>
-                        <span class="metric-mini-value ${perfClass}">${t.progressPct}%</span>
+                        <span class="metric-mini-value ${perfClass}">${Math.min(100, t.progressPct)}%</span>
                     </div>
                 </div>
                 
@@ -2120,7 +2120,7 @@ function filterAndRenderSeguimiento() {
                         <div class="progress-track-needle" style="left: ${Math.min(100, timeProgressPct)}%;"></div>
                     </div>
                     <div class="progress-track-labels">
-                        <span>Avance: ${t.progressPct}%</span>
+                        <span>Avance: ${Math.min(100, t.progressPct)}%</span>
                         <span>Mes: ${timeProgressPct}%</span>
                     </div>
                 </div>
@@ -2605,7 +2605,7 @@ async function backToFamilySelector() {
                         </div>
                         <div class="metric-mini-box">
                             <span class="metric-mini-label">Avance</span>
-                            <span class="metric-mini-value ${perfClass}">${f.progress_pct}%</span>
+                            <span class="metric-mini-value ${perfClass}">${Math.min(100, f.progress_pct)}%</span>
                         </div>
                     </div>
                     
@@ -2615,7 +2615,7 @@ async function backToFamilySelector() {
                             <div class="progress-track-needle" style="left: ${Math.min(100, timeProgressPct)}%; height: 12px; width: 2px; background: #000; position: absolute; top: -3px; z-index: 2;"></div>
                         </div>
                         <div class="progress-track-labels" style="display: flex; justify-content: space-between; font-size: 0.72rem; color: #64748b; font-weight: 600;">
-                            <span>Avance: ${f.progress_pct}%</span>
+                            <span>Avance: ${Math.min(100, f.progress_pct)}%</span>
                             <span>Mes: ${timeProgressPct}%</span>
                         </div>
                     </div>
@@ -2724,7 +2724,7 @@ async function loadFamilyData() {
         
         // Avance
         const avancePct = targetEgr > 0 ? Math.round((actualEgr / targetEgr) * 100) : 0;
-        document.getElementById('family-meta-avance-pct').innerText = `${avancePct}%`;
+        document.getElementById('family-meta-avance-pct').innerText = `${Math.min(100, avancePct)}%`;
 
         // Calcular variación MoM (mes actual vs anterior en base a la historia de la familia)
         let variationPct = 0;
@@ -2785,7 +2785,7 @@ async function loadFamilyData() {
         
         const egrLegendVal = document.getElementById('family-egr-legend-val');
         if (egrLegendVal) {
-            egrLegendVal.innerText = `${egrProgressPct}% (${actualEgr} / ${targetEgr} exp)`;
+            egrLegendVal.innerText = `${Math.min(100, egrProgressPct)}% (${actualEgr} / ${targetEgr} exp)`;
         }
         
         const timeNeedle = document.getElementById('family-time-needle');
