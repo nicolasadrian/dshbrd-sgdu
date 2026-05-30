@@ -1556,7 +1556,7 @@ async def get_tramite_detalle_periodo(
                                 t.usuario_egreso AS "USUARIO EGRESO",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            FROM mv_{gerencia_clean}_gedos_egreso t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                             UNION ALL
@@ -1587,7 +1587,7 @@ async def get_tramite_detalle_periodo(
                                 t.usuario_egreso AS "USUARIO EGRESO",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            FROM mv_{gerencia_clean}_gedos_egreso t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                             UNION ALL
@@ -1634,7 +1634,7 @@ async def get_tramite_detalle_periodo(
                                 t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            FROM mv_{gerencia_clean}_gedos_egreso t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                             UNION ALL
@@ -1676,7 +1676,7 @@ async def get_tramite_detalle_periodo(
                                 t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            FROM mv_{gerencia_clean}_gedos_egreso t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                             UNION ALL
@@ -1864,7 +1864,7 @@ async def get_tramite_detalle_periodo(
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.descripcion AS "DESCRIPCION", 
                                 e.estado AS "ESTADO"
-                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            FROM mv_{gerencia_clean}_gedos_egreso t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                               AND t.trata = :trata
@@ -1938,7 +1938,7 @@ async def get_tramite_detalle_periodo(
                                 t.documento_egreso AS "DETALLE EGRESO (DOC/BUZON)",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM mv_{gerencia_clean}_egresos_efectivos t
+                            FROM mv_{gerencia_clean}_gedos_egreso t
                             LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
                             WHERE to_char(t.fecha_egreso, 'YYYY-MM') = :periodo
                               AND t.trata = :trata
