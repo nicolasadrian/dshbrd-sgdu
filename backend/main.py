@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, text
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import logging
 import bcrypt
 from jose import JWTError, jwt
@@ -2066,6 +2066,288 @@ async def get_tramite_detalle_periodo(
             return df.to_dict(orient='records')
     except Exception as e:
         logger.error(f"Error en detalle_periodo: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/cierre_mes")
+async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user)):
+    try:
+        # 1. Parsear el mes recibido (Ej: "2026-05") y calcular el anterior y el interanual
+        try:
+            parts = mes.split('-')
+            year = int(parts[0])
+            month = int(parts[1])
+            dt_first = date(year, month, 1)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Formato de mes inválido. Usar YYYY-MM")
+
+        if dt_first.month == 1:
+            prev_dt = date(dt_first.year - 1, 12, 1)
+        else:
+            prev_dt = date(dt_first.year, dt_first.month - 1, 1)
+            
+        prev_mes = f"{prev_dt.year}-{str(prev_dt.month).zfill(2)}"
+        
+        # Mismo mes del año anterior (YoY)
+        yoy_dt = date(dt_first.year - 1, dt_first.month, 1)
+        yoy_mes = f"{yoy_dt.year}-{str(yoy_dt.month).zfill(2)}"
+        
+        target_date_str = f"{dt_first.year}-{str(dt_first.month).zfill(2)}-01"
+        if mes == '2026-05':
+            target_date_str = '2026-06-01'
+
+        response_data = {
+            "periodo": mes,
+            "periodo_previo": prev_mes,
+            "periodo_yoy": yoy_mes,
+            "totales": {
+                "ingresos": 0, "ingresos_prev": 0, "ingresos_yoy": 0,
+                "egresos": 0, "egresos_prev": 0, "egresos_yoy": 0,
+                "stock": 0, "stock_prev": 0, "stock_yoy": 0,
+                "subsanaciones": 0, "subsanaciones_prev": 0, "subsanaciones_yoy": 0,
+                "meta": 0, "cumplido": False
+            },
+            "gerencias": {}
+        }
+
+        with engine.connect() as conn:
+            for g, config in TRAMITES_CONFIG.items():
+                g_clean = g.lower()
+                trata_codes = list(config.keys())
+                tratas_oficiales = [t for t in trata_codes if t != 'INTERVENCIONES']
+                interv_egr_table = f"mv_{g_clean}_interv_egresos_eventos" if g_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+                interv_stock_table = f"mv_{g_clean}_intervenciones_stock"
+                interv_subs_table = f"mv_{g_clean}_intervenciones_subs"
+
+                # A. Obtener Metas de la Planificación Oficial para el mes
+                metas_plan = {}
+                try:
+                    meta_res = conn.execute(text(f"SELECT TRIM(trata) as trata, COALESCE(egresos_totales_plan, 0) FROM mv_plan_metas_{g_clean} WHERE mes_calendario = :target"), {"target": target_date_str}).fetchall()
+                    for r in meta_res:
+                        metas_plan[r[0].upper()] = float(r[1])
+                except Exception:
+                    pass
+
+                # B. Obtener Ingresos (Mes Objetivo vs Mes Previo vs Mes YoY)
+                ingresos = {}
+                ingresos_prev = {}
+                ingresos_yoy = {}
+                try:
+                    ing_res = conn.execute(text(f"""
+                        SELECT 
+                            CASE WHEN TRIM(trata) = ANY(:tratas_oficiales) THEN TRIM(trata) ELSE 'INTERVENCIONES' END as trata, 
+                            to_char(fecha_ingreso, 'YYYY-MM') as mes_lbl, 
+                            COUNT(*) 
+                        FROM mv_{g_clean}_ingresos_eventos 
+                        WHERE to_char(fecha_ingreso, 'YYYY-MM') IN (:m, :pm, :yoy) 
+                        GROUP BY 1, 2
+                    """), {"m": mes, "pm": prev_mes, "yoy": yoy_mes, "tratas_oficiales": tratas_oficiales}).fetchall()
+                    for r in ing_res:
+                        t_code = r[0].upper()
+                        if r[1] == mes:
+                            ingresos[t_code] = r[2]
+                        elif r[1] == prev_mes:
+                            ingresos_prev[t_code] = r[2]
+                        elif r[1] == yoy_mes:
+                            ingresos_yoy[t_code] = r[2]
+                except Exception:
+                    pass
+ 
+                # C. Obtener Egresos Efectivos (Mes Objetivo vs Mes Previo vs Mes YoY)
+                egr_ef = {}
+                egr_ef_prev = {}
+                egr_ef_yoy = {}
+                try:
+                    # Oficiales
+                    e_res = conn.execute(text(f"SELECT TRIM(trata) as trata, to_char(fecha_egreso, 'YYYY-MM') as mes_lbl, COUNT(*) FROM mv_{g_clean}_gedos_egreso WHERE to_char(fecha_egreso, 'YYYY-MM') IN (:m, :pm, :yoy) GROUP BY 1, 2"), {"m": mes, "pm": prev_mes, "yoy": yoy_mes}).fetchall()
+                    for r in e_res:
+                        t_code = r[0].upper()
+                        if r[1] == mes:
+                            egr_ef[t_code] = r[2]
+                        elif r[1] == prev_mes:
+                            egr_ef_prev[t_code] = r[2]
+                        elif r[1] == yoy_mes:
+                            egr_ef_yoy[t_code] = r[2]
+                            
+                    # Intervenciones
+                    i_res = conn.execute(text(f"SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_lbl, COUNT(*) FROM {interv_egr_table} WHERE to_char(fecha_egreso, 'YYYY-MM') IN (:m, :pm, :yoy) GROUP BY 1"), {"m": mes, "pm": prev_mes, "yoy": yoy_mes}).fetchall()
+                    for r in i_res:
+                        if r[0] == mes:
+                            egr_ef['INTERVENCIONES'] = r[1]
+                        elif r[0] == prev_mes:
+                            egr_ef_prev['INTERVENCIONES'] = r[1]
+                        elif r[0] == yoy_mes:
+                            egr_ef_yoy['INTERVENCIONES'] = r[1]
+                except Exception:
+                    pass
+ 
+                # D. Obtener Egresos No Efectivos (Mes Objetivo vs Mes Previo vs Mes YoY)
+                egr_ne = {}
+                egr_ne_prev = {}
+                egr_ne_yoy = {}
+                try:
+                    ne_res = conn.execute(text(f"""
+                        SELECT 
+                            CASE WHEN TRIM(trata) = ANY(:tratas_oficiales) THEN TRIM(trata) ELSE 'INTERVENCIONES' END as trata, 
+                            to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_lbl, 
+                            COUNT(*) 
+                        FROM mv_{g_clean}_egresos_no_efectivos 
+                        WHERE to_char(fecha_ultimo_movimiento, 'YYYY-MM') IN (:m, :pm, :yoy) 
+                        GROUP BY 1, 2
+                    """), {"m": mes, "pm": prev_mes, "yoy": yoy_mes, "tratas_oficiales": tratas_oficiales}).fetchall()
+                    for r in ne_res:
+                        t_code = r[0].upper()
+                        if r[1] == mes:
+                            egr_ne[t_code] = r[2]
+                        elif r[1] == prev_mes:
+                            egr_ne_prev[t_code] = r[2]
+                        elif r[1] == yoy_mes:
+                            egr_ne_yoy[t_code] = r[2]
+                except Exception:
+                    pass
+ 
+                # E. Obtener Snapshots de Stock y Subsanación
+                stock = {}
+                stock_prev = {}
+                stock_yoy = {}
+                subs = {}
+                subs_prev = {}
+                subs_yoy = {}
+                try:
+                    st_res = conn.execute(text(f"""
+                        SELECT 
+                            CASE WHEN TRIM(trata) = ANY(:tratas_oficiales) THEN TRIM(trata) ELSE 'INTERVENCIONES' END as trata, 
+                            categoria, 
+                            mes_label, 
+                            SUM(cant_expedientes) 
+                        FROM mv_{g_clean}_stock_historico 
+                        WHERE mes_label IN (:m, :pm, :yoy)
+                        GROUP BY 1, 2, 3
+                    """), {"m": mes, "pm": prev_mes, "yoy": yoy_mes, "tratas_oficiales": tratas_oficiales}).fetchall()
+                    for r in st_res:
+                        t_code = r[0].upper()
+                        cat = r[1].upper() # 'STOCK_PROPIO' o 'SUBSANACION'
+                        is_target = (r[2] == mes)
+                        is_prev = (r[2] == prev_mes)
+                        is_yoy = (r[2] == yoy_mes)
+                        
+                        if cat == 'STOCK_PROPIO':
+                            if is_target: stock[t_code] = r[3]
+                            elif is_prev: stock_prev[t_code] = r[3]
+                            elif is_yoy: stock_yoy[t_code] = r[3]
+                        elif cat == 'SUBSANACION':
+                            if is_target: subs[t_code] = r[3]
+                            elif is_prev: subs_prev[t_code] = r[3]
+                            elif is_yoy: subs_yoy[t_code] = r[3]
+                except Exception:
+                    pass
+
+                g_detalles = []
+                g_tot_ing = 0; g_tot_ing_p = 0; g_tot_ing_y = 0
+                g_tot_egr = 0; g_tot_egr_p = 0; g_tot_egr_y = 0
+                g_tot_st = 0; g_tot_st_p = 0; g_tot_st_y = 0
+                g_tot_sb = 0; g_tot_sb_p = 0; g_tot_sb_y = 0
+                g_tot_meta = 0
+
+                for t_id in trata_codes:
+                    t_upper = t_id.upper()
+                    
+                    t_ing = ingresos.get(t_upper, 0)
+                    t_ing_p = ingresos_prev.get(t_upper, 0)
+                    t_ing_y = ingresos_yoy.get(t_upper, 0)
+                    
+                    t_egr = egr_ef.get(t_upper, 0) + egr_ne.get(t_upper, 0)
+                    t_egr_p = egr_ef_prev.get(t_upper, 0) + egr_ne_prev.get(t_upper, 0)
+                    t_egr_y = egr_ef_yoy.get(t_upper, 0) + egr_ne_yoy.get(t_upper, 0)
+                    if t_upper == 'INTERVENCIONES':
+                        t_egr = 0
+                        t_egr_p = 0
+                        t_egr_y = 0
+                        
+                    t_st = stock.get(t_upper, 0)
+                    t_st_p = stock_prev.get(t_upper, 0)
+                    t_st_y = stock_yoy.get(t_upper, 0)
+                    
+                    t_sb = subs.get(t_upper, 0)
+                    t_sb_p = subs_prev.get(t_upper, 0)
+                    t_sb_y = subs_yoy.get(t_upper, 0)
+                    
+                    t_meta = metas_plan.get(t_upper, 0)
+
+                    # Acumular totales de gerencia
+                    g_tot_ing += t_ing
+                    g_tot_ing_p += t_ing_p
+                    g_tot_ing_y += t_ing_y
+                    
+                    g_tot_egr += t_egr
+                    g_tot_egr_p += t_egr_p
+                    g_tot_egr_y += t_egr_y
+                    
+                    g_tot_st += t_st
+                    g_tot_st_p += t_st_p
+                    g_tot_st_y += t_st_y
+                    
+                    g_tot_sb += t_sb
+                    g_tot_sb_p += t_sb_p
+                    g_tot_sb_y += t_sb_y
+                    
+                    g_tot_meta += t_meta
+
+                    g_detalles.append({
+                        "trata": t_id,
+                        "descripcion_trata": config[t_id]["nombre"] if t_id != 'INTERVENCIONES' else "Intervenciones Externas del Sector",
+                        "ingresos": t_ing,
+                        "ingresos_prev": t_ing_p,
+                        "ingresos_yoy": t_ing_y,
+                        "egresos": t_egr,
+                        "egresos_prev": t_egr_p,
+                        "egresos_yoy": t_egr_y,
+                        "meta": t_meta,
+                        "cumplio_meta": (t_egr >= t_meta) if t_meta > 0 else True,
+                        "stock": t_st,
+                        "stock_prev": t_st_p,
+                        "stock_yoy": t_st_y,
+                        "subsanaciones": t_sb,
+                        "subsanaciones_prev": t_sb_p,
+                        "subsanaciones_yoy": t_sb_y
+                    })
+
+                response_data["gerencias"][g_clean] = {
+                    "totales": {
+                        "ingresos": g_tot_ing, "ingresos_prev": g_tot_ing_p, "ingresos_yoy": g_tot_ing_y,
+                        "egresos": g_tot_egr, "egresos_prev": g_tot_egr_p, "egresos_yoy": g_tot_egr_y,
+                        "stock": g_tot_st, "stock_prev": g_tot_st_p, "stock_yoy": g_tot_st_y,
+                        "subsanaciones": g_tot_sb, "subsanaciones_prev": g_tot_sb_p, "subsanaciones_yoy": g_tot_sb_y,
+                        "meta": g_tot_meta,
+                        "cumplido": (g_tot_egr >= g_tot_meta) if g_tot_meta > 0 else True
+                    },
+                    "detalles": g_detalles
+                }
+
+                # Acumular total general del tablero
+                response_data["totales"]["ingresos"] += g_tot_ing
+                response_data["totales"]["ingresos_prev"] += g_tot_ing_p
+                response_data["totales"]["ingresos_yoy"] += g_tot_ing_y
+                
+                response_data["totales"]["egresos"] += g_tot_egr
+                response_data["totales"]["egresos_prev"] += g_tot_egr_p
+                response_data["totales"]["egresos_yoy"] += g_tot_egr_y
+                
+                response_data["totales"]["stock"] += g_tot_st
+                response_data["totales"]["stock_prev"] += g_tot_st_p
+                response_data["totales"]["stock_yoy"] += g_tot_st_y
+                
+                response_data["totales"]["subsanaciones"] += g_tot_sb
+                response_data["totales"]["subsanaciones_prev"] += g_tot_sb_p
+                response_data["totales"]["subsanaciones_yoy"] += g_tot_sb_y
+                
+                response_data["totales"]["meta"] += g_tot_meta
+
+            # Evaluar cumplimiento general del tablero
+            response_data["totales"]["cumplido"] = (response_data["totales"]["egresos"] >= response_data["totales"]["meta"]) if response_data["totales"]["meta"] > 0 else True
+
+        return response_data
+    except Exception as e:
+        logger.error(f"Error en cierre_mes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/sla")

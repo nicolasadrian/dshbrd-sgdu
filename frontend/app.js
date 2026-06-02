@@ -62,6 +62,15 @@ function initAuth() {
             }
         }
 
+        const cierreBtn = document.getElementById('cierre-btn');
+        if (cierreBtn) {
+            if (role === 'administrador' || role === 'admin' || role === 'seguimiento') {
+                cierreBtn.style.display = 'block';
+            } else {
+                cierreBtn.style.display = 'none';
+            }
+        }
+
         const slaBtn = document.getElementById('sla-btn');
         if (slaBtn) {
             if (role === 'administrador' || role === 'admin' || role === 'seguimiento') {
@@ -181,8 +190,8 @@ function showView(viewId, updateHash = true) {
         return;
     }
 
-    // Seguridad: Solo admin o seguimiento pueden ver la vista de seguimiento o SLA
-    if ((viewId === 'seguimiento' || viewId === 'sla') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+    // Seguridad: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA o Cierre
+    if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
         showView('landing');
         return;
     }
@@ -213,6 +222,10 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'sla') {
         loadSLAReporte();
+    }
+
+    if (viewId === 'cierre') {
+        loadCierreMesData();
     }
 
     if (viewId === 'family') {
@@ -2899,5 +2912,852 @@ function renderFamilyChart(history) {
     });
 }
 
+// --- FUNCIONES PARA VISTA CIERRE DE MES ---
+let currentCierreMes = '2026-05';
 
+function changeCierreMes(mes) {
+    loadCierreMesData(mes);
+}
 
+async function loadCierreMesData(mes) {
+    if (!mes) {
+        const select = document.getElementById('cierre-mes-select');
+        mes = select ? select.value : '2026-05';
+    }
+    currentCierreMes = mes;
+
+    const banner = document.getElementById('cierre-general-banner');
+    const tableWrapper = document.getElementById('cierre-table-wrapper');
+
+    // Reset indicator elements
+    document.getElementById('cierre-val-ingresos').innerText = '--';
+    document.getElementById('cierre-delta-ingresos').innerHTML = '--';
+    document.getElementById('cierre-val-egresos').innerText = '--';
+    document.getElementById('cierre-delta-egresos').innerHTML = '--';
+    document.getElementById('cierre-val-stock').innerText = '--';
+    document.getElementById('cierre-delta-stock').innerHTML = '--';
+    document.getElementById('cierre-val-subsanaciones').innerText = '--';
+    document.getElementById('cierre-delta-subsanaciones').innerHTML = '--';
+
+    if (banner) {
+        banner.style.display = 'none';
+    }
+
+    if (tableWrapper) {
+        tableWrapper.innerHTML = `
+            <div class="loading-overlay" style="position: static; padding: 3rem 0; background: transparent; box-shadow: none;">
+                <span class="loader"></span>
+                <h3 style="margin-top: 1rem; color: var(--primary-dark); font-family: 'Outfit';">Procesando Cierre de Mes ${mes}...</h3>
+            </div>
+        `;
+    }
+
+    const fmt = n => n.toLocaleString('es-AR');
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/cierre_mes?mes=${mes}`);
+        if (!response || !response.ok) {
+            throw new Error("No se pudo cargar el reporte de cierre.");
+        }
+        const data = await response.json();
+
+        // 1. Población de KPIs y MoM
+        function renderKpiAndDelta(valId, deltaId, val, valPrev, lowerIsBetter = false) {
+            const valEl = document.getElementById(valId);
+            const deltaEl = document.getElementById(deltaId);
+            if (!valEl || !deltaEl) return;
+
+            valEl.innerText = fmt(val);
+
+            const delta = val - valPrev;
+            const pct = valPrev > 0 ? ((delta / valPrev) * 100).toFixed(1) : '0';
+            
+            let deltaClass = 'cierre-delta-neutral';
+            let arrow = '•';
+            
+            if (delta > 0) {
+                deltaClass = lowerIsBetter ? 'cierre-delta-down' : 'cierre-delta-up';
+                arrow = '↑';
+            } else if (delta < 0) {
+                deltaClass = lowerIsBetter ? 'cierre-delta-up' : 'cierre-delta-down';
+                arrow = '↓';
+            }
+
+            const pctAbs = Math.abs(pct);
+            const deltaAbs = Math.abs(delta);
+            const labelText = delta > 0 ? `incremento` : `reducción`;
+            
+            if (delta !== 0) {
+                deltaEl.className = `cierre-delta-indicator ${deltaClass}`;
+                deltaEl.innerHTML = `${arrow} ${pctAbs}% (${labelText} de ${fmt(deltaAbs)} vs mes anterior)`;
+            } else {
+                deltaEl.className = 'cierre-delta-indicator cierre-delta-neutral';
+                deltaEl.innerHTML = `• 0% (sin cambios vs mes anterior)`;
+            }
+        }
+
+        // --- Cálculo de Trámites Automatizados vs Manuales ---
+        let autoIng = 0;
+        let autoIngPrev = 0;
+        let autoEgr = 0;
+        let autoEgrPrev = 0;
+
+        const autoCodes = ['MDUG0146A', 'MDUG0102B']; // Copia de plano y Aviso de obra
+
+        if (data.gerencias) {
+            for (const gk in data.gerencias) {
+                const gData = data.gerencias[gk];
+                if (gData && gData.detalles) {
+                    gData.detalles.forEach(t => {
+                        const code = t.trata.toUpperCase();
+                        if (autoCodes.includes(code)) {
+                            autoIng += t.ingresos || 0;
+                            autoIngPrev += t.ingresos_prev || 0;
+                            autoEgr += t.egresos || 0;
+                            autoEgrPrev += t.egresos_prev || 0;
+                        }
+                    });
+                }
+            }
+        }
+
+        const manualIng = Math.max(0, data.totales.ingresos - autoIng);
+        const manualIngPrev = Math.max(0, data.totales.ingresos_prev - autoIngPrev);
+        const manualEgr = Math.max(0, data.totales.egresos - autoEgr);
+        const manualEgrPrev = Math.max(0, data.totales.egresos_prev - autoEgrPrev);
+
+        // Renderizar Manuales
+        renderKpiAndDelta('cierre-val-ingresos', 'cierre-delta-ingresos', manualIng, manualIngPrev);
+        renderKpiAndDelta('cierre-val-egresos', 'cierre-delta-egresos', manualEgr, manualEgrPrev);
+
+        // Renderizar Automatizados
+        function renderAutoKpiAndDelta(valId, deltaId, val, valPrev) {
+            const valEl = document.getElementById(valId);
+            const deltaEl = document.getElementById(deltaId);
+            if (!valEl || !deltaEl) return;
+
+            valEl.innerText = fmt(val);
+
+            const delta = val - valPrev;
+            const pct = valPrev > 0 ? ((delta / valPrev) * 100).toFixed(1) : '0';
+            
+            let color = '#64748b'; // slate
+            let arrow = '•';
+            
+            if (delta > 0) {
+                color = '#166534'; // green
+                arrow = '↑';
+            } else if (delta < 0) {
+                color = '#991b1b'; // red
+                arrow = '↓';
+            }
+
+            const pctAbs = Math.abs(pct);
+            if (delta !== 0) {
+                deltaEl.style.color = color;
+                deltaEl.innerHTML = `${arrow} ${pctAbs}%`;
+            } else {
+                deltaEl.style.color = '#64748b';
+                deltaEl.innerHTML = `• 0%`;
+            }
+        }
+
+        renderAutoKpiAndDelta('cierre-val-ingresos-auto', 'cierre-delta-ingresos-auto', autoIng, autoIngPrev);
+        renderAutoKpiAndDelta('cierre-val-egresos-auto', 'cierre-delta-egresos-auto', autoEgr, autoEgrPrev);
+
+        // Renderizar Stock y Subsanaciones
+        renderKpiAndDelta('cierre-val-stock', 'cierre-delta-stock', data.totales.stock, data.totales.stock_prev, true);
+        renderKpiAndDelta('cierre-val-subsanaciones', 'cierre-delta-subsanaciones', data.totales.subsanaciones, data.totales.subsanaciones_prev, true);
+
+        // Helper para resolver la clase CSS del semáforo por nivel de cumplimiento
+        function getSemaforoClass(pctVal) {
+            if (pctVal < 25) return 'meta-badge-critico';      // 0 - 24%
+            if (pctVal < 50) return 'meta-badge-bajo';         // 25 - 49%
+            if (pctVal < 75) return 'meta-badge-medio';        // 50 - 74%
+            if (pctVal < 100) return 'meta-badge-alto';        // 75 - 99%
+            return 'meta-badge-perfecto';                      // 100% o más
+        }
+
+        // Badge especial de meta para Egresos (KPI Card)
+        const valEgresosContainer = document.getElementById('cierre-card-egresos');
+        if (valEgresosContainer) {
+            const oldBadge = valEgresosContainer.querySelector('.meta-compliance-badge');
+            if (oldBadge) oldBadge.remove();
+
+            const badge = document.createElement('span');
+            badge.className = 'meta-compliance-badge';
+            if (data.totales.meta > 0) {
+                const rawPct = (data.totales.egresos / data.totales.meta) * 100;
+                const roundedPct = Math.round(rawPct);
+                const cappedPct = Math.min(100, roundedPct);
+                
+                badge.className += ' ' + getSemaforoClass(roundedPct);
+                badge.innerText = `Meta: ${fmt(data.totales.meta)} | ${cappedPct}% Cumplimiento`;
+            } else {
+                badge.className += ' meta-badge-no-aplica';
+                badge.innerText = `Meta: N/A`;
+            }
+            badge.style.marginTop = '0.5rem';
+            const deltaEgr = document.getElementById('cierre-delta-egresos');
+            if (deltaEgr) {
+                deltaEgr.parentNode.insertBefore(badge, deltaEgr.nextSibling);
+            } else {
+                valEgresosContainer.appendChild(badge);
+            }
+        }
+
+        // 2. Banner general (mantener el % real en el texto pero reflejando el estado de cumplimiento)
+        if (banner) {
+            banner.style.display = 'flex';
+            if (data.totales.meta > 0) {
+                const rawPct = (data.totales.egresos / data.totales.meta) * 100;
+                if (data.totales.cumplido) {
+                    banner.style.backgroundColor = '#d1fae5';
+                    banner.style.color = '#065f46';
+                    banner.style.border = '1px solid #a7f3d0';
+                    banner.innerHTML = `
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        <span>¡Meta de gestión general cumplida para el mes de ${formatMesLabel(mes)}! Se registraron ${fmt(data.totales.egresos)} egresos frente a un objetivo unificado de ${fmt(data.totales.meta)} (${rawPct.toFixed(1)}% de cumplimiento).</span>
+                    `;
+                } else {
+                    banner.style.backgroundColor = '#fee2e2';
+                    banner.style.color = '#991b1b';
+                    banner.style.border = '1px solid #fca5a5';
+                    banner.style.color = '#991b1b';
+                    banner.innerHTML = `
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 8px;"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                        <span>Meta de gestión general no alcanzada para el mes de ${formatMesLabel(mes)}. Se registraron ${fmt(data.totales.egresos)} egresos frente a una meta planificada de ${fmt(data.totales.meta)} (${rawPct.toFixed(1)}% de avance).</span>
+                    `;
+                }
+            } else {
+                banner.style.backgroundColor = '#f1f5f9';
+                banner.style.color = '#475569';
+                banner.style.border = '1px solid #cbd5e1';
+                banner.innerHTML = `
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-right: 8px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span>Cierre de mes de ${formatMesLabel(mes)}. No se definieron metas de planificación general para este período.</span>
+                `;
+            }
+        }
+
+        // 3. Renderizar tabla detallada agrupada por Familia de Trámites
+        let tableHTML = `
+            <table class="cierre-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">Familia / Trámite</th>
+                        <th style="width: 12%;">Ingresos</th>
+                        <th style="width: 12%;">Egresos</th>
+                        <th style="width: 20%;">Meta</th>
+                        <th style="width: 13%;">Stock al Cierre</th>
+                        <th style="width: 13%;">Subsanaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        // Mapear todas las tratas a sus familias
+        const trataToFamily = {};
+        for (const [familyName, tratas] of Object.entries(FAMILIAS_CONFIG)) {
+            tratas.forEach(t => {
+                trataToFamily[t.toUpperCase()] = familyName;
+            });
+        }
+
+        // Agrupar todos los detalles por Familia
+        const familyGroups = {};
+        const unassignedDetalles = [];
+
+        const gerenciasKeys = Object.keys(data.gerencias).sort();
+        for (const gk of gerenciasKeys) {
+            const gData = data.gerencias[gk];
+            
+            gData.detalles.forEach(t => {
+                const tUpper = t.trata.toUpperCase();
+                const familyName = trataToFamily[tUpper];
+
+                if (familyName) {
+                    if (!familyGroups[familyName]) {
+                        familyGroups[familyName] = {
+                            ingresos: 0, ingresos_prev: 0, ingresos_yoy: 0,
+                            egresos: 0, egresos_prev: 0, egresos_yoy: 0,
+                            meta: 0, stock: 0, stock_prev: 0, stock_yoy: 0,
+                            subsanaciones: 0, subsanaciones_prev: 0, subsanaciones_yoy: 0,
+                            detalles: []
+                        };
+                    }
+                    const group = familyGroups[familyName];
+                    group.ingresos += t.ingresos;
+                    group.ingresos_prev += t.ingresos_prev;
+                    group.ingresos_yoy += t.ingresos_yoy || 0;
+                    group.egresos += t.egresos;
+                    group.egresos_prev += t.egresos_prev;
+                    group.egresos_yoy += t.egresos_yoy || 0;
+                    group.meta += t.meta;
+                    group.stock += t.stock;
+                    group.stock_prev += t.stock_prev;
+                    group.stock_yoy += t.stock_yoy || 0;
+                    group.subsanaciones += t.subsanaciones;
+                    group.subsanaciones_prev += t.subsanaciones_prev;
+                    group.subsanaciones_yoy += t.subsanaciones_yoy || 0;
+                    group.detalles.push(t);
+                } else {
+                    unassignedDetalles.push(t);
+                }
+            });
+        }
+
+        // No auto-asignar trámites huérfanos a la familia "Otros" para mantener consistencia estricta.
+        // Solo los trámites declarados en FAMILIAS_CONFIG["Otros"] pertenecerán a dicha familia.
+        // Cualquier otro trámite no mapeado se descarta del desglose familiar.
+
+        const parts = mes.split('-');
+        const year = parseInt(parts[0], 10);
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const prevMonthIdx = (monthIdx - 1 + 12) % 12;
+        const labelMoM = `vs ${MESES[prevMonthIdx]}`;
+        const labelYoY = `vs ${MESES[monthIdx]} ${year - 1}`;
+
+        function getComparisonText(val, prevVal, lowerIsBetter = false) {
+            const delta = val - prevVal;
+            if (delta === 0) return `<span class="cierre-table-cell-comparison">• ${labelMoM}: 0%</span>`;
+            const pct = prevVal > 0 ? ((delta / prevVal) * 100).toFixed(0) : '';
+            const arrow = delta > 0 ? '↑' : '↓';
+            
+            let cls = 'cierre-delta-neutral';
+            if (delta > 0) {
+                cls = lowerIsBetter ? 'cierre-delta-down' : 'cierre-delta-up';
+            } else if (delta < 0) {
+                cls = lowerIsBetter ? 'cierre-delta-up' : 'cierre-delta-down';
+            }
+            
+            const pctStr = pct ? `${arrow} ${Math.abs(pct)}%` : `${arrow} ${Math.abs(delta)} exp`;
+            return `<span class="cierre-table-cell-comparison ${cls}">${labelMoM}: ${pctStr}</span>`;
+        }
+
+        function getYoYComparisonText(val, yoyVal, lowerIsBetter = false) {
+            const delta = val - yoyVal;
+            if (delta === 0) return `<span class="cierre-table-cell-comparison" style="margin-left: 0; display: block; margin-top: 1px;">• ${labelYoY}: 0%</span>`;
+            const pct = yoyVal > 0 ? ((delta / yoyVal) * 100).toFixed(0) : '';
+            const arrow = delta > 0 ? '↑' : '↓';
+            
+            let cls = 'cierre-delta-neutral';
+            if (delta > 0) {
+                cls = lowerIsBetter ? 'cierre-delta-down' : 'cierre-delta-up';
+            } else if (delta < 0) {
+                cls = lowerIsBetter ? 'cierre-delta-up' : 'cierre-delta-down';
+            }
+            
+            const pctStr = pct ? `${arrow} ${Math.abs(pct)}%` : `${arrow} ${Math.abs(delta)} exp`;
+            return `<span class="cierre-table-cell-comparison ${cls}" style="margin-left: 0; display: block; margin-top: 1px;">${labelYoY}: ${pctStr}</span>`;
+        }
+
+        // Renderizar las familias y sus filas hijas
+        let familyIndex = 0;
+        const sortedFamilyNames = Object.keys(familyGroups).sort();
+        
+        for (const familyName of sortedFamilyNames) {
+            const fData = familyGroups[familyName];
+            familyIndex++;
+
+            let familyCompBadge = '';
+            if (fData.meta > 0) {
+                const rawPct = (fData.egresos / fData.meta) * 100;
+                const roundedPct = Math.round(rawPct);
+                const cappedPct = Math.min(100, roundedPct);
+                
+                familyCompBadge = `<span class="meta-compliance-badge ${getSemaforoClass(roundedPct)}" style="display: inline-block; margin-left: 8px;">${cappedPct}% Cumplimiento</span>`;
+            } else {
+                familyCompBadge = `<span class="meta-compliance-badge meta-badge-no-aplica" style="display: inline-block; margin-left: 8px;">N/A</span>`;
+            }
+
+            // Fila de Cabecera de Familia (Collapsible sin el prefijo "Familia" - Colapsada por defecto)
+            tableHTML += `
+                <tr class="cierre-family-row collapsed" data-family-target="family-${familyIndex}" onclick="toggleCierreFamily(this)">
+                    <td>
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <span class="family-toggle-icon" style="transform: rotate(-90deg); margin-top: 3px;">▼</span>
+                            <div style="display: flex; flex-direction: column; gap: 2px;">
+                                <span style="font-weight: 800; text-transform: uppercase; font-size: 0.95rem;">${familyName}</span>
+                                <span class="family-tag-pill" style="width: max-content; margin-left: 0; font-size: 0.65rem; padding: 1px 6px;">${fData.detalles.length} trámites</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="cierre-table-cell-val">${fmt(fData.ingresos)}</span>
+                        ${getComparisonText(fData.ingresos, fData.ingresos_prev)}
+                        ${getYoYComparisonText(fData.ingresos, fData.ingresos_yoy)}
+                    </td>
+                    <td>
+                        <span class="cierre-table-cell-val">${fmt(fData.egresos)}</span>
+                        ${getComparisonText(fData.egresos, fData.egresos_prev)}
+                        ${getYoYComparisonText(fData.egresos, fData.egresos_yoy)}
+                    </td>
+                    <td>
+                        <span class="cierre-table-cell-val">${fData.meta > 0 ? fmt(fData.meta) : '-'}</span>
+                        ${familyCompBadge}
+                    </td>
+                    <td>
+                        <span class="cierre-table-cell-val">${fmt(fData.stock)}</span>
+                        ${getComparisonText(fData.stock, fData.stock_prev, true)}
+                        ${getYoYComparisonText(fData.stock, fData.stock_yoy, true)}
+                    </td>
+                    <td>
+                        <span class="cierre-table-cell-val">${fmt(fData.subsanaciones)}</span>
+                        ${getComparisonText(fData.subsanaciones, fData.subsanaciones_prev, true)}
+                        ${getYoYComparisonText(fData.subsanaciones, fData.subsanaciones_yoy, true)}
+                    </td>
+                </tr>
+            `;
+
+            // Filas Hijas (Individuales - Ocultas por defecto con la clase 'hidden')
+            fData.detalles.forEach(t => {
+                let compBadge = '';
+                if (t.meta > 0) {
+                    const rawPct = (t.egresos / t.meta) * 100;
+                    const roundedPct = Math.round(rawPct);
+                    const cappedPct = Math.min(100, roundedPct);
+                    
+                    compBadge = `<span class="meta-compliance-badge ${getSemaforoClass(roundedPct)}" style="display: block; width: max-content; margin-top: 4px;">${cappedPct}% Cumplimiento</span>`;
+                } else {
+                    compBadge = `<span class="meta-compliance-badge meta-badge-no-aplica" style="display: block; width: max-content; margin-top: 4px;">N/A</span>`;
+                }
+
+                tableHTML += `
+                    <tr class="cierre-child-row family-${familyIndex} hidden">
+                        <td style="padding-left: 2.5rem; border-left: 3px solid var(--primary);">
+                            <div style="font-weight: 700; color: var(--primary-dark); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px;" title="${t.descripcion_trata}">${t.descripcion_trata}</div>
+                            <div style="color: #64748b; font-size: 0.76rem;">${t.trata}</div>
+                        </td>
+                        <td>
+                            <span class="cierre-table-cell-val">${fmt(t.ingresos)}</span>
+                            ${getComparisonText(t.ingresos, t.ingresos_prev)}
+                            ${getYoYComparisonText(t.ingresos, t.ingresos_yoy)}
+                        </td>
+                        <td>
+                            <span class="cierre-table-cell-val">${fmt(t.egresos)}</span>
+                            ${getComparisonText(t.egresos, t.egresos_prev)}
+                            ${getYoYComparisonText(t.egresos, t.egresos_yoy)}
+                        </td>
+                        <td>
+                            <span class="cierre-table-cell-val">${t.meta > 0 ? fmt(t.meta) : '-'}</span>
+                            ${compBadge}
+                        </td>
+                        <td>
+                            <span class="cierre-table-cell-val">${fmt(t.stock)}</span>
+                            ${getComparisonText(t.stock, t.stock_prev, true)}
+                            ${getYoYComparisonText(t.stock, t.stock_yoy, true)}
+                        </td>
+                        <td>
+                            <span class="cierre-table-cell-val">${fmt(t.subsanaciones)}</span>
+                            ${getComparisonText(t.subsanaciones, t.subsanaciones_prev, true)}
+                            ${getYoYComparisonText(t.subsanaciones, t.subsanaciones_yoy, true)}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+        tableWrapper.innerHTML = tableHTML;
+
+        // Inyectar función global de toggle si no existe
+        if (!window.toggleCierreFamily) {
+            window.toggleCierreFamily = function(row) {
+                const targetClass = row.getAttribute('data-family-target');
+                const children = document.querySelectorAll(`.${targetClass}`);
+                const isCollapsed = row.classList.toggle('collapsed');
+                
+                children.forEach(child => {
+                    if (isCollapsed) {
+                        child.classList.add('hidden');
+                    } else {
+                        child.classList.remove('hidden');
+                    }
+                });
+            };
+        }
+
+    } catch (err) {
+        console.error(err);
+        if (tableWrapper) {
+            tableWrapper.innerHTML = `
+                <div style="padding: 3rem; text-align: center; color: #ef4444; font-weight: 700; font-family: 'Outfit';">
+                    ✗ Error: No se pudieron cargar los datos de cierre para el periodo seleccionado.
+                </div>
+            `;
+        }
+    }
+}
+
+function formatMesLabel(mes) {
+    const parts = mes.split('-');
+    const mIdx = parseInt(parts[1]) - 1;
+    return `${MESES[mIdx]} ${parts[0]}`;
+}
+
+// --- EXPORTAR PRESENTACIÓN EN PDF (DIAPOSITIVAS 16:10 DE ALTO IMPACTO VISUAL) ---
+window.exportPresentationPDF = async function() {
+    const mesSelect = document.getElementById('cierre-mes-select');
+    const mes = mesSelect ? mesSelect.value : '2026-05';
+    const mesLabel = formatMesLabel(mes);
+
+    // Activar loader en el botón
+    const btn = document.querySelector('button[onclick="exportPresentationPDF()"]');
+    if (!btn) return;
+    const oldText = btn.innerHTML;
+    btn.innerHTML = `<span class="loader" style="width: 14px; height: 14px; border-width: 2px; margin-right: 8px; display: inline-block; vertical-align: middle;"></span> Generando PDF...`;
+    btn.disabled = true;
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/cierre_mes?mes=${mes}`);
+        if (!response || !response.ok) throw new Error("No se pudo obtener el reporte de cierre.");
+        const data = await response.json();
+
+        const fmt = n => n.toLocaleString('es-AR');
+
+        // Mapear todas las tratas a sus familias
+        const trataToFamily = {};
+        for (const [familyName, tratas] of Object.entries(FAMILIAS_CONFIG)) {
+            tratas.forEach(t => { trataToFamily[t.toUpperCase()] = familyName; });
+        }
+
+        // Agrupar todos los detalles por Familia
+        const familyGroups = {};
+        for (const gk in data.gerencias) {
+            const gData = data.gerencias[gk];
+            if (gData && gData.detalles) {
+                gData.detalles.forEach(t => {
+                    const familyName = trataToFamily[t.trata.toUpperCase()];
+                    if (familyName) {
+                        if (!familyGroups[familyName]) {
+                            familyGroups[familyName] = {
+                                ingresos: 0, ingresos_prev: 0,
+                                egresos: 0, egresos_prev: 0,
+                                meta: 0, stock: 0, stock_prev: 0,
+                                subsanaciones: 0, subsanaciones_prev: 0,
+                                detalles: []
+                            };
+                        }
+                        const g = familyGroups[familyName];
+                        g.ingresos += t.ingresos;
+                        g.ingresos_prev += t.ingresos_prev;
+                        g.egresos += t.egresos;
+                        g.egresos_prev += t.egresos_prev;
+                        g.meta += t.meta;
+                        g.stock += t.stock;
+                        g.stock_prev += t.stock_prev;
+                        g.subsanaciones += t.subsanaciones;
+                        g.subsanaciones_prev += t.subsanaciones_prev;
+                        g.detalles.push(t);
+                    }
+                });
+            }
+        }
+
+        // Helper para resolver la clase del semáforo
+        function getSemaforoClassLocal(pctVal) {
+            if (pctVal < 25) return 'meta-badge-critico';
+            if (pctVal < 50) return 'meta-badge-bajo';
+            if (pctVal < 75) return 'meta-badge-medio';
+            if (pctVal < 100) return 'meta-badge-alto';
+            return 'meta-badge-perfecto';
+        }
+
+        // --- CONSTRUIR EL TEMPLATE HTML DE LAS DIAPOSITIVAS ---
+        let slidesHTML = `
+        <div style="font-family: 'Outfit', 'Segoe UI', sans-serif; background: #ffffff; color: #0f172a; margin: 0; padding: 0; width: 16in; height: auto; box-sizing: border-box;">
+            
+            <!-- Estilos CSS Embebidos para la Impresión del PDF -->
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+                
+                html, body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff;
+                }
+                
+                .slide {
+                    width: 16in;
+                    height: 9.9in; /* Ligeramente menor a 10in para evitar desbordes decimales accidentales */
+                    box-sizing: border-box;
+                    padding: 0.6in 0.8in;
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-between;
+                    background: #ffffff;
+                    color: #0f172a;
+                    overflow: hidden;
+                    margin: 0 !important;
+                }
+                
+                .slide:not(.first-slide) {
+                    page-break-before: always;
+                }
+                
+                .meta-compliance-badge {
+                    display: inline-block;
+                    font-size: 0.65rem;
+                    padding: 3px 8px;
+                    border-radius: 6px;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .meta-badge-critico { background-color: #fef2f2 !important; color: #991b1b !important; border: 1px solid #fee2e2 !important; }
+                .meta-badge-bajo { background-color: #fff7ed !important; color: #c2410c !important; border: 1px solid #ffedd5 !important; }
+                .meta-badge-medio { background-color: #fefce8 !important; color: #854d0e !important; border: 1px solid #fef9c3 !important; }
+                .meta-badge-alto { background-color: #f7fee7 !important; color: #4d7c0f !important; border: 1px solid #d9f99d !important; }
+                .meta-badge-perfecto { background-color: #d1fae5 !important; color: #065f46 !important; border: 1px solid #a7f3d0 !important; }
+                .meta-badge-no-aplica { background-color: #f1f5f9 !important; color: #475569 !important; border: 1px solid #cbd5e1 !important; }
+            </style>
+
+            <!-- ==================== DIAPOSITIVA 1: PORTADA ==================== -->
+            <div class="slide first-slide" style="background: radial-gradient(circle at 80% 20%, #1e293b, #0f172a); color: white; justify-content: center; align-items: center; text-align: center;">
+                <div style="position: absolute; top: 0.6in; left: 0.8in; font-weight: 800; font-size: 1.25rem; color: #facc15; letter-spacing: 1px;">
+                    BUENOS AIRES CIUDAD
+                </div>
+                <div style="max-width: 950px; margin-top: -30px;">
+                    <h1 style="font-size: 3.6rem; font-weight: 800; line-height: 1.15; margin-bottom: 1.8rem; letter-spacing: -1.2px; color: #ffffff; font-family: 'Outfit';">
+                        INFORME MENSUAL DE GESTIÓN Y OPERACIONES
+                    </h1>
+                    <div style="display: inline-block; background: #eab308; color: #0f172a; padding: 10px 28px; border-radius: 99px; font-weight: 800; font-size: 1.45rem; text-transform: uppercase; margin-bottom: 2rem; box-shadow: 0 10px 15px -3px rgba(234, 179, 8, 0.3);">
+                        Periodo: ${mesLabel}
+                    </div>
+                    <p style="color: #94a3b8; font-size: 1.3rem; margin: 0; font-weight: 500;">
+                        Secretaría de Gobierno y Desarrollo Urbano (SGDU)
+                    </p>
+                    <p style="color: #64748b; font-size: 1rem; margin-top: 1rem;">
+                        Subsecretaría de Gestión del Desarrollo Urbano
+                    </p>
+                </div>
+                <div style="position: absolute; bottom: 0.6in; color: #475569; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px;">
+                    CONFIDENCIAL • GENERADO AUTOMÁTICAMENTE DESDE EL TABLERO SGDU
+                </div>
+            </div>
+
+            <!-- ==================== DIAPOSITIVA 2: STATUS GENERAL DE LA SECRETARIA ==================== -->
+            <div class="slide">
+                <div>
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
+                        <div>
+                            <h2 style="font-size: 1.85rem; font-weight: 800; margin: 0; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; font-family: 'Outfit';">Status General de la Secretaría</h2>
+                            <p style="color: #64748b; font-size: 0.95rem; margin: 0; margin-top: 2px;">Consolidado general de producción por Familias de Trámites unificadas</p>
+                        </div>
+                        <span style="font-weight: 800; color: #0369a1; font-size: 0.95rem; letter-spacing: 0.5px;">SGDU • DIAPOSITIVA 2</span>
+                    </div>
+
+                    <!-- Tabla General -->
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit';">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; font-size: 0.78rem; text-transform: uppercase; color: #475569; font-weight: 800;">
+                                <th style="padding: 12px 15px; width: 30%;">Familia de Trámites</th>
+                                <th style="padding: 12px 15px; width: 11%;">Ingresos</th>
+                                <th style="padding: 12px 15px; width: 11%;">Egresos</th>
+                                <th style="padding: 12px 15px; width: 11%;">Meta</th>
+                                <th style="padding: 12px 15px; text-align: center; width: 16%;">Cumplimiento</th>
+                                <th style="padding: 12px 15px; width: 10%;">Stock</th>
+                                <th style="padding: 12px 15px; width: 11%;">Subsanaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        // Generar filas para el slide 2
+        Object.entries(familyGroups).sort((a, b) => b[1].egresos - a[1].egresos).forEach(([name, g]) => {
+            const pct = g.meta > 0 ? Math.round((g.egresos / g.meta) * 100) : 0;
+            const cappedPct = Math.min(100, pct);
+            const badgeClass = g.meta > 0 ? getSemaforoClassLocal(pct) : 'meta-badge-no-aplica';
+            const badgeText = g.meta > 0 ? `${cappedPct}%` : 'N/A';
+
+            slidesHTML += `
+                <tr style="border-bottom: 1px solid #e2e8f0; font-size: 0.82rem;">
+                    <td style="padding: 10px 15px; font-weight: 800; color: #0f172a; text-transform: uppercase;">${name}</td>
+                    <td style="padding: 10px 15px; font-weight: 600;">${fmt(g.ingresos)}</td>
+                    <td style="padding: 10px 15px; font-weight: 600;">${fmt(g.egresos)}</td>
+                    <td style="padding: 10px 15px; font-weight: 600;">${g.meta > 0 ? fmt(g.meta) : '-'}</td>
+                    <td style="padding: 10px 15px; font-weight: 600; text-align: center;">
+                        <span class="meta-compliance-badge ${badgeClass}" style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 800;">${badgeText}</span>
+                    </td>
+                    <td style="padding: 10px 15px; font-weight: 600;">${fmt(g.stock)}</td>
+                    <td style="padding: 10px 15px; font-weight: 600;">${fmt(g.subsanaciones)}</td>
+                </tr>
+            `;
+        });
+
+        slidesHTML += `
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 15px; font-size: 0.8rem; color: #94a3b8; font-weight: 600;">
+                    <span>GOBIERNO DE LA CIUDAD DE BUENOS AIRES</span>
+                    <span>SECGDU • SGDU</span>
+                </div>
+            </div>
+        `;
+
+        // ==================== SLIDES 3 a 12: 1 DIAPOSITIVA POR FAMILIA ====================
+        let slideIndex = 3;
+        Object.entries(familyGroups).forEach(([name, g]) => {
+            const familyPct = g.meta > 0 ? Math.round((g.egresos / g.meta) * 100) : 0;
+            const cappedFamilyPct = Math.min(100, familyPct);
+            const familyBadgeClass = g.meta > 0 ? getSemaforoClassLocal(familyPct) : 'meta-badge-no-aplica';
+            const familyBadgeText = g.meta > 0 ? `${cappedFamilyPct}%` : 'N/A';
+
+            // Generar filas de los trámites individuales
+            let childRowsHTML = '';
+            g.detalles.forEach(t => {
+                const childPct = t.meta > 0 ? Math.round((t.egresos / t.meta) * 100) : 0;
+                const cappedChildPct = Math.min(100, childPct);
+                const childBadgeClass = t.meta > 0 ? getSemaforoClassLocal(childPct) : 'meta-badge-no-aplica';
+                const childBadgeText = t.meta > 0 ? `${cappedChildPct}%` : 'N/A';
+
+                childRowsHTML += `
+                    <tr style="border-bottom: 1px solid #f1f5f9; font-size: 0.76rem;">
+                        <td style="padding: 8px 10px;">
+                            <div style="font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;" title="${t.descripcion_trata}">${t.descripcion_trata}</div>
+                            <div style="color: #64748b; font-size: 0.65rem;">${t.trata}</div>
+                        </td>
+                        <td style="padding: 8px 10px; font-weight: 600;">${fmt(t.ingresos)}</td>
+                        <td style="padding: 8px 10px; font-weight: 600;">${fmt(t.egresos)}</td>
+                        <td style="padding: 8px 10px; font-weight: 600;">${t.meta > 0 ? fmt(t.meta) : '-'}</td>
+                        <td style="padding: 8px 10px; font-weight: 600; text-align: center;">
+                            <span class="meta-compliance-badge ${childBadgeClass}" style="display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800;">${childBadgeText}</span>
+                        </td>
+                        <td style="padding: 8px 10px; font-weight: 600;">${fmt(t.stock)}</td>
+                        <td style="padding: 8px 10px; font-weight: 600;">${fmt(t.subsanaciones)}</td>
+                    </tr>
+                `;
+            });
+
+            slidesHTML += `
+            <!-- Diapositiva Familia: ${name} -->
+            <div class="slide">
+                <div>
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 25px;">
+                        <div>
+                            <h2 style="font-size: 1.85rem; font-weight: 800; margin: 0; color: #0f172a; text-transform: uppercase; letter-spacing: -0.5px; font-family: 'Outfit';">Familia: ${name}</h2>
+                            <p style="color: #64748b; font-size: 0.95rem; margin: 0; margin-top: 2px;">Detalle analítico e indicadores individuales de trámites asociados</p>
+                        </div>
+                        <span style="font-weight: 800; color: #0369a1; font-size: 0.95rem; letter-spacing: 0.5px;">SGDU • DIAPOSITIVA ${slideIndex}</span>
+                    </div>
+
+                    <!-- Layout split: Métricas agregadas de familia + Grilla de Trámites -->
+                    <div style="display: grid; grid-template-columns: 1fr 2.2fr; gap: 30px;">
+                        <!-- Columna Izquierda: Tarjeta consolidada de la familia -->
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
+                                <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Ingresos Familia</span>
+                                <span style="font-size: 1.8rem; font-weight: 800; color: #0f172a; font-family: 'Outfit'; display: block; margin-top: 5px;">${fmt(g.ingresos)}</span>
+                            </div>
+
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.01);">
+                                <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Egresos Familia</span>
+                                <span style="font-size: 1.8rem; font-weight: 800; color: #0f172a; font-family: 'Outfit'; display: block; margin-top: 5px;">${fmt(g.egresos)}</span>
+                            </div>
+
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.01); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 5px;">Cumplimiento Meta</span>
+                                <span class="meta-compliance-badge ${familyBadgeClass}" style="display: inline-block; padding: 4px 12px; border-radius: 6px; font-size: 0.95rem; font-weight: 800;">${familyBadgeText}</span>
+                            </div>
+
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 18px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.01); display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div>
+                                    <span style="font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Stock</span>
+                                    <span style="font-size: 1.3rem; font-weight: 800; color: #f59e0b; display: block; margin-top: 2px;">${fmt(g.stock)}</span>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; display: block;">Subs.</span>
+                                    <span style="font-size: 1.3rem; font-weight: 800; color: #6366f1; display: block; margin-top: 2px;">${fmt(g.subsanaciones)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha: Tabla detallada de trámites individuales -->
+                        <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; background: white; max-height: 480px; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit';">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #cbd5e1; font-size: 0.68rem; text-transform: uppercase; color: #475569; font-weight: 800;">
+                                        <th style="padding: 8px 10px; width: 35%;">Trámite / Acrónimo</th>
+                                        <th style="padding: 8px 10px; width: 10%;">Ing.</th>
+                                        <th style="padding: 8px 10px; width: 10%;">Egr.</th>
+                                        <th style="padding: 8px 10px; width: 10%;">Meta</th>
+                                        <th style="padding: 8px 10px; text-align: center; width: 15%;">Cump.</th>
+                                        <th style="padding: 8px 10px; width: 10%;">Stock</th>
+                                        <th style="padding: 8px 10px; width: 10%;">Subs.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${childRowsHTML}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 15px; font-size: 0.8rem; color: #94a3b8; font-weight: 600;">
+                    <span>GOBIERNO DE LA CIUDAD DE BUENOS AIRES</span>
+                    <span>SECGDU • SGDU</span>
+                </div>
+            </div>
+            `;
+            slideIndex++;
+        });
+
+        // ==================== DIAPOSITIVA FINAL: GRACIAS ====================
+        slidesHTML += `
+            <!-- Diapositiva final: Cierre -->
+            <div class="slide" style="background: radial-gradient(circle at 80% 20%, #1e293b, #0f172a); color: white; justify-content: center; align-items: center; text-align: center;">
+                <div style="position: absolute; top: 0.6in; left: 0.8in; font-weight: 800; font-size: 1.25rem; color: #facc15; letter-spacing: 1px;">
+                    BUENOS AIRES CIUDAD
+                </div>
+                <div style="max-width: 800px;">
+                    <h1 style="font-size: 4.8rem; font-weight: 800; line-height: 1; margin-bottom: 2rem; letter-spacing: -2px; color: #ffffff; font-family: 'Outfit';">
+                        ¡Muchas Gracias!
+                    </h1>
+                    <p style="color: #94a3b8; font-size: 1.4rem; font-weight: 500; line-height: 1.5; margin: 0;">
+                        Secretaría de Gobierno y Desarrollo Urbano (SGDU)
+                    </p>
+                    <div style="width: 150px; height: 3px; background: #eab308; margin: 30px auto; border-radius: 99px;"></div>
+                    <p style="color: #64748b; font-size: 0.95rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px;">
+                        Fin del Reporte Operativo Mensual
+                    </p>
+                </div>
+                <div style="position: absolute; bottom: 0.6in; color: #475569; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px;">
+                    GOBIERNO DE LA CIUDAD DE BUENOS AIRES • 2026
+                </div>
+            </div>
+
+        </div>
+        `;
+
+        // CONFIGURACIÓN DE IMPRESIÓN DEL PDF (WIDESCREEN 16:10 EXACTA)
+        const opt = {
+            margin: 0,
+            filename: 'Presentacion_SGDU_Gestion_' + mes + '.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true, logging: false },
+            jsPDF: { unit: 'in', format: [16, 10], orientation: 'landscape' }
+        };
+
+        // Generar e iniciar descarga directamente de la cadena HTML
+        await html2pdf().set(opt).from(slidesHTML).save();
+
+    } catch (err) {
+        console.error(err);
+        alert("Ocurrió un error al generar la presentación PDF. Por favor, intente de nuevo.");
+    } finally {
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+    }
+};
