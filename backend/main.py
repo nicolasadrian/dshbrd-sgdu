@@ -993,9 +993,9 @@ async def get_reporte_familia(
 async def get_reporte_familias_overview(current_user: User = Depends(get_current_user)):
     FAMILIAS_CONFIG = {
         "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
-        "Registros": ["MDUG3001A", "MDUG0104A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
+        "Registros": ["MDUG3001A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
         "Incendio": ["MDUG2101A"],
-        "Conforme": ["MDUG0141A"],
+        "Conforme": ["MDUG0141A", "MDUG0104A"],
         "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
         "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
         "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
