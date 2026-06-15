@@ -9,7 +9,7 @@ import logging
 import bcrypt
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env
@@ -50,12 +50,14 @@ class Token(BaseModel):
     full_name: str
     sector: str
     needs_password_change: bool
+    permissions: Optional[Dict[str, bool]] = None
 
 class User(BaseModel):
     username: str
     role: str
     full_name: Optional[str] = None
     sector: Optional[str] = None
+    permissions: Optional[Dict[str, bool]] = None
 
 class PasswordChange(BaseModel):
     new_password: str
@@ -66,6 +68,24 @@ class UserUpdate(BaseModel):
     sector: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
+    permissions: Optional[Dict[str, bool]] = None
+
+class RoleCreate(BaseModel):
+    role_name: str
+
+class RoleUpdate(BaseModel):
+    permissions: Dict[str, bool]
+
+class MetaUpdateRequest(BaseModel):
+    tratas_incluidas: List[str]
+    buzones_ingreso: List[str]
+    analistas_oficiales: List[str]
+    acronimos_egreso: List[str]
+    activo: bool
+    firmantes_egreso: Optional[List[str]] = None
+    buzones_ingreso_intervenciones: Optional[List[str]] = None
+    descripciones_validas: Optional[List[str]] = None
+    descripcion_trata: Optional[str] = None
 
 # Función para obtener el motor de DB de forma segura
 def get_engine():
@@ -82,6 +102,107 @@ def get_engine():
 
 engine = get_engine()
 
+# Crear tabla de favoritos en el inicio
+try:
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_favorite_folders (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(username, name)
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) NOT NULL,
+                expediente VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(username, expediente)
+            )
+        """))
+        conn.execute(text("""
+            ALTER TABLE user_favorites ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES user_favorite_folders(id) ON DELETE SET NULL
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_user_favorites_user ON user_favorites (username)
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_user_favorites_folder ON user_favorites (folder_id)
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_favorite_notes (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) NOT NULL,
+                expediente VARCHAR(100) NOT NULL,
+                note_text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_user_favorite_notes_exp ON user_favorite_notes (expediente)
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS expediente_fichas (
+                expediente VARCHAR(100) PRIMARY KEY,
+                direccion TEXT,
+                notas_internas TEXT,
+                responsable VARCHAR(100),
+                estado VARCHAR(50),
+                prioridad VARCHAR(20),
+                proxima_reunion BOOLEAN DEFAULT FALSE,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS expediente_ficha_internal_notes (
+                id SERIAL PRIMARY KEY,
+                expediente VARCHAR(100) NOT NULL,
+                username VARCHAR(100) NOT NULL,
+                note_text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_exp_ficha_int_notes_exp ON expediente_ficha_internal_notes (expediente)
+        """))
+        conn.execute(text("ALTER TABLE cfg_gestion_metas ADD COLUMN IF NOT EXISTS descripcion_trata text"))
+        
+        # dynamic roles DDL
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS auth_roles (
+                role_name VARCHAR(100) PRIMARY KEY,
+                permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT NULL
+        """))
+        
+        roles_count = conn.execute(text("SELECT COUNT(*) FROM auth_roles")).scalar()
+        if roles_count == 0:
+            import json
+            default_roles = [
+                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True})),
+                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True})),
+                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True})),
+                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}))
+            ]
+            for r_name, r_perms in default_roles:
+                conn.execute(text("INSERT INTO auth_roles (role_name, permissions) VALUES (:n, :p)"), {"n": r_name, "p": r_perms})
+        else:
+            # Upgrade existing DB roles if they don't have favoritos-seguimiento
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"favoritos-seguimiento": true}'::jsonb
+                WHERE NOT (permissions ? 'favoritos-seguimiento')
+            """))
+except Exception as e:
+    print(f"Error creando tablas de favoritos/notas/roles: {e}")
+
 # Utilidades de Seguridad
 def verify_password(plain_password, password_hash):
     return bcrypt.checkpw(plain_password.encode('utf-8'), password_hash.encode('utf-8'))
@@ -93,6 +214,27 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
+    # 1. Custom user permissions override
+    user_perm = conn.execute(text("SELECT permissions FROM auth_users WHERE username = :u"), {"u": username}).scalar()
+    if user_perm is not None:
+        return user_perm
+
+    # 2. Role permissions
+    if role_name:
+        role_perm = conn.execute(text("SELECT permissions FROM auth_roles WHERE role_name = :r"), {"r": role_name}).scalar()
+        if role_perm is not None:
+            return role_perm
+
+    # 3. Hardcoded Fallbacks
+    r_lower = (role_name or "").lower()
+    if r_lower in ['admin', 'administrador']:
+        return {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+    elif r_lower == 'seguimiento':
+        return {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+    else:
+        return {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -102,10 +244,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        role: str = payload.get("role")
         if username is None:
             raise credentials_exception
-        return User(username=username, role=role)
+            
+        with engine.connect() as conn:
+            user_row = conn.execute(text("""
+                SELECT username, role, full_name, sector 
+                FROM auth_users WHERE username = :u
+            """), {"u": username}).fetchone()
+            if not user_row:
+                raise credentials_exception
+            
+            resolved_perms = get_resolved_permissions(conn, user_row[0], user_row[1])
+            return User(
+                username=user_row[0],
+                role=user_row[1],
+                full_name=user_row[2],
+                sector=user_row[3],
+                permissions=resolved_perms
+            )
     except JWTError:
         raise credentials_exception
 
@@ -143,6 +300,8 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
                 "name": result[3]
             })
             
+            resolved_perms = get_resolved_permissions(conn, result[0], result[2])
+            
             return {
                 "access_token": access_token, 
                 "token_type": "bearer", 
@@ -150,7 +309,8 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
                 "role": result[2],
                 "full_name": result[3] or result[0],
                 "sector": result[4] or "General",
-                "needs_password_change": result[5]
+                "needs_password_change": result[5],
+                "permissions": resolved_perms
             }
     except HTTPException:
         raise
@@ -185,11 +345,12 @@ async def health_check():
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+            db_url = os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PUBLIC") or os.getenv("DATABASE_URL_LOCAL") or "sade_db"
             return {
                 "status": "online",
                 "database": "connected",
                 "detected_var": db_var,
-                "db_name": DATABASE_URL.split('/')[-1].split('?')[0]
+                "db_name": db_url.split('/')[-1].split('?')[0]
             }
     except Exception as e:
         return {
@@ -206,7 +367,7 @@ async def list_users(current_user: User = Depends(get_current_user)):
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
-                SELECT id, username, role, full_name, sector, email, needs_password_change, created_at 
+                SELECT id, username, role, full_name, sector, email, needs_password_change, created_at, permissions 
                 FROM auth_users ORDER BY username
             """))
             return [dict(r._mapping) for r in result]
@@ -237,6 +398,11 @@ async def update_user(username: str, data: UserUpdate, current_user: User = Depe
             updates.append("password_hash = :p")
             params["p"] = bcrypt.hashpw(data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             updates.append("needs_password_change = TRUE")
+            
+        if "permissions" in data.model_fields_set:
+            import json
+            updates.append("permissions = :p_override")
+            params["p_override"] = json.dumps(data.permissions) if data.permissions is not None else None
 
         if not updates:
             return {"status": "ok", "message": "Nada que actualizar"}
@@ -288,6 +454,165 @@ async def delete_user(username: str, current_user: User = Depends(get_current_us
             conn.execute(text("DELETE FROM auth_users WHERE username = :u"), {"u": username})
             return {"status": "ok"}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints de Roles (Admin) ---
+
+@app.get("/api/admin/roles")
+async def list_roles(current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT role_name, permissions FROM auth_roles ORDER BY role_name"))
+            return [dict(r._mapping) for r in result]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/roles")
+async def create_role(role_data: RoleCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    r_name = role_data.role_name.strip().lower()
+    if not r_name:
+        raise HTTPException(status_code=400, detail="El nombre del rol no puede estar vacío")
+    try:
+        import json
+        default_perms = json.dumps({
+            "admin": False,
+            "dgroc": True,
+            "dgiur": True,
+            "family": True,
+            "seguimiento": False,
+            "cierre": False,
+            "sla": False,
+            "subsanaciones": False,
+            "buscador": True,
+            "favoritos": True
+        })
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO auth_roles (role_name, permissions) VALUES (:n, :p) ON CONFLICT DO NOTHING"),
+                {"n": r_name, "p": default_perms}
+            )
+            return {"status": "ok", "message": f"Rol {r_name} creado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/roles/{role_name}")
+async def update_role(role_name: str, role_update: RoleUpdate, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        import json
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE auth_roles SET permissions = :p WHERE role_name = :n"),
+                {"p": json.dumps(role_update.permissions), "n": role_name}
+            )
+            return {"status": "ok", "message": "Permisos del rol actualizados"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/roles/{role_name}")
+async def delete_role(role_name: str, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    if role_name.lower() in ['admin', 'administrador', 'seguimiento', 'usuario', 'user']:
+        raise HTTPException(status_code=400, detail="No se pueden eliminar los roles integrados del sistema")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM auth_roles WHERE role_name = :n"), {"n": role_name})
+            return {"status": "ok", "message": f"Rol {role_name} eliminado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/metas")
+async def list_metas(current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT c.id, c.gerencia, c.trata_reporte, c.tratas_incluidas, c.buzones_ingreso, 
+                       c.analistas_oficiales, c.acronimos_egreso, c.activo, c.firmantes_egreso, 
+                       c.buzones_ingreso_intervenciones, c.descripciones_validas,
+                       COALESCE(c.descripcion_trata, (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = c.trata_reporte LIMIT 1)) as descripcion_trata
+                FROM cfg_gestion_metas c
+                ORDER BY c.gerencia, c.trata_reporte
+            """))
+            metas = []
+            for row in result:
+                d = dict(row._mapping)
+                for array_field in ['tratas_incluidas', 'buzones_ingreso', 'analistas_oficiales', 
+                                    'acronimos_egreso', 'firmantes_egreso', 
+                                    'buzones_ingreso_intervenciones', 'descripciones_validas']:
+                    if d.get(array_field) is None:
+                        d[array_field] = []
+                metas.append(d)
+            return metas
+    except Exception as e:
+        logger.error(f"Error listing metas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/metas/{meta_id}")
+async def update_meta(meta_id: int, data: MetaUpdateRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE cfg_gestion_metas 
+                    SET tratas_incluidas = :tratas_incluidas,
+                        buzones_ingreso = :buzones_ingreso,
+                        analistas_oficiales = :analistas_oficiales,
+                        acronimos_egreso = :acronimos_egreso,
+                        activo = :activo,
+                        firmantes_egreso = :firmantes_egreso,
+                        buzones_ingreso_intervenciones = :buzones_ingreso_intervenciones,
+                        descripciones_validas = :descripciones_validas,
+                        descripcion_trata = :descripcion_trata
+                    WHERE id = :meta_id
+                """),
+                {
+                    "tratas_incluidas": data.tratas_incluidas,
+                    "buzones_ingreso": data.buzones_ingreso,
+                    "analistas_oficiales": data.analistas_oficiales,
+                    "acronimos_egreso": data.acronimos_egreso,
+                    "activo": data.activo,
+                    "firmantes_egreso": data.firmantes_egreso or [],
+                    "buzones_ingreso_intervenciones": data.buzones_ingreso_intervenciones or [],
+                    "descripciones_validas": data.descripciones_validas or [],
+                    "descripcion_trata": data.descripcion_trata,
+                    "meta_id": meta_id
+                }
+            )
+            return {"status": "ok", "message": "Configuración de meta actualizada"}
+    except Exception as e:
+        logger.error(f"Error updating meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/sade_users/search")
+async def search_sade_users(q: str = Query(..., min_length=2), current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        search_pattern = f"%{q}%"
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    SELECT DISTINCT usuario, apellido_nombre, codigo_sector_interno 
+                    FROM datos_usuario 
+                    WHERE usuario ILIKE :q OR apellido_nombre ILIKE :q 
+                    ORDER BY apellido_nombre 
+                    LIMIT 30
+                """),
+                {"q": search_pattern}
+            )
+            return [dict(r._mapping) for r in result]
+    except Exception as e:
+        logger.error(f"Error searching SADE users: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Endpoints de Reportes (Protegidos) ---
@@ -508,8 +833,15 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
                         END as "STOCK_SUBS"
                     FROM periodos p
                     CROSS JOIN (
-                        SELECT DISTINCT trata, descripcion_trata FROM mvw_expedientes_tratas_secgdu 
-                        WHERE trata IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
+                        SELECT DISTINCT 
+                            t.trata, 
+                            COALESCE(
+                                (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = t.trata AND gerencia = :g LIMIT 1),
+                                (SELECT descripcion_trata FROM cfg_gestion_metas WHERE t.trata = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                                t.descripcion_trata
+                            ) as descripcion_trata 
+                        FROM mvw_expedientes_tratas_secgdu t
+                        WHERE t.trata IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
                         UNION ALL
                         SELECT 'INTERVENCIONES', 'Intervenciones'
                     ) et
@@ -1144,7 +1476,13 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
             if trata == 'INTERVENCIONES':
                 nombre_trata = "Intervenciones"
             else:
-                trata_info = conn.execute(text("SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                trata_info = conn.execute(text("""
+                    SELECT COALESCE(
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1)
+                    )
+                """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
 
             # Seleccionamos directamente los valores de la vista histórica para asegurar consistencia total con la tabla
@@ -1155,6 +1493,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                 
                 # Definir tabla de egresos de intervenciones (Contable tiene nombre distinto)
                 interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+                egr_trata_where = "trata = 'INTERVENCIONES'" if trata == 'INTERVENCIONES' else f"trata = '{trata}'"
 
                 sql = f"""
                     WITH periodos AS (
@@ -1174,7 +1513,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                             UNION ALL
                             SELECT fecha_egreso, 'INTERVENCIONES' as trata FROM {interv_egr_table}
                         ) t_egr
-                        WHERE {'trata = \'INTERVENCIONES\'' if trata == 'INTERVENCIONES' else f"trata = '{trata}'"}
+                        WHERE {egr_trata_where}
                         GROUP BY 1
                     ),
                     egr_ne AS (
@@ -1266,7 +1605,13 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
             if trata == 'INTERVENCIONES':
                 nombre_trata = "Intervenciones"
             else:
-                trata_info = conn.execute(text("SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
+                trata_info = conn.execute(text("""
+                    SELECT COALESCE(
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1)
+                    )
+                """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
 
             # Usamos la vista materializada optimizada para el detalle si está disponible
@@ -1280,12 +1625,13 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 sql = f"""
                     SELECT {view_name}.id_expediente, {view_name}.expediente, {view_name}.fecha_primer_ingreso_gerencia as fecha_ing, 
                            {view_name}.fecha_recepcion_analista as fecha_ultimo_pase, 
-                           {view_name}.dias_en_poder_actual as dias, {view_name}.analista, {view_name}.trata, 
+                           {view_name}.dias_en_poder_actual as dias, {view_name}.analista, du.apellido_nombre as analista_nombre, {view_name}.trata, 
                            ext.fecha_creacion as caratula,
                            ext.descripcion_trata, ext.descripcion, ext.estado as estado_expediente,
                            (CURRENT_DATE - {view_name}.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
                     FROM {view_name}
                     LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = {view_name}.id_expediente
+                    LEFT JOIN datos_usuario du ON {view_name}.analista = du.usuario
                     WHERE {f"{view_name}.trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
                 """
                 result = conn.execute(text(sql))
@@ -1298,6 +1644,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 
                 for row in rows:
                     analista = row.get('analista') or 'SIN ASIGNAR'
+                    analista_nombre = row.get('analista_nombre') or analista
                     dias = row.get('dias') or 0
                     f_pase = row.get('fecha_ultimo_pase')
                     
@@ -1308,7 +1655,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
 
                     # Agrupación por Analista y Rango
                     if analista not in analyst_data:
-                        analyst_data[analista] = {"analista": analista, "TOTAL": 0}
+                        analyst_data[analista] = {"analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0}
                         for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
                     
                     analyst_data[analista]["TOTAL"] += 1
@@ -1340,13 +1687,14 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
 
                 sql = f"""
                     SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
-                           dias_ultimo_movimiento as dias, analista_actual as analista, trata,
+                           dias_ultimo_movimiento as dias, analista_actual as analista, du.apellido_nombre as analista_nombre, trata,
                            (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as caratula,
                            (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion_trata,
                            (SELECT descripcion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion,
                            (SELECT estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as estado_expediente,
                            dias_stock as dias_en_gerencia
                     FROM mvw_stock_actual_detalle
+                    LEFT JOIN datos_usuario du ON mvw_stock_actual_detalle.analista_actual = du.usuario
                     WHERE trata_reporte = :t 
                       AND gerencia = :g
                       AND is_subs = 0
@@ -1366,10 +1714,11 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 
                 for row in rows:
                     analista = row.get('analista') or 'SIN ASIGNAR'
+                    analista_nombre = row.get('analista_nombre') or analista
                     dias = row.get('dias') or 0
                     
                     if analista not in analyst_data:
-                        analyst_data[analista] = {"analista": analista, "TOTAL": 0}
+                        analyst_data[analista] = {"analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0}
                         for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
                     
                     analyst_data[analista]["TOTAL"] += 1
@@ -1391,6 +1740,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         "fecha_ultimo_pase": r.get("fecha_ultimo_pase").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ultimo_pase") and hasattr(r.get("fecha_ultimo_pase"), "strftime") else None,
                         "dias": r.get("dias") if r.get("dias") is not None else 0,
                         "analista": r.get("analista"),
+                        "analista_nombre": r.get("analista_nombre") or r.get("analista"),
                         "trata": r.get("trata"),
                         "caratula": r.get("caratula").strftime("%Y-%m-%d %H:%M:%S") if r.get("caratula") and hasattr(r.get("caratula"), "strftime") else (str(r.get("caratula"))[:19] if r.get("caratula") else None),
                         "descripcion_trata": r.get("descripcion_trata"),
@@ -1403,6 +1753,85 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
             }
     except Exception as e:
         logger.error(f"Error en stock_detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/{gerencia}/buzones")
+async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_current_user)):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+    if gerencia_clean not in TRAMITES_CONFIG:
+        raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
+        
+    try:
+        with engine.connect() as conn:
+            sql = f"""
+                SELECT 
+                    s.id_expediente, 
+                    s.expediente, 
+                    s.fecha_primer_ingreso_gerencia, 
+                    s.fecha_recepcion_analista, 
+                    s.dias_en_poder_actual, 
+                    s.analista, 
+                    COALESCE(du.apellido_nombre, s.analista) as analista_nombre, 
+                    s.trata, 
+                    ext.fecha_creacion,
+                    COALESCE(
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = s.trata AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE s.trata = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                        ext.descripcion_trata
+                    ) as descripcion_trata, 
+                    ext.descripcion, 
+                    ext.estado as estado_expediente,
+                    (CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
+                FROM (
+                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata
+                    FROM mv_{gerencia_clean}_stock_propio
+                    UNION ALL
+                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata
+                    FROM mv_{gerencia_clean}_intervenciones_stock
+                ) s
+                LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = s.id_expediente
+                LEFT JOIN datos_usuario du ON s.analista = du.usuario
+            """
+            result = conn.execute(text(sql), {"g": gerencia_clean})
+            rows = [dict(r._mapping) for r in result.fetchall()]
+            
+            by_analyst = {}
+            for r in rows:
+                username = r["analista"] or "SIN_ASIGNAR"
+                name = r["analista_nombre"] or "Sin Asignar"
+                
+                fecha_ing = r["fecha_primer_ingreso_gerencia"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_primer_ingreso_gerencia"] and hasattr(r["fecha_primer_ingreso_gerencia"], "strftime") else (str(r["fecha_primer_ingreso_gerencia"])[:19] if r["fecha_primer_ingreso_gerencia"] else None)
+                fecha_pase = r["fecha_recepcion_analista"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_recepcion_analista"] and hasattr(r["fecha_recepcion_analista"], "strftime") else (str(r["fecha_recepcion_analista"])[:19] if r["fecha_recepcion_analista"] else None)
+                caratula = r["fecha_creacion"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_creacion"] and hasattr(r["fecha_creacion"], "strftime") else (str(r["fecha_creacion"])[:19] if r["fecha_creacion"] else None)
+                
+                exp_item = {
+                    "id_expediente": r["id_expediente"],
+                    "expediente": r["expediente"],
+                    "fecha_ing": fecha_ing,
+                    "fecha_ultimo_pase": fecha_pase,
+                    "dias": r["dias_en_poder_actual"] if r["dias_en_poder_actual"] is not None else 0,
+                    "trata": r["trata"],
+                    "caratula": caratula,
+                    "descripcion_trata": r["descripcion_trata"] or r["descripcion"] or "S/D",
+                    "estado_expediente": r["estado_expediente"] or "S/D",
+                    "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0
+                }
+                
+                if username not in by_analyst:
+                    by_analyst[username] = {
+                        "username": username,
+                        "name": name,
+                        "count": 0,
+                        "expedientes": []
+                    }
+                by_analyst[username]["expedientes"].append(exp_item)
+                by_analyst[username]["count"] += 1
+                
+            return sorted(list(by_analyst.values()), key=lambda x: x["count"], reverse=True)
+    except Exception as e:
+        logger.error(f"Error fetching gerencia buzones: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/intervenciones/detalle")
@@ -2454,14 +2883,21 @@ async def get_sla_expedientes(
                 WITH subs_dias AS (
                     SELECT 
                         id_expediente,
-                        COALESCE(SUM(
-                            CASE 
-                                WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
-                                ELSE (CURRENT_DATE - fecha_alta::date)
-                            END
-                        ), 0) AS dias_subs
-                    FROM mvw_ee_actividades_secgdu
-                    WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                        CASE 
+                            WHEN COUNT(*) > 20 THEN 0
+                            ELSE COALESCE(SUM(
+                                CASE 
+                                    WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
+                                    WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
+                                    ELSE (CURRENT_DATE - fecha_alta::date)
+                                END
+                            ), 0)
+                        END AS dias_subs
+                    FROM (
+                        SELECT DISTINCT id_expediente, fecha_alta, fecha_cierre
+                        FROM mvw_ee_actividades_secgdu
+                        WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ) t
                     GROUP BY id_expediente
                 )
                 SELECT 
@@ -2503,6 +2939,1146 @@ async def get_sla_expedientes(
         logger.error(f"Error en reporte/sla/expedientes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/expediente/buscar")
+async def buscar_expediente(
+    anio: str,
+    numero: str,
+    reparticion: str,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # Formatear el patrón de búsqueda (con y sin ceros a la izquierda)
+        clean_num = numero.lstrip('0') or '0'
+        pattern1 = f"EX-{anio}-{numero}-%-{reparticion}"
+        pattern2 = f"EX-{anio}-{clean_num}-%-{reparticion}"
+        
+        with engine.connect() as conn:
+            # 1. Buscar expediente en mvw_expedientes_tratas_secgdu
+            sql = """
+                SELECT id_expediente, expediente, trata, descripcion_trata, estado, fecha_creacion,
+                       COALESCE((
+                           SELECT 
+                               CASE 
+                                   WHEN COUNT(*) > 20 THEN 0
+                                   ELSE SUM(
+                                       CASE 
+                                           WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
+                                           WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
+                                           ELSE (CURRENT_DATE - fecha_alta::date)
+                                       END
+                                   )
+                               END
+                           FROM (
+                               SELECT DISTINCT fecha_alta, fecha_cierre
+                               FROM mvw_ee_actividades_secgdu
+                               WHERE id_expediente = mvw_expedientes_tratas_secgdu.id_expediente
+                                 AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                           ) t
+                       ), 0) AS dias_subsanacion,
+                       COALESCE((
+                           SELECT 
+                               CASE 
+                                   WHEN COUNT(*) > 20 THEN 0
+                                   ELSE COUNT(*)
+                               END
+                           FROM (
+                               SELECT DISTINCT fecha_alta, fecha_cierre
+                               FROM mvw_ee_actividades_secgdu
+                               WHERE id_expediente = mvw_expedientes_tratas_secgdu.id_expediente
+                                 AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                           ) t
+                       ), 0) AS cant_subsanaciones,
+                       COALESCE((
+                           SELECT dias_stock 
+                           FROM mvw_stock_actual_detalle 
+                           WHERE id_expediente = mvw_expedientes_tratas_secgdu.id_expediente 
+                           LIMIT 1
+                       ), 0) AS dias_stock
+                FROM mvw_expedientes_tratas_secgdu
+                WHERE expediente LIKE :pattern1 OR expediente LIKE :pattern2
+            """
+            res = conn.execute(text(sql), {
+                "pattern1": pattern1,
+                "pattern2": pattern2
+            }).fetchall()
+            if not res:
+                return []
+            
+            expedientes = []
+            for row in res:
+                r = row._mapping
+                id_exp = r.get("id_expediente")
+                trata = r.get("trata")
+                expediente_nro = r.get("expediente")
+                estado = r.get("estado")
+                
+                # Intentar obtener gerencia a partir del trata
+                gerencia = None
+                trata_upper = trata.strip().upper() if trata else ""
+                trata_overrides = {
+                    "MDUG3001A": "etapa_proyecto",
+                    "MDUG0104A": "etapa_proyecto",
+                    "MDUG1501J": "etapa_proyecto",
+                    "MDUG0142A": "etapa_proyecto",
+                    "MDUG4003A": "etapa_proyecto"
+                }
+                
+                if trata_upper in trata_overrides:
+                    gerencia = trata_overrides[trata_upper]
+                else:
+                    for g, config in TRAMITES_CONFIG.items():
+                        if trata_upper in config:
+                            gerencia = g
+                            break
+                
+                ubicacion = "EN FLUJO"
+                analista = None
+                fecha_movimiento = None
+                
+                if gerencia:
+                    # Consultar stock propio oficial
+                    try:
+                        sp = conn.execute(text(f"""
+                            SELECT analista, fecha_recepcion_analista 
+                            FROM mv_{gerencia}_stock_propio 
+                            WHERE id_expediente = :id LIMIT 1
+                        """), {"id": id_exp}).fetchone()
+                        if sp:
+                            ubicacion = "STOCK PROPIO"
+                            analista = sp[0]
+                            fecha_movimiento = sp[1]
+                    except Exception:
+                        pass
+                        
+                    # Consultar subsanaciones oficial
+                    if ubicacion == "EN FLUJO":
+                        try:
+                            sub = conn.execute(text(f"""
+                                SELECT analista, fecha_recepcion_analista 
+                                FROM mv_{gerencia}_subsanaciones 
+                                WHERE id_expediente = :id LIMIT 1
+                            """), {"id": id_exp}).fetchone()
+                            if sub:
+                                ubicacion = "SUBSANACION"
+                                analista = sub[0]
+                                fecha_movimiento = sub[1]
+                        except Exception:
+                            pass
+                            
+                    # Consultar stock de intervenciones
+                    if ubicacion == "EN FLUJO":
+                        try:
+                            sp_int = conn.execute(text(f"""
+                                SELECT analista 
+                                FROM mv_{gerencia}_intervenciones_stock 
+                                WHERE id_expediente = :id LIMIT 1
+                            """), {"id": id_exp}).fetchone()
+                            if sp_int:
+                                ubicacion = "STOCK PROPIO (INTERVENCION)"
+                                analista = sp_int[0]
+                        except Exception:
+                            pass
+                            
+                    # Consultar subsanaciones de intervenciones
+                    if ubicacion == "EN FLUJO":
+                        try:
+                            sub_int = conn.execute(text(f"""
+                                SELECT analista 
+                                FROM mv_{gerencia}_intervenciones_subs 
+                                WHERE id_expediente = :id LIMIT 1
+                            """), {"id": id_exp}).fetchone()
+                            if sub_int:
+                                ubicacion = "SUBSANACION (INTERVENCION)"
+                                analista = sub_int[0]
+                        except Exception:
+                            pass
+                            
+                    # Consultar egreso efectivo
+                    if ubicacion == "EN FLUJO":
+                        try:
+                            egr_ef = conn.execute(text(f"""
+                                SELECT usuario_egreso, fecha_egreso 
+                                FROM mv_{gerencia}_gedos_egreso 
+                                WHERE id_expediente = :id LIMIT 1
+                            """), {"id": id_exp}).fetchone()
+                            if egr_ef:
+                                ubicacion = "EGRESADO"
+                                analista = egr_ef[0]
+                                fecha_movimiento = egr_ef[1]
+                        except Exception:
+                            pass
+                            
+                    # Consultar egreso no efectivo
+                    if ubicacion == "EN FLUJO":
+                        try:
+                            egr_ne = conn.execute(text(f"""
+                                SELECT poseedor_actual, fecha_ultimo_movimiento 
+                                FROM mv_{gerencia}_egresos_no_efectivos 
+                                WHERE id_expediente = :id LIMIT 1
+                            """), {"id": id_exp}).fetchone()
+                            if egr_ne:
+                                ubicacion = "EGRESADO (NO EFECTIVO)"
+                                analista = egr_ne[0]
+                                fecha_movimiento = egr_ne[1]
+                        except Exception:
+                            pass
+                
+                # Calculate dias_tramitacion
+                d_tramitacion = 0
+                f_creacion = r.get("fecha_creacion")
+                if f_creacion:
+                    if hasattr(f_creacion, "date"):
+                        f_creacion_date = f_creacion.date()
+                    else:
+                        f_creacion_date = datetime.strptime(str(f_creacion)[:10], "%Y-%m-%d").date()
+                    
+                    if ubicacion.startswith("EGRESADO") and fecha_movimiento:
+                        if hasattr(fecha_movimiento, "date"):
+                            f_mov_date = fecha_movimiento.date()
+                        else:
+                            f_mov_date = datetime.strptime(str(fecha_movimiento)[:10], "%Y-%m-%d").date()
+                        d_tramitacion = (f_mov_date - f_creacion_date).days
+                    else:
+                        d_tramitacion = (date.today() - f_creacion_date).days
+
+                expedientes.append({
+                    "id_expediente": id_exp,
+                    "expediente": expediente_nro,
+                    "trata": trata,
+                    "descripcion_trata": r.get("descripcion_trata"),
+                    "gerencia": gerencia.upper() if gerencia else reparticion,
+                    "estado": estado,
+                    "ubicacion": ubicacion,
+                    "analista": analista or "SIN ASIGNAR",
+                    "fecha_ultimo_pase": fecha_movimiento.strftime("%Y-%m-%d %H:%M:%S") if fecha_movimiento and hasattr(fecha_movimiento, "strftime") else (str(fecha_movimiento)[:19] if fecha_movimiento else None),
+                    "fecha_creacion": r.get("fecha_creacion").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_creacion") and hasattr(r.get("fecha_creacion"), "strftime") else (str(r.get("fecha_creacion"))[:19] if r.get("fecha_creacion") else None),
+                    "dias_tramitacion": max(0, d_tramitacion),
+                    "dias_subsanacion": int(r.get("dias_subsanacion") or 0),
+                    "cant_subsanaciones": int(r.get("cant_subsanaciones") or 0),
+                    "dias_stock": int(r.get("dias_stock") or 0)
+                })
+            return expedientes
+    except Exception as e:
+        logger.error(f"Error en buscar_expediente: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class SearchRule(BaseModel):
+    field: str
+    operator: str
+    value: Any
+
+class AdvancedSearchRequest(BaseModel):
+    conjunction: str
+    rules: List[SearchRule]
+
+@app.post("/api/expediente/buscar_avanzado")
+async def buscar_expediente_avanzado(
+    data: AdvancedSearchRequest,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        conjunction = data.conjunction.upper()
+        if conjunction not in ["AND", "OR"]:
+            raise HTTPException(status_code=400, detail="Conjunción inválida. Debe ser AND u OR.")
+            
+        field_mapping = {
+            "analista": "analista_actual",
+            "dias_stock": "dias_stock",
+            "gerencia": "gerencia",
+            "trata": "trata",
+            "is_subs": "is_subs"
+        }
+        
+        op_mapping = {
+            "eq": "=",
+            "ne": "!=",
+            "gt": ">",
+            "gte": ">=",
+            "lt": "<",
+            "lte": "<=",
+            "like": "LIKE"
+        }
+
+        where_clauses = []
+        params = {}
+        
+        for i, rule in enumerate(data.rules):
+            field = rule.field.lower()
+            operator = rule.operator.lower()
+            val = rule.value
+            
+            if field not in field_mapping:
+                raise HTTPException(status_code=400, detail=f"Campo de búsqueda no permitido: {field}")
+            if operator not in op_mapping:
+                raise HTTPException(status_code=400, detail=f"Operador no permitido: {operator}")
+                
+            db_field = field_mapping[field]
+            db_op = op_mapping[operator]
+            param_name = f"val_{i}"
+            
+            if operator == "like":
+                val = f"%{val}%"
+                
+            if field == "dias_stock":
+                try:
+                    val = int(val)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="El valor para dias_stock debe ser un número entero.")
+            elif field == "is_subs":
+                try:
+                    val = int(val)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="El valor para is_subs debe ser 0 o 1.")
+            else:
+                val = str(val)
+                
+            where_clauses.append(f"{db_field} {db_op} :{param_name}")
+            params[param_name] = val
+            
+        if not where_clauses:
+            return []
+            
+        where_sql = f" {conjunction} ".join(where_clauses)
+        
+        sql = f"""
+            SELECT id_expediente, expediente, trata, gerencia, is_subs, analista_actual as analista, dias_stock,
+                   fecha_ing, fecha_ultimo_pase,
+                   (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion_trata,
+                   (SELECT estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as estado,
+                   (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as fecha_creacion,
+                   COALESCE((
+                       SELECT 
+                           CASE 
+                               WHEN COUNT(*) > 20 THEN 0
+                               ELSE SUM(
+                                   CASE 
+                                       WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
+                                       WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
+                                       ELSE (CURRENT_DATE - fecha_alta::date)
+                                   END
+                               )
+                           END
+                       FROM (
+                           SELECT DISTINCT fecha_alta, fecha_cierre
+                           FROM mvw_ee_actividades_secgdu
+                           WHERE id_expediente = mvw_stock_actual_detalle.id_expediente
+                             AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                       ) t
+                   ), 0) AS dias_subsanacion,
+                   COALESCE((
+                       SELECT 
+                           CASE 
+                               WHEN COUNT(*) > 20 THEN 0
+                               ELSE COUNT(*)
+                           END
+                       FROM (
+                           SELECT DISTINCT fecha_alta, fecha_cierre
+                           FROM mvw_ee_actividades_secgdu
+                           WHERE id_expediente = mvw_stock_actual_detalle.id_expediente
+                             AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                       ) t
+                   ), 0) AS cant_subsanaciones
+            FROM mvw_stock_actual_detalle
+            WHERE {where_sql}
+        """
+        
+        with engine.connect() as conn:
+            res = conn.execute(text(sql), params).fetchall()
+            expedientes = []
+            for row in res:
+                r = row._mapping
+                id_exp = r.get("id_expediente")
+                expediente_nro = r.get("expediente")
+                trata = r.get("trata")
+                gerencia = r.get("gerencia")
+                is_subs = r.get("is_subs")
+                analista = r.get("analista")
+                dias_stock = r.get("dias_stock")
+                fecha_ing = r.get("fecha_ing")
+                fecha_ultimo_pase = r.get("fecha_ultimo_pase")
+                descripcion_trata = r.get("descripcion_trata")
+                estado = r.get("estado")
+                fecha_creacion = r.get("fecha_creacion")
+                
+                if is_subs == 1:
+                    ubicacion = "SUBSANACION"
+                else:
+                    ubicacion = "STOCK PROPIO"
+                    
+                if gerencia:
+                    trata_codes = list(TRAMITES_CONFIG.get(gerencia, {}).keys())
+                    is_official = trata in [t for t in trata_codes if t != 'INTERVENCIONES']
+                    if not is_official:
+                        ubicacion += " (INTERVENCION)"
+                
+                # Calculate dias_tramitacion
+                d_tramitacion = 0
+                f_creacion = r.get("fecha_creacion")
+                if f_creacion:
+                    if hasattr(f_creacion, "date"):
+                        f_creacion_date = f_creacion.date()
+                    else:
+                        f_creacion_date = datetime.strptime(str(f_creacion)[:10], "%Y-%m-%d").date()
+                    d_tramitacion = (date.today() - f_creacion_date).days
+
+                expedientes.append({
+                    "id_expediente": id_exp,
+                    "expediente": expediente_nro,
+                    "trata": trata,
+                    "descripcion_trata": descripcion_trata,
+                    "gerencia": gerencia.upper() if gerencia else "-",
+                    "estado": estado,
+                    "ubicacion": ubicacion,
+                    "analista": analista or "SIN ASIGNAR",
+                    "fecha_ultimo_pase": fecha_ultimo_pase.strftime("%Y-%m-%d %H:%M:%S") if fecha_ultimo_pase and hasattr(fecha_ultimo_pase, "strftime") else (str(fecha_ultimo_pase)[:19] if fecha_ultimo_pase else None),
+                    "fecha_creacion": fecha_creacion.strftime("%Y-%m-%d %H:%M:%S") if fecha_creacion and hasattr(fecha_creacion, "strftime") else (str(fecha_creacion)[:19] if fecha_creacion else None),
+                    "dias_tramitacion": max(0, d_tramitacion),
+                    "dias_subsanacion": int(r.get("dias_subsanacion") or 0),
+                    "cant_subsanaciones": int(r.get("cant_subsanaciones") or 0),
+                    "dias_stock": int(r.get("dias_stock") or 0)
+                })
+            return expedientes
+    except Exception as e:
+        logger.error(f"Error en buscar_expediente_avanzado: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+            
+# --- Endpoints de Favoritos de Expedientes ---
+# --- Endpoints de Favoritos de Expedientes ---
+class FavoriteRequest(BaseModel):
+    expediente: str
+    folder_id: Optional[int] = None
+
+class FolderCreateRequest(BaseModel):
+    name: str
+
+class MoveFavoriteRequest(BaseModel):
+    expediente: str
+    folder_id: Optional[int] = None
+
+class FavoriteNoteRequest(BaseModel):
+    note_text: str
+
+@app.post("/api/expediente/favorito")
+async def add_favorito(data: FavoriteRequest, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO user_favorites (username, expediente, folder_id)
+                VALUES (:u, :exp, :f_id)
+                ON CONFLICT (username, expediente) DO UPDATE SET folder_id = EXCLUDED.folder_id
+            """), {"u": current_user.username, "exp": data.expediente, "f_id": data.folder_id})
+        return {"status": "ok", "message": "Expediente agregado a favoritos"}
+    except Exception as e:
+        logger.error(f"Error agregando favorito: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/expediente/favorito/{expediente}")
+async def remove_favorito(expediente: str, current_user: User = Depends(get_current_user)):
+    try:
+        # Decodificar URL en caso de espacios
+        from urllib.parse import unquote
+        clean_exp = unquote(expediente)
+        with engine.begin() as conn:
+            conn.execute(text("""
+                DELETE FROM user_favorites 
+                WHERE username = :u AND expediente = :exp
+            """), {"u": current_user.username, "exp": clean_exp})
+        return {"status": "ok", "message": "Expediente removido de favoritos"}
+    except Exception as e:
+        logger.error(f"Error eliminando favorito: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/expediente/favoritos")
+async def get_favoritos(current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    f.expediente,
+                    f.folder_id,
+                    et.id_expediente,
+                    et.trata,
+                    et.descripcion_trata,
+                    et.estado,
+                    et.fecha_creacion,
+                    sad.analista_actual as analista,
+                    sad.dias_stock,
+                    sad.gerencia,
+                    sad.is_subs,
+                    sad.fecha_ultimo_pase,
+                    COALESCE((
+                        SELECT 
+                            CASE 
+                                WHEN COUNT(*) > 20 THEN 0
+                                ELSE SUM(
+                                    CASE 
+                                        WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
+                                        WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
+                                        ELSE (CURRENT_DATE - fecha_alta::date)
+                                    END
+                                )
+                            END
+                        FROM (
+                            SELECT DISTINCT fecha_alta, fecha_cierre
+                            FROM mvw_ee_actividades_secgdu
+                            WHERE id_expediente = et.id_expediente
+                              AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                        ) t
+                    ), 0) AS dias_subsanacion,
+                    COALESCE((
+                        SELECT 
+                            CASE 
+                                WHEN COUNT(*) > 20 THEN 0
+                                ELSE COUNT(*)
+                              END
+                        FROM (
+                            SELECT DISTINCT fecha_alta, fecha_cierre
+                            FROM mvw_ee_actividades_secgdu
+                            WHERE id_expediente = et.id_expediente
+                              AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                        ) t
+                    ), 0) AS cant_subsanaciones,
+                    (SELECT COUNT(*) FROM user_favorite_notes WHERE username = f.username AND expediente = f.expediente) AS cant_notas,
+                    (SELECT note_text FROM user_favorite_notes WHERE username = f.username AND expediente = f.expediente ORDER BY created_at DESC LIMIT 1) AS ultima_nota_favorito,
+                    ef.direccion AS ficha_direccion,
+                    ef.responsable AS ficha_responsable,
+                    u_resp.full_name AS ficha_responsable_name,
+                    ef.estado AS ficha_estado,
+                    ef.prioridad AS ficha_prioridad,
+                    ef.proxima_reunion AS ficha_proxima_reunion,
+                    (SELECT note_text FROM expediente_ficha_internal_notes WHERE expediente = f.expediente ORDER BY created_at DESC LIMIT 1) AS ficha_notas_internas,
+                    (SELECT u.full_name FROM expediente_ficha_internal_notes n LEFT JOIN auth_users u ON n.username = u.username WHERE n.expediente = f.expediente ORDER BY n.created_at DESC LIMIT 1) AS ficha_notas_internas_author,
+                    (SELECT n.created_at FROM expediente_ficha_internal_notes n WHERE n.expediente = f.expediente ORDER BY n.created_at DESC LIMIT 1) AS ficha_notas_internas_date
+                FROM user_favorites f
+                LEFT JOIN mvw_expedientes_tratas_secgdu et ON et.expediente = f.expediente
+                LEFT JOIN mvw_stock_actual_detalle sad ON sad.id_expediente = et.id_expediente
+                LEFT JOIN expediente_fichas ef ON ef.expediente = f.expediente
+                LEFT JOIN auth_users u_resp ON u_resp.username = ef.responsable
+                WHERE f.username = :username
+                ORDER BY f.created_at DESC
+            """
+            
+            res = conn.execute(text(sql), {"username": current_user.username}).fetchall()
+            expedientes = []
+            for row in res:
+                r = row._mapping
+                id_exp = r.get("id_expediente")
+                expediente_nro = r.get("expediente")
+                trata = r.get("trata")
+                estado = r.get("estado")
+                is_subs = r.get("is_subs")
+                analista = r.get("analista")
+                fecha_ultimo_pase = r.get("fecha_ultimo_pase")
+                fecha_creacion = r.get("fecha_creacion")
+                gerencia = r.get("gerencia")
+                
+                ubicacion = "EN FLUJO"
+                if is_subs == 1:
+                    ubicacion = "SUBSANACION"
+                elif analista:
+                    ubicacion = "STOCK PROPIO"
+                
+                if id_exp and gerencia:
+                    try:
+                        sp = conn.execute(text(f"SELECT analista FROM mv_{gerencia.lower()}_stock_propio WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                        if sp:
+                            ubicacion = "STOCK PROPIO"
+                            analista = sp[0]
+                    except Exception:
+                        pass
+                        
+                    if ubicacion == "EN FLUJO":
+                        try:
+                            sub = conn.execute(text(f"SELECT analista FROM mv_{gerencia.lower()}_subsanaciones WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                            if sub:
+                                ubicacion = "SUBSANACION"
+                                analista = sub[0]
+                        except Exception:
+                            pass
+                
+                d_tramitacion = 0
+                if fecha_creacion:
+                    if hasattr(fecha_creacion, "date"):
+                        f_creacion_date = fecha_creacion.date()
+                    else:
+                        f_creacion_date = datetime.strptime(str(fecha_creacion)[:10], "%Y-%m-%d").date()
+                    d_tramitacion = (date.today() - f_creacion_date).days
+                
+                expedientes.append({
+                    "id_expediente": id_exp,
+                    "expediente": expediente_nro,
+                    "folder_id": r.get("folder_id"),
+                    "trata": trata,
+                    "descripcion_trata": r.get("descripcion_trata") or "S/D",
+                    "gerencia": gerencia.upper() if gerencia else "-",
+                    "estado": estado or "DESCONOCIDO",
+                    "ubicacion": ubicacion,
+                    "analista": analista or "SIN ASIGNAR",
+                    "fecha_ultimo_pase": fecha_ultimo_pase.strftime("%Y-%m-%d %H:%M:%S") if fecha_ultimo_pase and hasattr(fecha_ultimo_pase, "strftime") else (str(fecha_ultimo_pase)[:19] if fecha_ultimo_pase else None),
+                    "fecha_creacion": fecha_creacion.strftime("%Y-%m-%d %H:%M:%S") if fecha_creacion and hasattr(fecha_creacion, "strftime") else (str(fecha_creacion)[:19] if fecha_creacion else None),
+                    "dias_tramitacion": max(0, d_tramitacion),
+                    "dias_subsanacion": int(r.get("dias_subsanacion") or 0),
+                    "cant_subsanaciones": int(r.get("cant_subsanaciones") or 0),
+                    "dias_stock": int(r.get("dias_stock") or 0),
+                    "cant_notas": int(r.get("cant_notas") or 0),
+                    "ficha_direccion": r.get("ficha_direccion") or "",
+                    "ficha_responsable": r.get("ficha_responsable") or "",
+                    "ficha_responsable_name": r.get("ficha_responsable_name") or r.get("ficha_responsable") or "",
+                    "ficha_estado": r.get("ficha_estado") or "",
+                    "ficha_prioridad": r.get("ficha_prioridad") or "",
+                    "ficha_proxima_reunion": bool(r.get("ficha_proxima_reunion")),
+                    "ficha_notas_internas": r.get("ficha_notas_internas") or "",
+                    "ficha_notas_internas_author": r.get("ficha_notas_internas_author") or "",
+                    "ficha_notas_internas_date": r.get("ficha_notas_internas_date").strftime("%Y-%m-%d %H:%M:%S") if r.get("ficha_notas_internas_date") and hasattr(r.get("ficha_notas_internas_date"), "strftime") else (str(r.get("ficha_notas_internas_date"))[:19] if r.get("ficha_notas_internas_date") else ""),
+                    "ultima_nota_favorito": r.get("ultima_nota_favorito") or ""
+                })
+            return expedientes
+    except Exception as e:
+        logger.error(f"Error listando favoritos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/expediente/favoritos/carpetas")
+async def get_favoritos_carpetas(current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    uf.id, 
+                    uf.name,
+                    (SELECT COUNT(*) FROM user_favorites WHERE folder_id = uf.id AND username = :u) as count
+                FROM user_favorite_folders uf
+                WHERE uf.username = :u
+                ORDER BY uf.name ASC
+            """
+            res = conn.execute(text(sql), {"u": current_user.username}).fetchall()
+            return [dict(r._mapping) for r in res]
+    except Exception as e:
+        logger.error(f"Error listando carpetas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/expediente/favoritos/carpetas")
+async def create_favorito_carpeta(data: FolderCreateRequest, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO user_favorite_folders (username, name)
+                VALUES (:u, :name)
+                ON CONFLICT (username, name) DO NOTHING
+            """), {"u": current_user.username, "name": data.name})
+        return {"status": "ok", "message": "Carpeta creada exitosamente"}
+    except Exception as e:
+        logger.error(f"Error creando carpeta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/expediente/favoritos/carpetas/{folder_id}")
+async def delete_favorito_carpeta(folder_id: int, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                DELETE FROM user_favorite_folders
+                WHERE id = :fid AND username = :u
+            """), {"fid": folder_id, "u": current_user.username})
+        return {"status": "ok", "message": "Carpeta eliminada exitosamente"}
+    except Exception as e:
+        logger.error(f"Error eliminando carpeta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/expediente/favorito/mover")
+async def move_favorito(data: MoveFavoriteRequest, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE user_favorites
+                SET folder_id = :fid
+                WHERE username = :u AND expediente = :exp
+            """), {"fid": data.folder_id, "u": current_user.username, "exp": data.expediente})
+        return {"status": "ok", "message": "Favorito movido exitosamente"}
+    except Exception as e:
+        logger.error(f"Error moviendo favorito: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/expediente/favorito/{expediente}/notas")
+async def get_favorito_notas(expediente: str, current_user: User = Depends(get_current_user)):
+    try:
+        from urllib.parse import unquote
+        clean_exp = unquote(expediente)
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    n.id, 
+                    n.note_text, 
+                    n.created_at,
+                    n.username,
+                    u.full_name as author_name,
+                    u.sector as author_sector
+                FROM user_favorite_notes n
+                LEFT JOIN auth_users u ON n.username = u.username
+                WHERE n.expediente = :exp
+                ORDER BY n.created_at DESC
+            """
+            res = conn.execute(text(sql), {"exp": clean_exp}).fetchall()
+            return [{
+                "id": r[0],
+                "note_text": r[1],
+                "created_at": r[2].strftime("%Y-%m-%d %H:%M:%S") if r[2] and hasattr(r[2], "strftime") else str(r[2])[:19],
+                "username": r[3],
+                "author_name": r[4] or r[3],
+                "author_sector": r[5] or "-",
+                "is_owner": r[3] == current_user.username
+            } for r in res]
+    except Exception as e:
+        logger.error(f"Error listando notas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/expediente/favorito/{expediente}/notas")
+async def create_favorito_nota(expediente: str, data: FavoriteNoteRequest, current_user: User = Depends(get_current_user)):
+    try:
+        from urllib.parse import unquote
+        clean_exp = unquote(expediente)
+        with engine.begin() as conn:
+            # Verificar que el expediente está favoritado por este usuario
+            fav = conn.execute(text("""
+                SELECT 1 FROM user_favorites WHERE username = :u AND expediente = :exp
+            """), {"u": current_user.username, "exp": clean_exp}).fetchone()
+            if not fav:
+                raise HTTPException(status_code=400, detail="El expediente debe estar agregado a favoritos para poder añadirle notas.")
+            
+            conn.execute(text("""
+                INSERT INTO user_favorite_notes (username, expediente, note_text)
+                VALUES (:u, :exp, :note)
+            """), {"u": current_user.username, "exp": clean_exp, "note": data.note_text})
+        return {"status": "ok", "message": "Nota guardada exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creando nota: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/expediente/favorito/notas/{note_id}")
+async def delete_favorito_nota(note_id: int, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                DELETE FROM user_favorite_notes
+                WHERE id = :nid AND username = :u
+            """), {"nid": note_id, "u": current_user.username})
+        return {"status": "ok", "message": "Nota eliminada exitosamente"}
+    except Exception as e:
+        logger.error(f"Error eliminando nota: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class FichaEditRequest(BaseModel):
+    direccion: Optional[str] = None
+    notas_internas: Optional[str] = None
+    responsable: Optional[str] = None
+    estado: Optional[str] = None
+    prioridad: Optional[str] = None
+    proxima_reunion: Optional[bool] = False
+
+@app.get("/api/usuarios-tablero")
+async def list_usuarios_tablero(current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT username, full_name FROM auth_users ORDER BY full_name"))
+            return [{"username": r.username, "full_name": r.full_name or r.username} for r in result]
+    except Exception as e:
+        logger.error(f"Error listando usuarios tablero: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/expediente/ficha/{expediente}")
+async def get_expediente_ficha(expediente: str, current_user: User = Depends(get_current_user)):
+    try:
+        from urllib.parse import unquote
+        clean_exp = unquote(expediente)
+        with engine.connect() as conn:
+            row = conn.execute(text("""
+                SELECT direccion, notas_internas, responsable, estado, prioridad, proxima_reunion
+                FROM expediente_fichas
+                WHERE expediente = :exp
+            """), {"exp": clean_exp}).fetchone()
+            
+            if row:
+                return {
+                    "direccion": row[0] or "",
+                    "notas_internas": row[1] or "",
+                    "responsable": row[2] or "",
+                    "estado": row[3] or "",
+                    "prioridad": row[4] or "",
+                    "proxima_reunion": bool(row[5])
+                }
+            else:
+                return {
+                    "direccion": "",
+                    "notas_internas": "",
+                    "responsable": "",
+                    "estado": "",
+                    "prioridad": "",
+                    "proxima_reunion": False
+                }
+    except Exception as e:
+        logger.error(f"Error obteniendo ficha: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class FichaInternalNoteEditRequest(BaseModel):
+    note_text: str
+
+@app.get("/api/expediente/ficha/{expediente}/notas_internas")
+async def get_ficha_notas_internas(expediente: str, current_user: User = Depends(get_current_user)):
+    try:
+        from urllib.parse import unquote
+        clean_exp = unquote(expediente)
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    n.id, 
+                    n.note_text, 
+                    n.created_at,
+                    n.username,
+                    u.full_name as author_name
+                FROM expediente_ficha_internal_notes n
+                LEFT JOIN auth_users u ON n.username = u.username
+                WHERE n.expediente = :exp
+                ORDER BY n.created_at DESC
+            """
+            res = conn.execute(text(sql), {"exp": clean_exp}).fetchall()
+            return [{
+                "id": r[0],
+                "note_text": r[1],
+                "created_at": r[2].strftime("%Y-%m-%d %H:%M:%S") if r[2] and hasattr(r[2], "strftime") else str(r[2])[:19],
+                "username": r[3],
+                "author_name": r[4] or r[3],
+                "is_owner": r[3] == current_user.username or current_user.role.lower() in ['admin', 'administrador']
+            } for r in res]
+    except Exception as e:
+        logger.error(f"Error listando notas internas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/expediente/ficha/nota/{note_id}")
+async def edit_ficha_internal_note(note_id: int, data: FichaInternalNoteEditRequest, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            note = conn.execute(text("SELECT username FROM expediente_ficha_internal_notes WHERE id = :nid"), {"nid": note_id}).fetchone()
+            if not note:
+                raise HTTPException(status_code=404, detail="Nota no encontrada")
+            if note[0] != current_user.username and current_user.role.lower() not in ['admin', 'administrador']:
+                raise HTTPException(status_code=403, detail="No tienes permisos para editar esta nota")
+                
+            conn.execute(text("""
+                UPDATE expediente_ficha_internal_notes
+                SET note_text = :note
+                WHERE id = :nid
+            """), {"nid": note_id, "note": data.note_text})
+        return {"status": "ok", "message": "Nota actualizada exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error editando nota de ficha: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/expediente/ficha/nota/{note_id}")
+async def delete_ficha_internal_note(note_id: int, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.begin() as conn:
+            note = conn.execute(text("SELECT username FROM expediente_ficha_internal_notes WHERE id = :nid"), {"nid": note_id}).fetchone()
+            if not note:
+                raise HTTPException(status_code=404, detail="Nota no encontrada")
+            if note[0] != current_user.username and current_user.role.lower() not in ['admin', 'administrador']:
+                raise HTTPException(status_code=403, detail="No tienes permisos para eliminar esta nota")
+                
+            conn.execute(text("""
+                DELETE FROM expediente_ficha_internal_notes
+                WHERE id = :nid
+            """), {"nid": note_id})
+        return {"status": "ok", "message": "Nota eliminada exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error eliminando nota de ficha: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/expediente/ficha/{expediente}")
+async def save_expediente_ficha(expediente: str, data: FichaEditRequest, current_user: User = Depends(get_current_user)):
+    try:
+        from urllib.parse import unquote
+        clean_exp = unquote(expediente)
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO expediente_fichas (expediente, direccion, responsable, estado, prioridad, proxima_reunion, updated_at)
+                VALUES (:exp, :dir, :resp, :est, :prio, :prox, CURRENT_TIMESTAMP)
+                ON CONFLICT (expediente) DO UPDATE SET
+                    direccion = EXCLUDED.direccion,
+                    responsable = EXCLUDED.responsable,
+                    estado = EXCLUDED.estado,
+                    prioridad = EXCLUDED.prioridad,
+                    proxima_reunion = EXCLUDED.proxima_reunion,
+                    updated_at = CURRENT_TIMESTAMP
+            """), {
+                "exp": clean_exp,
+                "dir": data.direccion,
+                "resp": data.responsable,
+                "est": data.estado,
+                "prio": data.prioridad,
+                "prox": data.proxima_reunion
+            })
+            
+            if data.notas_internas and data.notas_internas.strip():
+                conn.execute(text("""
+                    INSERT INTO expediente_ficha_internal_notes (expediente, username, note_text)
+                    VALUES (:exp, :username, :notes)
+                """), {
+                    "exp": clean_exp,
+                    "username": current_user.username,
+                    "notes": data.notas_internas.strip()
+                })
+        return {"status": "ok", "message": "Ficha de expediente guardada"}
+    except Exception as e:
+        logger.error(f"Error guardando ficha: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/subsanaciones")
+async def get_subsanaciones_report(
+    gerencia: Optional[str] = 'ALL',
+    current_user: User = Depends(get_current_user)
+):
+    g_param = gerencia.lower() if gerencia else 'all'
+    if g_param == 'conforme':
+        g_param = 'regularizacion'
+
+    gerencias_to_query = []
+    if g_param != 'all':
+        if g_param not in TRAMITES_CONFIG:
+            raise HTTPException(status_code=404, detail=f"Gerencia {gerencia} no encontrada.")
+        gerencias_to_query = [g_param]
+    else:
+        gerencias_to_query = list(TRAMITES_CONFIG.keys())
+
+    records = []
+    try:
+        with engine.connect() as conn:
+            for g in gerencias_to_query:
+                # Query 1: Trata-level
+                sql_trata = f"""
+                    WITH exp_total_subs AS (
+                        SELECT 
+                            u.trata,
+                            u.id_expediente,
+                            COUNT(*) as cant_subs,
+                            SUM(
+                                CASE 
+                                    WHEN a.fecha_alta IS NULL OR a.fecha_alta < '2015-01-01'::date THEN 0
+                                    WHEN a.fecha_cierre IS NOT NULL THEN (a.fecha_cierre::date - a.fecha_alta::date)
+                                    ELSE (CURRENT_DATE - a.fecha_alta::date)
+                                END
+                            ) as dias_subs
+                        FROM mv_{g}_universo u
+                        INNER JOIN mvw_ee_actividades_secgdu a ON u.id_expediente = a.id_expediente
+                        WHERE u.es_trata_propia = TRUE
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                        GROUP BY u.trata, u.id_expediente
+                    )
+                    SELECT 
+                        trata,
+                        COUNT(*) as total_expedientes,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY cant_subs)::numeric as mediana_cant,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias_subs)::numeric as mediana_dias
+                    FROM exp_total_subs
+                    GROUP BY trata
+                """
+                # Query 2: Analyst-level
+                sql_analyst = f"""
+                    WITH exp_subs AS (
+                        SELECT 
+                            u.trata,
+                            a.usuario_alta as analista,
+                            a.id_expediente,
+                            COUNT(*) as cant_subs,
+                            SUM(
+                                CASE 
+                                    WHEN a.fecha_alta IS NULL OR a.fecha_alta < '2015-01-01'::date THEN 0
+                                    WHEN a.fecha_cierre IS NOT NULL THEN (a.fecha_cierre::date - a.fecha_alta::date)
+                                    ELSE (CURRENT_DATE - a.fecha_alta::date)
+                                END
+                            ) as dias_subs
+                        FROM mv_{g}_universo u
+                        INNER JOIN mvw_ee_actividades_secgdu a ON u.id_expediente = a.id_expediente
+                        WHERE u.es_trata_propia = TRUE
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                        GROUP BY u.trata, a.usuario_alta, a.id_expediente
+                    )
+                    SELECT 
+                        t.trata,
+                        t.analista,
+                        COALESCE(du.apellido_nombre, t.analista) as analista_nombre,
+                        COALESCE(du.codigo_sector_interno, '-') as analista_sector,
+                        COUNT(*) as total_expedientes,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY t.cant_subs)::numeric as mediana_cant,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY t.dias_subs)::numeric as mediana_dias
+                    FROM exp_subs t
+                    LEFT JOIN datos_usuario du ON t.analista = du.usuario
+                    GROUP BY t.trata, t.analista, du.apellido_nombre, du.codigo_sector_interno
+                """
+                
+                try:
+                    trata_rows = conn.execute(text(sql_trata)).fetchall()
+                    analyst_rows = conn.execute(text(sql_analyst)).fetchall()
+                except Exception as query_err:
+                    logger.warning(f"Error querying subsanaciones for gerencia {g}: {query_err}")
+                    continue
+                
+                # Group analysts by trata
+                trata_analysts = {}
+                for ar in analyst_rows:
+                    ar_dict = ar._mapping
+                    t_code = ar_dict["trata"]
+                    if t_code not in trata_analysts:
+                        trata_analysts[t_code] = []
+                    trata_analysts[t_code].append({
+                        "analista": ar_dict["analista"],
+                        "nombre": ar_dict["analista_nombre"],
+                        "sector": ar_dict["analista_sector"],
+                        "total_expedientes": int(ar_dict["total_expedientes"] or 0),
+                        "mediana_cant": float(ar_dict["mediana_cant"] or 0.0),
+                        "mediana_dias": float(ar_dict["mediana_dias"] or 0.0)
+                    })
+                    
+                g_cfg = TRAMITES_CONFIG.get(g, {})
+                for tr in trata_rows:
+                    tr_dict = tr._mapping
+                    t_code = tr_dict["trata"]
+                    t_cfg = g_cfg.get(t_code, {})
+                    
+                    records.append({
+                        "gerencia": g,
+                        "trata": t_code,
+                        "descripcion_trata": t_cfg.get("nombre") or "S/D",
+                        "total_expedientes": int(tr_dict["total_expedientes"] or 0),
+                        "mediana_cant": float(tr_dict["mediana_cant"] or 0.0),
+                        "mediana_dias": float(tr_dict["mediana_dias"] or 0.0),
+                        "analistas": trata_analysts.get(t_code, [])
+                    })
+        return records
+    except Exception as e:
+        logger.error(f"Error en reporte/subsanaciones: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/subsanaciones/expedientes")
+async def get_subsanaciones_expedientes(
+    gerencia: str,
+    trata: str,
+    analista: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+        
+    if gerencia_clean not in TRAMITES_CONFIG:
+        raise HTTPException(status_code=404, detail=f"Gerencia {gerencia} no encontrada.")
+        
+    try:
+        with engine.connect() as conn:
+            sql = f"""
+                SELECT 
+                    u.expediente AS "EXPEDIENTE",
+                    u.trata AS "TRAMITE",
+                    u.descripcion_trata AS "DETALLE TRATA",
+                    to_char(u.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA CREACION",
+                    a.usuario_alta as "ANALISTA",
+                    COALESCE(du.apellido_nombre, a.usuario_alta) as "ANALISTA_NOMBRE",
+                    COUNT(DISTINCT a.fecha_alta) as "CANT SUBSANACIONES",
+                    SUM(
+                        CASE 
+                            WHEN a.fecha_alta IS NULL OR a.fecha_alta < '2015-01-01'::date THEN 0
+                            WHEN a.fecha_cierre IS NOT NULL THEN (a.fecha_cierre::date - a.fecha_alta::date)
+                            ELSE (CURRENT_DATE - a.fecha_alta::date)
+                        END
+                    ) as "DIAS SUBSANACION"
+                FROM mv_{gerencia_clean}_universo u
+                INNER JOIN mvw_ee_actividades_secgdu a ON u.id_expediente = a.id_expediente
+                LEFT JOIN datos_usuario du ON a.usuario_alta = du.usuario
+                WHERE u.es_trata_propia = TRUE
+                  AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                  AND u.trata = :trata
+                  AND (:analista IS NULL OR a.usuario_alta = :analista)
+                GROUP BY u.expediente, u.trata, u.descripcion_trata, u.fecha_creacion_ee, a.usuario_alta, du.apellido_nombre
+                ORDER BY u.expediente
+            """
+            result = conn.execute(text(sql), {"trata": trata, "analista": analista})
+            rows = [dict(row._mapping) for row in result.fetchall()]
+            
+            mapped_rows = []
+            for r in rows:
+                mapped_rows.append({
+                    "expediente": r["EXPEDIENTE"],
+                    "trata": r["TRAMITE"],
+                    "descripcion_trata": r["DETALLE TRATA"] or "S/D",
+                    "fecha_creacion": r["FECHA CREACION"],
+                    "analista": r["ANALISTA_NOMBRE"],
+                    "usuario_sade": r["ANALISTA"],
+                    "cant_subsanaciones": int(r["CANT SUBSANACIONES"] or 0),
+                    "dias_subsanacion": int(r["DIAS SUBSANACION"] or 0)
+                })
+            return mapped_rows
+    except Exception as e:
+        logger.error(f"Error en reporte/subsanaciones/expedientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints del Agente de IA Conversacional (Solo Administrador) ---
+class IAQueryRequest(BaseModel):
+    query: str
+    history: Optional[List[Dict[str, Any]]] = None
+
+class IAFeedbackRequest(BaseModel):
+    query_text: str
+    sql_generated: Optional[str] = None
+    response_text: str
+    score: int # 1 para 👍, -1 para 👎
+
+@app.post("/api/chat/query")
+async def chat_query(data: IAQueryRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="Acceso denegado: se requieren permisos de administrador")
+    
+    try:
+        from backend.ia_agent import ask_agent
+    except ImportError:
+        from ia_agent import ask_agent
+
+    result = ask_agent(data.query, data.history)
+    return result
+
+@app.post("/api/chat/feedback")
+async def chat_feedback(data: IAFeedbackRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="Acceso denegado: se requieren permisos de administrador")
+    
+    try:
+        # Asegurar que la tabla de feedback exista antes de insertar
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS audit_agente_feedback (
+                    id SERIAL PRIMARY KEY,
+                    query_text TEXT,
+                    sql_generated TEXT,
+                    response_text TEXT,
+                    feedback_score INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.execute(text("""
+                INSERT INTO audit_agente_feedback (query_text, sql_generated, response_text, feedback_score)
+                VALUES (:q, :sql, :r, :s)
+            """), {
+                "q": data.query_text,
+                "sql": data.sql_generated,
+                "r": data.response_text,
+                "s": data.score
+            })
+        return {"status": "ok", "message": "Feedback registrado correctamente"}
+    except Exception as e:
+        logger.error(f"Error registrando feedback: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al registrar el feedback: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
     import sys
@@ -2514,3 +4090,4 @@ if __name__ == "__main__":
         sys.path.insert(0, root_dir)
         
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+
