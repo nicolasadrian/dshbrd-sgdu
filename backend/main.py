@@ -4152,6 +4152,7 @@ async def get_analytics_permisos_obra(current_user: User = Depends(get_current_u
                     EXTRACT(MONTH FROM e.fecha_egreso)::int as mes,
                     e.trata,
                     cfg.descripcion_trata,
+                    e.usuario_egreso as usuario,
                     COUNT(*) as cant
                 FROM public.mv_contable_egresos_efectivos e
                 LEFT JOIN public.cfg_gestion_metas cfg 
@@ -4160,7 +4161,7 @@ async def get_analytics_permisos_obra(current_user: User = Depends(get_current_u
                 WHERE e.acronimo_egreso = 'IFPDO'
                   AND e.trata IN ('MDUG3001A', 'MDUG1501J', 'MDUG3402A')
                   AND e.fecha_egreso >= '2022-01-01'
-                GROUP BY anio, mes, e.trata, cfg.descripcion_trata
+                GROUP BY anio, mes, e.trata, cfg.descripcion_trata, e.usuario_egreso
                 ORDER BY anio, mes, e.trata;
             """))
             monthly_data = [dict(r._mapping) for r in result_monthly]

@@ -5300,6 +5300,8 @@ async function updateFichaProximaReunion(expediente, value) {
     }
 }
 
+let selectedAsignadosUsuario = null;
+
 async function loadAsignadosMiView() {
     const container = document.getElementById('asignados-mi-container');
     if (!container) return;
@@ -5322,6 +5324,10 @@ async function loadAsignadosMiView() {
         currentFavoritesData = await res.json();
         userFavorites = new Set(currentFavoritesData.map(f => f.expediente));
 
+        if (!selectedAsignadosUsuario && currentUser) {
+            selectedAsignadosUsuario = currentUser.username;
+        }
+
         renderAsignadosMiContent(currentFavoritesData);
     } catch (error) {
         container.innerHTML = `
@@ -5333,11 +5339,55 @@ async function loadAsignadosMiView() {
     }
 }
 
+function handleAsignadosUsuarioFilterChange(val) {
+    selectedAsignadosUsuario = val;
+    renderAsignadosMiContent(currentFavoritesData);
+}
+window.handleAsignadosUsuarioFilterChange = handleAsignadosUsuarioFilterChange;
+
 function renderAsignadosMiContent(data) {
     const container = document.getElementById('asignados-mi-container');
     if (!container) return;
 
-    const assignedToMe = data.filter(r => currentUser && r.ficha_responsable === currentUser.username);
+    if (!selectedAsignadosUsuario && currentUser) {
+        selectedAsignadosUsuario = currentUser.username;
+    }
+
+    // Populate dropdown dynamically
+    const selectEl = document.getElementById('filter-asignados-usuario');
+    if (selectEl) {
+        const uniqueUsers = [...new Set(data.map(r => r.ficha_responsable).filter(Boolean))];
+        if (currentUser && !uniqueUsers.includes(currentUser.username)) {
+            uniqueUsers.push(currentUser.username);
+        }
+        uniqueUsers.sort();
+
+        let optionsHtml = `<option value="all" ${selectedAsignadosUsuario === 'all' ? 'selected' : ''}>[Todos]</option>`;
+        uniqueUsers.forEach(u => {
+            optionsHtml += `<option value="${u}" ${selectedAsignadosUsuario === u ? 'selected' : ''}>${u === currentUser?.username ? `${u} (Yo)` : u}</option>`;
+        });
+        selectEl.innerHTML = optionsHtml;
+    }
+
+    // Update Title & Subtitle in DOM
+    const titleEl = document.getElementById('asignados-mi-title');
+    const subtitleEl = document.getElementById('asignados-mi-subtitle');
+    if (titleEl && subtitleEl) {
+        if (selectedAsignadosUsuario === 'all') {
+            titleEl.innerText = "Todos los Expedientes Asignados";
+            subtitleEl.innerText = "Todos los expedientes con responsable de ficha asignado.";
+        } else if (selectedAsignadosUsuario === currentUser?.username) {
+            titleEl.innerText = "Expedientes Asignados a Mí";
+            subtitleEl.innerText = "Expedientes en los cuales figurás como responsable de ficha.";
+        } else {
+            titleEl.innerText = `Expedientes Asignados a ${selectedAsignadosUsuario}`;
+            subtitleEl.innerText = `Expedientes en los cuales ${selectedAsignadosUsuario} figura como responsable de ficha.`;
+        }
+    }
+
+    const filteredData = selectedAsignadosUsuario === 'all'
+        ? data
+        : data.filter(r => r.ficha_responsable === selectedAsignadosUsuario);
 
     const headerAssignedToMeHTML = `
         <tr>
@@ -5376,7 +5426,7 @@ function renderAsignadosMiContent(data) {
         });
 
         // La estrella es no-clickeable por estar asignado
-        const starCell = `<span title="Asignado a vos — no puede quitarse desde aquí" style="font-size: 1.1rem; color: #f59e0b; cursor: not-allowed; display: inline-block;"><i class="fa-solid fa-user-lock" style="font-size: 0.9rem; color: #f59e0b;"></i></span>`;
+        const starCell = `<span title="Asignado a ${r.ficha_responsable || 'alguien'} — no puede quitarse desde aquí" style="font-size: 1.1rem; color: #f59e0b; cursor: not-allowed; display: inline-block;"><i class="fa-solid fa-user-lock" style="font-size: 0.9rem; color: #f59e0b;"></i></span>`;
 
         return `
             <tr>
@@ -5423,11 +5473,11 @@ function renderAsignadosMiContent(data) {
     }
 
     container.innerHTML = `
-        ${assignedToMe.length === 0 ? `
+        ${filteredData.length === 0 ? `
             <div style="text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 2px dashed #c7d2fe; color: #6366f1; font-family: 'Outfit';">
                 <i class="fa-regular fa-user" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.5;"></i>
-                <h3 style="margin: 0; font-family: 'Outfit';">No tenés expedientes asignados</h3>
-                <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Los expedientes asignados a tu usuario aparecerán en esta sección.</p>
+                <h3 style="margin: 0; font-family: 'Outfit';">No hay expedientes asignados</h3>
+                <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">No se encontraron expedientes asignados para el filtro seleccionado.</p>
             </div>
         ` : `
             <div style="background: white; border-radius: 16px; border: 2px solid #e0e7ff; box-shadow: 0 4px 16px rgba(99,102,241,0.08); padding: 1.5rem;">
@@ -5436,8 +5486,10 @@ function renderAsignadosMiContent(data) {
                         <i class="fa-solid fa-user-check" style="color: white; font-size: 0.9rem;"></i>
                     </div>
                     <div>
-                        <h4 style="color: #4338ca; font-family: 'Outfit'; font-weight: 700; margin: 0; font-size: 1.05rem;">Expedientes Asignados a Mí</h4>
-                        <span style="font-size: 0.8rem; color: #6366f1; font-family: 'Outfit';">${assignedToMe.length} expediente${assignedToMe.length !== 1 ? 's' : ''}</span>
+                        <h4 style="color: #4338ca; font-family: 'Outfit'; font-weight: 700; margin: 0; font-size: 1.05rem;">
+                            ${selectedAsignadosUsuario === 'all' ? 'Todos los Expedientes Asignados' : (selectedAsignadosUsuario === currentUser?.username ? 'Expedientes Asignados a Mí' : `Expedientes Asignados a ${selectedAsignadosUsuario}`)}
+                        </h4>
+                        <span style="font-size: 0.8rem; color: #6366f1; font-family: 'Outfit';">${filteredData.length} expediente${filteredData.length !== 1 ? 's' : ''}</span>
                     </div>
                 </div>
                 <div style="overflow-x: auto; width: 100%;">
@@ -5446,7 +5498,7 @@ function renderAsignadosMiContent(data) {
                             ${headerAssignedToMeHTML}
                         </thead>
                         <tbody>
-                            ${assignedToMe.map(r => getRowHTML(r)).join('')}
+                            ${filteredData.map(r => getRowHTML(r)).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -7523,6 +7575,21 @@ window.exportPendientesExcel = exportPendientesExcel;
 // SECCIÓN: ANALYTICS (ESTADÍSTICAS & DATASETS)
 // ==========================================
 
+let selectedAnalyticsUsuario = 'all';
+let selectedDatasetsUsuario = 'all';
+
+function handleAnalyticsUsuarioFilterChange(val) {
+    selectedAnalyticsUsuario = val;
+    loadAnalyticsEstadistica();
+}
+window.handleAnalyticsUsuarioFilterChange = handleAnalyticsUsuarioFilterChange;
+
+function handleDatasetsUsuarioFilterChange(val) {
+    selectedDatasetsUsuario = val;
+    loadAnalyticsDatasets();
+}
+window.handleDatasetsUsuarioFilterChange = handleDatasetsUsuarioFilterChange;
+
 async function loadAnalyticsEstadistica() {
     const kpiContainer = document.getElementById('permisos-kpi-cards');
     if (kpiContainer) {
@@ -7541,11 +7608,47 @@ async function loadAnalyticsEstadistica() {
         }
         const data = await res.json();
 
+        // Populate dropdown
+        const selectEl = document.getElementById('filter-analytics-usuario');
+        if (selectEl) {
+            const uniqueUsers = [...new Set(data.monthly_data.map(item => item.usuario).filter(Boolean))];
+            uniqueUsers.sort();
+            
+            let optionsHtml = `<option value="all" ${selectedAnalyticsUsuario === 'all' ? 'selected' : ''}>[Todos]</option>`;
+            uniqueUsers.forEach(u => {
+                optionsHtml += `<option value="${u}" ${selectedAnalyticsUsuario === u ? 'selected' : ''}>${u === currentUser?.username ? `${u} (Yo)` : u}</option>`;
+            });
+            selectEl.innerHTML = optionsHtml;
+        }
+
+        // Filter or Aggregate monthly_data based on user selection
+        let monthly_data = [];
+        if (selectedAnalyticsUsuario && selectedAnalyticsUsuario !== 'all') {
+            monthly_data = data.monthly_data.filter(item => item.usuario === selectedAnalyticsUsuario);
+        } else {
+            // Aggregate/sum cant by (anio, mes, trata, descripcion_trata)
+            const aggMap = {};
+            data.monthly_data.forEach(item => {
+                const key = `${item.anio}-${item.mes}-${item.trata}`;
+                if (!aggMap[key]) {
+                    aggMap[key] = {
+                        anio: item.anio,
+                        mes: item.mes,
+                        trata: item.trata,
+                        descripcion_trata: item.descripcion_trata,
+                        cant: 0
+                    };
+                }
+                aggMap[key].cant += item.cant;
+            });
+            monthly_data = Object.values(aggMap);
+        }
+
         // 1. Preparar variables y periodos
         let maxAnio = 2022;
         let maxMes = 1;
-        if (data.monthly_data && data.monthly_data.length > 0) {
-            data.monthly_data.forEach(item => {
+        if (monthly_data && monthly_data.length > 0) {
+            monthly_data.forEach(item => {
                 if (item.anio > maxAnio) {
                     maxAnio = item.anio;
                     maxMes = item.mes;
@@ -7574,8 +7677,8 @@ async function loadAnalyticsEstadistica() {
         const labels = periods.map(p => `${MESES[p.mes - 1].substring(0, 3)} ${p.anio}`);
 
         const trataMap = {};
-        if (data.monthly_data) {
-            data.monthly_data.forEach(item => {
+        if (monthly_data) {
+            monthly_data.forEach(item => {
                 if (!trataMap[item.trata]) {
                     trataMap[item.trata] = item.descripcion_trata || item.trata;
                 }
@@ -7593,7 +7696,7 @@ async function loadAnalyticsEstadistica() {
 
         const chartDatasets = uniqueTratas.map((trataCode, idx) => {
             const dataValues = periods.map(p => {
-                const match = data.monthly_data.find(item => item.anio === p.anio && item.mes === p.mes && item.trata === trataCode);
+                const match = monthly_data.find(item => item.anio === p.anio && item.mes === p.mes && item.trata === trataCode);
                 return match ? match.cant : 0;
             });
 
@@ -7627,8 +7730,8 @@ async function loadAnalyticsEstadistica() {
             const activeYears = [...new Set(periods.map(p => p.anio))];
             activeYears.forEach(y => { yearlySums[y] = 0; });
 
-            if (data.monthly_data) {
-                data.monthly_data.forEach(item => {
+            if (monthly_data) {
+                monthly_data.forEach(item => {
                     if (visibleTratas.includes(item.trata)) {
                         if (yearlySums[item.anio] !== undefined) {
                             yearlySums[item.anio] += item.cant;
@@ -7779,7 +7882,6 @@ async function loadAnalyticsEstadistica() {
 }
 
 function switchAnalyticsTab(tabId) {
-    // Para escalar en el futuro si hay más pestañas habilitadas
     document.querySelectorAll('.analytics-tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
     
@@ -7789,24 +7891,61 @@ function switchAnalyticsTab(tabId) {
 }
 
 async function loadAnalyticsDatasets() {
-    // Por ahora no requiere llamadas previas pero asegura que la vista esté lista
-    console.log("Analytics Datasets cargados.");
+    const selectEl = document.getElementById('filter-datasets-usuario');
+    if (!selectEl) return;
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/analytics/permisos-obra`);
+        if (res && res.ok) {
+            const data = await res.json();
+            const uniqueUsers = [...new Set(data.monthly_data.map(item => item.usuario).filter(Boolean))];
+            uniqueUsers.sort();
+            
+            let optionsHtml = `<option value="all" ${selectedDatasetsUsuario === 'all' ? 'selected' : ''}>[Todos]</option>`;
+            uniqueUsers.forEach(u => {
+                optionsHtml += `<option value="${u}" ${selectedDatasetsUsuario === u ? 'selected' : ''}>${u === currentUser?.username ? `${u} (Yo)` : u}</option>`;
+            });
+            selectEl.innerHTML = optionsHtml;
+        }
+    } catch (e) {
+        console.error("Error loading datasets users:", e);
+    }
 }
 
 async function downloadDataset(datasetId) {
     try {
         if (datasetId === 'permisos_obra') {
-            // Descargar de base local todos los IFPDO de mvw_datos_gedo_secgdu
             const res = await def_fetch(`${API_BASE}/analytics/permisos-obra`);
             if (!res || !res.ok) throw new Error("No se pudo obtener el dataset");
             const data = await res.json();
             
-            // Generar planilla Excel usando XLSX (SheetJS)
-            const rows = data.monthly_data.map(item => ({
+            let filteredData = [];
+            if (selectedDatasetsUsuario && selectedDatasetsUsuario !== 'all') {
+                filteredData = data.monthly_data.filter(item => item.usuario === selectedDatasetsUsuario);
+            } else {
+                // Sum up by trata and period
+                const aggMap = {};
+                data.monthly_data.forEach(item => {
+                    const key = `${item.anio}-${item.mes}-${item.trata}`;
+                    if (!aggMap[key]) {
+                        aggMap[key] = {
+                            anio: item.anio,
+                            mes: item.mes,
+                            trata: item.trata,
+                            descripcion_trata: item.descripcion_trata,
+                            cant: 0
+                        };
+                    }
+                    aggMap[key].cant += item.cant;
+                });
+                filteredData = Object.values(aggMap);
+            }
+
+            const rows = filteredData.map(item => ({
                 "Año": item.anio,
                 "Mes": MESES[item.mes - 1],
                 "Acrónimo": "IFPDO",
-                "Descripción": "Permiso de Obra (Egresos Efectivos)",
+                "Descripción": item.descripcion_trata || "Permiso de Obra (Egresos Efectivos)",
                 "Cantidad Otorgados": item.cant
             }));
             
@@ -7814,19 +7953,19 @@ async function downloadDataset(datasetId) {
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Permisos de Obra");
             
-            // Autofit
             worksheet['!cols'] = [{ wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 35 }, { wch: 20 }];
             
-            XLSX.writeFile(workbook, "dataset_permisos_obra_IFPDO.xlsx");
+            const fileName = selectedDatasetsUsuario === 'all' 
+                ? "dataset_permisos_obra_IFPDO_TODOS.xlsx"
+                : `dataset_permisos_obra_IFPDO_${selectedDatasetsUsuario}.xlsx`;
+
+            XLSX.writeFile(workbook, fileName);
         } else if (datasetId === 'egresos_transacciones') {
-            // Obtener datos del endpoint del backend de la base
-            // Como fallback si no hay un endpoint directo de dataset masivo, usamos los egresos generales del tablero
             alert("Preparando descarga del dataset de Egresos...");
             const res = await def_fetch(`${API_BASE}/reporte/cierre_mes`);
             if (!res || !res.ok) throw new Error("No se pudieron consultar los datos");
             const data = await res.json();
             
-            // Consolidar todos los egresos en un listado
             const rows = [];
             Object.keys(data).forEach(ger => {
                 const gerData = data[ger];

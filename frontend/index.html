@@ -1895,10 +1895,17 @@
                 <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Asignados a Mí
             </div>
             
-            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div>
-                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Expedientes Asignados a Mí</h1>
-                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Expedientes en los cuales figurás como responsable de ficha.</p>
+                    <h1 class="landing-title" id="asignados-mi-title" style="margin-bottom: 0.25rem;">Expedientes Asignados a Mí</h1>
+                    <p id="asignados-mi-subtitle" style="color: #64748b; font-size: 0.95rem; margin: 0;">Expedientes en los cuales figurás como responsable de ficha.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 8px 14px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <i class="fa-solid fa-filter" style="color: #64748b; font-size: 0.85rem;"></i>
+                    <label for="filter-asignados-usuario" style="font-family: 'Outfit'; font-weight: 700; color: #475569; font-size: 0.85rem; margin: 0;">Responsable:</label>
+                    <select id="filter-asignados-usuario" onchange="handleAsignadosUsuarioFilterChange(this.value)" style="border: none; outline: none; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: transparent; cursor: pointer; min-width: 150px; padding-right: 5px;">
+                        <!-- Opciones cargadas dinámicamente -->
+                    </select>
                 </div>
             </div>
 
@@ -2170,9 +2177,18 @@
                 <div class="analytics-main-content" style="display: flex; flex-direction: column; gap: 2rem;">
                     <!-- Dashboard: Permisos de Obra -->
                     <div id="analytics-panel-permisos_obra" class="analytics-panel active">
-                        <div style="margin-bottom: 1.5rem;">
-                            <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Permisos de Obra (IFPDO)</h1>
-                            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Egresos Efectivos con acrónimo IFPDO desde Enero de 2022.</p>
+                        <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                            <div>
+                                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Permisos de Obra (IFPDO)</h1>
+                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Egresos Efectivos con acrónimo IFPDO desde Enero de 2022.</p>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 8px 14px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                                <i class="fa-solid fa-filter" style="color: #64748b; font-size: 0.85rem;"></i>
+                                <label for="filter-analytics-usuario" style="font-family: 'Outfit'; font-weight: 700; color: #475569; font-size: 0.85rem; margin: 0;">Analista:</label>
+                                <select id="filter-analytics-usuario" onchange="handleAnalyticsUsuarioFilterChange(this.value)" style="border: none; outline: none; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: transparent; cursor: pointer; min-width: 150px; padding-right: 5px;">
+                                    <!-- Opciones cargadas dinámicamente -->
+                                </select>
+                            </div>
                         </div>
                         
                         <!-- Tarjetas de KPIs por Año (Se llenarán dinámicamente) -->
@@ -2198,9 +2214,18 @@
                 <span onclick="showView('landing')">Inicio</span> / Analytics / Datasets
             </div>
             
-            <div style="margin-bottom: 2rem;">
-                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Descarga de Datasets Consolidados</h1>
-                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Acceda a los datos crudos en formato estructurado para auditorías y análisis externos.</p>
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Descarga de Datasets Consolidados</h1>
+                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Acceda a los datos crudos en formato estructurado para auditorías y análisis externos.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 8px 14px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <i class="fa-solid fa-filter" style="color: #64748b; font-size: 0.85rem;"></i>
+                    <label for="filter-datasets-usuario" style="font-family: 'Outfit'; font-weight: 700; color: #475569; font-size: 0.85rem; margin: 0;">Analista:</label>
+                    <select id="filter-datasets-usuario" onchange="handleDatasetsUsuarioFilterChange(this.value)" style="border: none; outline: none; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: transparent; cursor: pointer; min-width: 150px; padding-right: 5px;">
+                        <!-- Opciones cargadas dinámicamente -->
+                    </select>
+                </div>
             </div>
             
             <div class="datasets-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
