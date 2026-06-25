@@ -4466,12 +4466,6 @@ window.exportPresentationPDF = async function () {
     }
 };
 
-        }
-    } catch (e) {
-        console.error("Error al guardar feedback", e);
-    }
-}
-
 async function buscarExpediente() {
     const anio = document.getElementById('search-anio').value.trim();
     const numero = document.getElementById('search-numero').value.trim();
