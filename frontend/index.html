@@ -8,10 +8,12 @@
     <meta name="description" content="Tablero Integral de Gestión para la Secretaría de Gestión y Desarrollo Urbano.">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -49,16 +51,82 @@
         </div>
         <nav id="main-nav">
             <div class="auth-controls" id="auth-controls" style="display: none; align-items: center; gap: 2rem;">
-                <button id="seguimiento-btn" class="btn-header-nav" style="display: none;" onclick="showView('seguimiento')">Seguimiento</button>
-                <button id="cierre-btn" class="btn-header-nav" style="display: none;" onclick="showView('cierre')">Cierre de Mes</button>
-                <button id="sla-btn" class="btn-header-nav" style="display: none;" onclick="showView('sla')">SLA</button>
-                <button id="admin-btn" class="btn-header-nav" style="display: none;" onclick="showView('admin')">Admin Usuarios</button>
                 
-                <div class="user-profile-block">
-                    <span id="display-fullname" class="user-fullname"></span>
-                    <span id="display-sector" class="user-sector"></span>
+                <!-- Seguimiento Dropdown -->
+                <div class="nav-dropdown" id="nav-dropdown-seguimiento">
+                    <button class="btn-header-nav dropdown-trigger" onclick="event.preventDefault();">
+                        Seguimiento <span class="chevron">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="event.preventDefault(); showView('dgroc')">DGROC</a>
+                        <a href="#" onclick="event.preventDefault(); showView('dgiur')">DGIUR</a>
+                        <a href="#" onclick="event.preventDefault(); showView('family')">Familia de Trámites</a>
+                    </div>
                 </div>
-                <button onclick="logout()" class="btn-header-logout">Salir</button>
+
+                <!-- Buzones Dropdown -->
+                <div class="nav-dropdown" id="nav-dropdown-buzones">
+                    <button class="btn-header-nav dropdown-trigger">
+                        Buzones <span class="chevron">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="event.preventDefault(); showBuzonesView('dgroc')">DGROC</a>
+                        <a href="#" onclick="event.preventDefault(); showBuzonesView('dgiur')">DGIUR</a>
+                    </div>
+                </div>
+
+                <!-- Reportes Dropdown -->
+                <div class="nav-dropdown" id="nav-dropdown-reportes">
+                    <button class="btn-header-nav dropdown-trigger">
+                        Reportes <span class="chevron">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="event.preventDefault(); showView('seguimiento')">Metas</a>
+                        <a href="#" id="cierre-link" onclick="event.preventDefault(); showView('cierre')">Cierre de Mes</a>
+                        <a href="#" id="sla-link" onclick="event.preventDefault(); showView('sla')">Tiempos de tramitación</a>
+                        <a href="#" onclick="event.preventDefault(); showView('subsanaciones')">Subsanaciones</a>
+                        <a href="#" id="pendientes-asoc-link" onclick="event.preventDefault(); showView('pendientes_asociacion')">Pendientes Asociación</a>
+                    </div>
+                </div>
+
+                <!-- Analytics Dropdown -->
+                <div class="nav-dropdown" id="nav-dropdown-analytics">
+                    <button class="btn-header-nav dropdown-trigger">
+                        Analytics <span class="chevron">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="event.preventDefault(); showView('analytics_estadistica')">Estadística</a>
+                        <a href="#" onclick="event.preventDefault(); showView('analytics_datasets')">Datasets</a>
+                    </div>
+                </div>
+
+                <!-- Mis Expedientes Dropdown -->
+                <div class="nav-dropdown" id="nav-dropdown-expedientes">
+                    <button class="btn-header-nav dropdown-trigger">
+                        Mis Expedientes <span class="chevron">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="event.preventDefault(); showView('buscador')">Buscador</a>
+                        <a href="#" onclick="event.preventDefault(); showView('asignados-mi')">Asignados a Mí</a>
+                        <a href="#" onclick="event.preventDefault(); showView('favoritos')">Marcadores</a>
+                        <a href="#" onclick="event.preventDefault(); showView('favoritos-seguimiento')">Gestión de Marcadores</a>
+                    </div>
+                </div>
+
+                <!-- User Profile Dropdown -->
+                <div class="nav-dropdown user-dropdown">
+                    <div class="dropdown-trigger user-profile-block" style="cursor: pointer;">
+                        <span id="display-fullname" class="user-fullname"></span>
+                        <span id="display-sector" class="user-sector"></span>
+                        <span class="chevron" style="font-size: 0.7rem; color: #475569; transition: transform 0.25s ease;">▼</span>
+                    </div>
+                    <div class="dropdown-content dropdown-content-right">
+                        <a href="#" onclick="event.preventDefault(); alert('Sección en desarrollo: Mis Datos')">Mis Datos</a>
+                        <a href="#" id="admin-link" style="display: none;" onclick="event.preventDefault(); showView('admin')">Backlog</a>
+                        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
+                        <a href="#" onclick="event.preventDefault(); logout()" class="logout-link" style="color: #ef4444;">Cerrar sesión</a>
+                    </div>
+                </div>
             </div>
         </nav>
     </header>
@@ -755,59 +823,522 @@
             </div>
         </section>
 
-        <!-- Vista Admin: Gestión de Usuarios -->
-        <section id="admin" class="view-container">
-            <div class="breadcrumbs">
-                <span onclick="showView('landing')">Inicio</span> / Administración de Usuarios
+        <!-- Vista Subsanaciones: Análisis de Subsanaciones -->
+        <section id="subsanaciones" class="view-container">
+            <div class="breadcrumbs" id="subsanaciones-breadcrumbs">
+                <span onclick="showSubsanacionesMainView()" style="cursor: pointer; text-decoration: underline;">Inicio</span> / Reporte de Subsanaciones
             </div>
-            <h1 class="landing-title">Gestión de Usuarios</h1>
+            
+            <div class="section-header-flex" style="margin-bottom: 2rem;">
+                <div>
+                    <h1 class="section-title" id="subsanaciones-title" style="font-size: 1.8rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">Reporte de Subsanaciones</h1>
+                    <p class="section-subtitle" id="subsanaciones-subtitle" style="font-size: 0.95rem; color: #64748b; margin-top: 4px;">Mediana de cantidad de subsanaciones y tiempo de resolución de subsanación por trámite y analista.</p>
+                </div>
+            </div>
 
-            <div class="admin-grid">
-                <div class="admin-card">
-                    <h3>Crear Nuevo Usuario</h3>
-                    <form id="create-user-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Nombre Completo</label>
-                                <input type="text" id="new-fullname" required placeholder="Ej: Juan Perez">
-                            </div>
-                            <div class="form-group">
-                                <label>Sector / Gerencia</label>
-                                <input type="text" id="new-sector" required placeholder="Ej: SGDU, Catastro...">
-                            </div>
+            <!-- SUB-VISTA 1: Lista de Trámites -->
+            <div id="subsanaciones-main-container">
+                <!-- Controles de Búsqueda, Filtro y Ordenamiento (Subsanaciones) -->
+                <div class="filter-controls-container" style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2.5rem;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                        <!-- Búsqueda -->
+                        <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscar Trámite / Trata</label>
+                            <input type="text" id="subsanaciones-search" class="form-input" placeholder="Buscar por código o nombre..." oninput="filterAndRenderSubsanaciones()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Usuario</label>
-                                <input type="text" id="new-username" required placeholder="Usuario (SADE)">
-                            </div>
-                            <div class="form-group">
-                                <label>Email</label>
-                                <input type="email" id="new-email" required placeholder="email@ejemplo.com">
-                            </div>
+                        
+                        <!-- Filtro por Gerencia -->
+                        <div class="form-group" style="margin-bottom: 0; min-width: 200px; flex-grow: 1;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Filtrar por Área / Gerencia</label>
+                            <select id="subsanaciones-filter-gerencia" onchange="loadSubsanacionesReport()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                                <option value="ALL">Todas las Gerencias</option>
+                                <option value="CATASTRO">Catastro (DGROC)</option>
+                                <option value="INSTALACIONES">Instalaciones (DGROC)</option>
+                                <option value="REGULARIZACION">Regularización y Conforme (DGROC)</option>
+                                <option value="CONTABLE">Contable (DGROC)</option>
+                                <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
+                                <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
+                                <option value="MORFOLOGIA">Morfología Urbana (DGIUR)</option>
+                                <option value="APH">Protección Histórica APH (DGIUR)</option>
+                                <option value="USOS">Usos del Suelo (DGIUR)</option>
+                            </select>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Contraseña Inicial</label>
-                                <input type="password" id="new-password" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Rol</label>
-                                <select id="new-role">
-                                    <option value="Usuario">Usuario (Consultas)</option>
-                                    <option value="Seguimiento">Seguimiento (Reportes)</option>
-                                    <option value="Administrador">Administrador (Gestión)</option>
-                                </select>
-                            </div>
+
+                        <!-- Ordenamiento -->
+                        <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex-grow: 1;">
+                            <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Ordenar Resultados</label>
+                            <select id="subsanaciones-sort" onchange="filterAndRenderSubsanaciones()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                                <option value="COUNT_DESC">Mayor Cantidad de Expedientes Primero</option>
+                                <option value="QTY_DESC">Mayor Mediana de Subsanaciones Primero</option>
+                                <option value="TIME_DESC">Mayor Tiempo de Subsanación Primero</option>
+                                <option value="NAME_ASC">Nombre (A-Z)</option>
+                            </select>
                         </div>
-                        <button type="submit" class="btn-primary" style="margin-top: 1rem; width: 100%;">Crear Usuario</button>
-                    </form>
+                    </div>
                 </div>
 
-                <div class="admin-card">
-                    <h3>Usuarios Existentes</h3>
+                <div id="subsanaciones-grid-container" style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 3rem;">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- SUB-VISTA 2: Detalle de Trámite (Tarjetas de Analistas) -->
+            <div id="subsanaciones-detail-container" style="display: none;">
+                <div style="margin-bottom: 2rem;">
+                    <button class="btn-download-excel" onclick="showSubsanacionesMainView()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-weight: bold; margin-bottom: 1rem;">
+                        ← Volver a Trámites
+                    </button>
+                    <div class="info-banner-premium">
+                        <div>
+                            <h2 id="sub-trata-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">--</h2>
+                            <p id="sub-trata-desc" style="color: #64748b; margin: 4px 0 0 0; font-size: 1rem; font-weight: 500;">--</p>
+                        </div>
+                        <div class="info-banner-stats">
+                            <div class="info-banner-stat-item">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Expedientes</span>
+                                <div id="sub-trata-total" style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin-top: 2px;">--</div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana Cant.</span>
+                                <div id="sub-trata-mediana-cant" style="font-size: 1.3rem; font-weight: 800; color: var(--primary); margin-top: 2px;">--</div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana Días</span>
+                                <div id="sub-trata-mediana-dias" style="font-size: 1.3rem; font-weight: 800; color: #6366f1; margin-top: 2px;">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin-bottom: 1.5rem; border-left: 4px solid var(--primary); padding-left: 0.75rem;">Analistas con Subsanaciones</h3>
+                <div id="subsanaciones-analysts-grid" class="seguimiento-grid view-grid">
+                    <!-- Se llenará con tarjetas de analistas -->
+                </div>
+            </div>
+
+            <!-- SUB-VISTA 3: Expedientes de Analista -->
+            <div id="subsanaciones-expedientes-container" style="display: none;">
+                <div style="margin-bottom: 2rem;">
+                    <button id="btn-back-to-trata" class="btn-download-excel" onclick="backToTrataDetail()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-weight: bold; margin-bottom: 1rem;">
+                        ← Volver a Trámite
+                    </button>
+                    <div class="info-banner-premium">
+                        <div>
+                            <h2 id="sub-analyst-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">--</h2>
+                            <p id="sub-analyst-subtitle" style="color: #64748b; margin: 4px 0 0 0; font-size: 0.95rem; font-weight: 500;">--</p>
+                        </div>
+                        <div class="info-banner-stats">
+                            <div class="info-banner-stat-item">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Expedientes</span>
+                                <div id="sub-analyst-total" style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin-top: 2px;">--</div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana Cant.</span>
+                                <div id="sub-analyst-mediana-cant" style="font-size: 1.3rem; font-weight: 800; color: var(--primary); margin-top: 2px;">--</div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana Días</span>
+                                <div id="sub-analyst-mediana-dias" style="font-size: 1.3rem; font-weight: 800; color: #6366f1; margin-top: 2px;">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container-dynamic" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.25rem;">
+                        <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin: 0; border-left: 4px solid var(--primary); padding-left: 0.75rem;">Listado de Expedientes</h3>
+                        <button class="btn-download-excel" onclick="exportSubsanacionesExpedientesExcel()" style="padding: 8px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Descargar Excel
+                        </button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="minimal-table" style="width: 100%; margin-top: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente</th>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Trámite</th>
+                                    <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem;">Cant. Subsanaciones</th>
+                                    <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem;">Días Subsanación</th>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Analista</th>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Fecha Creación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subsanaciones-expedientes-tbody">
+                                <!-- Se llenará dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista Pendientes Asociación: GEDOs de Egreso sin Asociar -->
+        <section id="pendientes_asociacion" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Reportes / Pendientes Asociación
+            </div>
+            
+            <div class="section-header-flex" style="margin-bottom: 2rem;">
+                <div>
+                    <h1 class="section-title" style="font-size: 1.8rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">Pendientes de Asociación</h1>
+                    <p class="section-subtitle" style="font-size: 0.95rem; color: #64748b; margin-top: 4px;">GEDOs de egreso creados pero aún no asociados formalmente al expediente.</p>
+                </div>
+            </div>
+
+            <div class="filter-controls-container" style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2.5rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscar en Pendientes</label>
+                        <input type="text" id="pendientes-search" class="form-input" placeholder="Buscar por expediente, trata o GEDO..." oninput="filterPendientes()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button class="btn-primary" onclick="loadPendientesAsociacionData()" style="padding: 10px 20px; font-family: 'Outfit'; font-weight: 600; height: 44px; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px;">
+                            <i class="fas fa-sync-alt"></i> Actualizar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pendientes-content-container">
+                <!-- Se llenará dinámicamente con JS -->
+            </div>
+        </section>
+
+        <!-- Vista Admin: Backlog de Configuración -->
+        <section id="admin" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showBacklogMenu()" style="cursor: pointer;">Backlog</span><span id="backlog-sub-breadcrumb" style="display: none;"> / Subsección</span>
+            </div>
+            
+            <h1 class="landing-title" id="backlog-title" style="margin-bottom: 2rem;">Backlog de Configuración</h1>
+            
+            <!-- Dashboard de Tarjetas del Backlog -->
+            <div id="backlog-cards-container" class="admin-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem; display: grid;">
+                <!-- Tarjeta 1: Usuarios -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('users')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">Usuarios del Sistema</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Crear, modificar o eliminar usuarios del tablero, y definir sus roles y gerencias.</p>
+                    </div>
+                    <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2: Tratas / Metas -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('metas')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; color: #047857; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">Configuración de Metas</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Administrar tratas incluidas, analistas oficiales, buzones de ingreso y acrónimos por gerencia.</p>
+                    </div>
+                    <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 3: Configuración de Roles -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('roles')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #f3e8ff; color: #a855f7; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">Configuración de Roles</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Crear y configurar roles y los permisos de acceso a las secciones del tablero.</p>
+                    </div>
+                    <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 1: Usuarios -->
+            <div id="admin-tab-users" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <!-- Vista de Listado de Usuarios -->
+                <div id="users-list-view">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                        <div>
+                            <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.35rem;">Usuarios del Sistema</h3>
+                            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Administración de credenciales, roles y permisos individuales del tablero.</p>
+                        </div>
+                        <button type="button" onclick="showCreateUserView()" class="btn-primary" style="padding: 10px 16px; font-weight: 600; font-family: 'Outfit'; border-radius: 8px; display: flex; align-items: center; gap: 8px; cursor: pointer; border: none;">
+                            <i class="fa-solid fa-user-plus"></i> Registrar Usuario
+                        </button>
+                    </div>
                     <div id="users-table-container">
-                        <!-- Se llenará vía JS -->
+                        <!-- Se llenará vía JS (Grilla de tarjetas) -->
+                    </div>
+                </div>
+
+                <!-- Vista de Registro de Usuario (Alta) -->
+                <div id="users-create-view" style="display: none;">
+                    <button type="button" onclick="showUsersListView()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a Usuarios
+                    </button>
+                    <div class="admin-card" style="width: 100%; background: white; padding: 30px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3 style="margin-top: 0; margin-bottom: 20px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">Crear Nuevo Usuario</h3>
+                        <form id="create-user-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Nombre Completo</label>
+                                    <input type="text" id="new-fullname" required placeholder="Ej: Juan Perez" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Sector / Gerencia</label>
+                                    <input type="text" id="new-sector" required placeholder="Ej: SGDU, Catastro..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Usuario (SADE)</label>
+                                    <input type="text" id="new-username" required placeholder="Usuario (SADE)" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Email</label>
+                                    <input type="email" id="new-email" required placeholder="email@ejemplo.com" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Contraseña Inicial</label>
+                                    <input type="password" id="new-password" required style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Rol</label>
+                                    <select id="new-role" onchange="handleRoleSelectionChange('new', this.value)" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                        <!-- Dynamic options loaded in app.js -->
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Matriz de Permisos Personalizados -->
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Personalizar Permisos de Acceso</label>
+                                <div id="new-user-perms-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; font-family: 'Outfit'; font-size: 0.85rem;">
+                                    <!-- Dinámico -->
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top: 1rem; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer;">Crear Usuario</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Vista de Edición de Usuario (Alta/Modificación) -->
+                <div id="users-edit-view" style="display: none;">
+                    <button type="button" onclick="showUsersListView()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a Usuarios
+                    </button>
+                    <div class="admin-card" style="width: 100%; background: white; padding: 30px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3 id="edit-user-title-header" style="margin-top: 0; margin-bottom: 20px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">Editar Usuario</h3>
+                        <form id="edit-user-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <input type="hidden" id="edit-username-hidden">
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Nombre Completo</label>
+                                    <input type="text" id="edit-fullname" required style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Sector / Gerencia</label>
+                                    <input type="text" id="edit-sector" required style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Rol</label>
+                                    <select id="edit-role" onchange="handleRoleSelectionChange('edit', this.value)" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                        <!-- Dynamic options loaded in app.js -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Nueva Contraseña (Opcional)</label>
+                                    <input type="password" id="edit-password" placeholder="Dejar vacío para no cambiar" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <!-- Matriz de Permisos Personalizados -->
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Personalizar Permisos de Acceso</label>
+                                <div id="edit-user-perms-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; font-family: 'Outfit'; font-size: 0.85rem;">
+                                    <!-- Dinámico -->
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top: 1rem; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer;">Guardar Cambios</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 2: Configuración de Metas -->
+            <div id="admin-tab-metas" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                
+                <!-- Vista 1: Listado de Tratas -->
+                <div id="metas-list-container">
+                    <button type="button" onclick="showBacklogMenu()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                    </button>
+                    <div class="admin-card" style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                            <div>
+                                <h3 style="margin: 0;">Configuración por trata</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Administración de parámetros y asignación de analistas por cada tipo de trámite.</p>
+                            </div>
+                            <div style="position: relative; width: 300px;">
+                                <input type="text" id="search-metas-input" placeholder="Buscar por Gerencia o Trata..." oninput="filterAdminMetas()" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #cbd5e1;">
+                                        <th style="text-align: left; padding: 12px 8px;">Gerencia</th>
+                                        <th style="text-align: left; padding: 12px 8px;">Trata</th>
+                                        <th style="text-align: left; padding: 12px 8px;">Descripción de trata</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="metas-table-body">
+                                    <!-- Se llenará dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vista 2: Edición de Trata -->
+                <div id="metas-edit-container" style="display: none;">
+                    <button type="button" onclick="showMetasList()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a la Lista
+                    </button>
+                    <div class="admin-card" style="width: 100%; padding: 30px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px;">
+                            <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem;">Editar Configuración de Trata</h2>
+                            <p id="edit-meta-subtitle" style="color: #64748b; font-size: 0.95rem; margin: 6px 0 0 0; font-family: 'Outfit'; font-weight: 600;"></p>
+                        </div>
+                        
+                        <form id="edit-meta-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <input type="hidden" id="edit-meta-id-hidden">
+                            
+                            <!-- Activo toggle switch -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div>
+                                    <span style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">Estado Activo</span>
+                                    <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">Si se desactiva, esta trata no se calculará ni mostrará en los reportes.</p>
+                                </div>
+                                <label class="switch-premium" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                                    <input type="checkbox" id="edit-meta-activo" style="opacity: 0; width: 0; height: 0;">
+                                    <span class="slider-premium"></span>
+                                </label>
+                            </div>
+
+                            <!-- Descripción de Trata -->
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Descripción de Trata</label>
+                                <input type="text" id="edit-meta-descripcion-trata" placeholder="Ingrese una descripción personalizada para esta trata..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+
+                            <!-- Dos columnas para inputs tipo lista -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Tratas Incluidas (Separadas por coma)</label>
+                                    <input type="text" id="edit-meta-tratas-incluidas" placeholder="MDUG0107A, MDUG0107B" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Buzones Ingreso (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-buzones-ingreso" placeholder="DGIUR-03, DGIUR-04" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Acrónimos Egreso (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-acronimos-egreso" placeholder="DI, ANEXO, IF" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Buzones Ingreso Intervenciones (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-buzones-intervenciones" placeholder="DGIUR-ADMISIBILIDAD" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Descripciones Válidas de Trámite (Una por línea)</label>
+                                <textarea id="edit-meta-descripciones" rows="3" placeholder="Registro de plano conforme a obra civil&#10;Registro de plano de obra civil" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; resize: vertical;"></textarea>
+                            </div>
+
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 10px 0;">
+
+                            <!-- Autocompletado de Analistas Oficiales -->
+                            <div class="form-group" style="position: relative;">
+                                <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span>Analistas Oficiales</span>
+                                    <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">Buscar y seleccionar usuarios de SADE</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="text" id="analistas-search-input" placeholder="Buscar por nombre o usuario..." oninput="handleSadeSearch(event, 'analistas')" style="width: 100%; padding: 10px 14px 10px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 14px; color: #94a3b8; font-size: 0.85rem;"></i>
+                                </div>
+                                <div id="analistas-suggestions" class="autocomplete-suggestions" style="display: none; position: absolute; left: 0; right: 0; z-index: 1050; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; margin-top: 2px;"></div>
+                                <div id="analistas-chips-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 34px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px;"></div>
+                            </div>
+
+                            <!-- Autocompletado de Firmantes Egreso -->
+                            <div class="form-group" style="position: relative;">
+                                <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span>Firmantes Egreso</span>
+                                    <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">Buscar y seleccionar usuarios de SADE</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="text" id="firmantes-search-input" placeholder="Buscar por nombre o usuario..." oninput="handleSadeSearch(event, 'firmantes')" style="width: 100%; padding: 10px 14px 10px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 14px; color: #94a3b8; font-size: 0.85rem;"></i>
+                                </div>
+                                <div id="firmantes-suggestions" class="autocomplete-suggestions" style="display: none; position: absolute; left: 0; right: 0; z-index: 1050; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; margin-top: 2px;"></div>
+                                <div id="firmantes-chips-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 34px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px;"></div>
+                            </div>
+
+                            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                                <button type="button" class="btn-primary" onclick="showMetasList()" style="background: #e2e8f0; color: #475569; padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Cancelar</button>
+                                <button type="submit" class="btn-primary" style="padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Guardar Cambios</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 3: Configuración de Roles -->
+            <div id="admin-tab-roles" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 3fr; gap: 1.5rem; align-items: start;">
+                    <!-- Crear Rol Form Card -->
+                    <div class="admin-card">
+                        <h3>Crear Nuevo Rol</h3>
+                        <form id="create-role-form" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: var(--primary-dark);">Nombre del Rol</label>
+                                <input type="text" id="new-role-name" required placeholder="Ej: auditor_catastro" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+                            <button type="submit" class="btn-primary" style="padding: 10px; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; width: 100%;">Crear Rol</button>
+                        </form>
+                    </div>
+
+                    <!-- Roles & Permisos List -->
+                    <div class="admin-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <div>
+                                <h3 style="margin: 0;">Roles y Permisos de Acceso</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Configure los accesos a cada sección del tablero para cada rol.</p>
+                            </div>
+                        </div>
+                        
+                        <div id="roles-list-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                            <!-- Se llenará dinámicamente con las tarjetas de cada rol -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1202,21 +1733,685 @@
             </div>
         </section>
 
+        <!-- Vista: Buscador de Expedientes -->
+        <section id="buscador" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Buscador
+            </div>
+            
+            <div style="margin-bottom: 2rem;">
+                <h1 class="landing-title" style="margin-bottom: 0.25rem;">Buscador de Expedientes</h1>
+                <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Ingrese los parámetros del número del expediente para consultar su estado y ubicación actuales.</p>
+            </div>
+
+            <!-- Pestañas de Navegación del Buscador -->
+            <div class="trata-nav-tabs" style="margin-bottom: 2rem;">
+                <button class="tab-btn active" id="btn-buscador-tab-numero" onclick="switchBuscadorTab('numero')">Buscar por Número</button>
+                <button class="tab-btn" id="btn-buscador-tab-condiciones" onclick="switchBuscadorTab('condiciones')">Buscar por Condiciones</button>
+            </div>
+
+            <!-- Panel 1: Buscar por Número -->
+            <div id="buscador-tab-numero" class="buscador-tab-content active">
+                <div class="search-form-card" style="background: white; padding: 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); margin-bottom: 2.5rem; width: 100%;">
+                    <form id="expediente-search-form" onsubmit="event.preventDefault(); buscarExpediente();" style="display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 1.5rem; align-items: flex-end;">
+                        
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="search-anio" style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Año</label>
+                            <input type="number" id="search-anio" class="form-input" min="2000" max="2100" required style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.95rem;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="search-numero" style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Número de Expediente</label>
+                            <input type="text" id="search-numero" class="form-input" placeholder="Ej: 08928422" pattern="\d{1,8}" required title="Ingrese hasta 8 dígitos numéricos" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.95rem;">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="search-reparticion" style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Repartición</label>
+                            <select id="search-reparticion" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.95rem; background: white;">
+                                <option value="DGIUR">DGIUR</option>
+                                <option value="DGROC">DGROC</option>
+                            </select>
+                        </div>
+ 
+                        <button type="submit" class="btn-primary" style="padding: 11px 24px; font-family: 'Outfit'; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 118, 187, 0.1);">
+                            <i class="fa-solid fa-magnifying-glass"></i> Buscar
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Panel 2: Buscar por Condiciones -->
+            <div id="buscador-tab-condiciones" class="buscador-tab-content" style="display: none;">
+                <div class="search-form-card" style="background: white; padding: 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); margin-bottom: 2.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="search-conjunction" style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; font-family: 'Outfit';">Criterio:</label>
+                            <select id="search-conjunction" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white; font-weight: 600;">
+                                <option value="AND">Cumplir TODAS las condiciones (AND)</option>
+                                <option value="OR">Cumplir AL MENOS UNA condición (OR)</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="addSearchRuleRow()" style="padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                            + Agregar Condición
+                        </button>
+                    </div>
+
+                    <div id="search-rules-list-container" style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                        <!-- Las filas de reglas se inyectarán dinámicamente con JS -->
+                    </div>
+
+                    <div style="text-align: right;">
+                        <button type="button" class="btn-primary" onclick="buscarPorCondiciones()" style="padding: 11px 24px; font-family: 'Outfit'; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 118, 187, 0.1);">
+                            Buscar por Condiciones
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resultados de Búsqueda -->
+            <div id="search-results-container" class="table-container-dynamic" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 2rem; margin-bottom: 3rem; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin: 0; border-left: 4px solid var(--primary); padding-left: 0.75rem;">Expedientes Encontrados</h3>
+                    <button id="btn-export-search-excel" class="btn-download-excel" onclick="exportSearchResultsExcel()" style="padding: 8px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Descargar Excel
+                    </button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="minimal-table" style="margin-top: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;">★</th>
+                                <th onclick="sortSearchResults('expediente')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente <span id="sort-indicator-expediente" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('descripcion_trata')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Trámite <span id="sort-indicator-descripcion_trata" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('gerencia')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Área / Gerencia <span id="sort-indicator-gerencia" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('ubicacion')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Ubicación / Stock <span id="sort-indicator-ubicacion" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('analista')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Analista Asignado <span id="sort-indicator-analista" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('dias_tramitacion')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Días Tramitación <span id="sort-indicator-dias_tramitacion" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('dias_subsanacion')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Días Subsanación <span id="sort-indicator-dias_subsanacion" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('cant_subsanaciones')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Cant. Subsanaciones <span id="sort-indicator-cant_subsanaciones" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('dias_stock')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Días Stock <span id="sort-indicator-dias_stock" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('fecha_ultimo_pase')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Último Pase <span id="sort-indicator-fecha_ultimo_pase" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="search-results-tbody">
+                            <!-- Inyectado vía JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Controles de Paginación de Búsqueda -->
+                <div id="search-pagination-container" style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+                    <span id="search-pagination-info" style="font-size: 0.9rem; color: #64748b; font-family: 'Outfit'; font-weight: 500;">Mostrando 0-0 de 0 resultados</span>
+                    <div id="search-pagination-controls" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <!-- Se generará dinámicamente desde JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado de carga / sin resultados -->
+            <div id="search-status-container" style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); margin-bottom: 3rem;">
+                <!-- Se poblará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista: Expedientes Marcados (Marcadores) -->
+        <section id="favoritos" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Marcadores
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Expedientes Marcados</h1>
+                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Organice y acceda rápidamente a sus expedientes.</p>
+                </div>
+            </div>
+
+            <!-- Ribbon de Carpetas Superior -->
+            <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-grow: 1;" id="favorites-folders-list">
+                    <!-- Inyectado vía JS: Todos, General, Carpetas personalizadas -->
+                </div>
+                <button class="btn-primary" onclick="openCreateFolderModal()" style="display: flex; align-items: center; gap: 8px; font-family: 'Outfit'; font-size: 0.85rem; padding: 0.5rem 1rem; cursor: pointer; border-radius: 8px;">
+                    <i class="fa-solid fa-folder-plus"></i> Nueva Carpeta
+                </button>
+            </div>
+
+            <!-- Contenido poblado completamente vía JS (renderFavoritesContent) en dos bloques separados -->
+            <div id="favoritos-container" style="margin-bottom: 3rem;">
+                <!-- Poblado completamente vía JS (renderFavoritesContent) -->
+                <div style="text-align: center; padding: 3rem; color: #94a3b8; font-family: 'Outfit';">
+                    <i class="fa-regular fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 0.75rem;"></i>
+                    Cargando marcadores...
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Vista: Expedientes Asignados a Mí -->
+        <section id="asignados-mi" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Asignados a Mí
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Expedientes Asignados a Mí</h1>
+                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Expedientes en los cuales figurás como responsable de ficha.</p>
+                </div>
+            </div>
+
+            <!-- Contenido poblado completamente vía JS (renderAsignadosMiContent) -->
+            <div id="asignados-mi-container" style="margin-bottom: 3rem;">
+                <div style="text-align: center; padding: 3rem; color: #94a3b8; font-family: 'Outfit';">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 1rem; display: block; color: var(--primary);"></i>
+                    Cargando expedientes asignados...
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Gestión de Marcadores -->
+        <section id="favoritos-seguimiento" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Gestión de Marcadores
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Gestión de Marcadores</h1>
+                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Gestión detallada e información de expedientes marcados.</p>
+                </div>
+                <!-- Boton Exportar Excel -->
+                <button onclick="exportFavSegExcel()" id="btn-export-fav-seg"
+                    style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; border: none; border-radius: 10px; padding: 10px 18px; font-family: 'Outfit'; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(22,163,74,0.25); white-space: nowrap;"
+                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 14px rgba(22,163,74,0.4)';"
+                    onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(22,163,74,0.25)';">
+                    <i class="fa-solid fa-file-excel" style="font-size: 1rem;"></i>
+                    Exportar Excel
+                </button>
+            </div>
+
+            <!-- Controles de Búsqueda y Filtro (Favoritos Seguimiento) -->
+            <div class="filter-controls-container" style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                    <!-- Búsqueda Global -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 2;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscador Global</label>
+                        <input type="text" id="fav-seg-search" class="form-input" placeholder="Buscar expediente, trámite, analista, dirección, responsable, notas..." oninput="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                    </div>
+                    
+                    <!-- Filtro Gerencia -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Área / Gerencia</label>
+                        <select id="fav-seg-filter-gerencia" onchange="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todas</option>
+                            <option value="CATASTRO">Catastro (DGROC)</option>
+                            <option value="INSTALACIONES">Instalaciones (DGROC)</option>
+                            <option value="CONFORME">Conforme (DGROC)</option>
+                            <option value="CONTABLE">Contable (DGROC)</option>
+                            <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
+                            <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
+                            <option value="MORFOLOGIA">Morfología (DGIUR)</option>
+                            <option value="APH">APH (DGIUR)</option>
+                            <option value="USOS">Usos (DGIUR)</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Estado SADE -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Estado SADE</label>
+                        <select id="fav-seg-filter-sade" onchange="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todos</option>
+                            <option value="STOCK PROPIO">Stock Propio</option>
+                            <option value="SUBSANACION">Subsanación</option>
+                            <option value="EN FLUJO">En Flujo</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Estado Ficha -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Estado Ficha</label>
+                        <select id="fav-seg-filter-estado" onchange="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todos</option>
+                            <option value="Finalizado">Finalizado</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="En Pausa">En Pausa</option>
+                            <option value="Subsanación">Subsanación</option>
+                            <option value="NONE">Sin Ficha / Sin Estado</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Prioridad -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 130px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Prioridad</label>
+                        <select id="fav-seg-filter-prioridad" onchange="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todas</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Media">Media</option>
+                            <option value="Baja">Baja</option>
+                            <option value="NONE">Sin Prioridad</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Reunión -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 120px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Próx. Reunión</label>
+                        <select id="fav-seg-filter-reunion" onchange="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todos</option>
+                            <option value="true">Sí</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="fav-seg-container" class="matrix-table-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table class="matrix-table" style="margin-top: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;">★</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Área / Gerencia</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Dirección</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Nota</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Nota Interna (última)</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Responsable</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Estado</th>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 140px;">Ficha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fav-seg-tbody">
+                            <!-- Inyectado vía JS -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="fav-seg-empty-state" style="display: none; text-align: center; padding: 3rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem; color: #94a3b8;"><i class="fa-regular fa-folder-open"></i></div>
+                    <h3 style="color: #64748b; margin: 0; font-family: 'Outfit';">No tienes expedientes marcados</h3>
+                    <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Haz clic en la estrella de cualquier expediente en el buscador o reportes para marcarlo.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Buzones -->
+        <section id="buzones" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Buzones / <span id="buzones-breadcrumbs-area">-</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h1 class="landing-title" id="buzones-title" style="margin-bottom: 0.25rem;">Buzones</h1>
+                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;" id="buzones-subtitle">Stock actual de expedientes distribuido por analistas oficiales e intervenciones.</p>
+                </div>
+                <!-- Buscador de Analistas -->
+                <div style="position: relative; width: 280px; font-family: 'Outfit';">
+                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="buzones-analyst-search" placeholder="Buscar analista por nombre..." oninput="filterBuzonesAnalysts()" style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+            </div>
+
+            <!-- Tabs de Gerencias/Areas -->
+            <div class="buzones-tabs-container" id="buzones-tabs" style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+                <!-- Se llenará dinámicamente -->
+            </div>
+
+            <!-- Loader -->
+            <div id="buzones-loader" style="display: none; text-align: center; padding: 3rem;">
+                <span class="loader"></span>
+                <p style="color: #64748b; margin-top: 1rem; font-family: 'Outfit';">Cargando stock de analistas...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="buzones-empty-state" style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow);">
+                <div style="font-size: 3rem; margin-bottom: 1rem; color: #94a3b8;"><i class="fa-regular fa-user"></i></div>
+                <h3 style="color: #64748b; margin: 0; font-family: 'Outfit';">No hay stock activo en esta gerencia</h3>
+                <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Todos los trámites se encuentran finalizados o egresados.</p>
+            </div>
+
+            <!-- Analyst Table List -->
+            <div id="buzones-analysts-table-container" class="matrix-table-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table class="matrix-table" style="margin-top: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Analista Asignado</th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Usuario SADE</th>
+                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Mediana Días Stock</th>
+                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Cantidad de Expedientes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="buzones-analysts-tbody">
+                            <!-- Se llenará dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Detalle de Analista en Buzón -->
+        <section id="buzon-analista-detalle" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Buzones / <span id="buzon-analista-breadcrumbs-area" style="cursor: pointer;" onclick="showBuzonesView(currentBuzonesArea)">-</span> / <span id="buzon-analista-breadcrumbs-gerencia" style="cursor: pointer;" onclick="backToBuzonGerencia()">-</span> / Analista: <span id="buzon-analista-breadcrumbs-name">-</span>
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <button onclick="backToBuzonGerencia()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #64748b; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver al Listado
+                    </button>
+                    <button onclick="exportBuzonAnalistaExcel()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #16a34a; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700; transition: background 0.2s;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+                        <i class="fa-regular fa-file-excel"></i> Descargar Excel
+                    </button>
+                </div>
+                
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 id="buzon-analista-header-name" style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.5rem;">Nombre del Analista</h2>
+                        <p id="buzon-analista-header-sade" style="margin: 4px 0 0 0; font-size: 0.95rem; color: #64748b;">Usuario SADE: @username</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <span id="buzon-analista-header-count" class="badge-status-propio" style="font-weight: 800; font-size: 1rem; padding: 8px 16px; border-radius: 20px; display: inline-block;">0 Expedientes en Stock</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analyst Detail Table -->
+            <div class="matrix-table-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table class="matrix-table" style="margin-top: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 80px;"><i class="fa-solid fa-star"></i></th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Expediente</th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Código Trámite</th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Detalle Trámite</th>
+                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 120px;">Días Stock</th>
+                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 150px;">Días en Gerencia</th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 190px;">Último Pase</th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 150px;">Estado SADE</th>
+                            </tr>
+                        </thead>
+                        <tbody id="buzon-analista-tbody">
+                            <!-- Se llenará dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Analytics Estadística -->
+        <section id="analytics_estadistica" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Analytics / Estadística
+            </div>
+            
+            <div class="analytics-layout" style="display: grid; grid-template-columns: 240px 1fr; gap: 2rem; margin-top: 1rem; align-items: start;">
+                <!-- Sidebar lateral de temáticas -->
+                <aside class="analytics-sidebar" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 0.5rem;">
+                    <h3 style="font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; margin: 0 0 1rem 0; border-bottom: 2px solid #f1f5f9; padding-bottom: 0.5rem;">Temáticas</h3>
+                    <button class="analytics-tab-btn active" onclick="switchAnalyticsTab('permisos_obra')" style="text-align: left; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 10px 14px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
+                        <i class="fa-solid fa-building-user"></i> Permisos de Obra
+                    </button>
+                    <button class="analytics-tab-btn" disabled style="text-align: left; background: transparent; color: #94a3b8; border: none; border-radius: 8px; padding: 10px 14px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 500; cursor: not-allowed; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-tree-city"></i> Morfología y Usos <span style="font-size: 0.65rem; background: #e2e8f0; color: #64748b; padding: 2px 6px; border-radius: 9999px; margin-left: auto;">Próximamente</span>
+                    </button>
+                    <button class="analytics-tab-btn" disabled style="text-align: left; background: transparent; color: #94a3b8; border: none; border-radius: 8px; padding: 10px 14px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 500; cursor: not-allowed; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-map-location-dot"></i> Catastro y Mensuras <span style="font-size: 0.65rem; background: #e2e8f0; color: #64748b; padding: 2px 6px; border-radius: 9999px; margin-left: auto;">Próximamente</span>
+                    </button>
+                </aside>
+                
+                <!-- Contenedor de Dashboard -->
+                <div class="analytics-main-content" style="display: flex; flex-direction: column; gap: 2rem;">
+                    <!-- Dashboard: Permisos de Obra -->
+                    <div id="analytics-panel-permisos_obra" class="analytics-panel active">
+                        <div style="margin-bottom: 1.5rem;">
+                            <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Permisos de Obra (IFPDO)</h1>
+                            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Egresos Efectivos con acrónimo IFPDO desde Enero de 2022.</p>
+                        </div>
+                        
+                        <!-- Tarjetas de KPIs por Año (Se llenarán dinámicamente) -->
+                        <div id="permisos-kpi-cards" class="summary-cards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                            <!-- Dinámico -->
+                        </div>
+                        
+                        <!-- Gráfico de barras -->
+                        <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                            <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Evolución Mensual de Permisos Otorgados</h3>
+                            <div style="height: 400px; position: relative;">
+                                <canvas id="permisosObraChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Analytics Datasets -->
+        <section id="analytics_datasets" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Analytics / Datasets
+            </div>
+            
+            <div style="margin-bottom: 2rem;">
+                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Descarga de Datasets Consolidados</h1>
+                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Acceda a los datos crudos en formato estructurado para auditorías y análisis externos.</p>
+            </div>
+            
+            <div class="datasets-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+                <!-- Card 1: Permisos de Obra -->
+                <div class="dataset-card" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.75rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; justify-content: space-between; gap: 1.5rem; transition: all 0.25s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.06)'" onmouseout="this.style.transform='none'; this.style.boxShadow='var(--card-shadow)'">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="background: rgba(0, 159, 227, 0.08); color: var(--primary); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-file-invoice"></i>
+                        </div>
+                        <h3 style="font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem; margin: 0;">Historial de Permisos de Obra (IFPDO)</h3>
+                        <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5; margin: 0;">Listado consolidado de expedientes con permisos otorgados (IFPDO), incluyendo fecha de emisión, código de trámite y detalles.</p>
+                    </div>
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Formato: .xlsx / .csv</span>
+                        <button onclick="downloadDataset('permisos_obra')" class="btn-primary" style="padding: 8px 16px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer;">
+                            <i class="fa-solid fa-download"></i> Descargar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Card 2: Egresos de Transacciones -->
+                <div class="dataset-card" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.75rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; justify-content: space-between; gap: 1.5rem; transition: all 0.25s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.06)'" onmouseout="this.style.transform='none'; this.style.boxShadow='var(--card-shadow)'">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="background: rgba(16, 185, 129, 0.08); color: #10b981; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-list-check"></i>
+                        </div>
+                        <h3 style="font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem; margin: 0;">Egresos de Transacciones</h3>
+                        <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5; margin: 0;">Set de datos con el consolidado general de egresos del tablero y sus correspondientes identificadores de SADE.</p>
+                    </div>
+                    <div style="border-top: 1px solid #f1f5f9; padding-top: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Formato: .xlsx / .csv</span>
+                        <button onclick="downloadDataset('egresos_transacciones')" class="btn-primary" style="padding: 8px 16px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #10b981;">
+                            <i class="fa-solid fa-download"></i> Descargar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
+
+    <!-- Modal de Detalle Completo de Expediente -->
+    <div id="detalle-expediente-modal" class="modal">
+        <div class="modal-content" style="max-width: 1100px; width: 90%; padding: 30px; background: white; border-radius: 16px;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem;">Detalle Completo de Expediente</h2>
+                    <p id="detalle-modal-expediente-title" style="color: var(--primary); font-size: 1.1rem; margin: 4px 0 0 0; font-family: 'Outfit'; font-weight: 700;"></p>
+                </div>
+                <span class="close-modal" onclick="closeModal('detalle-expediente-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <div id="detalle-modal-body" style="display: flex; flex-direction: column; gap: 25px; max-height: 75vh; overflow-y: auto; padding-right: 5px;">
+                <!-- Se poblará vía JS -->
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <button type="button" class="btn-primary" onclick="closeModal('detalle-expediente-modal')" style="background: #64748b; color: white; padding: 0.6rem 1.5rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Ficha de Expediente -->
+    <div id="ficha-expediente-modal" class="modal">
+        <div class="modal-content" style="max-width: 850px; width: 90%; max-height: 85vh; padding: 25px; background: white; display: flex; flex-direction: column; border-radius: 16px;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div>
+                    <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.4rem;">Ficha de Expediente</h2>
+                    <p id="ficha-modal-expediente-title" style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0; font-family: 'Outfit'; font-weight: 600;"></p>
+                </div>
+                <span class="close-modal" onclick="closeModal('ficha-expediente-modal')" style="cursor: pointer; font-size: 1.8rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <form id="ficha-expediente-form" onsubmit="handleFichaSubmit(event)" style="display: flex; flex-direction: column; flex-grow: 1; overflow: hidden;">
+                <input type="hidden" id="ficha-expediente-hidden">
+                
+                <!-- Contenido en Dos Columnas -->
+                <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; flex-grow: 1; overflow-y: auto; padding-right: 5px; margin-bottom: 15px;">
+                    <!-- Columna Izquierda: Inputs -->
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Dirección</label>
+                            <input type="text" id="ficha-direccion" placeholder="Ej: Av. Martin Garcia 346" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem; outline: none;">
+                        </div>
+                        
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Responsable</label>
+                                <select id="ficha-responsable" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: white; outline: none;">
+                                    <!-- Dinámico -->
+                                </select>
+                            </div>
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Estado</label>
+                                <select id="ficha-estado" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: white; outline: none;">
+                                    <option value="">Seleccionar Estado</option>
+                                    <option value="Finalizado">Finalizado</option>
+                                    <option value="En Proceso">En Proceso</option>
+                                    <option value="En Pausa">En Pausa</option>
+                                    <option value="Subsanación">Subsanación</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Prioridad</label>
+                                <select id="ficha-prioridad" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: white; outline: none;">
+                                    <option value="">Seleccionar Prioridad</option>
+                                    <option value="Alta">Alta</option>
+                                    <option value="Media">Media</option>
+                                    <option value="Baja">Baja</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                                <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Próxima Reunión</label>
+                                <select id="ficha-proxima-reunion" style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem; background: white; outline: none;">
+                                    <option value="false">No</option>
+                                    <option value="true">Sí</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                            <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Notas Internas (Agregar Nueva)</label>
+                            <textarea id="ficha-notas-internas" placeholder="Escriba comentarios o notas de seguimiento interno..." style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.95rem; min-height: 80px; resize: vertical; outline: none;"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Columna Derecha: Historial -->
+                    <div style="display: flex; flex-direction: column; gap: 5px; height: 100%; min-height: 0;">
+                        <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit'; font-weight: 700;">Historial de Notas Internas</label>
+                        <div id="ficha-notas-history-container" style="flex-grow: 1; overflow-y: auto; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Se cargará vía JS -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e2e8f0; padding-top: 15px; flex-shrink: 0;">
+                    <button type="button" class="btn-primary" onclick="closeModal('ficha-expediente-modal')" style="background: #e2e8f0; color: #475569; padding: 0.5rem 1rem; cursor: pointer; border: none; border-radius: 8px;">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="padding: 0.5rem 1rem; cursor: pointer; border: none; border-radius: 8px; background: #2563eb; color: white;">Guardar Ficha</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Modal de Detalles de Stock -->
     <div id="stock-drilldown-modal" class="modal">
         <div class="modal-content">
-            <div class="modal-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <h2 id="modal-analyst-name" style="margin: 0; color: var(--primary-dark);">Nombre Analista</h2>
                     <p id="modal-trata-info" style="color: #64748b; font-size: 0.9rem; margin-top: 5px; margin-bottom: 0;"></p>
                 </div>
-                <span class="close-modal" onclick="closeModal('stock-drilldown-modal')" style="cursor: pointer; font-size: 2rem;">&times;</span>
+                <span class="close-modal" onclick="closeModal('stock-drilldown-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
             </div>
             <div id="modal-table-container" class="matrix-table-container" style="padding: 20px;">
                 <!-- Tabla dinámica -->
             </div>
+        </div>
+    </div>
+
+    <!-- Modal de Creación de Carpeta de Favoritos -->
+    <div id="create-folder-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px; padding: 25px; background: white;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="margin: 0; color: var(--primary-dark); font-size: 1.3rem; font-family: 'Outfit'; font-weight: 700;">Nueva Carpeta</h2>
+                <span class="close-modal" onclick="closeModal('create-folder-modal')" style="cursor: pointer; font-size: 1.8rem; color: #64748b;">&times;</span>
+            </div>
+            <form id="create-folder-form" onsubmit="handleCreateFolderSubmit(event)" style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Nombre de la Carpeta</label>
+                    <input type="text" id="folder-name-input" required placeholder="Ej: Urgentes, Morfología, etc." style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.9rem; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 5px;">
+                    <button type="button" class="btn-primary" onclick="closeModal('create-folder-modal')" style="background: #e2e8f0; color: #475569; padding: 0.5rem 1rem; cursor: pointer;">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="padding: 0.5rem 1rem; cursor: pointer;">Crear</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Notas de Expediente Favorito -->
+    <div id="favorite-notes-modal" class="modal">
+        <div class="modal-content" style="max-width: 550px; padding: 25px; background: white;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; color: var(--primary-dark); font-size: 1.3rem; font-family: 'Outfit'; font-weight: 700;">Anotaciones del Expediente</h2>
+                    <p id="notes-modal-expediente" style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0; font-family: 'Outfit'; font-weight: 600;"></p>
+                </div>
+                <span class="close-modal" onclick="closeModal('favorite-notes-modal')" style="cursor: pointer; font-size: 1.8rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <!-- Listado de Notas Existentes -->
+            <div id="notes-list-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px; padding-right: 5px;">
+                <!-- Se poblará vía JS -->
+            </div>
+            
+            <!-- Formulario para Nueva Nota -->
+            <form id="add-note-form" onsubmit="handleAddNoteSubmit(event)" style="display: flex; flex-direction: column; gap: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                <div class="form-group" style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="color: #64748b; font-size: 0.8rem; font-weight: 600; font-family: 'Outfit';">Nueva Anotación</label>
+                    <textarea id="note-text-input" required placeholder="Escriba un comentario o nota de seguimiento..." style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.9rem; outline: none; transition: border 0.2s; min-height: 80px; resize: vertical;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-primary" onclick="closeModal('favorite-notes-modal')" style="background: #e2e8f0; color: #475569; padding: 0.5rem 1rem; cursor: pointer;">Cerrar</button>
+                    <button type="submit" class="btn-primary" style="padding: 0.5rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-regular fa-floppy-disk"></i> Guardar Nota
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1246,35 +2441,9 @@
         </div>
     </div>
 
-    <!-- Modal de Edición de Usuario (Admin) -->
-    <div id="edit-user-modal" class="modal">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h2>Editar Usuario</h2>
-                <span class="close-modal" onclick="closeModal('edit-user-modal')">&times;</span>
-            </div>
-            <form id="edit-user-form" style="padding: 20px;">
-                <input type="hidden" id="edit-username-hidden">
-                <div class="form-group">
-                    <label>Nombre Completo</label>
-                    <input type="text" id="edit-fullname" required>
-                </div>
-                <div class="form-group">
-                    <label>Rol</label>
-                    <select id="edit-role">
-                        <option value="Usuario">Usuario</option>
-                        <option value="Seguimiento">Seguimiento</option>
-                        <option value="Administrador">Administrador</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Nueva Contraseña (Dejar vacío para no cambiar)</label>
-                    <input type="password" id="edit-password">
-                </div>
-                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 20px;">Guardar Cambios</button>
-            </form>
-        </div>
-    </div>
+
+
+
 
     <!-- Modal de Ayuda / Metodología -->
     <div id="help-modal" class="modal">
@@ -1374,7 +2543,8 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=4"></script>
 </body>
+
 
 </html>

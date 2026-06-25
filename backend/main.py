@@ -217,23 +217,40 @@ def create_access_token(data: dict):
 def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     # 1. Custom user permissions override
     user_perm = conn.execute(text("SELECT permissions FROM auth_users WHERE username = :u"), {"u": username}).scalar()
-    if user_perm is not None:
-        return user_perm
-
-    # 2. Role permissions
-    if role_name:
-        role_perm = conn.execute(text("SELECT permissions FROM auth_roles WHERE role_name = :r"), {"r": role_name}).scalar()
-        if role_perm is not None:
-            return role_perm
-
-    # 3. Hardcoded Fallbacks
+    
     r_lower = (role_name or "").lower()
-    if r_lower in ['admin', 'administrador']:
-        return {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
-    elif r_lower == 'seguimiento':
-        return {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+    
+    resolved = None
+    if user_perm is not None:
+        resolved = dict(user_perm)
     else:
-        return {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+        # 2. Role permissions
+        if role_name:
+            role_perm = conn.execute(text("SELECT permissions FROM auth_roles WHERE role_name = :r"), {"r": role_name}).scalar()
+            if role_perm is not None:
+                resolved = dict(role_perm)
+
+    if resolved is None:
+        # 3. Hardcoded Fallbacks
+        if r_lower in ['admin', 'administrador']:
+            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+        elif r_lower == 'seguimiento':
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+        else:
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+            
+    # Add analytics permissions to all resolved dicts
+    resolved["analytics_estadistica"] = True
+    resolved["analytics_datasets"] = True
+
+    # Force full admin permissions if they have the admin role
+    if r_lower in ['admin', 'administrador']:
+        resolved["admin"] = True
+        resolved["pendientes_asociacion"] = True
+        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets"]:
+            resolved[k] = True
+            
+    return resolved
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -581,9 +598,9 @@ async def update_meta(meta_id: int, data: MetaUpdateRequest, current_user: User 
                     "analistas_oficiales": data.analistas_oficiales,
                     "acronimos_egreso": data.acronimos_egreso,
                     "activo": data.activo,
-                    "firmantes_egreso": data.firmantes_egreso or [],
-                    "buzones_ingreso_intervenciones": data.buzones_ingreso_intervenciones or [],
-                    "descripciones_validas": data.descripciones_validas or [],
+                    "firmantes_egreso": data.firmantes_egreso if data.firmantes_egreso else None,
+                    "buzones_ingreso_intervenciones": data.buzones_ingreso_intervenciones if data.buzones_ingreso_intervenciones else None,
+                    "descripciones_validas": data.descripciones_validas if data.descripciones_validas else None,
                     "descripcion_trata": data.descripcion_trata,
                     "meta_id": meta_id
                 }
@@ -874,7 +891,7 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
             # Precalcular meta_egr_prom para cada trata en la base de datos
             expected_targets = {}
             try:
-                metas_query = f"SELECT TRIM(trata) as trata, egresos_totales_plan as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'"
+                metas_query = f"SELECT TRIM(trata) as trata, meta_mensual_necesaria as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'"
                 res_metas = conn.execute(text(metas_query))
                 for row in res_metas:
                     r_dict = row._mapping
@@ -1018,23 +1035,23 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             
             # Capacidad recomendada total (Egresos Totales Estimados): Leer directamente del plan de junio de la tabla mv_plan_metas
             db_expected_target = None
-            db_ingresos_esperados = None
+            db_ingresos_promedio = None
             try:
                 if trata and trata != 'INTERVENCIONES':
-                    meta_res = conn.execute(text(f"SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_esperados, 0) FROM mv_plan_metas_{gerencia_clean} WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1"), {"t": trata.strip().upper()}).fetchone()
+                    meta_res = conn.execute(text(f"SELECT COALESCE(meta_mensual_necesaria, 0), COALESCE(ingresos_promedio, 0) FROM mv_plan_metas_{gerencia_clean} WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1"), {"t": trata.strip().upper()}).fetchone()
                     if meta_res:
                         db_expected_target = float(meta_res[0])
-                        db_ingresos_esperados = float(meta_res[1])
+                        db_ingresos_promedio = float(meta_res[1])
                 else:
-                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(egresos_totales_plan, 0)), SUM(COALESCE(ingresos_esperados, 0)) FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'")).fetchone()
+                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(meta_mensual_necesaria, 0)), SUM(COALESCE(ingresos_promedio, 0)) FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'")).fetchone()
                     if sum_res and sum_res[0] is not None:
                         db_expected_target = float(sum_res[0])
-                        db_ingresos_esperados = float(sum_res[1])
+                        db_ingresos_promedio = float(sum_res[1])
             except Exception as meta_err:
                 logger.warning(f"Error obteniendo egresos/ingresos de mv_plan_metas_{gerencia_clean}: {meta_err}")
 
-            if db_ingresos_esperados is not None:
-                avg_ing = db_ingresos_esperados
+            if db_ingresos_promedio is not None:
+                avg_ing = db_ingresos_promedio
                 meta_maint = avg_ing
 
             if db_expected_target is not None:
@@ -1134,8 +1151,8 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                 plan_trata_filter = f"TRIM(trata) = '{trata}'" if trata and trata != 'INTERVENCIONES' else "TRUE"
                 plan_sql = f"""
                     SELECT nro_mes, to_char(mes_calendario, 'YYYY-MM') as mes_label,
-                           SUM(COALESCE(ingresos_esperados, 0)) as ingresos,
-                           SUM(COALESCE(egresos_totales_plan, 0)) as egresos_totales,
+                           SUM(COALESCE(ingresos_promedio, 0)) as ingresos,
+                           SUM(COALESCE(meta_mensual_necesaria, 0)) as egresos_totales,
                            SUM(COALESCE(stock_sector_fin, 0)) as stock_sector,
                            SUM(COALESCE(stock_corriente, 0)) as stock_corriente
                     FROM mv_plan_metas_{gerencia_clean}
@@ -1206,7 +1223,7 @@ async def get_reporte_familia(
         }
 
         aggregated_history = {}
-        total_ingresos_esperados = 0
+        total_ingresos_promedio = 0
         total_egresos_totales_plan = 0
 
         with engine.connect() as conn:
@@ -1219,13 +1236,13 @@ async def get_reporte_familia(
                 # 1. Fetch June 2026 plan metas for this trata
                 try:
                     meta_res = conn.execute(text(f"""
-                        SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_esperados, 0) 
+                        SELECT COALESCE(meta_mensual_necesaria, 0), COALESCE(ingresos_promedio, 0) 
                         FROM mv_plan_metas_{gerencia_clean} 
                         WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
                     """), {"t": t_upper}).fetchone()
                     if meta_res:
                         total_egresos_totales_plan += float(meta_res[0])
-                        total_ingresos_esperados += float(meta_res[1])
+                        total_ingresos_promedio += float(meta_res[1])
                 except Exception as meta_err:
                     logger.warning(f"Error fetching plan metas for {t_upper} in {gerencia_clean}: {meta_err}")
 
@@ -1313,7 +1330,7 @@ async def get_reporte_familia(
         return {
             "history": formatted_history,
             "metas": {
-                "ingresos_esperados": round(total_ingresos_esperados),
+                "ingresos_esperados": round(total_ingresos_promedio),
                 "egresos_totales_plan": round(total_egresos_totales_plan)
             }
         }
@@ -1368,7 +1385,7 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                         
                     try:
                         meta_res = conn.execute(text(f"""
-                            SELECT COALESCE(egresos_totales_plan, 0)
+                            SELECT COALESCE(meta_mensual_necesaria, 0)
                             FROM mv_plan_metas_{gerencia_clean} 
                             WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
                         """), {"t": t_upper}).fetchone()
@@ -2550,7 +2567,7 @@ async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user
                 # A. Obtener Metas de la Planificación Oficial para el mes
                 metas_plan = {}
                 try:
-                    meta_res = conn.execute(text(f"SELECT TRIM(trata) as trata, COALESCE(egresos_totales_plan, 0) FROM mv_plan_metas_{g_clean} WHERE mes_calendario = :target"), {"target": target_date_str}).fetchall()
+                    meta_res = conn.execute(text(f"SELECT TRIM(trata) as trata, COALESCE(meta_mensual_necesaria, 0) FROM mv_plan_metas_{g_clean} WHERE mes_calendario = :target"), {"target": target_date_str}).fetchall()
                     for r in meta_res:
                         metas_plan[r[0].upper()] = float(r[1])
                 except Exception:
@@ -3835,6 +3852,105 @@ async def save_expediente_ficha(expediente: str, data: FichaEditRequest, current
         logger.error(f"Error guardando ficha: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/reporte/pendientes_asociacion")
+async def get_pendientes_asociacion(current_user: User = Depends(get_current_user)):
+    results = {}
+    
+    # 1. Consultar a Oracle para obtener los documentos creados pero no asociados
+    import oracledb
+    import os
+    
+    oracle_user = os.getenv("ORACLE_USER", "CDASILVACOSTA")
+    oracle_pass = os.getenv("ORACLE_PASS", "SUI_sie329(m")
+    oracle_dsn = os.getenv("ORACLE_DSN", "ind01-scan1.gcba.gob.ar:1521/sadetst.gcba.gob.ar")
+    
+    oracle_data = []
+    try:
+        connection = oracledb.connect(user=oracle_user, password=oracle_pass, dsn=oracle_dsn)
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT id_expediente, documento, acronimo, usuario_creador, fecha_creacion
+            FROM EE_SADE.MVW_DATOS_GEDO_SECGDU
+            WHERE fecha_creacion IS NOT NULL 
+              AND fecha_asociacion IS NULL
+        """)
+        oracle_data = cursor.fetchall()
+        connection.close()
+    except Exception as e:
+        logger.error(f"Error consultando Oracle para pendientes_asociacion: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al conectar con la base transaccional Oracle: {str(e)}")
+
+    if not oracle_data:
+        return results
+
+    id_list = [row[0] for row in oracle_data]
+
+    # 2. Filtrar y agrupar en Postgres contra las tratas y gerencias configuradas
+    try:
+        with engine.connect() as conn:
+            for gerencia, tratas in TRAMITES_CONFIG.items():
+                cfg_rows = conn.execute(text("""
+                    SELECT trata_reporte, acronimos_egreso, firmantes_egreso 
+                    FROM cfg_gestion_metas 
+                    WHERE gerencia = :g AND trata_reporte <> 'INTERVENCIONES'
+                """), {"g": gerencia}).fetchall()
+                
+                trata_rules = {row[0]: {"acronimos": row[1] or [], "firmantes": row[2] or []} for row in cfg_rows}
+                
+                gerencia_data = {}
+                
+                # Obtener los expedientes que coinciden con los IDs pendientes desde el universo de esta gerencia
+                sql = f"""
+                    SELECT id_expediente, expediente, trata
+                    FROM mv_{gerencia}_universo
+                    WHERE es_trata_propia = TRUE
+                      AND id_expediente = ANY(:ids)
+                """
+                try:
+                    pg_rows = conn.execute(text(sql), {"ids": id_list}).fetchall()
+                    pg_exp_map = {row[0]: {"expediente": row[1], "trata": row[2]} for row in pg_rows}
+                    
+                    for id_exp, doc, acro, creator, created in oracle_data:
+                        if id_exp in pg_exp_map:
+                            trata_code = pg_exp_map[id_exp]["trata"]
+                            exp_num = pg_exp_map[id_exp]["expediente"]
+                            
+                            rules = trata_rules.get(trata_code)
+                            if not rules or not rules["acronimos"]:
+                                continue
+                            
+                            if acro not in rules["acronimos"]:
+                                continue
+                                
+                            if rules["firmantes"] and creator not in rules["firmantes"]:
+                                continue
+                                
+                            if trata_code not in gerencia_data:
+                                trata_name = TRAMITES_CONFIG.get(gerencia, {}).get(trata_code, {}).get("nombre") or trata_code
+                                gerencia_data[trata_code] = {
+                                    "trata_nombre": trata_name,
+                                    "expedientes": []
+                                }
+                                
+                            gerencia_data[trata_code]["expedientes"].append({
+                                "expediente": exp_num,
+                                "gedo": doc,
+                                "usuario_creador": creator,
+                                "fecha_creacion": created.strftime("%Y-%m-%d %H:%M:%S") if created and hasattr(created, "strftime") else (str(created)[:19] if created else None)
+                            })
+                except Exception as query_err:
+                    logger.error(f"Error filtrando en Postgres para gerencia {gerencia}: {query_err}")
+                
+                if gerencia_data:
+                    results[gerencia] = {
+                        "area_nombre": gerencia.upper(),
+                        "tratas": gerencia_data
+                    }
+        return results
+    except Exception as e:
+        logger.error(f"Error procesando pendientes en Postgres: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/reporte/subsanaciones")
 async def get_subsanaciones_report(
     gerencia: Optional[str] = 'ALL',
@@ -4023,61 +4139,53 @@ async def get_subsanaciones_expedientes(
         logger.error(f"Error en reporte/subsanaciones/expedientes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Endpoints del Agente de IA Conversacional (Solo Administrador) ---
-class IAQueryRequest(BaseModel):
-    query: str
-    history: Optional[List[Dict[str, Any]]] = None
+# --- Endpoints del Agente de IA Conversacional (Deshabilitado) ---
 
-class IAFeedbackRequest(BaseModel):
-    query_text: str
-    sql_generated: Optional[str] = None
-    response_text: str
-    score: int # 1 para 👍, -1 para 👎
-
-@app.post("/api/chat/query")
-async def chat_query(data: IAQueryRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="Acceso denegado: se requieren permisos de administrador")
-    
+@app.get("/api/analytics/permisos-obra")
+async def get_analytics_permisos_obra(current_user: User = Depends(get_current_user)):
     try:
-        from backend.ia_agent import ask_agent
-    except ImportError:
-        from ia_agent import ask_agent
-
-    result = ask_agent(data.query, data.history)
-    return result
-
-@app.post("/api/chat/feedback")
-async def chat_feedback(data: IAFeedbackRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="Acceso denegado: se requieren permisos de administrador")
-    
-    try:
-        # Asegurar que la tabla de feedback exista antes de insertar
-        with engine.begin() as conn:
-            conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS audit_agente_feedback (
-                    id SERIAL PRIMARY KEY,
-                    query_text TEXT,
-                    sql_generated TEXT,
-                    response_text TEXT,
-                    feedback_score INT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
+        with engine.connect() as conn:
+            # 1. Monthly data
+            result_monthly = conn.execute(text("""
+                SELECT 
+                    EXTRACT(YEAR FROM e.fecha_egreso)::int as anio,
+                    EXTRACT(MONTH FROM e.fecha_egreso)::int as mes,
+                    e.trata,
+                    cfg.descripcion_trata,
+                    COUNT(*) as cant
+                FROM public.mv_contable_egresos_efectivos e
+                LEFT JOIN public.cfg_gestion_metas cfg 
+                  ON cfg.trata_reporte = e.trata 
+                 AND cfg.gerencia = 'contable'
+                WHERE e.acronimo_egreso = 'IFPDO'
+                  AND e.trata IN ('MDUG3001A', 'MDUG1501J', 'MDUG3402A')
+                  AND e.fecha_egreso >= '2022-01-01'
+                GROUP BY anio, mes, e.trata, cfg.descripcion_trata
+                ORDER BY anio, mes, e.trata;
             """))
-            conn.execute(text("""
-                INSERT INTO audit_agente_feedback (query_text, sql_generated, response_text, feedback_score)
-                VALUES (:q, :sql, :r, :s)
-            """), {
-                "q": data.query_text,
-                "sql": data.sql_generated,
-                "r": data.response_text,
-                "s": data.score
-            })
-        return {"status": "ok", "message": "Feedback registrado correctamente"}
+            monthly_data = [dict(r._mapping) for r in result_monthly]
+            
+            # 2. Yearly data
+            result_yearly = conn.execute(text("""
+                SELECT 
+                    EXTRACT(YEAR FROM fecha_egreso)::int as anio,
+                    COUNT(*) as cant
+                FROM public.mv_contable_egresos_efectivos
+                WHERE acronimo_egreso = 'IFPDO'
+                  AND trata IN ('MDUG3001A', 'MDUG1501J', 'MDUG3402A')
+                  AND fecha_egreso >= '2022-01-01'
+                GROUP BY anio
+                ORDER BY anio;
+            """))
+            yearly_data = [dict(r._mapping) for r in result_yearly]
+            
+            return {
+                "monthly_data": monthly_data,
+                "yearly_data": yearly_data
+            }
     except Exception as e:
-        logger.error(f"Error registrando feedback: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al registrar el feedback: {str(e)}")
+        logger.error(f"Error fetching permisos obra analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
