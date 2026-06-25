@@ -120,6 +120,16 @@ function initAuth() {
         const pendientesAsocLink = document.getElementById('pendientes-asoc-link');
         if (pendientesAsocLink) pendientesAsocLink.style.display = perms.pendientes_asociacion ? 'block' : 'none';
 
+        // Toggles for Analytics dropdown and its contents
+        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets;
+        const navAnalytics = document.getElementById('nav-dropdown-analytics');
+        if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
+
+        const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
+        if (linkEstadistica) linkEstadistica.style.display = perms.analytics_estadistica ? 'block' : 'none';
+        const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
+        if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
+
         // Toggles for Mis Expedientes dropdown and its contents
         const hasExpedientesAccess = perms.buscador || perms.favoritos;
         const navExpedientes = document.getElementById('nav-dropdown-expedientes');
