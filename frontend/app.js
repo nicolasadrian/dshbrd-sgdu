@@ -130,9 +130,9 @@ function initAuth() {
         const linkFavoritos = document.querySelector('a[onclick*="showView(\'favoritos\')"]');
         if (linkFavoritos) linkFavoritos.style.display = perms.favoritos ? 'block' : 'none';
         const linkAsignadosMi = document.querySelector('a[onclick*="showView(\'asignados-mi\')"]');
-        if (linkAsignadosMi) linkAsignadosMi.style.display = perms.favoritos ? 'block' : 'none';
+        if (linkAsignadosMi) linkAsignadosMi.style.display = perms['asignados-mi'] ? 'block' : 'none';
         const linkFavSeg = document.querySelector('a[onclick*="showView(\'favoritos-seguimiento\')"]');
-        if (linkFavSeg) linkFavSeg.style.display = perms.favoritos ? 'block' : 'none';
+        if (linkFavSeg) linkFavSeg.style.display = perms['favoritos-seguimiento'] ? 'block' : 'none';
 
         // Si necesita cambio de clave, forzar modal
         if (currentUser.needs_password_change) {
@@ -245,7 +245,7 @@ function showView(viewId, updateHash = true) {
         
         let hasPermission = !!currentUser.permissions[viewId];
         if (viewId === 'asignados-mi') {
-            hasPermission = !!currentUser.permissions['favoritos'];
+            hasPermission = !!currentUser.permissions['asignados-mi'];
         } else if (dgrocViews.includes(viewId)) {
             hasPermission = !!currentUser.permissions['dgroc'];
         } else if (dgiurViews.includes(viewId)) {
@@ -1817,6 +1817,7 @@ const PERMISSION_KEYS = {
     buscador: "Buscador de Expedientes",
     favoritos: "Marcadores",
     'favoritos-seguimiento': "Gestión de Marcadores",
+    'asignados-mi': "Asignados a Mí",
     analytics_estadistica: "Analytics (Estadística)",
     analytics_datasets: "Analytics (Datasets)",
     admin: "Backlog (Administración)"
