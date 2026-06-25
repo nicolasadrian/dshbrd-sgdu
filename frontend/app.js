@@ -1817,6 +1817,8 @@ const PERMISSION_KEYS = {
     buscador: "Buscador de Expedientes",
     favoritos: "Marcadores",
     'favoritos-seguimiento': "Gestión de Marcadores",
+    analytics_estadistica: "Analytics (Estadística)",
+    analytics_datasets: "Analytics (Datasets)",
     admin: "Backlog (Administración)"
 };
 

@@ -181,24 +181,28 @@ try:
         conn.execute(text("""
             ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT NULL
         """))
-        
         roles_count = conn.execute(text("SELECT COUNT(*) FROM auth_roles")).scalar()
         if roles_count == 0:
             import json
             default_roles = [
-                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True})),
-                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True})),
-                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True})),
-                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}))
+                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True})),
+                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True})),
+                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True})),
+                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True}))
             ]
             for r_name, r_perms in default_roles:
                 conn.execute(text("INSERT INTO auth_roles (role_name, permissions) VALUES (:n, :p)"), {"n": r_name, "p": r_perms})
         else:
-            # Upgrade existing DB roles if they don't have favoritos-seguimiento
+            # Upgrade existing DB roles if they don't have favoritos-seguimiento or analytics
             conn.execute(text("""
                 UPDATE auth_roles 
                 SET permissions = permissions || '{"favoritos-seguimiento": true}'::jsonb
                 WHERE NOT (permissions ? 'favoritos-seguimiento')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"analytics_estadistica": true, "analytics_datasets": true}'::jsonb
+                WHERE NOT (permissions ? 'analytics_estadistica')
             """))
 except Exception as e:
     print(f"Error creando tablas de favoritos/notas/roles: {e}")
@@ -233,15 +237,17 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     if resolved is None:
         # 3. Hardcoded Fallbacks
         if r_lower in ['admin', 'administrador']:
-            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True}
         elif r_lower == 'seguimiento':
-            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True}
         else:
-            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True}
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True}
             
-    # Add analytics permissions to all resolved dicts
-    resolved["analytics_estadistica"] = True
-    resolved["analytics_datasets"] = True
+    # Add analytics permissions as fallback defaults if not present
+    if "analytics_estadistica" not in resolved:
+        resolved["analytics_estadistica"] = True
+    if "analytics_datasets" not in resolved:
+        resolved["analytics_datasets"] = True
 
     # Force full admin permissions if they have the admin role
     if r_lower in ['admin', 'administrador']:
