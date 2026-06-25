@@ -1,10 +1,6 @@
 {
   "builds": [
     {
-      "src": "backend/main.py",
-      "use": "@vercel/python"
-    },
-    {
       "src": "frontend/**",
       "use": "@vercel/static"
     }
@@ -12,7 +8,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "backend/main.py"
+      "dest": "http://api.geo-epesege.com.ar/api/$1"
     },
     {
       "src": "/(.*)",
