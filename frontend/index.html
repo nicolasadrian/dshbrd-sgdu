@@ -1032,33 +1032,50 @@
                 <h1 class="landing-title" style="margin: 0;">Productividad Analistas</h1>
             </div>
 
-            <div class="prod-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: 2rem;">
-                <!-- Sidebar: Sectores y Analistas -->
-                <div class="prod-sidebar" style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); height: fit-content;">
-                    <h3 style="margin-top: 0; margin-bottom: 1.25rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.15rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Sectores</h3>
-                    <div id="prod-sectors-container" style="display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Se llena dinámicamente con JS -->
+            <!-- Contenedor 1: Grid de Sectores (Primer Nivel) -->
+            <div id="prod-sectors-grid-panel" style="display: block; margin-top: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;" id="prod-sectors-grid">
+                    <!-- Se llena dinámicamente con tarjetas de sectores via JS -->
+                </div>
+            </div>
+
+            <!-- Contenedor 2: Detalle del Sector (Segundo Nivel) -->
+            <div id="prod-sector-detail-panel" style="display: none; flex-direction: column; gap: 1.5rem;">
+                <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button onclick="backToProdSectors()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #64748b; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Sectores
+                        </button>
+                        <h2 id="prod-sector-detail-title" style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.5rem;">Nombre del Sector</h2>
                     </div>
+                    <button id="prod-sector-reporte-pdf-btn" class="btn-primary" style="padding: 10px 18px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: #dc2626; color: white;">
+                        <i class="fa-solid fa-file-pdf"></i> Reporte Sector (PDF)
+                    </button>
                 </div>
 
-                <!-- Main Content: Dashboard del Analista -->
-                <div class="prod-main" style="display: flex; flex-direction: column; gap: 2rem;">
-                    <!-- Mensaje Inicial -->
-                    <div id="prod-no-selection" style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <i class="fa-solid fa-user-circle" style="font-size: 4rem; color: #94a3b8; margin-bottom: 1rem;"></i>
-                        <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-size: 1.5rem;">Selecciona un analista</h3>
-                        <p style="color: #64748b; margin-top: 0.5rem;">Elige un sector y haz clic en un analista para ver su reporte de productividad, KPIs y plan de metas.</p>
-                    </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem;" id="prod-analysts-grid">
+                    <!-- Se llena dinámicamente con tarjetas de analistas via JS -->
+                </div>
+            </div>
 
-                    <!-- Panel de Carga / Spinner -->
-                    <div id="prod-loader" style="display: none; background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <span class="loader" style="width: 48px; height: 48px; border-width: 5px; margin: 0 auto 1.5rem auto;"></span>
-                        <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">Procesando datos del analista...</h3>
-                        <p style="color: #64748b; margin-top: 0.5rem;">Unificando pases, actividades y analizando tiempos de SADE.</p>
-                    </div>
+            <!-- Contenedor 3: Dashboard de Analista (Tercer Nivel) -->
+            <div id="prod-analyst-detail-panel" style="display: none; flex-direction: column; gap: 2rem;">
+                
+                <div style="display: flex; justify-content: flex-start; align-items: center;">
+                    <button onclick="backToProdSectorDetail()" class="btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #64748b; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver al Sector
+                    </button>
+                </div>
 
-                    <!-- Dashboard Activo -->
-                    <div id="prod-dashboard-content" style="display: none; flex-direction: column; gap: 2rem;">
+                <!-- Panel de Carga / Spinner -->
+                <div id="prod-loader" style="display: none; background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <span class="loader" style="width: 48px; height: 48px; border-width: 5px; margin: 0 auto 1.5rem auto;"></span>
+                    <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">Procesando datos del analista...</h3>
+                    <p style="color: #64748b; margin-top: 0.5rem;">Unificando pases, actividades y analizando tiempos de SADE.</p>
+                </div>
+
+                <!-- Dashboard Activo -->
+                <div id="prod-dashboard-content" style="display: none; flex-direction: column; gap: 2rem;">
                         <!-- Header del Analista con filtros -->
                         <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 1.25rem;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">

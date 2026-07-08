@@ -9190,67 +9190,66 @@ let currentProdMixChart = null;
 let currentProdDiarioChart = null;
 let currentProdTimelineChart = null;
 
-async function loadProductividadAnalistasView() {
-    const container = document.getElementById('prod-sectors-container');
-    if (!container) return;
+// Sector labels with icons for beautiful cards
+const sectorConfig = {
+    catastro: { label: "Catastro", icon: "fa-solid fa-map-location-dot", color: "#0284c7" },
+    instalaciones: { label: "Instalaciones", icon: "fa-solid fa-wrench", color: "#16a34a" },
+    regularizacion: { label: "Regularización", icon: "fa-solid fa-signature", color: "#4f46e5" },
+    conforme: { label: "Conforme a Obra", icon: "fa-solid fa-clipboard-check", color: "#d97706" },
+    contable: { label: "Contable", icon: "fa-solid fa-file-invoice-dollar", color: "#0d9488" },
+    etapa_proyecto: { label: "Etapa Proyecto", icon: "fa-solid fa-folder-open", color: "#7c3aed" },
+    aviso_obra: { label: "Aviso de Obra", icon: "fa-solid fa-person-digging", color: "#ea580c" },
+    morfologia: { label: "Morfología", icon: "fa-solid fa-shapes", color: "#db2777" },
+    aph: { label: "APH", icon: "fa-solid fa-landmark", color: "#9333ea" },
+    usos: { label: "Usos", icon: "fa-solid fa-house-laptop", color: "#2563eb" }
+};
 
-    container.innerHTML = '<div style="text-align:center; padding: 1rem;"><span class="loader"></span></div>';
+let cachedSectoresData = null;
+let activeProductivitySector = null;
+
+async function loadProductividadAnalistasView() {
+    const grid = document.getElementById('prod-sectors-grid');
+    if (!grid) return;
+    
+    // Reset panels
+    document.getElementById('prod-sectors-grid-panel').style.display = 'block';
+    document.getElementById('prod-sector-detail-panel').style.display = 'none';
+    document.getElementById('prod-analyst-detail-panel').style.display = 'none';
+
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 3rem;"><span class="loader"></span></div>';
 
     try {
         const resp = await def_fetch(`${API_BASE}/productividad/sectores-analistas`);
         if (!resp || !resp.ok) {
-            container.innerHTML = '<p style="color:red; text-align:center;">Error al cargar sectores.</p>';
+            grid.innerHTML = '<p style="color:red; text-align:center; grid-column: 1/-1;">Error al cargar los sectores.</p>';
             return;
         }
 
-        const sectores = await resp.json();
+        cachedSectoresData = await resp.json();
         let html = '';
 
-        const sectorLabels = {
-            catastro: "Catastro",
-            instalaciones: "Instalaciones",
-            regularizacion: "Regularización",
-            conforme: "Conforme a Obra",
-            contable: "Contable",
-            etapa_proyecto: "Etapa Proyecto",
-            aviso_obra: "Aviso de Obra",
-            morfologia: "Morfología",
-            aph: "APH",
-            usos: "Usos"
-        };
-
-        for (const sec in sectores) {
-            const analysts = sectores[sec];
-            let analystsHtml = '';
-            analysts.forEach(a => {
-                analystsHtml += `
-                    <button class="prod-analyst-item" onclick="selectProductividadAnalista('${a.usuario}', '${a.nombre}', '${sec}')">
-                        <i class="fa-solid fa-user"></i> ${a.nombre} (${a.usuario})
-                    </button>
-                `;
-            });
-
-            const displaySec = sectorLabels[sec.toLowerCase()] || (sec.charAt(0).toUpperCase() + sec.slice(1));
-
+        for (const sec in cachedSectoresData) {
+            const analysts = cachedSectoresData[sec];
+            const conf = sectorConfig[sec.toLowerCase()] || { label: sec, icon: "fa-solid fa-folder", color: "#64748b" };
+            
             html += `
-                <div style="margin-bottom: 10px;">
-                    <div class="prod-sector-header" onclick="toggleProdSector(this)">
-                        <span>${displaySec} <span style="font-size:0.8rem; color:#64748b; font-weight:normal;">(${analysts.length})</span></span>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <button class="btn-primary" onclick="event.stopPropagation(); downloadSectorComparativePDF('${sec}')" style="font-size: 0.7rem; padding: 2px 8px; height: auto; font-family: 'Outfit';" title="Descargar PDF Comparativo del Sector">
-                                <i class="fa-solid fa-file-pdf"></i> Comp
-                            </button>
-                            <span class="chevron" style="transition: transform 0.2s;">▼</span>
+                <div class="meta-card hover-card" onclick="selectProductividadSector('${sec}')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid ${conf.color}; transition: all 0.2s ease; background: white; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="background: ${conf.color}20; width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: ${conf.color};">
+                            <i class="${conf.icon}" style="font-size: 1.4rem;"></i>
                         </div>
+                        <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b; font-size: 1.2rem;">${conf.label}</h3>
                     </div>
-                    <div class="prod-sector-content">
-                        ${analystsHtml}
+                    <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.4;">Visualice la producción diaria e individual de los analistas asignados a esta área.</p>
+                    <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: ${conf.color}; font-size: 0.85rem;">
+                        <span>${analysts.length} Analistas</span>
+                        <span>Ingresar <i class="fa-solid fa-arrow-right"></i></span>
                     </div>
                 </div>
             `;
         }
 
-        container.innerHTML = html || '<p style="text-align:center; color:#64748b;">No se encontraron sectores.</p>';
+        grid.innerHTML = html || '<p style="text-align:center; color:#64748b; grid-column: 1/-1;">No se encontraron sectores.</p>';
 
         // Set default dates if empty
         const fromInput = document.getElementById('prod-date-from');
@@ -9258,26 +9257,68 @@ async function loadProductividadAnalistasView() {
         if (fromInput && !fromInput.value) {
             const ninetyDaysAgo = new Date();
             ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-            fromInput.value = ninetyDaysAgo.toISOString().split('T')[0];
+            fromInput.value = ninetyDaysAgo.toISOString().substring(0, 10);
+            toInput.value = new Date().toISOString().substring(0, 10);
         }
-        if (toInput && !toInput.value) {
-            toInput.value = new Date().toISOString().split('T')[0];
-        }
-
     } catch (err) {
-        console.error(err);
-        container.innerHTML = '<p style="color:red; text-align:center;">Error de conexión.</p>';
+        console.error("Error al cargar sectores:", err);
+        grid.innerHTML = '<p style="color:red; text-align:center; grid-column: 1/-1;">Error de conexión.</p>';
     }
 }
 
-function toggleProdSector(headerEl) {
-    const content = headerEl.nextElementSibling;
-    const chevron = headerEl.querySelector('.chevron');
-    if (content) {
-        content.classList.toggle('open');
-        const isOpen = content.classList.contains('open');
-        if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : 'none';
-    }
+function selectProductividadSector(sector) {
+    activeProductivitySector = sector;
+    const sectorTitle = document.getElementById('prod-sector-detail-title');
+    const analystsGrid = document.getElementById('prod-analysts-grid');
+    const pdfBtn = document.getElementById('prod-sector-reporte-pdf-btn');
+    
+    if (!cachedSectoresData || !cachedSectoresData[sector]) return;
+    
+    const conf = sectorConfig[sector.toLowerCase()] || { label: sector, icon: "fa-solid fa-folder", color: "#64748b" };
+    sectorTitle.innerText = `Área: ${conf.label}`;
+    
+    pdfBtn.onclick = () => {
+        downloadSectorComparativePDF(sector);
+    };
+    
+    let html = '';
+    const analysts = cachedSectoresData[sector];
+    analysts.forEach(a => {
+        html += `
+            <div class="meta-card hover-card" onclick="selectProductividadAnalista('${a.usuario}', '${a.nombre}', '${sector}')" style="cursor: pointer; padding: 20px; display: flex; flex-direction: column; gap: 12px; background: white; border-radius: 12px; border: 1px solid #cbd5e1; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="background: #f1f5f9; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #475569;">
+                        <i class="fa-solid fa-user" style="font-size: 1.1rem;"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b; font-size: 1rem;">${a.nombre}</h4>
+                        <span style="font-size: 0.78rem; color: #64748b;">@${a.usuario}</span>
+                    </div>
+                </div>
+                <div style="margin-top: auto; display: flex; justify-content: flex-end; align-items: center; font-weight: 700; color: var(--primary); font-size: 0.8rem; gap: 4px;">
+                    Ver Productividad <i class="fa-solid fa-chevron-right"></i>
+                </div>
+            </div>
+        `;
+    });
+    
+    analystsGrid.innerHTML = html || '<p style="color:#64748b; grid-column: 1/-1;">No hay analistas en este sector.</p>';
+    
+    document.getElementById('prod-sectors-grid-panel').style.display = 'none';
+    document.getElementById('prod-sector-detail-panel').style.display = 'flex';
+    document.getElementById('prod-analyst-detail-panel').style.display = 'none';
+}
+
+function backToProdSectors() {
+    document.getElementById('prod-sectors-grid-panel').style.display = 'block';
+    document.getElementById('prod-sector-detail-panel').style.display = 'none';
+    document.getElementById('prod-analyst-detail-panel').style.display = 'none';
+}
+
+function backToProdSectorDetail() {
+    document.getElementById('prod-sectors-grid-panel').style.display = 'none';
+    document.getElementById('prod-sector-detail-panel').style.display = 'flex';
+    document.getElementById('prod-analyst-detail-panel').style.display = 'none';
 }
 
 async function selectProductividadAnalista(username, fullname, sector) {
@@ -9285,16 +9326,10 @@ async function selectProductividadAnalista(username, fullname, sector) {
     selectedAnalystName = fullname;
     selectedAnalystSector = sector;
 
-    // Highlight selected item in sidebar
-    document.querySelectorAll('.prod-analyst-item').forEach(btn => {
-        if (btn.textContent.includes(`(${username})`)) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-
-    document.getElementById('prod-no-selection').style.display = 'none';
+    document.getElementById('prod-sectors-grid-panel').style.display = 'none';
+    document.getElementById('prod-sector-detail-panel').style.display = 'none';
+    document.getElementById('prod-analyst-detail-panel').style.display = 'flex';
+    
     document.getElementById('prod-loader').style.display = 'block';
     document.getElementById('prod-dashboard-content').style.display = 'none';
 
@@ -9312,7 +9347,7 @@ async function loadAnalystDashboardData() {
         if (!resp || !resp.ok) {
             alert('Error al cargar la productividad del analista.');
             document.getElementById('prod-loader').style.display = 'none';
-            document.getElementById('prod-no-selection').style.display = 'block';
+            backToProdSectorDetail();
             return;
         }
 
@@ -9591,7 +9626,9 @@ window.onBuzonTipoSujetoChange = onBuzonTipoSujetoChange;
 window.selectAllBuzones = selectAllBuzones;
 window.deleteBuzonAcceso = deleteBuzonAcceso;
 window.loadProductividadAnalistasView = loadProductividadAnalistasView;
-window.toggleProdSector = toggleProdSector;
+window.selectProductividadSector = selectProductividadSector;
+window.backToProdSectors = backToProdSectors;
+window.backToProdSectorDetail = backToProdSectorDetail;
 window.selectProductividadAnalista = selectProductividadAnalista;
 window.updateAnalystProductivity = updateAnalystProductivity;
 window.downloadIndividualPDF = downloadIndividualPDF;
