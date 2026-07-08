@@ -5250,7 +5250,10 @@ async def get_analista_productividad(username: str, date_from: Optional[str] = N
     if not current_user.permissions.get("productividad_analistas"):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
-        from backend.productivity_engine import get_analyst_productivity_data
+        try:
+            from backend.productivity_engine import get_analyst_productivity_data
+        except ModuleNotFoundError:
+            from productivity_engine import get_analyst_productivity_data
         with engine.connect() as conn:
             data = get_analyst_productivity_data(conn, username, date_from, date_to)
             return data
@@ -5300,7 +5303,10 @@ async def get_pdf_individual(username: str, date_from: Optional[str] = None, dat
     if not current_user.permissions.get("productividad_analistas"):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
-        from backend.pdf_generator import generate_individual_pdf
+        try:
+            from backend.pdf_generator import generate_individual_pdf
+        except ModuleNotFoundError:
+            from pdf_generator import generate_individual_pdf
         from fastapi.responses import Response
         with engine.connect() as conn:
             pdf_bytes = generate_individual_pdf(conn, username, date_from, date_to)
@@ -5316,7 +5322,10 @@ async def get_pdf_comparativo(sector: str, date_from: Optional[str] = None, date
     if not current_user.permissions.get("productividad_analistas"):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
-        from backend.pdf_generator import generate_comparative_pdf
+        try:
+            from backend.pdf_generator import generate_comparative_pdf
+        except ModuleNotFoundError:
+            from pdf_generator import generate_comparative_pdf
         from fastapi.responses import Response
         with engine.connect() as conn:
             pdf_bytes = generate_comparative_pdf(conn, sector, date_from, date_to)
