@@ -7,3 +7,7 @@ pandas
 python-jose[cryptography]
 bcrypt
 python-multipart
+geopandas
+shapely
+ezdxf
+fiona
