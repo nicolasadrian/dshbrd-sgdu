@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException, Depends, status, Query
+from fastapi import FastAPI, HTTPException, Depends, status, Query, Header, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, text
@@ -102,6 +102,23 @@ def get_engine():
 
 engine = get_engine()
 
+def get_geo_mdr_engine():
+    db_url = os.getenv("DATABASE_URL_LOCAL") or os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PUBLIC")
+    if not db_url:
+        db_url = "postgresql://postgres:lenovo@localhost:5432/sade_db"
+    
+    # Replace the database name at the end with "geo-mdr"
+    base_url, _ = db_url.rsplit('/', 1)
+    geo_url = f"{base_url}/geo-mdr"
+    
+    if geo_url.startswith("postgres://"):
+        geo_url = geo_url.replace("postgres://", "postgresql://", 1)
+        
+    return create_engine(geo_url, pool_size=5, max_overflow=10)
+
+geo_engine = get_geo_mdr_engine()
+
+
 # Crear tabla de favoritos en el inicio
 try:
     with engine.begin() as conn:
@@ -170,6 +187,56 @@ try:
         """))
         conn.execute(text("ALTER TABLE cfg_gestion_metas ADD COLUMN IF NOT EXISTS descripcion_trata text"))
         
+        # Manzanas Atípicas Workflow & Notas DDL
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.manzanas_atipicas_workflow (
+                seccion VARCHAR(50) NOT NULL,
+                manzana VARCHAR(50) NOT NULL,
+                estado VARCHAR(50) NOT NULL DEFAULT 'Pendiente',
+                analista_asignado VARCHAR(100),
+                disposicion TEXT,
+                archivo_trazado VARCHAR(255),
+                archivo_finalizado VARCHAR(255),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (seccion, manzana)
+            );
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.manzanas_atipicas_notas (
+                id SERIAL PRIMARY KEY,
+                seccion VARCHAR(50) NOT NULL,
+                manzana VARCHAR(50) NOT NULL,
+                username VARCHAR(100) NOT NULL,
+                nota TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """))
+        
+        # Manzanas LFI Workflow & Notas DDL
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.manzanas_lfi_workflow (
+                seccion VARCHAR(50) NOT NULL,
+                manzana VARCHAR(50) NOT NULL,
+                estado VARCHAR(50) NOT NULL DEFAULT 'Pendiente',
+                analista_asignado VARCHAR(100),
+                disposicion TEXT,
+                archivo_trazado VARCHAR(255),
+                archivo_finalizado VARCHAR(255),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (seccion, manzana)
+            );
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.manzanas_lfi_notas (
+                id SERIAL PRIMARY KEY,
+                seccion VARCHAR(50) NOT NULL,
+                manzana VARCHAR(50) NOT NULL,
+                username VARCHAR(100) NOT NULL,
+                nota TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """))
+        
         # dynamic roles DDL
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS auth_roles (
@@ -179,16 +246,24 @@ try:
             )
         """))
         conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.cfg_buzones_analisis_acceso (
+                id SERIAL PRIMARY KEY,
+                tipo_sujeto VARCHAR(50) NOT NULL,
+                nombre_sujeto VARCHAR(100) NOT NULL UNIQUE,
+                buzones TEXT[] NOT NULL
+            )
+        """))
+        conn.execute(text("""
             ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT NULL
         """))
         roles_count = conn.execute(text("SELECT COUNT(*) FROM auth_roles")).scalar()
         if roles_count == 0:
             import json
             default_roles = [
-                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True})),
-                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True})),
-                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True})),
-                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True}))
+                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True})),
+                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True})),
+                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": True, "ciudad_3d": True})),
+                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": False, "ciudad_3d": False}))
             ]
             for r_name, r_perms in default_roles:
                 conn.execute(text("INSERT INTO auth_roles (role_name, permissions) VALUES (:n, :p)"), {"n": r_name, "p": r_perms})
@@ -209,6 +284,64 @@ try:
                 SET permissions = permissions || '{"asignados-mi": true}'::jsonb
                 WHERE NOT (permissions ? 'asignados-mi')
             """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"buzones_analisis": true}'::jsonb
+                WHERE NOT (permissions ? 'buzones_analisis')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"productividad_analistas": false}'::jsonb
+                WHERE NOT (permissions ? 'productividad_analistas')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"secgdu": true}'::jsonb
+                WHERE NOT (permissions ? 'secgdu')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"ciudad_3d": true}'::jsonb
+                WHERE NOT (permissions ? 'ciudad_3d') AND role_name IN ('administrador', 'admin', 'seguimiento')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"ciudad_3d": false}'::jsonb
+                WHERE NOT (permissions ? 'ciudad_3d')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users 
+                SET permissions = permissions || '{"ciudad_3d": true}'::jsonb
+                WHERE permissions IS NOT NULL 
+                  AND NOT (permissions ? 'ciudad_3d')
+                  AND role IN ('administrador', 'admin', 'seguimiento')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users 
+                SET permissions = permissions || '{"ciudad_3d": false}'::jsonb
+                WHERE permissions IS NOT NULL 
+                  AND NOT (permissions ? 'ciudad_3d')
+            """))
+            
+            # Synchronize missing permission keys from roles to user overrides
+            roles = conn.execute(text("SELECT role_name, permissions FROM auth_roles")).fetchall()
+            roles_map = {r[0]: r[1] for r in roles}
+            users = conn.execute(text("SELECT username, role, permissions FROM auth_users WHERE permissions IS NOT NULL")).fetchall()
+            for user in users:
+                u_name = user[0]
+                u_role = user[1]
+                u_perms = user[2] or {}
+                r_perms = roles_map.get(u_role, {})
+                updated = False
+                for k, v in r_perms.items():
+                    if k not in u_perms:
+                        u_perms[k] = v
+                        updated = True
+                if updated:
+                    conn.execute(
+                        text("UPDATE auth_users SET permissions = :p WHERE username = :u"),
+                        {"p": json.dumps(u_perms), "u": u_name}
+                    )
 except Exception as e:
     print(f"Error creando tablas de favoritos/notas/roles: {e}")
 
@@ -242,11 +375,11 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     if resolved is None:
         # 3. Hardcoded Fallbacks
         if r_lower in ['admin', 'administrador']:
-            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True}
+            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": True}
         elif r_lower == 'seguimiento':
-            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True}
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": False}
         else:
-            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True}
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": False}
             
     # Add fallback defaults if not present
     if "analytics_estadistica" not in resolved:
@@ -255,12 +388,14 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
         resolved["analytics_datasets"] = True
     if "asignados-mi" not in resolved:
         resolved["asignados-mi"] = True
+    if "productividad_analistas" not in resolved:
+        resolved["productividad_analistas"] = False
 
     # Force full admin permissions if they have the admin role
     if r_lower in ['admin', 'administrador']:
         resolved["admin"] = True
         resolved["pendientes_asociacion"] = True
-        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "asignados-mi"]:
+        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "asignados-mi", "productividad_analistas"]:
             resolved[k] = True
             
     return resolved
@@ -557,6 +692,69 @@ async def delete_role(role_name: str, current_user: User = Depends(get_current_u
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/admin/buzones-analisis/catalogo")
+async def get_buzones_catalogo(current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    requested_mailboxes = [
+        'ARCHIVODGTAL', 'DGIUR-PREARCHIVO', 'DGIUR-SGUI', 'DGROC-ANTECEDENTESRLM', 'DGROC-APTOSGRYCO', 
+        'DGROC-ARCHIVO', 'DGROC-ARI', 'DGROC-CIC', 'DGROC-CONTABLE', 'DGROC-COPIAPLANO', 
+        'DGROC-DCATAT', 'DGROC-DCATDES', 'DGROC-DCATPOL', 'DGROC-DCATRUD', 'DGROC-DCATTIT', 
+        'DGROC-DCG', 'DGROC-DCIDITI', 'DGROC-DCOBAAYFO', 'DGROC-DCOBLEG', 'DGROC-DCOBREG', 
+        'DGROC-DCOBREGD', 'DGROC-DESCARGOS', 'DGROC-DGROCARI', 'DGROC-DGROCDES', 'DGROC-DGROCRRHH', 
+        'DGROC-DTACONT', 'DGROC-DTADES', 'DGROC-DTARPS', 'DGROC-ELEVADORES', 'DGROC-ESPERAINSTALACIONES', 
+        'DGROC-FICHA_PARCELARIA', 'DGROC-GO', 'DGROC-LEGAJOS', 'DGROC-LEGAJOSAUTOMAT', 'DGROC-LEY104', 
+        'DGROC-MESADES', 'DGROC-MESAMIDI', 'DGROC-MESAMIDINST', 'DGROC-MESAMIDINSTINCENDIO', 
+        'DGROC-MESAMIPVO', 'DGROC-OBRASADMIN', 'DGROC-OBRASENCURSO', 'DGROC-OBRASTECNICA', 'DGROC-OBSINCENDIO', 
+        'DGROC-OBSOBRAPREARCHIVO', 'DGROC-OBSPREARCHAYFO', 'DGROC-OBSREGISTRO', 'DGROC-PENDIENTESDEPAGO', 
+        'DGROC-RECHAZADOSLEGAJOS', 'DGROC-REVISIONCONTABLE', 'DGROC-SEDR', 'DGROC-SEDRI', 'DGROC-SGUI', 
+        'DGROC-TERMICAS', 'DGSOCAI-ARCHIVO', 'MGEYA-ARCHIVO', 'MGEYA-DCG', 'PG-ARCHIVO', 
+        'SECGDU-ARCHIVODESPACHO', 'SECLYT-ARCHIVO', 'SSGDU-ARCHIVODESPACHO', 'SSGU-ARCHIVODESPACHO'
+    ]
+    return sorted(requested_mailboxes)
+
+@app.get("/api/admin/buzones-analisis/accesos")
+async def list_buzones_accesos(current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT id, tipo_sujeto, nombre_sujeto, buzones FROM public.cfg_buzones_analisis_acceso ORDER BY tipo_sujeto, nombre_sujeto"))
+            return [dict(r._mapping) for r in result.fetchall()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class BuzonAccesoUpdate(BaseModel):
+    tipo_sujeto: str
+    nombre_sujeto: str
+    buzones: List[str]
+
+@app.put("/api/admin/buzones-analisis/accesos")
+async def save_buzon_acceso(data: BuzonAccesoUpdate, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM public.cfg_buzones_analisis_acceso WHERE nombre_sujeto = :name"), {"name": data.nombre_sujeto})
+            conn.execute(text("""
+                INSERT INTO public.cfg_buzones_analisis_acceso (tipo_sujeto, nombre_sujeto, buzones)
+                VALUES (:t, :n, :b)
+            """), {"t": data.tipo_sujeto, "n": data.nombre_sujeto, "b": data.buzones})
+            return {"status": "ok", "message": "Acceso a buzones guardado correctamente"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/buzones-analisis/accesos/{nombre_sujeto}")
+async def delete_buzon_acceso(nombre_sujeto: str, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM public.cfg_buzones_analisis_acceso WHERE nombre_sujeto = :name"), {"name": nombre_sujeto})
+            return {"status": "ok", "message": "Acceso personalizado eliminado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/admin/metas")
 async def list_metas(current_user: User = Depends(get_current_user)):
     if current_user.role.lower() not in ['admin', 'administrador']:
@@ -567,7 +765,7 @@ async def list_metas(current_user: User = Depends(get_current_user)):
                 SELECT c.id, c.gerencia, c.trata_reporte, c.tratas_incluidas, c.buzones_ingreso, 
                        c.analistas_oficiales, c.acronimos_egreso, c.activo, c.firmantes_egreso, 
                        c.buzones_ingreso_intervenciones, c.descripciones_validas,
-                       COALESCE(c.descripcion_trata, (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = c.trata_reporte LIMIT 1)) as descripcion_trata
+                       COALESCE(c.descripcion_trata, (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = c.trata_reporte LIMIT 1)) as descripcion_trata
                 FROM cfg_gestion_metas c
                 ORDER BY c.gerencia, c.trata_reporte
             """))
@@ -748,7 +946,7 @@ async def get_gerencia_config(gerencia: str, current_user: User = Depends(get_cu
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/consolidado")
-async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends(get_current_user)):
+def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
     if gerencia_clean == 'conforme':
         gerencia_clean = 'regularizacion'
@@ -870,7 +1068,7 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
                                 (SELECT descripcion_trata FROM cfg_gestion_metas WHERE t.trata = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
                                 t.descripcion_trata
                             ) as descripcion_trata 
-                        FROM mvw_expedientes_tratas_secgdu t
+                        FROM vw_expedientes_maestro t
                         WHERE t.trata IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
                         UNION ALL
                         SELECT 'INTERVENCIONES', 'Intervenciones'
@@ -904,8 +1102,14 @@ async def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = D
             # Precalcular meta_egr_prom para cada trata en la base de datos
             expected_targets = {}
             try:
-                metas_query = f"SELECT TRIM(trata) as trata, meta_mensual_necesaria as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'"
-                res_metas = conn.execute(text(metas_query))
+                # Obtener el mes de metas más cercano a la fecha actual
+                mes_cal = '2026-07-01'
+                month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                if month_res:
+                    mes_cal = month_res[0]
+
+                metas_query = f"SELECT TRIM(trata) as trata, egresos_totales_plan as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = :mes"
+                res_metas = conn.execute(text(metas_query), {"mes": mes_cal})
                 for row in res_metas:
                     r_dict = row._mapping
                     if r_dict["trata"]:
@@ -1046,17 +1250,23 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             meta_maint = avg_ing
             meta_clean_required = (current_sector / 6.0) + (excess_corriente / 3.0)
             
-            # Capacidad recomendada total (Egresos Totales Estimados): Leer directamente del plan de junio de la tabla mv_plan_metas
+            # Capacidad recomendada total (Egresos Totales Estimados): Leer directamente del plan de la tabla mv_plan_metas
             db_expected_target = None
             db_ingresos_promedio = None
             try:
+                # Obtener el mes de metas más cercano a la fecha actual
+                mes_cal = '2026-07-01'
+                month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                if month_res:
+                    mes_cal = month_res[0]
+
                 if trata and trata != 'INTERVENCIONES':
-                    meta_res = conn.execute(text(f"SELECT COALESCE(meta_mensual_necesaria, 0), COALESCE(ingresos_promedio, 0) FROM mv_plan_metas_{gerencia_clean} WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1"), {"t": trata.strip().upper()}).fetchone()
+                    meta_res = conn.execute(text(f"SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_promedio, 0) FROM mv_plan_metas_{gerencia_clean} WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1"), {"t": trata.strip().upper(), "mes": mes_cal}).fetchone()
                     if meta_res:
                         db_expected_target = float(meta_res[0])
                         db_ingresos_promedio = float(meta_res[1])
                 else:
-                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(meta_mensual_necesaria, 0)), SUM(COALESCE(ingresos_promedio, 0)) FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = '2026-06-01'")).fetchone()
+                    sum_res = conn.execute(text(f"SELECT SUM(COALESCE(egresos_totales_plan, 0)), SUM(COALESCE(ingresos_promedio, 0)) FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = :mes"), {"mes": mes_cal}).fetchone()
                     if sum_res and sum_res[0] is not None:
                         db_expected_target = float(sum_res[0])
                         db_ingresos_promedio = float(sum_res[1])
@@ -1165,7 +1375,7 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                 plan_sql = f"""
                     SELECT nro_mes, to_char(mes_calendario, 'YYYY-MM') as mes_label,
                            SUM(COALESCE(ingresos_promedio, 0)) as ingresos,
-                           SUM(COALESCE(meta_mensual_necesaria, 0)) as egresos_totales,
+                           SUM(COALESCE(egresos_totales_plan, 0)) as egresos_totales,
                            SUM(COALESCE(stock_sector_fin, 0)) as stock_sector,
                            SUM(COALESCE(stock_corriente, 0)) as stock_corriente
                     FROM mv_plan_metas_{gerencia_clean}
@@ -1249,7 +1459,7 @@ async def get_reporte_familia(
                 # 1. Fetch June 2026 plan metas for this trata
                 try:
                     meta_res = conn.execute(text(f"""
-                        SELECT COALESCE(meta_mensual_necesaria, 0), COALESCE(ingresos_promedio, 0) 
+                        SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_promedio, 0) 
                         FROM mv_plan_metas_{gerencia_clean} 
                         WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
                     """), {"t": t_upper}).fetchone()
@@ -1398,7 +1608,7 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                         
                     try:
                         meta_res = conn.execute(text(f"""
-                            SELECT COALESCE(meta_mensual_necesaria, 0)
+                            SELECT COALESCE(egresos_totales_plan, 0)
                             FROM mv_plan_metas_{gerencia_clean} 
                             WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
                         """), {"t": t_upper}).fetchone()
@@ -1510,7 +1720,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                     SELECT COALESCE(
                         (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
                         (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
-                        (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1)
+                        (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = :t LIMIT 1)
                     )
                 """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
@@ -1639,7 +1849,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                     SELECT COALESCE(
                         (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
                         (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
-                        (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE trata = :t LIMIT 1)
+                        (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = :t LIMIT 1)
                     )
                 """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
@@ -1717,11 +1927,11 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
 
                 sql = f"""
                     SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
-                           dias_ultimo_movimiento as dias, analista_actual as analista, du.apellido_nombre as analista_nombre, trata,
-                           (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as caratula,
-                           (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion_trata,
-                           (SELECT descripcion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion,
-                           (SELECT estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as estado_expediente,
+                           dias_stock as dias, analista_actual as analista, du.apellido_nombre as analista_nombre, trata,
+                           fecha_creacion as caratula,
+                           descripcion_trata,
+                           descripcion,
+                           estado as estado_expediente,
                            dias_stock as dias_en_gerencia
                     FROM mvw_stock_actual_detalle
                     LEFT JOIN datos_usuario du ON mvw_stock_actual_detalle.analista_actual = du.usuario
@@ -1790,6 +2000,260 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
     gerencia_clean = gerencia.lower()
     if gerencia_clean == 'conforme':
         gerencia_clean = 'regularizacion'
+    
+    if gerencia_clean == 'secgdu_todos':
+        try:
+            with engine.connect() as conn:
+                sql = """
+                    SELECT 
+                        buzon as username,
+                        buzon as name,
+                        total_expedientes as count,
+                        egresados_efectivos,
+                        egresados_no_efectivos,
+                        pendientes_actividad
+                    FROM public.mv_secgdu_buzones_resumen
+                    ORDER BY total_expedientes DESC
+                """
+                result = conn.execute(text(sql))
+                rows = [dict(r._mapping) for r in result.fetchall()]
+                for r in rows:
+                    r["expedientes"] = []
+                return rows
+        except Exception as e:
+            logger.error(f"Error en get_gerencia_buzones (secgdu_todos): {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    if gerencia_clean == 'analisis_archivo':
+        try:
+            with engine.connect() as conn:
+                sql = """
+                    SELECT 
+                        up.id_expediente, 
+                        ext.expediente, 
+                        up.fecha_ultimo_pase as fecha_primer_ingreso_gerencia, 
+                        up.fecha_ultimo_pase as fecha_recepcion_analista, 
+                        (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_poder_actual, 
+                        up.destinatario_actual as analista, 
+                        up.destinatario_actual as analista_nombre, 
+                        ext.trata, 
+                        ext.fecha_creacion,
+                        ext.descripcion_trata, 
+                        ext.descripcion, 
+                        ext.estado as estado_expediente,
+                        (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_gerencia,
+                        'EGRESADO' as ubicacion
+                    FROM mv_ultimo_pase up
+                    JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
+                    WHERE up.destinatario_actual IN (
+                        'ARCHIVODGTAL', 'DGIUR-PREARCHIVO', 'DGIUR-SGUI', 'DGROC-ANTECEDENTESRLM', 'DGROC-APTOSGRYCO', 
+                        'DGROC-ARCHIVO', 'DGROC-ARI', 'DGROC-CIC', 'DGROC-CONTABLE', 'DGROC-COPIAPLANO', 
+                        'DGROC-DCATAT', 'DGROC-DCATDES', 'DGROC-DCATPOL', 'DGROC-DCATRUD', 'DGROC-DCATTIT', 
+                        'DGROC-DCG', 'DGROC-DCIDITI', 'DGROC-DCOBAAYFO', 'DGROC-DCOBLEG', 'DGROC-DCOBREG', 
+                        'DGROC-DCOBREGD', 'DGROC-DESCARGOS', 'DGROC-DGROCARI', 'DGROC-DGROCDES', 'DGROC-DGROCRRHH', 
+                        'DGROC-DTACONT', 'DGROC-DTADES', 'DGROC-DTARPS', 'DGROC-ELEVADORES', 'DGROC-ESPERAINSTALACIONES', 
+                        'DGROC-FICHA_PARCELARIA', 'DGROC-GO', 'DGROC-LEGAJOS', 'DGROC-LEGAJOSAUTOMAT', 'DGROC-LEY104', 
+                        'DGROC-MESADES', 'DGROC-MESAMIDI', 'DGROC-MESAMIDINST', 'DGROC-MESAMIDINSTINCENDIO', 
+                        'DGROC-MESAMIPVO', 'DGROC-OBRASADMIN', 'DGROC-OBRASENCURSO', 'DGROC-OBRASTECNICA', 'DGROC-OBSINCENDIO', 
+                        'DGROC-OBSOBRAPREARCHIVO', 'DGROC-OBSPREARCHAYFO', 'DGROC-OBSREGISTRO', 'DGROC-PENDIENTESDEPAGO', 
+                        'DGROC-RECHAZADOSLEGAJOS', 'DGROC-REVISIONCONTABLE', 'DGROC-SEDR', 'DGROC-SEDRI', 'DGROC-SGUI', 
+                        'DGROC-TERMICAS', 'DGSOCAI-ARCHIVO', 'MGEYA-ARCHIVO', 'MGEYA-DCG', 'PG-ARCHIVO', 
+                        'SECGDU-ARCHIVODESPACHO', 'SECLYT-ARCHIVO', 'SSGDU-ARCHIVODESPACHO', 'SSGU-ARCHIVODESPACHO'
+                    )
+                """
+                result = conn.execute(text(sql))
+                rows = [dict(r._mapping) for r in result.fetchall()]
+                
+                # Group ids by gerencia to dynamically resolve their actual states
+                from collections import defaultdict
+                ids_by_gerencia = defaultdict(list)
+                resolved_locations = {}
+                trata_overrides = {
+                    "MDUG3001A": "etapa_proyecto",
+                    "MDUG0104A": "etapa_proyecto",
+                    "MDUG1501J": "etapa_proyecto",
+                    "MDUG0142A": "etapa_proyecto",
+                    "MDUG4003A": "etapa_proyecto"
+                }
+                for r in rows:
+                    id_exp = r["id_expediente"]
+                    trata = r["trata"]
+                    trata_upper = trata.strip().upper() if trata else ""
+                    ger = None
+                    if trata_upper in trata_overrides:
+                        ger = trata_overrides[trata_upper]
+                    else:
+                        for g, config in TRAMITES_CONFIG.items():
+                            if trata_upper in config:
+                                ger = g
+                                break
+                    if ger:
+                        ids_by_gerencia[ger].append(id_exp)
+                    else:
+                        resolved_locations[id_exp] = "FUERA DE TABLERO"
+
+                for ger, ids in ids_by_gerencia.items():
+                    if not ids:
+                        continue
+                    # 1. Stock Propio
+                    try:
+                        sp_res = conn.execute(text(f"SELECT id_expediente FROM mv_{ger}_stock_propio WHERE id_expediente IN :ids"), {"ids": tuple(ids)}).fetchall()
+                        for s_row in sp_res:
+                            resolved_locations[s_row[0]] = "STOCK PROPIO"
+                    except Exception:
+                        pass
+                    # 2. Subsanación
+                    try:
+                        sub_res = conn.execute(text(f"SELECT id_expediente FROM mv_{ger}_subsanaciones WHERE id_expediente IN :ids"), {"ids": tuple(ids)}).fetchall()
+                        for s_row in sub_res:
+                            resolved_locations[s_row[0]] = "SUBSANACION"
+                    except Exception:
+                        pass
+                    # 3. Intervencion Stock
+                    try:
+                        sp_int = conn.execute(text(f"SELECT id_expediente FROM mv_{ger}_intervenciones_stock WHERE id_expediente IN :ids"), {"ids": tuple(ids)}).fetchall()
+                        for s_row in sp_int:
+                            if s_row[0] not in resolved_locations:
+                                resolved_locations[s_row[0]] = "STOCK PROPIO (INTERVENCION)"
+                    except Exception:
+                        pass
+                    # 4. Intervencion Subsanacion
+                    try:
+                        sub_int = conn.execute(text(f"SELECT id_expediente FROM mv_{ger}_intervenciones_subs WHERE id_expediente IN :ids"), {"ids": tuple(ids)}).fetchall()
+                        for s_row in sub_int:
+                            if s_row[0] not in resolved_locations:
+                                resolved_locations[s_row[0]] = "SUBSANACION (INTERVENCION)"
+                    except Exception:
+                        pass
+                    # 5. Gedos Egreso
+                    try:
+                        egr_ef = conn.execute(text(f"SELECT id_expediente FROM mv_{ger}_gedos_egreso WHERE id_expediente IN :ids"), {"ids": tuple(ids)}).fetchall()
+                        for s_row in egr_ef:
+                            resolved_locations[s_row[0]] = "EGRESADO"
+                    except Exception:
+                        pass
+                    # 6. Egresos No Efectivos
+                    try:
+                        egr_ne = conn.execute(text(f"SELECT id_expediente FROM mv_{ger}_egresos_no_efectivos WHERE id_expediente IN :ids"), {"ids": tuple(ids)}).fetchall()
+                        for s_row in egr_ne:
+                            resolved_locations[s_row[0]] = "EGRESADO (NO EFECTIVO)"
+                    except Exception:
+                        pass
+
+                # Query last pase reason (motivo) in batch
+                last_pase_motivos = {}
+                try:
+                    all_ids = [r["id_expediente"] for r in rows]
+                    if all_ids:
+                        motivos_res = conn.execute(text("""
+                            SELECT DISTINCT ON (id_expediente) id_expediente, motivo
+                            FROM mvw_ee_pases_secgdu
+                            WHERE id_expediente IN :ids
+                            ORDER BY id_expediente, fecha DESC
+                        """), {"ids": tuple(all_ids)}).fetchall()
+                        for m_row in motivos_res:
+                            last_pase_motivos[m_row[0]] = m_row[1] or "Sin Motivo"
+                except Exception as e:
+                    logger.error(f"Error querying last pase motivos: {e}")
+
+                archive_mailboxes = {
+                    'ARCHIVODGTAL', 'DGSOCAI-ARCHIVO', 'MGEYA-ARCHIVO', 'PG-ARCHIVO',
+                    'SECGDU-ARCHIVODESPACHO', 'SECLYT-ARCHIVO', 'SSGDU-ARCHIVODESPACHO', 'SSGU-ARCHIVODESPACHO',
+                    'DGROC-ARCHIVO', 'DGROC-OBSOBRAPREARCHIVO'
+                }
+                
+                # Chequear permisos de acceso específicos a buzones
+                allowed_mailboxes = None
+                try:
+                    with engine.connect() as conn:
+                        # 1. Por usuario
+                        res_user = conn.execute(text("SELECT buzones FROM public.cfg_buzones_analisis_acceso WHERE tipo_sujeto = 'usuario' AND nombre_sujeto = :n"), {"n": current_user.username}).fetchone()
+                        if res_user:
+                            allowed_mailboxes = set(res_user[0])
+                        else:
+                            # 2. Por rol
+                            res_role = conn.execute(text("SELECT buzones FROM public.cfg_buzones_analisis_acceso WHERE tipo_sujeto = 'rol' AND nombre_sujeto = :r"), {"r": current_user.role}).fetchone()
+                            if res_role:
+                                allowed_mailboxes = set(res_role[0])
+                except Exception as db_err:
+                    logger.error(f"Error checking allowed mailboxes: {db_err}")
+
+                by_analyst = {}
+                for r in rows:
+                    username = r["analista"] or "SIN_ASIGNAR"
+                    if allowed_mailboxes is not None and username not in allowed_mailboxes:
+                        continue # Filtrar por permisos
+                        
+                    name = r["analista_nombre"] or "Sin Asignar"
+                    
+                    id_exp = r["id_expediente"]
+                    if id_exp in resolved_locations:
+                        ubic = resolved_locations[id_exp]
+                    elif r["analista"] in archive_mailboxes:
+                        ubic = "EGRESADO"
+                    else:
+                        ubic = "STOCK PROPIO"
+
+                    fecha_ing = r["fecha_primer_ingreso_gerencia"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_primer_ingreso_gerencia"] and hasattr(r["fecha_primer_ingreso_gerencia"], "strftime") else (str(r["fecha_primer_ingreso_gerencia"])[:19] if r["fecha_primer_ingreso_gerencia"] else None)
+                    fecha_pase = r["fecha_recepcion_analista"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_recepcion_analista"] and hasattr(r["fecha_recepcion_analista"], "strftime") else (str(r["fecha_recepcion_analista"])[:19] if r["fecha_recepcion_analista"] else None)
+                    caratula = r["fecha_creacion"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_creacion"] and hasattr(r["fecha_creacion"], "strftime") else (str(r["fecha_creacion"])[:19] if r["fecha_creacion"] else None)
+                    
+                    exp_item = {
+                        "id_expediente": r["id_expediente"],
+                        "expediente": r["expediente"],
+                        "fecha_ing": fecha_ing,
+                        "fecha_ultimo_pase": fecha_pase,
+                        "dias": r["dias_en_poder_actual"] if r["dias_en_poder_actual"] is not None else 0,
+                        "trata": r["trata"],
+                        "caratula": caratula,
+                        "descripcion_trata": r["descripcion_trata"] or r["descripcion"] or "S/D",
+                        "estado_expediente": r["estado_expediente"] or "S/D",
+                        "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0,
+                        "estado_tablero": ubic,
+                        "trata_en_tablero": (ubic != "FUERA DE TABLERO"),
+                        "motivo_pase": last_pase_motivos.get(r["id_expediente"], "Sin Motivo")
+                    }
+                    
+                    if username not in by_analyst:
+                        by_analyst[username] = {
+                            "username": username,
+                            "name": name,
+                            "count": 0,
+                            "expedientes": []
+                        }
+                    by_analyst[username]["expedientes"].append(exp_item)
+                    by_analyst[username]["count"] += 1
+                
+                requested_mailboxes = [
+                    'ARCHIVODGTAL', 'DGIUR-PREARCHIVO', 'DGIUR-SGUI', 'DGROC-ANTECEDENTESRLM', 'DGROC-APTOSGRYCO', 
+                    'DGROC-ARCHIVO', 'DGROC-ARI', 'DGROC-CIC', 'DGROC-CONTABLE', 'DGROC-COPIAPLANO', 
+                    'DGROC-DCATAT', 'DGROC-DCATDES', 'DGROC-DCATPOL', 'DGROC-DCATRUD', 'DGROC-DCATTIT', 
+                    'DGROC-DCG', 'DGROC-DCIDITI', 'DGROC-DCOBAAYFO', 'DGROC-DCOBLEG', 'DGROC-DCOBREG', 
+                    'DGROC-DCOBREGD', 'DGROC-DESCARGOS', 'DGROC-DGROCARI', 'DGROC-DGROCDES', 'DGROC-DGROCRRHH', 
+                    'DGROC-DTACONT', 'DGROC-DTADES', 'DGROC-DTARPS', 'DGROC-ELEVADORES', 'DGROC-ESPERAINSTALACIONES', 
+                    'DGROC-FICHA_PARCELARIA', 'DGROC-GO', 'DGROC-LEGAJOS', 'DGROC-LEGAJOSAUTOMAT', 'DGROC-LEY104', 
+                    'DGROC-MESADES', 'DGROC-MESAMIDI', 'DGROC-MESAMIDINST', 'DGROC-MESAMIDINSTINCENDIO', 
+                    'DGROC-MESAMIPVO', 'DGROC-OBRASADMIN', 'DGROC-OBRASENCURSO', 'DGROC-OBRASTECNICA', 'DGROC-OBSINCENDIO', 
+                    'DGROC-OBSOBRAPREARCHIVO', 'DGROC-OBSPREARCHAYFO', 'DGROC-OBSREGISTRO', 'DGROC-PENDIENTESDEPAGO', 
+                    'DGROC-RECHAZADOSLEGAJOS', 'DGROC-REVISIONCONTABLE', 'DGROC-SEDR', 'DGROC-SEDRI', 'DGROC-SGUI', 
+                    'DGROC-TERMICAS', 'DGSOCAI-ARCHIVO', 'MGEYA-ARCHIVO', 'MGEYA-DCG', 'PG-ARCHIVO', 
+                    'SECGDU-ARCHIVODESPACHO', 'SECLYT-ARCHIVO', 'SSGDU-ARCHIVODESPACHO', 'SSGU-ARCHIVODESPACHO'
+                ]
+                for mb in requested_mailboxes:
+                    if allowed_mailboxes is not None and mb not in allowed_mailboxes:
+                        continue # Filtrar por permisos
+                    if mb not in by_analyst:
+                        by_analyst[mb] = {
+                            "username": mb,
+                            "name": mb,
+                            "count": 0,
+                            "expedientes": []
+                        }
+                return list(by_analyst.values())
+        except Exception as e:
+            logger.error(f"Error en get_gerencia_buzones (analisis_archivo): {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
         
@@ -1813,12 +2277,13 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     ) as descripcion_trata, 
                     ext.descripcion, 
                     ext.estado as estado_expediente,
-                    (CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
+                    (CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia,
+                    s.ubicacion
                 FROM (
-                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata
+                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'STOCK PROPIO' as ubicacion
                     FROM mv_{gerencia_clean}_stock_propio
                     UNION ALL
-                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata
+                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'INTERVENCION' as ubicacion
                     FROM mv_{gerencia_clean}_intervenciones_stock
                 ) s
                 LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = s.id_expediente
@@ -1846,7 +2311,8 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     "caratula": caratula,
                     "descripcion_trata": r["descripcion_trata"] or r["descripcion"] or "S/D",
                     "estado_expediente": r["estado_expediente"] or "S/D",
-                    "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0
+                    "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0,
+                    "estado_tablero": r["ubicacion"]
                 }
                 
                 if username not in by_analyst:
@@ -1862,6 +2328,136 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             return sorted(list(by_analyst.values()), key=lambda x: x["count"], reverse=True)
     except Exception as e:
         logger.error(f"Error fetching gerencia buzones: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reporte/secgdu/buzones/{username}/expedientes")
+async def get_secgdu_buzon_expedientes(username: str, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    up.id_expediente, 
+                    ext.expediente, 
+                    up.fecha_ultimo_pase as fecha_recepcion_analista,
+                    up.fecha_ultimo_pase as fecha_primer_ingreso_gerencia, 
+                    (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_poder_actual, 
+                    ext.trata, 
+                    ext.fecha_creacion,
+                    ext.descripcion_trata, 
+                    ext.descripcion, 
+                    ext.estado as estado_expediente,
+                    (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_gerencia
+                FROM mv_ultimo_pase up
+                JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
+                WHERE up.destinatario_actual = :u
+            """
+            result = conn.execute(text(sql), {"u": username})
+            rows = [dict(r._mapping) for r in result.fetchall()]
+            
+            rules_sql = """
+                SELECT DISTINCT 
+                    UNNEST(tratas_incluidas) AS trata,
+                    UNNEST(acronimos_egreso) AS acronimo,
+                    firmantes_egreso
+                FROM public.cfg_gestion_metas
+                WHERE trata_reporte <> 'INTERVENCIONES'
+            """
+            rules_res = conn.execute(text(rules_sql)).fetchall()
+            rules_by_trata = {}
+            for r_trata, r_acro, r_firm in rules_res:
+                if r_trata not in rules_by_trata:
+                    rules_by_trata[r_trata] = []
+                rules_by_trata[r_trata].append((r_acro, r_firm))
+
+            ids = [r["id_expediente"] for r in rows]
+            gedos_by_exp = {}
+            if ids:
+                gedo_sql = """
+                    SELECT id_expediente, acronimo, usuario_creador
+                    FROM public.mvw_datos_gedo_secgdu
+                    WHERE id_expediente IN :ids
+                """
+                gedo_res = conn.execute(text(gedo_sql), {"ids": tuple(ids)}).fetchall()
+                for g_id, g_acro, g_user in gedo_res:
+                    if g_id not in gedos_by_exp:
+                        gedos_by_exp[g_id] = []
+                    gedos_by_exp[g_id].append((g_acro, g_user))
+
+            pending_activities = set()
+            if ids:
+                act_sql = """
+                    SELECT DISTINCT ON (id_expediente) id_expediente, estado
+                    FROM public.mvw_ee_actividades_secgdu
+                    WHERE id_expediente IN :ids
+                    ORDER BY id_expediente, fecha_alta DESC
+                """
+                act_res = conn.execute(text(act_sql), {"ids": tuple(ids)}).fetchall()
+                for a_id, a_est in act_res:
+                    if a_est == 'PENDIENTE':
+                        pending_activities.add(a_id)
+
+            last_pase_motivos = {}
+            if ids:
+                motivos_res = conn.execute(text("""
+                    SELECT DISTINCT ON (id_expediente) id_expediente, motivo
+                    FROM mvw_ee_pases_secgdu
+                    WHERE id_expediente IN :ids
+                    ORDER BY id_expediente, fecha DESC
+                """), {"ids": tuple(ids)}).fetchall()
+                for m_row in motivos_res:
+                    last_pase_motivos[m_row[0]] = m_row[1] or "Sin Motivo"
+
+            expedientes = []
+            for r in rows:
+                id_exp = r["id_expediente"]
+                trata = r["trata"]
+                
+                is_efectivo = False
+                if trata in rules_by_trata and id_exp in gedos_by_exp:
+                    for r_acro, r_firm in rules_by_trata[trata]:
+                        for g_acro, g_user in gedos_by_exp[id_exp]:
+                            if g_acro == r_acro:
+                                if not r_firm or g_user in r_firm:
+                                    is_efectivo = True
+                                    break
+                        if is_efectivo:
+                            break
+                
+                is_no_efectivo = (r["estado_expediente"] == 'Guarda Temporal' and not is_efectivo)
+                
+                if is_efectivo:
+                    ubic = "EGRESADO"
+                elif is_no_efectivo:
+                    ubic = "EGRESADO (NO EFECTIVO)"
+                elif id_exp in pending_activities:
+                    ubic = "PENDIENTE DE ACTIVIDAD"
+                else:
+                    ubic = "EN STOCK"
+                
+                fecha_ing = r["fecha_primer_ingreso_gerencia"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_primer_ingreso_gerencia"] and hasattr(r["fecha_primer_ingreso_gerencia"], "strftime") else (str(r["fecha_primer_ingreso_gerencia"])[:19] if r["fecha_primer_ingreso_gerencia"] else None)
+                fecha_pase = r["fecha_recepcion_analista"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_recepcion_analista"] and hasattr(r["fecha_recepcion_analista"], "strftime") else (str(r["fecha_recepcion_analista"])[:19] if r["fecha_recepcion_analista"] else None)
+                caratula = r["fecha_creacion"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_creacion"] and hasattr(r["fecha_creacion"], "strftime") else (str(r["fecha_creacion"])[:19] if r["fecha_creacion"] else None)
+                
+                exp_item = {
+                    "id_expediente": id_exp,
+                    "expediente": r["expediente"],
+                    "fecha_ing": fecha_ing,
+                    "fecha_ultimo_pase": fecha_pase,
+                    "dias": r["dias_en_poder_actual"] if r["dias_en_poder_actual"] is not None else 0,
+                    "trata": trata,
+                    "caratula": caratula,
+                    "descripcion_trata": r["descripcion_trata"] or r["descripcion"] or "S/D",
+                    "estado_expediente": r["estado_expediente"] or "S/D",
+                    "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0,
+                    "estado_tablero": ubic,
+                    "trata_en_tablero": True,
+                    "motivo_pase": last_pase_motivos.get(id_exp, "Sin Motivo")
+                }
+                expedientes.append(exp_item)
+                
+            return expedientes
+    except Exception as e:
+        logger.error(f"Error en get_secgdu_buzon_expedientes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/{gerencia}/intervenciones/detalle")
@@ -2499,7 +3095,7 @@ async def get_tramite_detalle_periodo(
                             e.descripcion_trata AS "DETALLE TRATA", 
                             e.estado AS "ESTADO"
                         FROM {stock_table} t
-                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        LEFT JOIN vw_expedientes_maestro e ON e.id_expediente = t.id_expediente
                         WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
                         UNION ALL
                         SELECT 
@@ -2513,7 +3109,7 @@ async def get_tramite_detalle_periodo(
                             e.descripcion_trata AS "DETALLE TRATA", 
                             e.estado AS "ESTADO"
                         FROM {subs_table} t
-                        LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = t.id_expediente
+                        LEFT JOIN vw_expedientes_maestro e ON e.id_expediente = t.id_expediente
                         WHERE (:trata = 'INTERVENCIONES' OR t.trata = :trata)
                         ORDER BY 6 DESC
                     """
@@ -2551,8 +3147,7 @@ async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user
         yoy_mes = f"{yoy_dt.year}-{str(yoy_dt.month).zfill(2)}"
         
         target_date_str = f"{dt_first.year}-{str(dt_first.month).zfill(2)}-01"
-        if mes == '2026-05':
-            target_date_str = '2026-06-01'
+
 
         response_data = {
             "periodo": mes,
@@ -2577,14 +3172,21 @@ async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user
                 interv_stock_table = f"mv_{g_clean}_intervenciones_stock"
                 interv_subs_table = f"mv_{g_clean}_intervenciones_subs"
 
-                # A. Obtener Metas de la Planificación Oficial para el mes
+                # A. Obtener Metas de la Planificación Oficial para el mes (solo desde Mayo 2026 en adelante)
                 metas_plan = {}
-                try:
-                    meta_res = conn.execute(text(f"SELECT TRIM(trata) as trata, COALESCE(meta_mensual_necesaria, 0) FROM mv_plan_metas_{g_clean} WHERE mes_calendario = :target"), {"target": target_date_str}).fetchall()
-                    for r in meta_res:
-                        metas_plan[r[0].upper()] = float(r[1])
-                except Exception:
-                    pass
+                if mes >= '2026-05':
+                    try:
+                        meta_res = conn.execute(text(f"SELECT TRIM(trata) as trata, COALESCE(egresos_totales_plan, 0) FROM mv_plan_metas_{g_clean} WHERE mes_calendario = :target"), {"target": target_date_str}).fetchall()
+                        for r in meta_res:
+                            metas_plan[r[0].upper()] = float(r[1])
+                    except Exception:
+                        pass
+
+                    # Fallback: si no hay metas de planificación unificadas para el mes seleccionado,
+                    # calcular una meta estimada basada en la mediana de los últimos 6 meses
+                    if not metas_plan:
+                        for t_code in trata_codes:
+                            metas_plan[t_code.upper()] = calculate_trata_expected_egresos(conn, g_clean, t_code)
 
                 # B. Obtener Ingresos (Mes Objetivo vs Mes Previo vs Mes YoY)
                 ingresos = {}
@@ -2969,21 +3571,27 @@ async def get_sla_expedientes(
         logger.error(f"Error en reporte/sla/expedientes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/expediente/buscar")
-async def buscar_expediente(
-    anio: str,
-    numero: str,
-    reparticion: str,
+def normalize_expediente(exp_str: str) -> str:
+    if not exp_str:
+        return exp_str
+    from urllib.parse import unquote
+    clean_exp = unquote(exp_str).strip()
+    parts = clean_exp.split('-')
+    if len(parts) == 5:
+        parts.insert(3, '   ')
+    elif len(parts) >= 6:
+        if parts[3].strip() == '':
+            parts[3] = '   '
+    return '-'.join(parts)
+
+@app.get("/api/expediente/detalle")
+async def get_expediente_detalle(
+    expediente: str,
     current_user: User = Depends(get_current_user)
 ):
     try:
-        # Formatear el patrón de búsqueda (con y sin ceros a la izquierda)
-        clean_num = numero.lstrip('0') or '0'
-        pattern1 = f"EX-{anio}-{numero}-%-{reparticion}"
-        pattern2 = f"EX-{anio}-{clean_num}-%-{reparticion}"
-        
+        clean_exp = normalize_expediente(expediente)
         with engine.connect() as conn:
-            # 1. Buscar expediente en mvw_expedientes_tratas_secgdu
             sql = """
                 SELECT id_expediente, expediente, trata, descripcion_trata, estado, fecha_creacion,
                        COALESCE((
@@ -3001,7 +3609,7 @@ async def buscar_expediente(
                            FROM (
                                SELECT DISTINCT fecha_alta, fecha_cierre
                                FROM mvw_ee_actividades_secgdu
-                               WHERE id_expediente = mvw_expedientes_tratas_secgdu.id_expediente
+                               WHERE id_expediente = vw_expedientes_maestro.id_expediente
                                  AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
                            ) t
                        ), 0) AS dias_subsanacion,
@@ -3014,17 +3622,263 @@ async def buscar_expediente(
                            FROM (
                                SELECT DISTINCT fecha_alta, fecha_cierre
                                FROM mvw_ee_actividades_secgdu
-                               WHERE id_expediente = mvw_expedientes_tratas_secgdu.id_expediente
+                               WHERE id_expediente = vw_expedientes_maestro.id_expediente
                                  AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
                            ) t
                        ), 0) AS cant_subsanaciones,
                        COALESCE((
                            SELECT dias_stock 
                            FROM mvw_stock_actual_detalle 
-                           WHERE id_expediente = mvw_expedientes_tratas_secgdu.id_expediente 
+                           WHERE id_expediente = vw_expedientes_maestro.id_expediente 
                            LIMIT 1
                        ), 0) AS dias_stock
-                FROM mvw_expedientes_tratas_secgdu
+                FROM vw_expedientes_maestro
+                WHERE expediente = :exp
+            """
+            res = conn.execute(text(sql), {"exp": clean_exp}).fetchone()
+            
+            if not res:
+                raise HTTPException(status_code=404, detail="Expediente no encontrado.")
+                
+            r = res._mapping
+            id_exp = r.get("id_expediente")
+            trata = r.get("trata")
+            expediente_nro = r.get("expediente")
+            estado = r.get("estado")
+            
+            # Extract reparticion
+            parts = expediente_nro.split('-')
+            reparticion = parts[-1] if parts else ""
+            
+            # Resolve gerencia
+            gerencia = None
+            trata_upper = trata.strip().upper() if trata else ""
+            trata_overrides = {
+                "MDUG3001A": "etapa_proyecto",
+                "MDUG0104A": "etapa_proyecto",
+                "MDUG1501J": "etapa_proyecto",
+                "MDUG0142A": "etapa_proyecto",
+                "MDUG4003A": "etapa_proyecto"
+            }
+            
+            if trata_upper in trata_overrides:
+                gerencia = trata_overrides[trata_upper]
+            else:
+                for g, config in TRAMITES_CONFIG.items():
+                    if trata_upper in config:
+                        gerencia = g
+                        break
+            
+            ubicacion = "EN FLUJO"
+            analista = None
+            fecha_movimiento = None
+            
+            if gerencia:
+                # Stock Propio
+                try:
+                    sp = conn.execute(text(f"SELECT analista, fecha_recepcion_analista FROM mv_{gerencia}_stock_propio WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                    if sp:
+                        ubicacion = "STOCK PROPIO"
+                        analista = sp[0]
+                        fecha_movimiento = sp[1]
+                except Exception:
+                    pass
+                    
+                # Subsanacion
+                if ubicacion == "EN FLUJO":
+                    try:
+                        sub = conn.execute(text(f"SELECT analista, fecha_recepcion_analista FROM mv_{gerencia}_subsanaciones WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                        if sub:
+                            ubicacion = "SUBSANACION"
+                            analista = sub[0]
+                            fecha_movimiento = sub[1]
+                    except Exception:
+                        pass
+                        
+                # Intervencion Stock
+                if ubicacion == "EN FLUJO":
+                    try:
+                        sp_int = conn.execute(text(f"SELECT analista FROM mv_{gerencia}_intervenciones_stock WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                        if sp_int:
+                            ubicacion = "STOCK PROPIO (INTERVENCION)"
+                            analista = sp_int[0]
+                    except Exception:
+                        pass
+                        
+                # Intervencion Subsanacion
+                if ubicacion == "EN FLUJO":
+                    try:
+                        sub_int = conn.execute(text(f"SELECT analista FROM mv_{gerencia}_intervenciones_subs WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                        if sub_int:
+                            ubicacion = "SUBSANACION (INTERVENCION)"
+                            analista = sub_int[0]
+                    except Exception:
+                        pass
+                        
+                # Egresado Efectivo
+                if ubicacion == "EN FLUJO":
+                    try:
+                        egr_ef = conn.execute(text(f"SELECT usuario_egreso, fecha_egreso FROM mv_{gerencia}_gedos_egreso WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                        if egr_ef:
+                            ubicacion = "EGRESADO"
+                            analista = egr_ef[0]
+                            fecha_movimiento = egr_ef[1]
+                    except Exception:
+                        pass
+                        
+                # Egresado No Efectivo
+                if ubicacion == "EN FLUJO":
+                    try:
+                        egr_ne = conn.execute(text(f"SELECT poseedor_actual, fecha_ultimo_movimiento FROM mv_{gerencia}_egresos_no_efectivos WHERE id_expediente = :id LIMIT 1"), {"id": id_exp}).fetchone()
+                        if egr_ne:
+                            ubicacion = "EGRESADO (NO EFECTIVO)"
+                            analista = egr_ne[0]
+                            fecha_movimiento = egr_ne[1]
+                    except Exception:
+                        pass
+            
+            # Check if it is currently in an archive mailbox
+            if ubicacion == "EN FLUJO":
+                try:
+                    sql_up = "SELECT destinatario_actual, fecha_ultimo_pase FROM mv_ultimo_pase WHERE id_expediente = :id LIMIT 1"
+                    up_row = conn.execute(text(sql_up), {"id": id_exp}).fetchone()
+                    if up_row and up_row[0] in [
+                        'ARCHIVODGTAL', 'DGIUR-PREARCHIVO', 'DGIUR-SGUI', 'DGROC-ANTECEDENTESRLM', 'DGROC-APTOSGRYCO', 
+                        'DGROC-ARCHIVO', 'DGROC-ARI', 'DGROC-CIC', 'DGROC-CONTABLE', 'DGROC-COPIAPLANO', 
+                        'DGROC-DCATAT', 'DGROC-DCATDES', 'DGROC-DCATPOL', 'DGROC-DCATRUD', 'DGROC-DCATTIT', 
+                        'DGROC-DCG', 'DGROC-DCIDITI', 'DGROC-DCOBAAYFO', 'DGROC-DCOBLEG', 'DGROC-DCOBREG', 
+                        'DGROC-DCOBREGD', 'DGROC-DESCARGOS', 'DGROC-DGROCARI', 'DGROC-DGROCDES', 'DGROC-DGROCRRHH', 
+                        'DGROC-DTACONT', 'DGROC-DTADES', 'DGROC-DTARPS', 'DGROC-ELEVADORES', 'DGROC-ESPERAINSTALACIONES', 
+                        'DGROC-FICHA_PARCELARIA', 'DGROC-GO', 'DGROC-LEGAJOS', 'DGROC-LEGAJOSAUTOMAT', 'DGROC-LEY104', 
+                        'DGROC-MESADES', 'DGROC-MESAMIDI', 'DGROC-MESAMIDINST', 'DGROC-MESAMIDINSTINCENDIO', 
+                        'DGROC-MESAMIPVO', 'DGROC-OBRASADMIN', 'DGROC-OBRASENCURSO', 'DGROC-OBRASTECNICA', 'DGROC-OBSINCENDIO', 
+                        'DGROC-OBSOBRAPREARCHIVO', 'DGROC-OBSPREARCHAYFO', 'DGROC-OBSREGISTRO', 'DGROC-PENDIENTESDEPAGO', 
+                        'DGROC-RECHAZADOSLEGAJOS', 'DGROC-REVISIONCONTABLE', 'DGROC-SEDR', 'DGROC-SEDRI', 'DGROC-SGUI', 
+                        'DGROC-TERMICAS', 'DGSOCAI-ARCHIVO', 'MGEYA-ARCHIVO', 'MGEYA-DCG', 'PG-ARCHIVO', 
+                        'SECGDU-ARCHIVODESPACHO', 'SECLYT-ARCHIVO', 'SSGDU-ARCHIVODESPACHO', 'SSGU-ARCHIVODESPACHO'
+                    ]:
+                        ubicacion = "EGRESADO"
+                        analista = up_row[0]
+                        fecha_movimiento = up_row[1]
+                except Exception:
+                    pass
+            if ubicacion == "EN FLUJO" and not gerencia:
+                ubicacion = "FUERA DE TABLERO"
+
+            d_tramitacion = 0
+            f_creacion = r.get("fecha_creacion")
+            if f_creacion:
+                if hasattr(f_creacion, "date"):
+                    f_creacion_date = f_creacion.date()
+                else:
+                    f_creacion_date = datetime.strptime(str(f_creacion)[:10], "%Y-%m-%d").date()
+                
+                if ubicacion.startswith("EGRESADO") and fecha_movimiento:
+                    if hasattr(fecha_movimiento, "date"):
+                        f_mov_date = fecha_movimiento.date()
+                    else:
+                        f_mov_date = datetime.strptime(str(fecha_movimiento)[:10], "%Y-%m-%d").date()
+                    d_tramitacion = (f_mov_date - f_creacion_date).days
+                else:
+                    d_tramitacion = (date.today() - f_creacion_date).days
+            
+            # Fetch custom ficha data
+            ficha_estado = ""
+            ficha_prioridad = ""
+            ficha_row = conn.execute(text("SELECT estado, prioridad FROM expediente_fichas WHERE expediente = :exp"), {"exp": expediente_nro}).fetchone()
+            if ficha_row:
+                ficha_estado = ficha_row[0] or ""
+                ficha_prioridad = ficha_row[1] or ""
+
+            # Fetch last pase motivo
+            motivo_pase = "Sin Motivo"
+            try:
+                mot_row = conn.execute(text("SELECT motivo FROM mvw_ee_pases_secgdu WHERE id_expediente = :id ORDER BY fecha DESC LIMIT 1"), {"id": id_exp}).fetchone()
+                if mot_row and mot_row[0]:
+                    motivo_pase = mot_row[0]
+            except Exception:
+                pass
+
+            return {
+                "id_expediente": id_exp,
+                "expediente": expediente_nro,
+                "trata": trata,
+                "descripcion_trata": r.get("descripcion_trata"),
+                "gerencia": gerencia.upper() if gerencia else reparticion,
+                "estado": estado,
+                "ubicacion": ubicacion,
+                "analista": analista or "SIN ASIGNAR",
+                "fecha_ultimo_pase": fecha_movimiento.strftime("%Y-%m-%d %H:%M:%S") if fecha_movimiento and hasattr(fecha_movimiento, "strftime") else (str(fecha_movimiento)[:19] if fecha_movimiento else None),
+                "fecha_creacion": r.get("fecha_creacion").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_creacion") and hasattr(r.get("fecha_creacion"), "strftime") else (str(r.get("fecha_creacion"))[:19] if r.get("fecha_creacion") else None),
+                "dias_tramitacion": max(0, d_tramitacion),
+                "dias_subsanacion": int(r.get("dias_subsanacion") or 0),
+                "cant_subsanaciones": int(r.get("cant_subsanaciones") or 0),
+                "dias_stock": int(r.get("dias_stock") or 0),
+                "ficha_estado": ficha_estado,
+                "ficha_prioridad": ficha_prioridad,
+                "motivo_pase": motivo_pase,
+                "trata_en_tablero": (ubicacion != "FUERA DE TABLERO")
+            }
+    except Exception as e:
+        logger.error(f"Error in get_expediente_detalle: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/expediente/buscar")
+async def buscar_expediente(
+    anio: str,
+    numero: str,
+    reparticion: str,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        # Formatear el patrón de búsqueda (con y sin ceros a la izquierda)
+        clean_num = numero.lstrip('0') or '0'
+        pattern1 = f"EX-{anio}-{numero}-%-{reparticion}"
+        pattern2 = f"EX-{anio}-{clean_num}-%-{reparticion}"
+        
+        with engine.connect() as conn:
+            # 1. Buscar expediente en vw_expedientes_maestro
+            sql = """
+                SELECT id_expediente, expediente, trata, descripcion_trata, estado, fecha_creacion,
+                       COALESCE((
+                           SELECT 
+                               CASE 
+                                   WHEN COUNT(*) > 20 THEN 0
+                                   ELSE SUM(
+                                       CASE 
+                                           WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
+                                           WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
+                                           ELSE (CURRENT_DATE - fecha_alta::date)
+                                       END
+                                   )
+                               END
+                           FROM (
+                               SELECT DISTINCT fecha_alta, fecha_cierre
+                               FROM mvw_ee_actividades_secgdu
+                               WHERE id_expediente = vw_expedientes_maestro.id_expediente
+                                 AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                           ) t
+                       ), 0) AS dias_subsanacion,
+                       COALESCE((
+                           SELECT 
+                               CASE 
+                                   WHEN COUNT(*) > 20 THEN 0
+                                   ELSE COUNT(*)
+                               END
+                           FROM (
+                               SELECT DISTINCT fecha_alta, fecha_cierre
+                               FROM mvw_ee_actividades_secgdu
+                               WHERE id_expediente = vw_expedientes_maestro.id_expediente
+                                 AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                           ) t
+                       ), 0) AS cant_subsanaciones,
+                       COALESCE((
+                           SELECT dias_stock 
+                           FROM mvw_stock_actual_detalle 
+                           WHERE id_expediente = vw_expedientes_maestro.id_expediente 
+                           LIMIT 1
+                       ), 0) AS dias_stock
+                FROM vw_expedientes_maestro
                 WHERE expediente LIKE :pattern1 OR expediente LIKE :pattern2
             """
             res = conn.execute(text(sql), {
@@ -3273,9 +4127,9 @@ async def buscar_expediente_avanzado(
         sql = f"""
             SELECT id_expediente, expediente, trata, gerencia, is_subs, analista_actual as analista, dias_stock,
                    fecha_ing, fecha_ultimo_pase,
-                   (SELECT descripcion_trata FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as descripcion_trata,
-                   (SELECT estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as estado,
-                   (SELECT fecha_creacion FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = mvw_stock_actual_detalle.id_expediente LIMIT 1) as fecha_creacion,
+                    descripcion_trata,
+                    estado,
+                    fecha_creacion,
                    COALESCE((
                        SELECT 
                            CASE 
@@ -3391,12 +4245,13 @@ class FavoriteNoteRequest(BaseModel):
 @app.post("/api/expediente/favorito")
 async def add_favorito(data: FavoriteRequest, current_user: User = Depends(get_current_user)):
     try:
+        clean_exp = normalize_expediente(data.expediente)
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO user_favorites (username, expediente, folder_id)
                 VALUES (:u, :exp, :f_id)
                 ON CONFLICT (username, expediente) DO UPDATE SET folder_id = EXCLUDED.folder_id
-            """), {"u": current_user.username, "exp": data.expediente, "f_id": data.folder_id})
+            """), {"u": current_user.username, "exp": clean_exp, "f_id": data.folder_id})
         return {"status": "ok", "message": "Expediente agregado a favoritos"}
     except Exception as e:
         logger.error(f"Error agregando favorito: {e}")
@@ -3405,9 +4260,7 @@ async def add_favorito(data: FavoriteRequest, current_user: User = Depends(get_c
 @app.delete("/api/expediente/favorito/{expediente}")
 async def remove_favorito(expediente: str, current_user: User = Depends(get_current_user)):
     try:
-        # Decodificar URL en caso de espacios
-        from urllib.parse import unquote
-        clean_exp = unquote(expediente)
+        clean_exp = normalize_expediente(expediente)
         with engine.begin() as conn:
             conn.execute(text("""
                 DELETE FROM user_favorites 
@@ -3480,7 +4333,7 @@ async def get_favoritos(current_user: User = Depends(get_current_user)):
                     (SELECT u.full_name FROM expediente_ficha_internal_notes n LEFT JOIN auth_users u ON n.username = u.username WHERE n.expediente = f.expediente ORDER BY n.created_at DESC LIMIT 1) AS ficha_notas_internas_author,
                     (SELECT n.created_at FROM expediente_ficha_internal_notes n WHERE n.expediente = f.expediente ORDER BY n.created_at DESC LIMIT 1) AS ficha_notas_internas_date
                 FROM user_favorites f
-                LEFT JOIN mvw_expedientes_tratas_secgdu et ON et.expediente = f.expediente
+                LEFT JOIN vw_expedientes_maestro et ON et.expediente = f.expediente
                 LEFT JOIN mvw_stock_actual_detalle sad ON sad.id_expediente = et.id_expediente
                 LEFT JOIN expediente_fichas ef ON ef.expediente = f.expediente
                 LEFT JOIN auth_users u_resp ON u_resp.username = ef.responsable
@@ -3616,22 +4469,22 @@ async def delete_favorito_carpeta(folder_id: int, current_user: User = Depends(g
 @app.put("/api/expediente/favorito/mover")
 async def move_favorito(data: MoveFavoriteRequest, current_user: User = Depends(get_current_user)):
     try:
+        clean_exp = normalize_expediente(data.expediente)
         with engine.begin() as conn:
             conn.execute(text("""
                 UPDATE user_favorites
                 SET folder_id = :fid
                 WHERE username = :u AND expediente = :exp
-            """), {"fid": data.folder_id, "u": current_user.username, "exp": data.expediente})
+            """), {"fid": data.folder_id, "u": current_user.username, "exp": clean_exp})
         return {"status": "ok", "message": "Favorito movido exitosamente"}
     except Exception as e:
         logger.error(f"Error moviendo favorito: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/expediente/favorito/{expediente}/notas")
-async def get_favorito_notas(expediente: str, current_user: User = Depends(get_current_user)):
+async def get_favorito_notes(expediente: str, current_user: User = Depends(get_current_user)):
     try:
-        from urllib.parse import unquote
-        clean_exp = unquote(expediente)
+        clean_exp = normalize_expediente(expediente)
         with engine.connect() as conn:
             sql = """
                 SELECT 
@@ -3663,8 +4516,7 @@ async def get_favorito_notas(expediente: str, current_user: User = Depends(get_c
 @app.post("/api/expediente/favorito/{expediente}/notas")
 async def create_favorito_nota(expediente: str, data: FavoriteNoteRequest, current_user: User = Depends(get_current_user)):
     try:
-        from urllib.parse import unquote
-        clean_exp = unquote(expediente)
+        clean_exp = normalize_expediente(expediente)
         with engine.begin() as conn:
             # Verificar que el expediente está favoritado por este usuario
             fav = conn.execute(text("""
@@ -3718,8 +4570,7 @@ async def list_usuarios_tablero(current_user: User = Depends(get_current_user)):
 @app.get("/api/expediente/ficha/{expediente}")
 async def get_expediente_ficha(expediente: str, current_user: User = Depends(get_current_user)):
     try:
-        from urllib.parse import unquote
-        clean_exp = unquote(expediente)
+        clean_exp = normalize_expediente(expediente)
         with engine.connect() as conn:
             row = conn.execute(text("""
                 SELECT direccion, notas_internas, responsable, estado, prioridad, proxima_reunion
@@ -3755,8 +4606,7 @@ class FichaInternalNoteEditRequest(BaseModel):
 @app.get("/api/expediente/ficha/{expediente}/notas_internas")
 async def get_ficha_notas_internas(expediente: str, current_user: User = Depends(get_current_user)):
     try:
-        from urllib.parse import unquote
-        clean_exp = unquote(expediente)
+        clean_exp = normalize_expediente(expediente)
         with engine.connect() as conn:
             sql = """
                 SELECT 
@@ -3829,8 +4679,7 @@ async def delete_ficha_internal_note(note_id: int, current_user: User = Depends(
 @app.post("/api/expediente/ficha/{expediente}")
 async def save_expediente_ficha(expediente: str, data: FichaEditRequest, current_user: User = Depends(get_current_user)):
     try:
-        from urllib.parse import unquote
-        clean_exp = unquote(expediente)
+        clean_exp = normalize_expediente(expediente)
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO expediente_fichas (expediente, direccion, responsable, estado, prioridad, proxima_reunion, updated_at)
@@ -4200,6 +5049,1161 @@ async def get_analytics_permisos_obra(current_user: User = Depends(get_current_u
     except Exception as e:
         logger.error(f"Error fetching permisos obra analytics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/analytics/ley-blanqueo")
+async def get_analytics_ley_blanqueo(current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            # Check if the materialized view exists
+            check_view = conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM pg_matviews 
+                    WHERE matviewname = 'parcelas_leydeblanqueo'
+                );
+            """)).fetchone()
+            
+            if not check_view or not check_view[0]:
+                logger.info("La vista public.parcelas_leydeblanqueo no existe. Intentando crearla...")
+                # Asegurar primero la existencia de la tabla base local
+                conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS public.df_form_comp_value (
+                        id_transaction BIGINT,
+                        input_name VARCHAR(255),
+                        value_str TEXT,
+                        value_double DOUBLE PRECISION,
+                        value_int INTEGER,
+                        value_boolean BOOLEAN
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_df_form_comp_value_id_tx ON public.df_form_comp_value (id_transaction);
+                """))
+                
+                # Leer y ejecutar el script SQL
+                sql_path = os.path.join(os.path.dirname(__file__), "..", "vistas", "regularizacion", "16_parcelas_leydeblanqueo.sql")
+                if os.path.exists(sql_path):
+                    with open(sql_path, "r", encoding="utf-8") as f:
+                        sql_content = f.read()
+                    
+                    # Usamos el connection subyacente para ejecutar con psycopg2 directamente y poder procesar comandos múltiples
+                    raw_conn = conn.connection
+                    with raw_conn.cursor() as cur:
+                        cur.execute(sql_content)
+                    logger.info("Vista materializada parcelas_leydeblanqueo creada con éxito.")
+                else:
+                    logger.error(f"No se encontró el archivo SQL en la ruta: {sql_path}")
+            
+            # 1. Registros por barrio
+            result_barrio = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(barrio, ''), 'S/D') as barrio,
+                    COUNT(*) as cant
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY barrio
+                ORDER BY cant DESC;
+            """))
+            barrio_data = [dict(r._mapping) for r in result_barrio]
+            
+            # 2. Registros por comuna
+            result_comuna = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(comuna, ''), 'S/D') as comuna,
+                    COUNT(*) as cant
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY comuna
+                ORDER BY cant DESC;
+            """))
+            comuna_data = [dict(r._mapping) for r in result_comuna]
+            
+            # 3. Sumas de superficies en contravención
+            result_sums = conn.execute(text("""
+                SELECT 
+                    COALESCE(SUM(sup_contra_no_reg_ce), 0) as sup_contra_no_reg_ce,
+                    COALESCE(SUM(sup_contra_reg_ce), 0) as sup_contra_reg_ce,
+                    COALESCE(SUM(sup_contra_reg_cur), 0) as sup_contra_reg_cur,
+                    COALESCE(SUM(sup_contra_no_reg_cur), 0) as sup_contra_no_reg_cur
+                FROM public.parcelas_leydeblanqueo;
+            """)).fetchone()
+            
+            sums_data = dict(result_sums._mapping) if result_sums else {
+                "sup_contra_no_reg_ce": 0,
+                "sup_contra_reg_ce": 0,
+                "sup_contra_reg_cur": 0,
+                "sup_contra_no_reg_cur": 0
+            }
+            
+            # 4. Superficies por barrio para el gráfico apilado
+            result_barrio_surfaces = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(barrio, ''), 'S/D') as barrio,
+                    COALESCE(SUM(sup_contra_no_reg_ce), 0) as sup_contra_no_reg_ce,
+                    COALESCE(SUM(sup_contra_reg_ce), 0) as sup_contra_reg_ce,
+                    COALESCE(SUM(sup_contra_reg_cur), 0) as sup_contra_reg_cur,
+                    COALESCE(SUM(sup_contra_no_reg_cur), 0) as sup_contra_no_reg_cur
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY barrio
+                ORDER BY (
+                    COALESCE(SUM(sup_contra_no_reg_ce), 0) + 
+                    COALESCE(SUM(sup_contra_reg_ce), 0) + 
+                    COALESCE(SUM(sup_contra_reg_cur), 0) + 
+                    COALESCE(SUM(sup_contra_no_reg_cur), 0)
+                ) DESC;
+            """))
+            barrio_surfaces_data = [dict(r._mapping) for r in result_barrio_surfaces]
+            
+            # 5. Superficies mes a mes (línea temporal)
+            result_timeline = conn.execute(text("""
+                SELECT 
+                    TO_CHAR(d.fecha_asociacion, 'YYYY-MM') as mes,
+                    COALESCE(SUM(p.sup_contra_no_reg_ce), 0) as sup_contra_no_reg_ce,
+                    COALESCE(SUM(p.sup_contra_reg_ce), 0) as sup_contra_reg_ce,
+                    COALESCE(SUM(p.sup_contra_reg_cur), 0) as sup_contra_reg_cur,
+                    COALESCE(SUM(p.sup_contra_no_reg_cur), 0) as sup_contra_no_reg_cur
+                FROM public.parcelas_leydeblanqueo p
+                JOIN public.mvw_datos_gedo_secgdu d ON p.id_transaction = d.trx_gedo
+                WHERE d.fecha_asociacion IS NOT NULL
+                GROUP BY TO_CHAR(d.fecha_asociacion, 'YYYY-MM')
+                ORDER BY mes ASC;
+            """))
+            timeline_data = [dict(r._mapping) for r in result_timeline]
+            
+            return {
+                "barrio_data": barrio_data,
+                "comuna_data": comuna_data,
+                "sums_data": sums_data,
+                "barrio_surfaces_data": barrio_surfaces_data,
+                "timeline_data": timeline_data
+            }
+    except Exception as e:
+        logger.error(f"Error fetching ley blanqueo analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/analytics/ley-blanqueo/excel")
+async def get_analytics_ley_blanqueo_excel(current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT 
+                    p.documento_egreso,
+                    p.id_transaction,
+                    p.uso_cur,
+                    p.id_plano,
+                    p.tramite_gobierno,
+                    p.prof_nombre,
+                    p.prof_apellido,
+                    p.prof_matricula,
+                    p.direccion,
+                    p.barrio,
+                    p.comuna,
+                    p.sup_contra_no_reg_ce,
+                    p.sup_contra_reg_ce,
+                    p.sup_contra_reg_cur,
+                    p.sup_contra_no_reg_cur,
+                    TO_CHAR(d.fecha_asociacion, 'YYYY-MM-DD') as fecha_asociacion
+                FROM public.parcelas_leydeblanqueo p
+                LEFT JOIN public.mvw_datos_gedo_secgdu d ON p.id_transaction = d.trx_gedo
+                ORDER BY p.documento_egreso;
+            """))
+            rows = [dict(r._mapping) for r in result]
+            return rows
+    except Exception as e:
+        logger.error(f"Error fetching ley blanqueo excel data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints de Productividad Analistas ---
+
+@app.get("/api/productividad/sectores-analistas")
+async def get_sectores_analistas(current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("productividad_analistas"):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        with engine.connect() as conn:
+            query = text("""
+                WITH analysts AS (
+                    SELECT DISTINCT gerencia, unnest(analistas_oficiales) as analista
+                    FROM cfg_gestion_metas
+                )
+                SELECT a.gerencia, a.analista, COALESCE(du.apellido_nombre, a.analista) as apellido_nombre
+                FROM analysts a
+                LEFT JOIN datos_usuario du ON a.analista = du.usuario
+                ORDER BY a.gerencia, apellido_nombre
+            """)
+            result = conn.execute(query)
+            rows = result.fetchall()
+            
+            sectores = {}
+            for r in rows:
+                sec = r[0]
+                user = r[1]
+                name = r[2] or user
+                if sec not in sectores:
+                    sectores[sec] = []
+                # Avoid duplicate names in the same gerencia list
+                if not any(x["usuario"] == user for x in sectores[sec]):
+                    sectores[sec].append({"usuario": user, "nombre": name})
+            
+            return sectores
+    except Exception as e:
+        logger.error(f"Error fetching sectores analistas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/productividad/analista/{username}")
+async def get_analista_productividad(username: str, date_from: Optional[str] = None, date_to: Optional[str] = None, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("productividad_analistas"):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        from backend.productivity_engine import get_analyst_productivity_data
+        with engine.connect() as conn:
+            data = get_analyst_productivity_data(conn, username, date_from, date_to)
+            return data
+    except Exception as e:
+        logger.error(f"Error fetching analista productivity: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def get_current_user_from_param_or_header(token: Optional[str] = Query(None), authorization: Optional[str] = Header(None, alias="Authorization")):
+    actual_token = None
+    if authorization and authorization.startswith("Bearer "):
+        actual_token = authorization.split(" ")[1]
+    elif token:
+        actual_token = token
+        
+    if not actual_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se pudo validar el acceso",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    try:
+        payload = jwt.decode(actual_token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        with engine.connect() as conn:
+            user_row = conn.execute(text("""
+                SELECT username, role, full_name, sector 
+                FROM auth_users WHERE username = :u
+            """), {"u": username}).fetchone()
+            if not user_row:
+                raise HTTPException(status_code=401, detail="Usuario no encontrado")
+            resolved_perms = get_resolved_permissions(conn, user_row[0], user_row[1])
+            return User(
+                username=user_row[0],
+                role=user_row[1],
+                full_name=user_row[2],
+                sector=user_row[3],
+                permissions=resolved_perms
+            )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+@app.get("/api/productividad/pdf/individual")
+async def get_pdf_individual(username: str, date_from: Optional[str] = None, date_to: Optional[str] = None, token: Optional[str] = Query(None), current_user: User = Depends(get_current_user_from_param_or_header)):
+    if not current_user.permissions.get("productividad_analistas"):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        from backend.pdf_generator import generate_individual_pdf
+        from fastapi.responses import Response
+        with engine.connect() as conn:
+            pdf_bytes = generate_individual_pdf(conn, username, date_from, date_to)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={
+                "Content-Disposition": f"attachment; filename=productividad_{username}.pdf"
+            })
+    except Exception as e:
+        logger.error(f"Error generating individual PDF: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/productividad/pdf/comparativo")
+async def get_pdf_comparativo(sector: str, date_from: Optional[str] = None, date_to: Optional[str] = None, token: Optional[str] = Query(None), current_user: User = Depends(get_current_user_from_param_or_header)):
+    if not current_user.permissions.get("productividad_analistas"):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        from backend.pdf_generator import generate_comparative_pdf
+        from fastapi.responses import Response
+        with engine.connect() as conn:
+            pdf_bytes = generate_comparative_pdf(conn, sector, date_from, date_to)
+            return Response(content=pdf_bytes, media_type="application/pdf", headers={
+                "Content-Disposition": f"attachment; filename=comparativo_{sector}.pdf"
+            })
+    except Exception as e:
+        logger.error(f"Error generating comparative PDF: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ciudad3d/stats")
+def get_ciudad3d_stats(current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+    
+    try:
+        with geo_engine.connect() as conn:
+            total_parcelas = conn.execute(text("SELECT COUNT(*) FROM public.cur_parcelas_ok")).scalar()
+            total_manzanas = conn.execute(text("SELECT COUNT(*) FROM public.manzanas")).scalar()
+            return {
+                "total_parcelas": total_parcelas,
+                "total_manzanas": total_manzanas
+            }
+    except Exception as e:
+        logger.error(f"Error fetching Ciudad 3D stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos geo-mdr: {e}")
+
+@app.get("/api/ciudad3d/troneras")
+def get_ciudad3d_troneras(current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+    
+    query = """
+    WITH troneras_agg AS (
+        SELECT TRIM(seccion) AS seccion,
+               TRIM(manzana) AS manzana,
+               SUM(CASE WHEN TRIM(UPPER(irregular)) = 'SI' THEN 1 ELSE 0 END) AS irregular_si,
+               SUM(CASE WHEN TRIM(UPPER(irregular)) = 'NO' THEN 1 ELSE 0 END) AS irregular_no
+        FROM public.mdr_troneras
+        WHERE seccion IS NOT NULL AND manzana IS NOT NULL
+        GROUP BY TRIM(seccion), TRIM(manzana)
+    ),
+    barrio_manzana AS (
+        SELECT DISTINCT ON (TRIM(seccion), TRIM(manzana))
+               TRIM(seccion) AS seccion,
+               TRIM(manzana) AS manzana,
+               TRIM(barrio) AS barrio
+        FROM public.cur_parcelas_ok
+        WHERE seccion IS NOT NULL AND manzana IS NOT NULL AND barrio IS NOT NULL AND TRIM(barrio) <> ''
+    )
+    SELECT bm.barrio,
+           bm.seccion,
+           bm.manzana,
+           COALESCE(t.irregular_si, 0) AS irregular_si,
+           COALESCE(t.irregular_no, 0) AS irregular_no
+    FROM barrio_manzana bm
+    JOIN public.manzanas m ON TRIM(m.seccion) = bm.seccion AND TRIM(m.manzana) = bm.manzana
+    JOIN troneras_agg t ON t.seccion = bm.seccion AND t.manzana = bm.manzana
+    ORDER BY bm.barrio, bm.seccion, bm.manzana
+    """
+    try:
+        workflow_map = {}
+        try:
+            with engine.connect() as conn:
+                wf_res = conn.execute(text("""
+                    SELECT seccion, manzana, estado, analista_asignado, disposicion, archivo_trazado, archivo_finalizado
+                    FROM public.manzanas_lfi_workflow
+                """)).fetchall()
+                for r in wf_res:
+                    key = (r[0].strip(), r[1].strip())
+                    workflow_map[key] = {
+                        "estado": r[2],
+                        "analista_asignado": r[3] if r[3] else "",
+                        "disposicion": r[4] if r[4] else "",
+                        "archivo_trazado": r[5] if r[5] else "",
+                        "archivo_finalizado": r[6] if r[6] else ""
+                    }
+        except Exception as wf_e:
+            logger.error(f"Error fetching LFI workflow maps: {wf_e}")
+
+        with geo_engine.connect() as conn:
+            res = conn.execute(text(query)).fetchall()
+            return [
+                {
+                    "barrio": r[0],
+                    "seccion": r[1],
+                    "manzana": r[2],
+                    "irregular_si": r[3],
+                    "irregular_no": r[4],
+                    "estado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("estado", "Pendiente"),
+                    "analista_asignado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("analista_asignado", ""),
+                    "disposicion": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("disposicion", ""),
+                    "archivo_trazado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("archivo_trazado", ""),
+                    "archivo_finalizado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("archivo_finalizado", "")
+                }
+                for r in res
+            ]
+    except Exception as e:
+        logger.error(f"Error fetching Ciudad 3D troneras: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos geo-mdr: {e}")
+
+# LFI Manzanas Workflow Endpoints
+class LFIAssignRequest(BaseModel):
+    seccion: str
+    manzana: str
+
+@app.post("/api/ciudad3d/manzanas_lfi/assign")
+def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para asignarse manzanas.")
+    
+    with engine.begin() as conn:
+        existing = conn.execute(text("""
+            SELECT estado FROM public.manzanas_lfi_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": req.seccion, "m": req.manzana}).fetchone()
+        
+        if existing and existing[0] != 'Pendiente':
+            raise HTTPException(status_code=400, detail=f"Esta manzana ya está en estado '{existing[0]}'")
+            
+        conn.execute(text("""
+            INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, estado, analista_asignado, updated_at)
+            VALUES (:s, :m, 'En curso', :a, CURRENT_TIMESTAMP)
+            ON CONFLICT (seccion, manzana) 
+            DO UPDATE SET estado = 'En curso', analista_asignado = :a, updated_at = CURRENT_TIMESTAMP
+        """), {"s": req.seccion, "m": req.manzana, "a": current_user.username})
+        
+    return {"status": "ok", "estado": "En curso", "analista_asignado": current_user.username}
+
+class LFINoteRequest(BaseModel):
+    seccion: str
+    manzana: str
+    nota: str
+
+@app.get("/api/ciudad3d/manzanas_lfi/notes")
+def get_manzana_lfi_notes(seccion: str, manzana: str, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
+    
+    with engine.connect() as conn:
+        res = conn.execute(text("""
+            SELECT n.id, n.username, n.nota, n.created_at, u.full_name
+            FROM public.manzanas_lfi_notes n
+            LEFT JOIN public.auth_users u ON n.username = u.username
+            WHERE n.seccion = :s AND n.manzana = :m
+            ORDER BY n.created_at DESC
+        """), {"s": seccion, "m": manzana}).fetchall()
+        
+        return [
+            {
+                "id": r[0],
+                "username": r[1],
+                "nota": r[2],
+                "created_at": str(r[3]),
+                "full_name": r[4] if r[4] else r[1]
+            }
+            for r in res
+        ]
+
+@app.post("/api/ciudad3d/manzanas_lfi/notes")
+def add_manzana_lfi_note(req: LFINoteRequest, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
+    
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
+            VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+        """), {"s": req.seccion, "m": req.manzana, "u": current_user.username, "n": req.nota})
+        
+    return {"status": "ok"}
+
+@app.post("/api/ciudad3d/manzanas_lfi/upload")
+async def upload_trazado_lfi(
+    seccion: str = Form(...),
+    manzana: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para subir trazados.")
+        
+    with engine.connect() as conn:
+        existing = conn.execute(text("""
+            SELECT analista_asignado, estado FROM public.manzanas_lfi_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana}).fetchone()
+        
+        if not existing:
+            raise HTTPException(status_code=400, detail="Esta manzana no ha sido asignada ni iniciada.")
+        if existing[0] != current_user.username and current_user.role.lower() not in ['admin', 'administrador']:
+            raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
+
+    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_ext = os.path.splitext(file.filename)[1]
+    safe_filename = f"lfi-{seccion}-{manzana}-{int(time.time())}{file_ext}"
+    file_path = os.path.join(upload_dir, safe_filename)
+    
+    try:
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        logger.error(f"Error saving LFI file: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al guardar el archivo.")
+        
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE public.manzanas_lfi_workflow
+            SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana, "f": safe_filename})
+        
+    return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+
+@app.post("/api/ciudad3d/manzanas_lfi/review")
+async def review_manzana_lfi(
+    seccion: str = Form(...),
+    manzana: str = Form(...),
+    decision: str = Form(...),
+    comentario: Optional[str] = Form(None),
+    disposicion: Optional[str] = Form(None),
+    file_final: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['troneras-visor', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras-visor' para revisar manzanas.")
+        
+    with engine.begin() as conn:
+        existing = conn.execute(text("""
+            SELECT estado FROM public.manzanas_lfi_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana}).fetchone()
+        
+        if not existing or existing[0] != 'Para revisión':
+            raise HTTPException(status_code=400, detail="Esta manzana no está en estado 'Para revisión'")
+            
+        new_state = 'Subir a Ciudad 3D' if decision.upper() == 'OK' else 'En curso'
+        
+        safe_filename = None
+        if decision.upper() == 'OK' and file_final:
+            upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
+            os.makedirs(upload_dir, exist_ok=True)
+            file_ext = os.path.splitext(file_final.filename)[1]
+            safe_filename = f"lfi-final-{seccion}-{manzana}-{int(time.time())}{file_ext}"
+            file_path = os.path.join(upload_dir, safe_filename)
+            try:
+                with open(file_path, "wb") as f:
+                    content = await file_final.read()
+                    f.write(content)
+            except Exception as e:
+                logger.error(f"Error saving LFI final file: {e}")
+                raise HTTPException(status_code=500, detail="Error al guardar el archivo finalizado.")
+        
+        # Build update query
+        update_query = """
+            UPDATE public.manzanas_lfi_workflow
+            SET estado = :state, updated_at = CURRENT_TIMESTAMP
+        """
+        params = {"state": new_state, "s": seccion, "m": manzana}
+        if disposicion:
+            update_query += ", disposicion = :disp"
+            params["disp"] = disposicion
+        if safe_filename:
+            update_query += ", archivo_finalizado = :file_fin"
+            params["file_fin"] = safe_filename
+            
+        update_query += " WHERE seccion = :s AND manzana = :m"
+        conn.execute(text(update_query), params)
+            
+        if comentario:
+            note_text = f"*** REVISIÓN [{decision.upper()}]: {comentario} ***"
+            conn.execute(text("""
+                INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
+                VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+            """), {"s": seccion, "m": manzana, "u": current_user.username, "n": note_text})
+            
+    return {"status": "ok", "estado": new_state, "archivo_finalizado": safe_filename}
+
+@app.get("/api/ciudad3d/manzanas_lfi/download_trazado")
+def download_trazado_lfi_file(
+    seccion: str,
+    manzana: str,
+    file_type: str = Query("draft"),
+    token: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_from_param_or_header)
+):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
+        
+    with engine.connect() as conn:
+        col = "archivo_finalizado" if file_type == "final" else "archivo_trazado"
+        row = conn.execute(text(f"""
+            SELECT {col} FROM public.manzanas_lfi_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana}).fetchone()
+        
+        if not row or not row[0]:
+            raise HTTPException(status_code=404, detail="No hay archivo subido de ese tipo para esta manzana.")
+            
+        file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi", row[0]))
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="El archivo físico no fue encontrado en el servidor.")
+            
+        return FileResponse(file_path, filename=row[0])
+
+class LFIDisposicionRequest(BaseModel):
+    seccion: str
+    manzana: str
+    disposicion: str
+
+@app.post("/api/ciudad3d/manzanas_lfi/disposicion")
+def update_manzana_lfi_disposicion(req: LFIDisposicionRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['troneras', 'troneras-visor', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene permisos para actualizar la disposición.")
+        
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, disposicion, updated_at)
+            VALUES (:s, :m, :d, CURRENT_TIMESTAMP)
+            ON CONFLICT (seccion, manzana)
+            DO UPDATE SET disposicion = :d, updated_at = CURRENT_TIMESTAMP
+        """), {"s": req.seccion, "m": req.manzana, "d": req.disposicion})
+        
+    return {"status": "ok"}
+
+@app.get("/api/ciudad3d/manzanas_atipicas")
+def get_ciudad3d_manzanas_atipicas(current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+    
+    query = """
+    SELECT m.seccion, m.manzana, m.barrio, m.comuna, m.gedo_documento, m.id_expediente, m.expediente, m.fecha_egreso,
+           COALESCE(w.estado, 'Pendiente') AS estado,
+           w.analista_asignado,
+           w.disposicion,
+           w.archivo_trazado
+    FROM public.mv_morfologia_frente_interno_disposiciones m
+    LEFT JOIN public.manzanas_atipicas_workflow w ON m.seccion = w.seccion AND m.manzana = w.manzana
+    ORDER BY m.barrio, m.seccion, m.manzana
+    """
+    try:
+        with engine.connect() as conn:
+            res = conn.execute(text(query)).fetchall()
+            return [
+                {
+                    "seccion": r[0],
+                    "manzana": r[1],
+                    "barrio": r[2] if r[2] else "SIN BARRIO",
+                    "comuna": r[3] if r[3] else "SIN COMUNA",
+                    "gedo_documento": r[4] if r[4] else "",
+                    "id_expediente": r[5] if r[5] else "",
+                    "expediente": r[6] if r[6] else "",
+                    "fecha_egreso": str(r[7]) if r[7] else "",
+                    "estado": r[8],
+                    "analista_asignado": r[9] if r[9] else "",
+                    "disposicion": r[10] if r[10] else "",
+                    "archivo_trazado": r[11] if r[11] else ""
+                }
+                for r in res
+            ]
+    except Exception as e:
+        logger.error(f"Error fetching atypical blocks: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {e}")
+
+class AssignRequest(BaseModel):
+    seccion: str
+    manzana: str
+
+@app.post("/api/ciudad3d/manzanas_atipicas/assign")
+def assign_manzana_atipica(req: AssignRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para asignarse manzanas.")
+    
+    with engine.begin() as conn:
+        existing = conn.execute(text("""
+            SELECT estado, analista_asignado FROM public.manzanas_atipicas_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": req.seccion, "m": req.manzana}).fetchone()
+        
+        if existing:
+            if existing[0] != 'Pendiente':
+                raise HTTPException(status_code=400, detail=f"Esta manzana ya está en estado '{existing[0]}'")
+            
+        conn.execute(text("""
+            INSERT INTO public.manzanas_atipicas_workflow (seccion, manzana, estado, analista_asignado, updated_at)
+            VALUES (:s, :m, 'En curso', :a, CURRENT_TIMESTAMP)
+            ON CONFLICT (seccion, manzana) 
+            DO UPDATE SET estado = 'En curso', analista_asignado = :a, updated_at = CURRENT_TIMESTAMP
+        """), {"s": req.seccion, "m": req.manzana, "a": current_user.username})
+        
+    return {"status": "ok", "estado": "En curso", "analista_asignado": current_user.username}
+
+class NoteRequest(BaseModel):
+    seccion: str
+    manzana: str
+    nota: str
+
+@app.get("/api/ciudad3d/manzanas_atipicas/notes")
+def get_manzana_atipica_notes(seccion: str, manzana: str, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+    
+    with engine.connect() as conn:
+        res = conn.execute(text("""
+            SELECT n.id, n.username, n.nota, n.created_at, u.full_name
+            FROM public.manzanas_atipicas_notes n
+            LEFT JOIN public.auth_users u ON n.username = u.username
+            WHERE n.seccion = :s AND n.manzana = :m
+            ORDER BY n.created_at DESC
+        """), {"s": seccion, "m": manzana}).fetchall()
+        
+        return [
+            {
+                "id": r[0],
+                "username": r[1],
+                "nota": r[2],
+                "created_at": str(r[3]),
+                "full_name": r[4] if r[4] else r[1]
+            }
+            for r in res
+        ]
+
+@app.post("/api/ciudad3d/manzanas_atipicas/notes")
+def add_manzana_atipica_note(req: NoteRequest, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+    
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO public.manzanas_atipicas_notes (seccion, manzana, username, nota, created_at)
+            VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+        """), {"s": req.seccion, "m": req.manzana, "u": current_user.username, "n": req.nota})
+        
+    return {"status": "ok"}
+
+@app.post("/api/ciudad3d/manzanas_atipicas/upload")
+async def upload_trazado(
+    seccion: str = Form(...),
+    manzana: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para subir archivos.")
+        
+    with engine.connect() as conn:
+        existing = conn.execute(text("""
+            SELECT analista_asignado, estado FROM public.manzanas_atipicas_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana}).fetchone()
+        
+        if not existing:
+            raise HTTPException(status_code=400, detail="Esta manzana no ha sido asignada ni iniciada.")
+        if existing[0] != current_user.username and current_user.role.lower() not in ['admin', 'administrador']:
+            raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
+
+    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados"))
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_ext = os.path.splitext(file.filename)[1]
+    safe_filename = f"{seccion}-{manzana}-{int(time.time())}{file_ext}"
+    file_path = os.path.join(upload_dir, safe_filename)
+    
+    try:
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        logger.error(f"Error saving uploaded file: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al guardar el archivo.")
+        
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE public.manzanas_atipicas_workflow
+            SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana, "f": safe_filename})
+        
+    return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+
+class ReviewRequest(BaseModel):
+    seccion: str
+    manzana: str
+    decision: str
+    comentario: Optional[str] = None
+    disposicion: Optional[str] = None
+
+@app.post("/api/ciudad3d/manzanas_atipicas/review")
+def review_manzana_atipica(req: ReviewRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['troneras-visor', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras-visor' para revisar manzanas.")
+        
+    with engine.begin() as conn:
+        existing = conn.execute(text("""
+            SELECT estado FROM public.manzanas_atipicas_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": req.seccion, "m": req.manzana}).fetchone()
+        
+        if not existing or existing[0] != 'Para revisión':
+            raise HTTPException(status_code=400, detail="Esta manzana no está en estado 'Para revisión'")
+            
+        new_state = 'Subir a Ciudad 3D' if req.decision.upper() == 'OK' else 'En curso'
+        
+        if req.disposicion:
+            conn.execute(text("""
+                UPDATE public.manzanas_atipicas_workflow
+                SET estado = :state, disposicion = :disp, updated_at = CURRENT_TIMESTAMP
+                WHERE seccion = :s AND manzana = :m
+            """), {"state": new_state, "disp": req.disposicion, "s": req.seccion, "m": req.manzana})
+        else:
+            conn.execute(text("""
+                UPDATE public.manzanas_atipicas_workflow
+                SET estado = :state, updated_at = CURRENT_TIMESTAMP
+                WHERE seccion = :s AND manzana = :m
+            """), {"state": new_state, "s": req.seccion, "m": req.manzana})
+            
+        if req.comentario:
+            note_text = f"*** REVISIÓN [{req.decision.upper()}]: {req.comentario} ***"
+            conn.execute(text("""
+                INSERT INTO public.manzanas_atipicas_notes (seccion, manzana, username, nota, created_at)
+                VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+            """), {"s": req.seccion, "m": req.manzana, "u": current_user.username, "n": note_text})
+            
+    return {"status": "ok", "estado": new_state}
+
+@app.get("/api/ciudad3d/manzanas_atipicas/download_trazado")
+def download_trazado_file(seccion: str, manzana: str, token: Optional[str] = Query(None), current_user: User = Depends(get_current_user_from_param_or_header)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
+        
+    with engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT archivo_trazado FROM public.manzanas_atipicas_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana}).fetchone()
+        
+        if not row or not row[0]:
+            raise HTTPException(status_code=404, detail="No hay trazado subido para esta manzana.")
+            
+        file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados", row[0]))
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="El archivo físico no fue encontrado en el servidor.")
+            
+        return FileResponse(file_path, filename=row[0])
+
+class DisposicionRequest(BaseModel):
+    seccion: str
+    manzana: str
+    disposicion: str
+
+@app.post("/api/ciudad3d/manzanas_atipicas/disposicion")
+def update_manzana_atipica_disposicion(req: DisposicionRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['troneras', 'troneras-visor', 'admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tiene permisos para actualizar la disposición.")
+        
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO public.manzanas_atipicas_workflow (seccion, manzana, disposicion, updated_at)
+            VALUES (:s, :m, :d, CURRENT_TIMESTAMP)
+            ON CONFLICT (seccion, manzana)
+            DO UPDATE SET disposicion = :d, updated_at = CURRENT_TIMESTAMP
+        """), {"s": req.seccion, "m": req.manzana, "d": req.disposicion})
+        
+    return {"status": "ok"}
+
+@app.get("/api/ciudad3d/dxf/download")
+async def download_manzana_dxf(
+    seccion: str,
+    manzana: str,
+    token: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_from_param_or_header)
+):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+        
+    import os
+    import tempfile
+    import warnings
+    from starlette.background import BackgroundTasks
+    from fastapi.responses import FileResponse
+    
+    warnings.filterwarnings("ignore")
+    os.environ["DXF_WRITE_HATCH"] = "FALSE"
+    
+    try:
+        import geopandas as gpd
+        import pandas as pd
+        import ezdxf
+        from ezdxf.enums import TextEntityAlignment
+        from shapely.geometry import LineString, MultiLineString
+        import fiona
+    except ImportError as ie:
+        logger.error(f"Missing geospatial dependencies for DXF generation: {ie}")
+        raise HTTPException(status_code=500, detail="El servidor no tiene instaladas las dependencias cartográficas.")
+        
+    def extract_lines(geom):
+        if geom is None or geom.is_empty:
+            return []
+        gtype = geom.geom_type
+        if gtype == 'Polygon':
+            lines = [LineString(geom.exterior.coords)]
+            for hole in geom.interiors:
+                lines.append(LineString(hole.coords))
+            return lines
+        elif gtype == 'MultiPolygon':
+            lines = []
+            for poly in geom.geoms:
+                lines.extend(extract_lines(poly))
+            return lines
+        elif gtype == 'LineString':
+            return [geom]
+        elif gtype == 'MultiLineString':
+            return list(geom.geoms)
+        elif gtype == 'GeometryCollection':
+            lines = []
+            for sub_geom in geom.geoms:
+                lines.extend(extract_lines(sub_geom))
+            return lines
+        return []
+
+    def polygon_to_boundary(geom):
+        lines = extract_lines(geom)
+        if not lines:
+            return None
+        return MultiLineString(lines)
+
+    sec_escaped = seccion.strip()
+    m_val = manzana.strip()
+    
+    if not sec_escaped or not m_val:
+        raise HTTPException(status_code=400, detail="La sección y la manzana son obligatorias")
+        
+    sec_clean = sec_escaped.replace("'", "''")
+    m_clean = m_val.replace("'", "''")
+    
+    m_layers = {}
+    
+    try:
+        with geo_engine.connect() as conn:
+            # 1. Manzanas
+            query_manzanas = f"SELECT geom, seccion, manzana FROM manzanas WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            gdf_manzanas = gpd.read_postgis(query_manzanas, con=conn, geom_col="geom", crs="EPSG:3857")
+            if gdf_manzanas.empty:
+                raise HTTPException(status_code=404, detail=f"No se encontró la manzana {m_val} en la sección {sec_escaped}")
+            gdf_manzanas = gdf_manzanas.to_crs("EPSG:22186")
+            
+            m_boundary = gdf_manzanas.copy()
+            m_boundary['geometry'] = m_boundary.geometry.apply(polygon_to_boundary)
+            m_layers['manzanas'] = m_boundary
+            
+            # 2. Parcelas
+            query_parcelas = f"SELECT geom, smp, seccion, manzana FROM cur_parcelas_ok WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            gdf_parcelas = gpd.read_postgis(query_parcelas, con=conn, geom_col="geom", crs="EPSG:22186")
+            if not gdf_parcelas.empty:
+                m_parcelas = gdf_parcelas.copy()
+                m_parcelas['geometry'] = m_parcelas.geometry.apply(polygon_to_boundary)
+                m_layers['parcelas'] = m_parcelas
+                
+            # 3. LFI
+            query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            gdf_lfi = gpd.read_postgis(query_lfi, con=conn, geom_col="geom", crs="EPSG:22186")
+            if not gdf_lfi.empty:
+                m_layers['lfi'] = gdf_lfi
+                
+            # 4. LIB
+            query_lib = f"SELECT geom, seccion, manzana FROM mdr_lineadebasamento WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            gdf_lib = gpd.read_postgis(query_lib, con=conn, geom_col="geom", crs="EPSG:22186")
+            if not gdf_lib.empty:
+                m_layers['lib'] = gdf_lib
+                
+            # 5. Troneras
+            query_troneras = f"SELECT geom, seccion, manzana, id_tronera, sm, comuna, irregular FROM mdr_troneras WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            gdf_troneras = gpd.read_postgis(query_troneras, con=conn, geom_col="geom", crs="EPSG:22186")
+            if not gdf_troneras.empty:
+                m_troneras_si = gdf_troneras[gdf_troneras['irregular'] == 'NO'].copy()
+                if not m_troneras_si.empty:
+                    m_troneras_si['geometry'] = m_troneras_si.geometry.apply(polygon_to_boundary)
+                    m_layers['Tronera SI'] = m_troneras_si
+                    
+                m_irregular = gdf_troneras[gdf_troneras['irregular'] == 'SI'].copy()
+                if not m_irregular.empty:
+                    m_irregular['geometry'] = m_irregular.geometry.apply(polygon_to_boundary)
+                    m_layers['Irregular'] = m_irregular
+                    
+            m_smps = []
+            if not gdf_parcelas.empty:
+                m_smps = gdf_parcelas['smp'].dropna().unique().tolist()
+                
+            if m_smps:
+                smps_str = ",".join([f"'{s}'" for s in m_smps])
+                
+                # 6. Banda Minima
+                query_bm = f"SELECT geom, smp FROM mdr_banda_minima WHERE smp IN ({smps_str}) AND geom IS NOT NULL"
+                try:
+                    gdf_bm = gpd.read_postgis(query_bm, con=conn, geom_col="geom", crs="EPSG:22186")
+                    if not gdf_bm.empty:
+                        gdf_bm['geometry'] = gdf_bm.geometry.apply(polygon_to_boundary)
+                        m_layers['banda_minima'] = gdf_bm
+                except Exception:
+                    pass
+                    
+                # 7. LDF
+                query_ldf = f"SELECT geom, smp FROM mdr_ldf_parc WHERE smp IN ({smps_str}) AND geom IS NOT NULL"
+                try:
+                    gdf_ldf = gpd.read_postgis(query_ldf, con=conn, geom_col="geom", crs="EPSG:22186")
+                    if not gdf_ldf.empty:
+                        m_layers['ldf'] = gdf_ldf
+                except Exception:
+                    pass
+                    
+                # 9. Tejido Consolidado
+                query_tc = f"SELECT geometry AS geom, smp FROM mdr_tejidoconsolidado WHERE smp IN ({smps_str}) AND geometry IS NOT NULL"
+                try:
+                    gdf_consolidado = gpd.read_postgis(query_tc, con=conn, geom_col="geom", crs="EPSG:22186")
+                    if not gdf_consolidado.empty:
+                        m_layers['mdr_tejidoconsolidado'] = gdf_consolidado
+                except Exception:
+                    pass
+                    
+                # 10. Tejido Para Irregular
+                query_tpi = f"SELECT geometry AS geom, smp FROM mdr_tejidoparairregular WHERE smp IN ({smps_str}) AND geometry IS NOT NULL"
+                try:
+                    gdf_tejido_irreg = gpd.read_postgis(query_tpi, con=conn, geom_col="geom", crs="EPSG:22186")
+                    if not gdf_tejido_irreg.empty:
+                        m_layers['mdr_tejidoparairregular'] = gdf_tejido_irreg
+                except Exception:
+                    pass
+
+            # 8. Tejido
+            query_tejido = f"SELECT geom, smp, LPAD(sec, 3, '0') AS seccion, man AS manzana, altura FROM tejido WHERE LPAD(sec, 3, '0') = '{sec_clean}' AND man = '{m_clean}' AND geom IS NOT NULL"
+            m_tejido_data = []
+            try:
+                gdf_tejido = gpd.read_postgis(query_tejido, con=conn, geom_col="geom", crs="EPSG:3857")
+                if not gdf_tejido.empty:
+                    gdf_tejido = gdf_tejido.to_crs("EPSG:22186")
+                    for idx, row in gdf_tejido.iterrows():
+                        geom = row['geom']
+                        alt = row.get('altura', None)
+                        if geom and not geom.is_empty and alt is not None:
+                            centroid = geom.centroid
+                            m_tejido_data.append(((centroid.x, centroid.y), alt))
+                    
+                    gdf_tejido['geometry'] = gdf_tejido.geometry.apply(polygon_to_boundary)
+                    m_layers['tejido'] = gdf_tejido
+            except Exception:
+                pass
+
+        gdfs_to_combine = []
+        for layer_name, gdf in m_layers.items():
+            gdf_clean = gpd.GeoDataFrame({'geometry': gdf.geometry}, crs="EPSG:22186")
+            gdf_clean['Layer'] = layer_name
+            
+            if layer_name == 'lib':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#ffd306)'
+            elif layer_name == 'lfi':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
+            elif layer_name == 'banda_minima':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
+            elif layer_name == 'tejido':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#808080)'
+            elif layer_name == 'mdr_tejidoconsolidado':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#c0c0c0)'
+            elif layer_name == 'mdr_tejidoparairregular':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#808080)'
+            elif layer_name == 'manzanas':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#404040)'
+            elif layer_name == 'parcelas':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#606060)'
+            elif layer_name == 'Tronera SI':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
+            elif layer_name == 'Irregular':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
+            else:
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#000000)'
+                
+            gdfs_to_combine.append(gdf_clean)
+
+        if not gdfs_to_combine:
+            raise HTTPException(status_code=404, detail="No se encontraron capas vectoriales para esta manzana.")
+            
+        combined_gdf = pd.concat(gdfs_to_combine, ignore_index=True)
+        combined_gdf = gpd.GeoDataFrame(combined_gdf, geometry='geometry', crs="EPSG:22186")
+        combined_gdf = combined_gdf[~combined_gdf.geometry.is_empty].copy()
+        
+        if len(combined_gdf) == 0:
+            raise HTTPException(status_code=404, detail="No se encontraron datos espaciales válidos para esta manzana.")
+
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".dxf")
+        os.close(temp_fd)
+        
+        with fiona.Env(DXF_WRITE_HATCH="FALSE"):
+            combined_gdf.to_file(temp_path, driver="DXF", layer="entities")
+            
+        try:
+            doc = ezdxf.readfile(temp_path)
+            msp = doc.modelspace()
+            
+            layer_colors = {
+                'lib': (2, (255, 211, 6)),
+                'lfi': (141, (53, 121, 177)),
+                'banda_minima': (1, (228, 26, 28)),
+                'tejido': (8, (128, 128, 128)),
+                'mdr_tejidoconsolidado': (9, (192, 192, 192)),
+                'mdr_tejidoparairregular': (8, (128, 128, 128)),
+                'manzanas': (250, (64, 64, 64)),
+                'parcelas': (252, (96, 96, 96)),
+                'Tronera SI': (141, (53, 121, 177)),
+                'Irregular': (1, (228, 26, 28))
+            }
+            
+            for l_name, (aci, rgb) in layer_colors.items():
+                if l_name in doc.layers:
+                    layer = doc.layers.get(l_name)
+                    layer.color = aci
+                    layer.rgb = rgb
+                    if l_name in ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular'):
+                        layer.transparency = 0.5
+                        
+            hatch_layers = ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular')
+            for l_name in hatch_layers:
+                if l_name in doc.layers:
+                    polylines = [e for e in msp if e.dxf.layer == l_name and e.dxftype() in ('LWPOLYLINE', 'POLYLINE')]
+                    for poly in polylines:
+                        if poly.dxftype() == 'LWPOLYLINE':
+                            pts = [(p[0], p[1]) for p in poly.get_points()]
+                        else:
+                            pts = [(v.dxf.location.x, v.dxf.location.y) for v in poly.vertices]
+                            
+                        if len(pts) >= 3:
+                            h_color = doc.layers.get(l_name).color
+                            hatch = msp.add_hatch(color=h_color, dxfattribs={'layer': l_name})
+                            hatch.set_pattern_fill('SOLID')
+                            hatch.paths.add_polyline_path(pts, is_closed=True)
+                            
+                        msp.delete_entity(poly)
+                        
+            if m_tejido_data:
+                if 'ArialBold' not in doc.styles:
+                    style = doc.styles.new('ArialBold', dxfattribs={'font': 'Arial.ttf'})
+                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
+                    
+                h_color = doc.layers.get('tejido').color if 'tejido' in doc.layers else 8
+                for pos, alt in m_tejido_data:
+                    try:
+                        alt_val = float(alt)
+                        text_str = f"{alt_val:.1f}"
+                    except (ValueError, TypeError):
+                        text_str = str(alt)
+                        
+                    t = msp.add_text(text_str, dxfattribs={
+                        'layer': 'tejido',
+                        'color': h_color,
+                        'height': 0.375,
+                        'style': 'ArialBold'
+                    })
+                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                    
+            doc.save()
+        except Exception as e_dxf:
+            logger.warning(f"Error applying ACI colors with ezdxf: {e_dxf}")
+            
+        def clean_temp():
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+                
+        background_tasks = BackgroundTasks()
+        background_tasks.add_task(clean_temp)
+        
+        return FileResponse(
+            temp_path,
+            media_type="application/dxf",
+            filename=f"{sec_escaped}-{m_val}.dxf",
+            background=background_tasks
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating DXF for {sec_escaped}-{m_val}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno en la generación del DXF: {e}")
+
+
 
 if __name__ == "__main__":
     import uvicorn

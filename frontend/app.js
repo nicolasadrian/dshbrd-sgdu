@@ -100,8 +100,25 @@ function initAuth() {
         const linkFamily = document.querySelector('a[onclick*="showView(\'family\')"]');
         if (linkFamily) linkFamily.style.display = perms.family ? 'block' : 'none';
 
+        // Toggles for Buzones dropdown and its contents
+        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu;
+        const navBuzones = document.getElementById('nav-dropdown-buzones');
+        if (navBuzones) navBuzones.style.display = hasBuzonesAccess ? 'inline-block' : 'none';
+
+        const linkBuzonesDgroc = document.getElementById('link-buzones-dgroc');
+        if (linkBuzonesDgroc) linkBuzonesDgroc.style.display = perms.dgroc ? 'block' : 'none';
+
+        const linkBuzonesDgiur = document.getElementById('link-buzones-dgiur');
+        if (linkBuzonesDgiur) linkBuzonesDgiur.style.display = perms.dgiur ? 'block' : 'none';
+
+        const linkBuzonesSecgdu = document.getElementById('link-buzones-secgdu');
+        if (linkBuzonesSecgdu) linkBuzonesSecgdu.style.display = perms.secgdu ? 'block' : 'none';
+
+        const linkBuzonesAnalisis = document.getElementById('link-buzones-analisis');
+        if (linkBuzonesAnalisis) linkBuzonesAnalisis.style.display = perms.buzones_analisis ? 'block' : 'none';
+
         // Toggles for Reportes dropdown and its contents
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion;
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
@@ -120,15 +137,33 @@ function initAuth() {
         const pendientesAsocLink = document.getElementById('pendientes-asoc-link');
         if (pendientesAsocLink) pendientesAsocLink.style.display = perms.pendientes_asociacion ? 'block' : 'none';
 
+        const prodLink = document.getElementById('productividad-link');
+        if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
+
         // Toggles for Analytics dropdown and its contents
-        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets;
+        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo;
         const navAnalytics = document.getElementById('nav-dropdown-analytics');
         if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
 
+        // Toggles for Ciudad 3D dropdown and its contents
+        const hasCiudad3DAccess = perms.ciudad_3d;
+        const navCiudad3D = document.getElementById('nav-dropdown-ciudad3d');
+        if (navCiudad3D) navCiudad3D.style.display = hasCiudad3DAccess ? 'inline-block' : 'none';
+
         const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
-        if (linkEstadistica) linkEstadistica.style.display = perms.analytics_estadistica ? 'block' : 'none';
+        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo) ? 'block' : 'none';
         const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
         if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
+
+        // Show/hide cards inside Analytics Estadística based on permissions
+        const cardPermisosObra = document.getElementById('card-goto-permisos');
+        if (cardPermisosObra) {
+            cardPermisosObra.style.display = perms.analytics_estadistica ? 'flex' : 'none';
+        }
+        const cardLeyBlanqueo = document.getElementById('card-goto-blanqueo');
+        if (cardLeyBlanqueo) {
+            cardLeyBlanqueo.style.display = perms.ley_blanqueo ? 'flex' : 'none';
+        }
 
         // Toggles for Mis Expedientes dropdown and its contents
         const hasExpedientesAccess = perms.buscador || perms.favoritos;
@@ -252,16 +287,21 @@ function showView(viewId, updateHash = true) {
         // Mapeos para sub-vistas de gerencias
         const dgrocViews = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'regularizacion'];
         const dgiurViews = ['morfologia', 'aph', 'usos'];
+        const ciudad3DViews = ['ciudad3d_home', 'ciudad3d_troneras', 'ciudad3d_manzanas_atipicas'];
         
         let hasPermission = !!currentUser.permissions[viewId];
-        if (viewId === 'asignados-mi') {
+        if (viewId === 'analytics_estadistica') {
+            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo']);
+        } else if (viewId === 'asignados-mi') {
             hasPermission = !!currentUser.permissions['asignados-mi'];
         } else if (dgrocViews.includes(viewId)) {
             hasPermission = !!currentUser.permissions['dgroc'];
         } else if (dgiurViews.includes(viewId)) {
             hasPermission = !!currentUser.permissions['dgiur'];
+        } else if (ciudad3DViews.includes(viewId)) {
+            hasPermission = !!currentUser.permissions['ciudad_3d'];
         } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle') {
-            hasPermission = !!(currentUser.permissions['dgroc'] || currentUser.permissions['dgiur']);
+            hasPermission = !!(currentUser.permissions['dgroc'] || currentUser.permissions['dgiur'] || currentUser.permissions['buzones_analisis'] || currentUser.permissions['secgdu']);
         }
 
         // Si no tiene permiso para la vista solicitada, redirigir a 'landing'
@@ -277,8 +317,8 @@ function showView(viewId, updateHash = true) {
             showView('landing');
             return;
         }
-        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA o Cierre
-        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre o Productividad
+        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
             showView('landing');
             return;
         }
@@ -305,7 +345,7 @@ function showView(viewId, updateHash = true) {
     }
 
     if (viewId === 'analytics_estadistica') {
-        loadAnalyticsEstadistica();
+        switchAnalyticsTab('landing');
     }
 
     if (viewId === 'analytics_datasets') {
@@ -332,6 +372,10 @@ function showView(viewId, updateHash = true) {
         loadPendientesAsociacionData();
     }
 
+    if (viewId === 'productividad_analistas') {
+        loadProductividadAnalistasView();
+    }
+
     if (viewId === 'family') {
         backToFamilySelector();
     }
@@ -346,6 +390,18 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'favoritos-seguimiento') {
         loadFavoritosSeguimientoView();
+    }
+
+    if (viewId === 'ciudad3d_home') {
+        loadCiudad3DStats();
+    }
+
+    if (viewId === 'ciudad3d_troneras') {
+        loadCiudad3DTroneras();
+    }
+
+    if (viewId === 'ciudad3d_manzanas_atipicas') {
+        loadCiudad3DManzanasAtipicas();
     }
 
     if (viewId === 'buscador') {
@@ -420,7 +476,12 @@ async function loadConsolidatedReport(gerencia) {
 
 function buildSummaryHTML(data, allMonths, gerencia) {
     const totals = {};
-    allMonths.forEach(mk => { totals[mk] = { ING: 0, EGR_EF: 0, EGR_NE: 0, STOCK_PROPIO: 0, STOCK_SUBS: 0 }; });
+    allMonths.forEach(mk => { 
+        totals[mk] = { 
+            ING: 0, EGR_EF: 0, EGR_NE: 0, STOCK_PROPIO: 0, STOCK_SUBS: 0,
+            ING_int: 0, EGR_EF_int: 0, EGR_NE_int: 0, STOCK_PROPIO_int: 0, STOCK_SUBS_int: 0 
+        }; 
+    });
     data.forEach(row => {
         const mk = `${row.anio}-${row.mes}`;
         if (totals[mk]) {
@@ -431,6 +492,12 @@ function buildSummaryHTML(data, allMonths, gerencia) {
                 totals[mk].EGR_NE += row.EGR_NE ?? 0;
                 totals[mk].STOCK_PROPIO += row.STOCK_PROPIO ?? 0;
                 totals[mk].STOCK_SUBS += row.STOCK_SUBS ?? 0;
+            } else {
+                totals[mk].ING_int += row.ING ?? 0;
+                totals[mk].EGR_EF_int += row.EGR_EF ?? 0;
+                totals[mk].EGR_NE_int += row.EGR_NE ?? 0;
+                totals[mk].STOCK_PROPIO_int += row.STOCK_PROPIO ?? 0;
+                totals[mk].STOCK_SUBS_int += row.STOCK_SUBS ?? 0;
             }
         }
     });
@@ -448,7 +515,7 @@ function buildSummaryHTML(data, allMonths, gerencia) {
     const fmt = n => n.toLocaleString('es-AR');
 
     let html = `<div class="summary-section">
-        <h3 class="summary-title">Resumen Mensual Consolidado <span style="font-size: 0.9rem; color: #64748b; font-weight: 500; margin-left: 6px;">(No incluye Intervenciones)</span></h3>
+        <h3 class="summary-title">Resumen Mensual Consolidado <span style="font-size: 0.9rem; color: #64748b; font-weight: 500; margin-left: 6px;">(Oficiales / Intervenciones)</span></h3>
         <div class="summary-wrapper">
             <table class="summary-table">
                 <thead><tr>
@@ -462,9 +529,17 @@ function buildSummaryHTML(data, allMonths, gerencia) {
         allMonths.forEach(mk => {
             const t = totals[mk];
             let val = 0;
-            if (m.field === 'EGR_TOT') val = (t.EGR_EF || 0) + (t.EGR_NE || 0);
-            else if (m.field === 'STOCK_TOTAL') val = (t.STOCK_PROPIO || 0) + (t.STOCK_SUBS || 0);
-            else val = t[m.field] || 0;
+            let val_int = 0;
+            if (m.field === 'EGR_TOT') {
+                val = (t.EGR_EF || 0) + (t.EGR_NE || 0);
+                val_int = (t.EGR_EF_int || 0) + (t.EGR_NE_int || 0);
+            } else if (m.field === 'STOCK_TOTAL') {
+                val = (t.STOCK_PROPIO || 0) + (t.STOCK_SUBS || 0);
+                val_int = (t.STOCK_PROPIO_int || 0) + (t.STOCK_SUBS_int || 0);
+            } else {
+                val = t[m.field] || 0;
+                val_int = t[m.field + "_int"] || 0;
+            }
 
             const now = new Date();
             const currentMonthKey = `${now.getFullYear()}-${now.getMonth() + 1}`;
@@ -475,7 +550,7 @@ function buildSummaryHTML(data, allMonths, gerencia) {
                 ? 'font-weight: 700 !important; background-color: rgba(0, 159, 227, 0.05) !important; border-left: 2px solid rgba(0, 159, 227, 0.15) !important; border-right: 2px solid rgba(0, 159, 227, 0.15) !important;'
                 : '';
 
-            let cellHTML = val !== undefined && val !== '-' ? fmt(val) : '-';
+            let cellHTML = `${fmt(val)} / ${fmt(val_int)}`;
 
             if (val !== undefined && val !== '-' && val !== 0 && val !== '0' && gerencia) {
                 cellHTML = `
@@ -643,16 +718,21 @@ async function handleRouting() {
     const viewId = parts[0];
 
     if (parts.length === 2) {
-        // Detalle de trámite: #/gerencia/trataCode
-        const gerencia = parts[0];
-        const trataCode = parts[1];
+        if (viewId === 'buzones') {
+            const area = parts[1];
+            showBuzonesView(area, false);
+        } else {
+            // Detalle de trámite: #/gerencia/trataCode
+            const gerencia = parts[0];
+            const trataCode = parts[1];
 
-        // Primero mostramos la vista base por si acaso
-        showView(gerencia, false);
+            // Primero mostramos la vista base por si acaso
+            showView(gerencia, false);
 
-        // Intentamos obtener el nombre del trámite desde la configuración (o fallback)
-        const trataName = "...";
-        showTrataDetail(gerencia, trataCode, trataName, false);
+            // Intentamos obtener el nombre del trámite desde la configuración (o fallback)
+            const trataName = "...";
+            showTrataDetail(gerencia, trataCode, trataName, false);
+        }
     } else {
         showView(viewId, false);
     }
@@ -897,6 +977,48 @@ window.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error(err);
                 alert("Error al actualizar la configuración");
+            }
+        });
+    }
+
+    const buzonAccesoForm = document.getElementById('buzon-acceso-form');
+    if (buzonAccesoForm) {
+        buzonAccesoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const tipo_sujeto = document.getElementById('buzon-tipo-sujeto').value;
+            const nombre_sujeto = document.getElementById('buzon-nombre-sujeto').value;
+            
+            const checkedBoxes = document.querySelectorAll('.buzon-checkbox:checked');
+            const buzones = Array.from(checkedBoxes).map(cb => cb.value);
+
+            if (buzones.length === 0) {
+                alert('Debes seleccionar al menos un buzón.');
+                return;
+            }
+
+            const data = {
+                tipo_sujeto,
+                nombre_sujeto,
+                buzones
+            };
+
+            try {
+                const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (resp && resp.ok) {
+                    alert('Regla de acceso guardada correctamente');
+                    loadBuzonesAccesoConfig();
+                } else {
+                    const err = await resp.json();
+                    alert('Error: ' + err.detail);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error al guardar la regla de acceso.');
             }
         });
     }
@@ -1824,12 +1946,17 @@ const PERMISSION_KEYS = {
     sla: "Tiempos de tramitación (SLA)",
     subsanaciones: "Subsanaciones",
     pendientes_asociacion: "Pendientes Asociación",
+    productividad_analistas: "Productividad Analistas",
     buscador: "Buscador de Expedientes",
     favoritos: "Marcadores",
     'favoritos-seguimiento': "Gestión de Marcadores",
     'asignados-mi': "Asignados a Mí",
     analytics_estadistica: "Analytics (Estadística)",
+    ley_blanqueo: "Analytics (Ley de Blanqueo)",
     analytics_datasets: "Analytics (Datasets)",
+    buzones_analisis: "Buzones para Análisis",
+    secgdu: "Buzones SECGDU (Total Universo)",
+    ciudad_3d: "Ciudad 3D",
     admin: "Backlog (Administración)"
 };
 
@@ -2117,6 +2244,8 @@ function enterBacklogSection(sectionName) {
             subBread.innerText = ' / Configuración de Metas';
         } else if (sectionName === 'roles') {
             subBread.innerText = ' / Configuración de Roles';
+        } else if (sectionName === 'buzones_acceso') {
+            subBread.innerText = ' / Acceso a Buzones';
         }
         subBread.style.display = 'inline';
     }
@@ -2129,6 +2258,8 @@ function enterBacklogSection(sectionName) {
         loadAdminMetas();
     } else if (sectionName === 'roles') {
         loadAdminRoles();
+    } else if (sectionName === 'buzones_acceso') {
+        loadBuzonesAccesoConfig();
     }
 }
 
@@ -3630,16 +3761,55 @@ function renderFamilyChart(history) {
 }
 
 // --- FUNCIONES PARA VISTA CIERRE DE MES ---
-let currentCierreMes = '2026-05';
+let currentCierreMes = '2026-06';
+
+function populateCierreMonths() {
+    const select = document.getElementById('cierre-mes-select');
+    if (!select) return;
+    select.innerHTML = '';
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth();
+    
+    let currYear = year;
+    let currMonth = month - 1;
+    if (currMonth < 0) {
+        currMonth = 11;
+        currYear--;
+    }
+    
+    const startYear = 2026;
+    const startMonth = 1; // Febrero (0-indexed es 1)
+    
+    const mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    
+    while (currYear > startYear || (currYear === startYear && currMonth >= startMonth)) {
+        const val = `${currYear}-${(currMonth + 1).toString().padStart(2, '0')}`;
+        const label = `${mesesNombres[currMonth]} ${currYear}`;
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.innerText = label;
+        select.appendChild(opt);
+        
+        currMonth--;
+        if (currMonth < 0) {
+            currMonth = 11;
+            currYear--;
+        }
+    }
+}
 
 function changeCierreMes(mes) {
     loadCierreMesData(mes);
 }
 
 async function loadCierreMesData(mes) {
+    const select = document.getElementById('cierre-mes-select');
+    if (select && select.children.length <= 4) {
+        populateCierreMonths();
+    }
     if (!mes) {
-        const select = document.getElementById('cierre-mes-select');
-        mes = select ? select.value : '2026-05';
+        mes = select ? select.value : '2026-06';
     }
     currentCierreMes = mes;
 
@@ -4778,7 +4948,7 @@ function renderSearchResultsPage() {
         const isFav = userFavorites.has(r.expediente);
         tr.innerHTML = `
             <td style="padding: 12px 16px; text-align: center; vertical-align: middle;">
-                <span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${r.expediente}" onclick="toggleFavorite('${r.expediente}')">${isFav ? '★' : '☆'}</span>
+                <span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${r.expediente}" onclick="toggleFavorite('${r.expediente}')">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>
             </td>
             <td style="padding: 12px 16px; font-weight: 700; color: #334155; font-family: inherit;">${r.expediente}</td>
             <td style="padding: 12px 16px; font-weight: 600;">${r.descripcion_trata || r.trata || ''}</td>
@@ -5033,10 +5203,10 @@ function updateFavoriteStars(expediente) {
     stars.forEach(star => {
         if (isFav) {
             star.classList.add('active');
-            star.innerText = '★';
+            star.innerHTML = '<i class="fa-solid fa-bookmark"></i>';
         } else {
             star.classList.remove('active');
-            star.innerText = '☆';
+            star.innerHTML = '<i class="fa-regular fa-bookmark"></i>';
         }
     });
 }
@@ -5166,7 +5336,7 @@ function renderFavoritesContent() {
 
     const headerRestHTML = `
         <tr>
-            <th style="padding: 8px 10px; text-align: center; font-size: 0.72rem; width: 40px;">★</th>
+            <th style="padding: 8px 10px; text-align: center; font-size: 0.72rem; width: 40px;"><i class="fa-solid fa-bookmark"></i></th>
             <th style="padding: 8px 10px; text-align: left; font-size: 0.72rem;">Expediente</th>
             <th style="padding: 8px 10px; text-align: left; font-size: 0.72rem;">Trámite</th>
             <th style="padding: 8px 10px; text-align: left; font-size: 0.72rem;">Área</th>
@@ -5202,7 +5372,7 @@ function renderFavoritesContent() {
         // Si el expediente me fue asignado, la estrella es no-clickeable
         const starCell = isAssignedToMe
             ? `<span title="Asignado a vos — no puede quitarse desde aquí" style="font-size: 1.1rem; color: #f59e0b; cursor: not-allowed; display: inline-block;" data-expediente="${r.expediente}"><i class="fa-solid fa-user-lock" style="font-size: 0.9rem; color: #f59e0b;"></i></span>`
-            : `<span class="favorite-star active" data-expediente="${r.expediente}" onclick="toggleFavorite('${r.expediente}')">★</span>`;
+            : `<span class="favorite-star active" data-expediente="${r.expediente}" onclick="toggleFavorite('${r.expediente}')"><i class="fa-solid fa-bookmark"></i></span>`;
 
         return `
             <tr>
@@ -5404,7 +5574,7 @@ function renderAsignadosMiContent(data) {
 
     const headerAssignedToMeHTML = `
         <tr>
-            <th style="padding: 8px 10px; text-align: center; font-size: 0.72rem; width: 40px;">★</th>
+            <th style="padding: 8px 10px; text-align: center; font-size: 0.72rem; width: 40px;"><i class="fa-solid fa-bookmark"></i></th>
             <th style="padding: 8px 10px; text-align: left; font-size: 0.72rem;">Expediente</th>
             <th style="padding: 8px 10px; text-align: left; font-size: 0.72rem;">Trámite</th>
             <th style="padding: 8px 10px; text-align: left; font-size: 0.72rem;">Área</th>
@@ -6323,14 +6493,17 @@ function filterAndRenderFavoritosSeguimiento() {
             if (r.gerencia.toUpperCase() !== gerenciaFilter) return false;
         }
 
-        // 2. Estado SADE Filter
+        // 2. Estado Tablero Filter
         if (sadeFilter !== 'ALL') {
-            if (sadeFilter === 'STOCK PROPIO') {
-                if (r.ubicacion !== 'STOCK PROPIO' && r.ubicacion !== 'STOCK PROPIO (INTERVENCION)') return false;
+            const uUpper = (r.ubicacion || '').toUpperCase();
+            if (sadeFilter === 'STOCK') {
+                if (uUpper !== 'STOCK PROPIO' && uUpper !== 'STOCK PROPIO (INTERVENCION)' && uUpper !== 'EN STOCK' && uUpper !== 'INTERVENCION') return false;
             } else if (sadeFilter === 'SUBSANACION') {
-                if (r.ubicacion !== 'SUBSANACION' && r.ubicacion !== 'SUBSANACION (INTERVENCION)') return false;
+                if (uUpper !== 'SUBSANACION' && uUpper !== 'SUBSANACION (INTERVENCION)') return false;
+            } else if (sadeFilter === 'EGRESADO') {
+                if (!uUpper.startsWith('EGRESADO')) return false;
             } else if (sadeFilter === 'EN FLUJO') {
-                if (r.ubicacion !== 'EN FLUJO') return false;
+                if (uUpper !== 'EN FLUJO') return false;
             }
         }
 
@@ -6511,7 +6684,7 @@ async function renderFavoritosSeguimientoContent(dataToRender) {
 
         tr.innerHTML = `
             <td style="padding: 12px 16px; text-align: center; vertical-align: middle;">
-                <span class="favorite-star active" data-expediente="${r.expediente}" onclick="toggleFavoriteSeguimiento('${r.expediente}')">★</span>
+                <span class="favorite-star active" data-expediente="${r.expediente}" onclick="toggleFavoriteSeguimiento('${r.expediente}')"><i class="fa-solid fa-bookmark"></i></span>
             </td>
             <td style="padding: 12px 16px; font-weight: 700; color: #334155; font-family: inherit; white-space: nowrap;">
                 <span onclick="openDetalleExpedienteModal('${r.expediente}')" style="cursor: pointer; color: #1e293b; font-weight: 700; transition: color 0.15s, border-color 0.15s; border-bottom: 1px dashed #cbd5e1; padding-bottom: 1px;" onmouseover="this.style.color='var(--primary)'; this.style.borderColor='var(--primary)';" onmouseout="this.style.color='#1e293b'; this.style.borderColor='#cbd5e1';">${r.expediente}</span>
@@ -6560,10 +6733,9 @@ async function openDetalleExpedienteModal(expediente) {
 
     if (!r) {
         try {
-            const fetchRes = await def_fetch(`${API_BASE}/expediente/favoritos`);
+            const fetchRes = await def_fetch(`${API_BASE}/expediente/detalle?expediente=${encodeURIComponent(expediente)}`);
             if (fetchRes && fetchRes.ok) {
-                const favs = await fetchRes.json();
-                r = favs.find(x => x.expediente === expediente);
+                r = await fetchRes.json();
             }
         } catch (e) {
             console.error("Error fetching fallback details:", e);
@@ -6652,12 +6824,16 @@ async function openDetalleExpedienteModal(expediente) {
     }
 
     let badgeClass = 'badge-status-flujo';
+    let badgeStyle = "margin: 0; font-size: 0.75rem;";
     if (r.ubicacion === 'STOCK PROPIO' || r.ubicacion === 'STOCK PROPIO (INTERVENCION)') {
         badgeClass = 'badge-status-propio';
     } else if (r.ubicacion === 'SUBSANACION' || r.ubicacion === 'SUBSANACION (INTERVENCION)') {
         badgeClass = 'badge-status-subs';
     } else if (r.ubicacion.startsWith('EGRESADO')) {
         badgeClass = 'badge-status-egresado';
+    } else if (r.ubicacion === 'FUERA DE TABLERO') {
+        badgeClass = '';
+        badgeStyle += ' background-color: #e2e8f0; color: #475569; border: 1px solid #cbd5e1;';
     }
 
     const cleanGerencia = r.gerencia ? (r.gerencia.toLowerCase() === 'aph' ? 'APH' : r.gerencia.charAt(0).toUpperCase() + r.gerencia.slice(1).replace('_', ' ')) : '-';
@@ -6698,7 +6874,7 @@ async function openDetalleExpedienteModal(expediente) {
                 </div>
                 <div>
                     <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Ubicación / Stock</strong>
-                    <div style="margin-top: 4px;"><span class="badge-status ${badgeClass}" style="margin: 0; font-size: 0.75rem;">${r.ubicacion}</span></div>
+                    <div style="margin-top: 4px;"><span class="badge-status ${badgeClass}" style="${badgeStyle}">${r.ubicacion}</span></div>
                 </div>
                 <div>
                     <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Analista Asignado</strong>
@@ -6725,6 +6901,12 @@ async function openDetalleExpedienteModal(expediente) {
                     <div style="color: #475569; margin-top: 4px; display: flex; gap: 40px; font-weight: 600;">
                         <div>Último Pase: <span style="color: #1e293b;">${r.fecha_ultimo_pase || '-'}</span></div>
                         <div>Fecha Creación: <span style="color: #1e293b;">${r.fecha_creacion || '-'}</span></div>
+                    </div>
+                </div>
+                <div style="grid-column: span 4; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 5px;">
+                    <strong style="color: #64748b; font-size: 0.8rem; text-transform: uppercase;">Motivo del Último Pase</strong>
+                    <div style="color: #334155; margin-top: 4px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 500; line-height: 1.4; background-color: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        ${r.motivo_pase || 'Sin Motivo'}
                     </div>
                 </div>
             </div>
@@ -6768,7 +6950,7 @@ async function openDetalleExpedienteModal(expediente) {
         <!-- Card 3: Anotaciones de Favorito -->
         <div style="display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
             <h3 style="margin-top: 0; margin-bottom: 15px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.1rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                <span><i class="fa-regular fa-comment-dots" style="color: var(--primary); margin-right: 8px;"></i> Historial de Anotaciones (${r.cant_notas})</span>
+                <span><i class="fa-regular fa-comment-dots" style="color: var(--primary); margin-right: 8px;"></i> Historial de Anotaciones (${r.cant_notas || 0})</span>
                 <button onclick="closeModal('detalle-expediente-modal'); openFavoriteNotesModal('${r.expediente}')" style="background: none; border: none; color: var(--primary); font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: 'Outfit';" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                     <i class="fa-solid fa-plus"></i> Agregar Nota
                 </button>
@@ -7000,10 +7182,16 @@ const BUZONES_GERENCIAS = {
         { id: 'morfologia', label: 'Morfología' },
         { id: 'aph', label: 'APH' },
         { id: 'usos', label: 'Usos' }
+    ],
+    analisis: [
+        { id: 'analisis_archivo', label: 'Buzones de Archivo' }
+    ],
+    secgdu: [
+        { id: 'secgdu_todos', label: 'Todos los Buzones' }
     ]
 };
 
-async function showBuzonesView(area) {
+async function showBuzonesView(area, updateHash = true) {
     currentBuzonesArea = area.toLowerCase();
     const titleEl = document.getElementById('buzones-title');
     const subtitleEl = document.getElementById('buzones-subtitle');
@@ -7017,9 +7205,11 @@ async function showBuzonesView(area) {
     // Reset view
     if (tableContainer) tableContainer.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
+    const metricsContainer = document.getElementById('buzones-metrics-container');
+    if (metricsContainer) metricsContainer.style.display = 'none';
 
     // Set title and breadcrumbs based on area
-    const uppercaseArea = area.toUpperCase();
+    const uppercaseArea = area === 'analisis' ? 'Análisis' : area.toUpperCase();
     titleEl.innerText = `Buzones ${uppercaseArea}`;
     breadcrumbArea.innerText = uppercaseArea;
 
@@ -7037,7 +7227,11 @@ async function showBuzonesView(area) {
     tabsContainer.innerHTML = tabsHtml;
 
     // Show view
-    showView('buzones');
+    showView('buzones', false);
+
+    if (updateHash) {
+        window.location.hash = `#/buzones/${currentBuzonesArea}`;
+    }
 
     // Load first gerencia by default
     if (gerencias.length > 0) {
@@ -7065,15 +7259,89 @@ async function loadBuzonesData(gerencia) {
     const loader = document.getElementById('buzones-loader');
     const tableContainer = document.getElementById('buzones-analysts-table-container');
     const emptyState = document.getElementById('buzones-empty-state');
+    const metricsContainer = document.getElementById('buzones-metrics-container');
 
     if (loader) loader.style.display = 'block';
     if (tableContainer) tableContainer.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
+    if (metricsContainer) metricsContainer.style.display = 'none';
 
     try {
         const res = await def_fetch(`${API_BASE}/reporte/${gerencia}/buzones`);
         if (res && res.ok) {
             currentBuzonesData = await res.json();
+
+            // Reset active filters
+            currentBuzonesEgresadoFilter = null;
+            const diasFilterInput = document.getElementById('buzones-dias-filter');
+            if (diasFilterInput) diasFilterInput.value = '';
+            const cardEgr = document.getElementById('buzones-card-egresados');
+            const cardNoEgr = document.getElementById('buzones-card-no-egresados');
+            const cardFuera = document.getElementById('buzones-card-fuera-tablero');
+            
+            if (cardEgr) {
+                cardEgr.style.borderColor = '#e2e8f0';
+                cardEgr.style.backgroundColor = 'white';
+                cardEgr.style.boxShadow = '';
+                const ind = cardEgr.querySelector('.filter-indicator');
+                if (ind) ind.style.display = 'none';
+            }
+            if (cardNoEgr) {
+                cardNoEgr.style.borderColor = '#e2e8f0';
+                cardNoEgr.style.backgroundColor = 'white';
+                cardNoEgr.style.boxShadow = '';
+                const ind = cardNoEgr.querySelector('.filter-indicator');
+                if (ind) ind.style.display = 'none';
+            }
+            if (cardFuera) {
+                cardFuera.style.borderColor = '#e2e8f0';
+                cardFuera.style.backgroundColor = 'white';
+                cardFuera.style.boxShadow = '';
+                const ind = cardFuera.querySelector('.filter-indicator');
+                if (ind) ind.style.display = 'none';
+            }
+
+            // Calculate metrics for loaded dataset
+            let totalExpedientes = 0;
+            let totalEgresados = 0;
+            let totalNoEgresados = 0;
+            let totalFueraTablero = 0;
+            let totalMailboxes = currentBuzonesData.length;
+
+            currentBuzonesData.forEach(an => {
+                const exps = an.expedientes || [];
+                totalExpedientes += (an.count || 0);
+                exps.forEach(exp => {
+                    if (exp.estado_tablero === 'FUERA DE TABLERO') {
+                        totalFueraTablero++;
+                    } else if (exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO')) {
+                        totalEgresados++;
+                    } else {
+                        totalNoEgresados++;
+                    }
+                });
+            });
+
+            const metricsContainer = document.getElementById('buzones-metrics-container');
+            if (metricsContainer) {
+                const totalExpsEl = document.getElementById('buzones-metric-total-expedientes');
+                if (totalExpsEl) totalExpsEl.innerText = totalExpedientes;
+                
+                const egresadosEl = document.getElementById('buzones-metric-egresados');
+                if (egresadosEl) egresadosEl.innerText = totalEgresados;
+                
+                const noEgresadosEl = document.getElementById('buzones-metric-no-egresados');
+                if (noEgresadosEl) noEgresadosEl.innerText = totalNoEgresados;
+                
+                const fueraTableroEl = document.getElementById('buzones-metric-fuera-tablero');
+                if (fueraTableroEl) fueraTableroEl.innerText = totalFueraTablero;
+                
+                const totalMailsEl = document.getElementById('buzones-metric-total-mailboxes');
+                if (totalMailsEl) totalMailsEl.innerText = totalMailboxes;
+                
+                metricsContainer.style.display = 'grid';
+            }
+
             renderBuzonesAnalysts(currentBuzonesData, gerencia);
         } else {
             throw new Error("No se pudo obtener el stock de analistas.");
@@ -7094,6 +7362,7 @@ function renderBuzonesAnalysts(analysts, gerencia) {
     const tableContainer = document.getElementById('buzones-analysts-table-container');
     const emptyState = document.getElementById('buzones-empty-state');
     const tbody = document.getElementById('buzones-analysts-tbody');
+    const metricsContainer = document.getElementById('buzones-metrics-container');
     
     if (!tableContainer || !emptyState || !tbody) return;
     
@@ -7108,6 +7377,27 @@ function renderBuzonesAnalysts(analysts, gerencia) {
     tableContainer.style.display = 'block';
     emptyState.style.display = 'none';
 
+    // Update table headers dynamically
+    const tableHeader = document.querySelector('#buzones-analysts-table-container thead tr');
+    if (tableHeader) {
+        if (currentBuzonesArea === 'secgdu') {
+            tableHeader.innerHTML = `
+                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Buzón / Destinatario</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Egresados Efectivos</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Egresados No Ef.</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Pendientes Actividad</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Total Stock</th>
+            `;
+        } else {
+            tableHeader.innerHTML = `
+                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Analista Asignado</th>
+                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Usuario SADE</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Mediana Días Stock</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Cantidad de Expedientes</th>
+            `;
+        }
+    }
+
     analysts.forEach(an => {
         const tr = document.createElement('tr');
         tr.style.cursor = 'pointer';
@@ -7116,34 +7406,47 @@ function renderBuzonesAnalysts(analysts, gerencia) {
         tr.onmouseout = () => { tr.style.backgroundColor = ''; };
         tr.onclick = () => showBuzonAnalystDetail(an.username);
         
-        // Calculate median of days in stock
-        const dias = (an.expedientes || []).map(e => e.dias || 0);
-        let median = 0;
-        if (dias.length > 0) {
-            const sorted = [...dias].sort((a, b) => a - b);
-            const half = Math.floor(sorted.length / 2);
-            if (sorted.length % 2 !== 0) {
-                median = sorted[half];
-            } else {
-                median = Math.round((sorted[half - 1] + sorted[half]) / 2);
+        if (currentBuzonesArea === 'secgdu') {
+            tr.innerHTML = `
+                <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
+                    <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
+                        ${(an.name || 'SIN ASIGNAR').toUpperCase()}
+                    </span>
+                </td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #10b981; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.egresados_efectivos ?? 0}</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #ef4444; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.egresados_no_efectivos ?? 0}</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #f59e0b; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.pendientes_actividad ?? 0}</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
+            `;
+        } else {
+            // Calculate median of days in stock
+            const dias = (an.expedientes || []).map(e => e.dias || 0);
+            let median = 0;
+            if (dias.length > 0) {
+                const sorted = [...dias].sort((a, b) => a - b);
+                const half = Math.floor(sorted.length / 2);
+                if (sorted.length % 2 !== 0) {
+                    median = sorted[half];
+                } else {
+                    median = Math.round((sorted[half - 1] + sorted[half]) / 2);
+                }
             }
+            tr.innerHTML = `
+                <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
+                    <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
+                        ${(an.name || 'SIN ASIGNAR').toUpperCase()}
+                    </span>
+                </td>
+                <td style="padding: 18px 20px; color: #64748b; font-family: 'Outfit'; line-height: 1.5;">@${an.username}</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #475569; font-family: 'Outfit'; font-size: 1.02rem; line-height: 1.5;">${median}d</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
+            `;
         }
-        
-        tr.innerHTML = `
-            <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
-                <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
-                    ${an.name.toUpperCase()}
-                </span>
-            </td>
-            <td style="padding: 18px 20px; color: #64748b; font-family: 'Outfit'; line-height: 1.5;">@${an.username}</td>
-            <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #475569; font-family: 'Outfit'; font-size: 1.02rem; line-height: 1.5;">${median}d</td>
-            <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
-        `;
         tbody.appendChild(tr);
     });
 }
 
-function showBuzonAnalystDetail(username) {
+async function showBuzonAnalystDetail(username) {
     const analyst = currentBuzonesData.find(a => a.username === username);
     if (!analyst) return;
 
@@ -7161,70 +7464,269 @@ function showBuzonAnalystDetail(username) {
         const gObj = gerenciasList.find(g => g.id === currentBuzonesGerencia);
         bcGerencia.innerText = gObj ? gObj.label : currentBuzonesGerencia.toUpperCase();
     }
-    if (bcName) bcName.innerText = analyst.name.toUpperCase();
+    if (bcName) bcName.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
+ 
+     // Set Presentation Block
+     const nameHeader = document.getElementById('buzon-analista-header-name');
+     const sadeHeader = document.getElementById('buzon-analista-header-sade');
+     const countBadge = document.getElementById('buzon-analista-header-count');
+ 
+     if (nameHeader) nameHeader.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
+     if (sadeHeader) sadeHeader.innerText = `Usuario SADE: @${analyst.username}`;
+     if (countBadge) {
+         countBadge.innerText = `${analyst.count} ${analyst.count === 1 ? 'Expediente en Stock' : 'Expedientes en Stock'}`;
+     }
 
-    // Set Presentation Block
-    const nameHeader = document.getElementById('buzon-analista-header-name');
-    const sadeHeader = document.getElementById('buzon-analista-header-sade');
-    const countBadge = document.getElementById('buzon-analista-header-count');
-
-    if (nameHeader) nameHeader.innerText = analyst.name.toUpperCase();
-    if (sadeHeader) sadeHeader.innerText = `Usuario SADE: @${analyst.username}`;
-    if (countBadge) {
-        countBadge.innerText = `${analyst.count} ${analyst.count === 1 ? 'Expediente en Stock' : 'Expedientes en Stock'}`;
-    }
-
-    // Populate Detailed Table
-    const tbody = document.getElementById('buzon-analista-tbody');
-    if (tbody) {
-        tbody.innerHTML = '';
-        analyst.expedientes.forEach(exp => {
-            const tr = document.createElement('tr');
-            
-            const isFav = userFavorites.has(exp.expediente);
-            const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.35rem; transition: transform 0.15s ease; display: inline-block; user-select: none;">${isFav ? '★' : '☆'}</span>`;
-            
-            const expLink = `<a href="#" style="font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onclick="event.preventDefault(); openDetalleExpedienteModal('${exp.expediente}')">${exp.expediente}</a>`;
-            const copySpan = `<span onclick="copyToClipboard('${exp.expediente}', this)" style="cursor: pointer; margin-left: 6px; font-size: 0.85rem; color: #94a3b8; transition: color 0.2s; display: inline-block; vertical-align: middle;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#94a3b8'" title="Copiar Expediente"><i class="fa-regular fa-copy"></i></span>`;
-            
-            tr.innerHTML = `
-                <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">${starSpan}</td>
-                <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5; white-space: nowrap;">${expLink}${copySpan}</td>
-                <td style="padding: 16px 20px; font-weight: 600; color: #475569; vertical-align: middle; line-height: 1.5;">${exp.trata}</td>
-                <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.9rem; line-height: 1.5;">${exp.descripcion_trata}</td>
-                <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias}d</td>
-                <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: #6366f1; vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias_en_gerencia}d</td>
-                <td style="padding: 16px 20px; color: #64748b; vertical-align: middle; font-size: 0.85rem; line-height: 1.5;">${exp.fecha_ultimo_pase || '-'}</td>
-                <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5;">
-                    <span class="badge-status-flujo" style="font-size: 0.78rem; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 12px;">${exp.estado_expediente}</span>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
+    // Reset filters
+    const searchInput = document.getElementById('buzon-detalle-search');
+    if (searchInput) searchInput.value = '';
 
     // Switch View
     showView('buzon-analista-detalle');
+
+    // On-demand load for secgdu if not loaded
+    if (currentBuzonesArea === 'secgdu' && (!analyst.expedientes || analyst.expedientes.length === 0) && analyst.count > 0) {
+        const tbody = document.getElementById('buzon-analista-tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 10px; color: #64748b; font-weight: 500;">Cargando expedientes...</p></td></tr>';
+        
+        try {
+            const res = await def_fetch(`${API_BASE}/reporte/secgdu/buzones/${encodeURIComponent(username)}/expedientes`);
+            if (res && res.ok) {
+                analyst.expedientes = await res.json();
+            }
+        } catch (e) {
+            console.error("Error loading mailbox details:", e);
+        }
+    }
+
+    // Populate SADE state filter dropdown
+    const selectEstado = document.getElementById('buzon-detalle-filter-estado');
+    if (selectEstado) {
+        const states = new Set();
+        (analyst.expedientes || []).forEach(exp => {
+            const status = exp.estado_tablero || 'STOCK PROPIO';
+            states.add(status);
+        });
+        let selectHtml = '<option value="ALL">Todos</option>';
+        [...states].sort().forEach(st => {
+            selectHtml += `<option value="${st}">${st}</option>`;
+        });
+        selectEstado.innerHTML = selectHtml;
+    }
+
+    // Render
+    filterAndRenderBuzonDetalle();
 }
+
+function filterAndRenderBuzonDetalle() {
+    const analyst = currentActiveBuzonAnalyst;
+    if (!analyst) return;
+
+    const tbody = document.getElementById('buzon-analista-tbody');
+    if (!tbody) return;
+
+    const query = (document.getElementById('buzon-detalle-search')?.value || '').toLowerCase().trim();
+    const filterEstado = document.getElementById('buzon-detalle-filter-estado')?.value || 'ALL';
+
+    // Filter expedientes
+    const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
+
+    const filtered = (analyst.expedientes || []).filter(exp => {
+        const matchesDias = (exp.dias || 0) >= diasVal;
+
+        const matchesQuery = !query || 
+            (exp.expediente || '').toLowerCase().includes(query) ||
+            (exp.trata || '').toLowerCase().includes(query) ||
+            (exp.descripcion_trata || '').toLowerCase().includes(query) ||
+            (exp.motivo_pase || '').toLowerCase().includes(query);
+            
+        const status = exp.estado_tablero || 'STOCK PROPIO';
+        const matchesEstado = filterEstado === 'ALL' || status === filterEstado;
+        
+        return matchesDias && matchesQuery && matchesEstado;
+    });
+
+    // Render count
+    const countBadge = document.getElementById('buzon-analista-header-count');
+    if (countBadge) {
+        countBadge.innerText = `${filtered.length} ${filtered.length === 1 ? 'Expediente' : 'Expedientes'} (Filtrados)`;
+    }
+
+    // Render table rows
+    tbody.innerHTML = '';
+    filtered.forEach(exp => {
+        const tr = document.createElement('tr');
+        
+        const isFav = userFavorites.has(exp.expediente);
+        const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.1rem; transition: transform 0.15s ease; display: inline-block; user-select: none;">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
+        
+        const expLink = `<a href="#" style="font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onclick="event.preventDefault(); openDetalleExpedienteModal('${exp.expediente}')">${exp.expediente}</a>`;
+        const copySpan = `<span onclick="copyToClipboard('${exp.expediente}', this)" style="cursor: pointer; margin-left: 6px; font-size: 0.85rem; color: #94a3b8; transition: color 0.2s; display: inline-block; vertical-align: middle;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#94a3b8'" title="Copiar Expediente"><i class="fa-regular fa-copy"></i></span>`;
+        
+        tr.innerHTML = `
+            <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">${starSpan}</td>
+            <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5; white-space: nowrap;">${expLink}${copySpan}</td>
+            <td style="padding: 16px 20px; font-weight: 600; color: #475569; vertical-align: middle; line-height: 1.5;">${exp.trata}</td>
+            <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.9rem; line-height: 1.5;">${exp.descripcion_trata}</td>
+            <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias}d</td>
+            <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: #6366f1; vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias_en_gerencia}d</td>
+            <td style="padding: 16px 20px; color: #64748b; vertical-align: middle; font-size: 0.85rem; line-height: 1.5;">${exp.fecha_ultimo_pase || '-'}</td>
+            <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.88rem; line-height: 1.5; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${exp.motivo_pase || 'Sin Motivo'}">${exp.motivo_pase || 'Sin Motivo'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
 
 function backToBuzonGerencia() {
     showView('buzones');
+}
+
+let currentBuzonesEgresadoFilter = null;
+
+function toggleBuzonEgresadoFilter(type) {
+    const cardEgr = document.getElementById('buzones-card-egresados');
+    const cardNoEgr = document.getElementById('buzones-card-no-egresados');
+    const cardFuera = document.getElementById('buzones-card-fuera-tablero');
+    
+    if (currentBuzonesEgresadoFilter === type) {
+        currentBuzonesEgresadoFilter = null;
+    } else {
+        currentBuzonesEgresadoFilter = type;
+    }
+    
+    if (cardEgr) {
+        const ind = cardEgr.querySelector('.filter-indicator');
+        if (currentBuzonesEgresadoFilter === 'egresado') {
+            cardEgr.style.borderColor = '#10b981';
+            cardEgr.style.backgroundColor = '#f0fdf4';
+            cardEgr.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.2)';
+            if (ind) ind.style.display = 'block';
+        } else {
+            cardEgr.style.borderColor = '#e2e8f0';
+            cardEgr.style.backgroundColor = 'white';
+            cardEgr.style.boxShadow = '';
+            if (ind) ind.style.display = 'none';
+        }
+    }
+    
+    if (cardNoEgr) {
+        const ind = cardNoEgr.querySelector('.filter-indicator');
+        if (currentBuzonesEgresadoFilter === 'no_egresado') {
+            cardNoEgr.style.borderColor = '#f59e0b';
+            cardNoEgr.style.backgroundColor = '#fffbeb';
+            cardNoEgr.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.2)';
+            if (ind) ind.style.display = 'block';
+        } else {
+            cardNoEgr.style.borderColor = '#e2e8f0';
+            cardNoEgr.style.backgroundColor = 'white';
+            cardNoEgr.style.boxShadow = '';
+            if (ind) ind.style.display = 'none';
+        }
+    }
+
+    if (cardFuera) {
+        const ind = cardFuera.querySelector('.filter-indicator');
+        if (currentBuzonesEgresadoFilter === 'fuera_tablero') {
+            cardFuera.style.borderColor = '#64748b';
+            cardFuera.style.backgroundColor = '#f8fafc';
+            cardFuera.style.boxShadow = '0 0 12px rgba(100, 116, 139, 0.2)';
+            if (ind) ind.style.display = 'block';
+        } else {
+            cardFuera.style.borderColor = '#e2e8f0';
+            cardFuera.style.backgroundColor = 'white';
+            cardFuera.style.boxShadow = '';
+            if (ind) ind.style.display = 'none';
+        }
+    }
+    
+    filterBuzonesAnalysts();
+}
+
+function onBuzonesDiasFilterChange() {
+    updateBuzonesMetrics();
+    filterBuzonesAnalysts();
+}
+
+function updateBuzonesMetrics() {
+    const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
+    
+    let totalExpedientes = 0;
+    let totalEgresados = 0;
+    let totalNoEgresados = 0;
+    let totalFueraTablero = 0;
+    
+    currentBuzonesData.forEach(an => {
+        const exps = an.expedientes || [];
+        exps.forEach(exp => {
+            const days = exp.dias || 0;
+            if (days >= diasVal) {
+                totalExpedientes++;
+                if (exp.estado_tablero === 'FUERA DE TABLERO') {
+                    totalFueraTablero++;
+                } else if (exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO')) {
+                    totalEgresados++;
+                } else {
+                    totalNoEgresados++;
+                }
+            }
+        });
+    });
+
+    const totalExpEl = document.getElementById('buzones-metric-total-expedientes');
+    const egrEl = document.getElementById('buzones-metric-egresados');
+    const noEgrEl = document.getElementById('buzones-metric-no-egresados');
+    const fueraEl = document.getElementById('buzones-metric-fuera-tablero');
+
+    if (totalExpEl) totalExpEl.innerText = totalExpedientes;
+    if (egrEl) egrEl.innerText = totalEgresados;
+    if (noEgrEl) noEgrEl.innerText = totalNoEgresados;
+    if (fueraEl) fueraEl.innerText = totalFueraTablero;
 }
 
 function filterBuzonesAnalysts() {
     const searchInput = document.getElementById('buzones-analyst-search');
     if (!searchInput) return;
     const query = searchInput.value.toLowerCase().trim();
+    const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
     
-    if (!query) {
-        renderBuzonesAnalysts(currentBuzonesData, currentBuzonesGerencia);
-        return;
+    let filtered = currentBuzonesData;
+    
+    // Map analysts with filtered expedientes list to adjust counts
+    filtered = filtered.map(an => {
+        const filteredExps = (an.expedientes || []).filter(exp => (exp.dias || 0) >= diasVal);
+        return {
+            ...an,
+            filteredExpedientes: filteredExps,
+            count: filteredExps.length
+        };
+    });
+
+    if (diasVal > 0) {
+        filtered = filtered.filter(an => an.count > 0);
     }
     
-    const filtered = currentBuzonesData.filter(an => 
-        (an.name && an.name.toLowerCase().includes(query)) || 
-        (an.username && an.username.toLowerCase().includes(query))
-    );
+    if (query) {
+        filtered = filtered.filter(an => 
+            (an.name && an.name.toLowerCase().includes(query)) || 
+            (an.username && an.username.toLowerCase().includes(query))
+        );
+    }
+    
+    if (currentBuzonesEgresadoFilter === 'egresado') {
+        filtered = filtered.filter(an => 
+            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO'))
+        );
+    } else if (currentBuzonesEgresadoFilter === 'no_egresado') {
+        filtered = filtered.filter(an => 
+            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero && !exp.estado_tablero.startsWith('EGRESADO') && exp.estado_tablero !== 'FUERA DE TABLERO')
+        );
+    } else if (currentBuzonesEgresadoFilter === 'fuera_tablero') {
+        filtered = filtered.filter(an => 
+            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero === 'FUERA DE TABLERO')
+        );
+    }
+    
     renderBuzonesAnalysts(filtered, currentBuzonesGerencia);
 }
 
@@ -7233,6 +7735,9 @@ window.loadBuzonesData = loadBuzonesData;
 window.showBuzonAnalystDetail = showBuzonAnalystDetail;
 window.backToBuzonGerencia = backToBuzonGerencia;
 window.filterBuzonesAnalysts = filterBuzonesAnalysts;
+window.filterAndRenderBuzonDetalle = filterAndRenderBuzonDetalle;
+window.toggleBuzonEgresadoFilter = toggleBuzonEgresadoFilter;
+window.onBuzonesDiasFilterChange = onBuzonesDiasFilterChange;
 
 function exportBuzonAnalistaExcel() {
     if (!currentActiveBuzonAnalyst || !currentActiveBuzonAnalyst.expedientes || currentActiveBuzonAnalyst.expedientes.length === 0) {
@@ -7251,7 +7756,19 @@ function exportBuzonAnalistaExcel() {
     ];
     
     try {
-        const rows = currentActiveBuzonAnalyst.expedientes.map(exp => {
+        const query = (document.getElementById('buzon-detalle-search')?.value || '').toLowerCase().trim();
+        const filterEstado = document.getElementById('buzon-detalle-filter-estado')?.value || 'ALL';
+        const filteredExpedientes = currentActiveBuzonAnalyst.expedientes.filter(exp => {
+            const matchesQuery = !query || 
+                (exp.expediente || '').toLowerCase().includes(query) ||
+                (exp.trata || '').toLowerCase().includes(query) ||
+                (exp.descripcion_trata || '').toLowerCase().includes(query) ||
+                (exp.motivo_pase || '').toLowerCase().includes(query);
+            const matchesEstado = filterEstado === 'ALL' || exp.estado_expediente === filterEstado;
+            return matchesQuery && matchesEstado;
+        });
+
+        const rows = filteredExpedientes.map(exp => {
             const rowObj = {};
             columns.forEach(c => {
                 rowObj[c.label] = exp[c.key] ?? '';
@@ -7264,7 +7781,7 @@ function exportBuzonAnalistaExcel() {
         // Auto-fit columns
         const colWidths = columns.map(col => {
             let maxLen = col.label.length;
-            currentActiveBuzonAnalyst.expedientes.forEach(exp => {
+            filteredExpedientes.forEach(exp => {
                 const val = exp[col.key];
                 const strVal = val !== null && val !== undefined ? String(val) : '';
                 if (strVal.length > maxLen) maxLen = strVal.length;
@@ -7894,13 +8411,454 @@ async function loadAnalyticsEstadistica() {
     }
 }
 
+let blanqueoBarrioChart = null;
+let blanqueoComunaChart = null;
+let blanqueoBarrioSurfacesChart = null;
+let blanqueoTimelineChart = null;
+
+async function loadAnalyticsLeyBlanqueo() {
+    const container = document.getElementById('analytics-panel-ley_blanqueo');
+    if (!container) return;
+
+    const chartsContainer = container.querySelector('.charts-grid');
+    if (chartsContainer) {
+        chartsContainer.style.opacity = '0.5';
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/analytics/ley-blanqueo`);
+        if (!res || !res.ok) {
+            throw new Error("Error cargando los datos de Ley de Blanqueo");
+        }
+        const data = await res.json();
+
+        // Renderizar Tarjetas de KPI
+        const kpiContainer = document.getElementById('blanqueo-kpi-cards');
+        if (kpiContainer && data.sums_data) {
+            const formatDecimal = (val) => val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' m²';
+            
+            kpiContainer.innerHTML = `
+                <div class="meta-card" style="min-height: 140px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid #ef4444;">
+                    <div class="meta-card-label" style="font-size: 0.78rem; line-height: 1.25; color: #64748b; font-weight: 600; text-transform: uppercase;">Superficie en contravención total no reglamentaria Código de Edificación</div>
+                    <div class="meta-card-value" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; margin-top: 10px;">${formatDecimal(data.sums_data.sup_contra_no_reg_ce)}</div>
+                </div>
+                <div class="meta-card" style="min-height: 140px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid #3b82f6;">
+                    <div class="meta-card-label" style="font-size: 0.78rem; line-height: 1.25; color: #64748b; font-weight: 600; text-transform: uppercase;">Superficie en contravención total reglamentaria Código de Edificación</div>
+                    <div class="meta-card-value" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; margin-top: 10px;">${formatDecimal(data.sums_data.sup_contra_reg_ce)}</div>
+                </div>
+                <div class="meta-card" style="min-height: 140px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid #10b981;">
+                    <div class="meta-card-label" style="font-size: 0.78rem; line-height: 1.25; color: #64748b; font-weight: 600; text-transform: uppercase;">Superficie en contravención total reglamentaria Código Urbanístico</div>
+                    <div class="meta-card-value" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; margin-top: 10px;">${formatDecimal(data.sums_data.sup_contra_reg_cur)}</div>
+                </div>
+                <div class="meta-card" style="min-height: 140px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-left: 5px solid #f59e0b;">
+                    <div class="meta-card-label" style="font-size: 0.78rem; line-height: 1.25; color: #64748b; font-weight: 600; text-transform: uppercase;">Superficie en contravención total no reglamentaria Código Urbanístico</div>
+                    <div class="meta-card-value" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; margin-top: 10px;">${formatDecimal(data.sums_data.sup_contra_no_reg_cur)}</div>
+                </div>
+            `;
+        }
+
+        if (chartsContainer) {
+            chartsContainer.style.opacity = '1';
+        }
+
+        // Desactivar datalabels por defecto para otros gráficos y activarlo localmente aquí
+        if (window.ChartDataLabels) {
+            Chart.defaults.plugins.datalabels = { display: false };
+        }
+
+        // 0. Stacked Surfaces by Barrio Chart
+        const ctxSurfaces = document.getElementById('blanqueoBarrioSurfacesChart').getContext('2d');
+        if (blanqueoBarrioSurfacesChart) {
+            blanqueoBarrioSurfacesChart.destroy();
+        }
+
+        const sortedSurfaces = data.barrio_surfaces_data || [];
+
+        blanqueoBarrioSurfacesChart = new Chart(ctxSurfaces, {
+            type: 'bar',
+            plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+            data: {
+                labels: sortedSurfaces.map(d => d.barrio),
+                datasets: [
+                    {
+                        label: 'No Reglamentaria Código de Edificación',
+                        data: sortedSurfaces.map(d => d.sup_contra_no_reg_ce),
+                        backgroundColor: '#ef4444',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'Reglamentaria Código de Edificación',
+                        data: sortedSurfaces.map(d => d.sup_contra_reg_ce),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'Reglamentaria Código Urbanístico',
+                        data: sortedSurfaces.map(d => d.sup_contra_reg_cur),
+                        backgroundColor: '#10b981',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'No Reglamentaria Código Urbanístico',
+                        data: sortedSurfaces.map(d => d.sup_contra_no_reg_cur),
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 2
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8,
+                plugins: {
+                    legend: { 
+                        display: true,
+                        position: 'top',
+                        labels: { font: { family: 'Outfit', size: 11 } },
+                        onClick: function(e, legendItem, legend) {
+                            const index = legendItem.datasetIndex;
+                            const ci = legend.chart;
+                            if (ci.isDatasetVisible(index)) {
+                                ci.hide(index);
+                                legendItem.hidden = true;
+                            } else {
+                                ci.show(index);
+                                legendItem.hidden = false;
+                            }
+                            
+                            // Re-ordenar datos de mayor a menor en base a lo que queda visible
+                            const datasets = ci.data.datasets;
+                            const mappedItems = sortedSurfaces.map((item) => {
+                                let visibleSum = 0;
+                                if (ci.isDatasetVisible(0)) visibleSum += item.sup_contra_no_reg_ce;
+                                if (ci.isDatasetVisible(1)) visibleSum += item.sup_contra_reg_ce;
+                                if (ci.isDatasetVisible(2)) visibleSum += item.sup_contra_reg_cur;
+                                if (ci.isDatasetVisible(3)) visibleSum += item.sup_contra_no_reg_cur;
+                                return { item, visibleSum };
+                            });
+                            
+                            // Ordenar desc
+                            mappedItems.sort((a, b) => b.visibleSum - a.visibleSum);
+                            
+                            // Actualizar labels y datos
+                            ci.data.labels = mappedItems.map(x => x.item.barrio);
+                            datasets[0].data = mappedItems.map(x => x.item.sup_contra_no_reg_ce);
+                            datasets[1].data = mappedItems.map(x => x.item.sup_contra_reg_ce);
+                            datasets[2].data = mappedItems.map(x => x.item.sup_contra_reg_cur);
+                            datasets[3].data = mappedItems.map(x => x.item.sup_contra_no_reg_cur);
+                            
+                            ci.update();
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        axis: 'y',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.x.toLocaleString('es-AR', { maximumFractionDigits: 1 })} m²`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: true,
+                        anchor: 'center',
+                        align: 'center',
+                        color: '#ffffff',
+                        font: {
+                            family: 'Outfit',
+                            weight: 'bold',
+                            size: 9
+                        },
+                        formatter: function(value) {
+                            return value > 1 ? value.toLocaleString('es-AR', { maximumFractionDigits: 0 }) : '';
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { font: { family: 'Outfit', size: 11 } }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // 1. Barrio Chart
+        const ctxBarrio = document.getElementById('blanqueoBarrioChart').getContext('2d');
+        if (blanqueoBarrioChart) {
+            blanqueoBarrioChart.destroy();
+        }
+
+        const sortedBarrios = data.barrio_data;
+        
+        blanqueoBarrioChart = new Chart(ctxBarrio, {
+            type: 'bar',
+            plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+            data: {
+                labels: sortedBarrios.map(d => d.barrio),
+                datasets: [{
+                    label: 'Cantidad de Parcelas',
+                    data: sortedBarrios.map(d => d.cant),
+                    backgroundColor: 'rgba(0, 159, 227, 0.85)',
+                    borderColor: 'rgba(0, 159, 227, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                barPercentage: 0.7,
+                categoryPercentage: 0.8,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Cantidad: ${context.parsed.x}`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'end',
+                        color: '#475569',
+                        font: {
+                            family: 'Outfit',
+                            weight: 'bold',
+                            size: 10
+                        },
+                        formatter: (val) => val
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { font: { family: 'Outfit', size: 11 } }
+                    },
+                    y: {
+                        ticks: { font: { family: 'Outfit', size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // 2. Comuna Chart
+        const ctxComuna = document.getElementById('blanqueoComunaChart').getContext('2d');
+        if (blanqueoComunaChart) {
+            blanqueoComunaChart.destroy();
+        }
+
+        const sortedComunas = data.comuna_data;
+
+        blanqueoComunaChart = new Chart(ctxComuna, {
+            type: 'bar',
+            plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+            data: {
+                labels: sortedComunas.map(d => d.comuna),
+                datasets: [{
+                    label: 'Cantidad de Parcelas',
+                    data: sortedComunas.map(d => d.cant),
+                    backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                    borderColor: 'rgba(16, 185, 129, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Cantidad: ${context.parsed.y}`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'end',
+                        color: '#475569',
+                        font: {
+                            family: 'Outfit',
+                            weight: 'bold',
+                            size: 11
+                        },
+                        formatter: (val) => val
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { font: { family: 'Outfit', size: 11 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { font: { family: 'Outfit', size: 11 } }
+                    }
+                }
+            }
+        });
+
+        // 3. Timeline Chart
+        const ctxTimeline = document.getElementById('blanqueoTimelineChart').getContext('2d');
+        if (blanqueoTimelineChart) {
+            blanqueoTimelineChart.destroy();
+        }
+
+        const timelineData = data.timeline_data || [];
+
+        blanqueoTimelineChart = new Chart(ctxTimeline, {
+            type: 'bar',
+            plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+            data: {
+                labels: timelineData.map(d => d.mes),
+                datasets: [
+                    {
+                        label: 'No Reglamentaria Código de Edificación',
+                        data: timelineData.map(d => d.sup_contra_no_reg_ce),
+                        backgroundColor: '#ef4444',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'Reglamentaria Código de Edificación',
+                        data: timelineData.map(d => d.sup_contra_reg_ce),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'Reglamentaria Código Urbanístico',
+                        data: timelineData.map(d => d.sup_contra_reg_cur),
+                        backgroundColor: '#10b981',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'No Reglamentaria Código Urbanístico',
+                        data: timelineData.map(d => d.sup_contra_no_reg_cur),
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 25
+                    }
+                },
+                plugins: {
+                    legend: { 
+                        display: true,
+                        position: 'top',
+                        labels: { font: { family: 'Outfit', size: 11 } }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y.toLocaleString('es-AR', { maximumFractionDigits: 1 })} m²`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'top',
+                        color: '#475569',
+                        font: {
+                            family: 'Outfit',
+                            weight: 'bold',
+                            size: 10
+                        },
+                        formatter: function(value, context) {
+                            const chart = context.chart;
+                            const datasets = chart.data.datasets;
+                            const dataIndex = context.dataIndex;
+                            const datasetIndex = context.datasetIndex;
+                            
+                            // Encontrar el índice del último dataset visible
+                            let topVisibleDatasetIndex = -1;
+                            for (let j = datasets.length - 1; j >= 0; j--) {
+                                if (chart.isDatasetVisible(j)) {
+                                    topVisibleDatasetIndex = j;
+                                    break;
+                                }
+                            }
+                            
+                            // Si este no es el dataset superior visible, no mostramos etiqueta
+                            if (datasetIndex !== topVisibleDatasetIndex) {
+                                return '';
+                            }
+                            
+                            // Sumar los valores de los datasets visibles para esta columna (mes)
+                            let sum = 0;
+                            for (let j = 0; j < datasets.length; j++) {
+                                if (chart.isDatasetVisible(j)) {
+                                    sum += datasets[j].data[dataIndex] || 0;
+                                }
+                            }
+                            
+                            return sum > 0 ? sum.toLocaleString('es-AR', { maximumFractionDigits: 0 }) + ' m²' : '';
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 11 } }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: { font: { family: 'Outfit', size: 11 } }
+                    }
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error("Error loading Ley de Blanqueo analytics:", err);
+    }
+}
+
 function switchAnalyticsTab(tabId) {
     document.querySelectorAll('.analytics-tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
     
-    document.querySelectorAll('.analytics-panel').forEach(p => p.classList.remove('active'));
+    // Buscar el botón por su atributo onclick o clase
+    const btn = document.querySelector(`button[onclick*="switchAnalyticsTab('${tabId}')"]`);
+    if (btn) btn.classList.add('active');
+    
+    document.querySelectorAll('.analytics-panel').forEach(p => {
+        p.classList.remove('active');
+        p.style.display = 'none';
+    });
+    
     const targetPanel = document.getElementById(`analytics-panel-${tabId}`);
-    if (targetPanel) targetPanel.classList.add('active');
+    if (targetPanel) {
+        targetPanel.classList.add('active');
+        targetPanel.style.display = 'block';
+    }
+
+    if (tabId === 'permisos_obra') {
+        loadAnalyticsEstadistica();
+    } else if (tabId === 'ley_blanqueo') {
+        loadAnalyticsLeyBlanqueo();
+    }
 }
 
 async function loadAnalyticsDatasets() {
@@ -8007,11 +8965,1481 @@ async function downloadDataset(datasetId) {
     }
 }
 
+function exportChartToPNG(canvasId, fileName) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    // Crear un canvas temporal para dibujar el fondo blanco
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const ctx = tempCanvas.getContext('2d');
+    
+    // Rellenar con fondo blanco
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+    
+    // Dibujar el gráfico sobre el fondo blanco
+    ctx.drawImage(canvas, 0, 0);
+    
+    // Crear enlace y gatillar descarga
+    const link = document.createElement('a');
+    link.download = `${fileName}.png`;
+    link.href = tempCanvas.toDataURL('image/png');
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+async function downloadLeyBlanqueoExcel() {
+    try {
+        alert("Preparando descarga del dataset de Ley de Blanqueo...");
+        const res = await def_fetch(`${API_BASE}/analytics/ley-blanqueo/excel`);
+        if (!res || !res.ok) throw new Error("No se pudieron consultar los datos");
+        const data = await res.json();
+        
+        const rows = data.map(item => ({
+            "Documento Egreso": item.documento_egreso,
+            "ID Transacción": item.id_transaction,
+            "Fecha Asociación": item.fecha_asociacion || '',
+            "Uso CUR": item.uso_cur || '',
+            "ID Plano": item.id_plano || '',
+            "Trámite Gobierno": item.tramite_gobierno || '',
+            "Profesional": `${item.prof_nombre || ''} ${item.prof_apellido || ''}`.trim(),
+            "Matrícula": item.prof_matricula || '',
+            "Dirección": item.direccion || '',
+            "Barrio": item.barrio || '',
+            "Comuna": item.comuna || '',
+            "Sup. Contravención No Reg. Código de Edificación (m²)": item.sup_contra_no_reg_ce || 0,
+            "Sup. Contravención Reg. Código de Edificación (m²)": item.sup_contra_reg_ce || 0,
+            "Sup. Contravención Reg. Código Urbanístico (m²)": item.sup_contra_reg_cur || 0,
+            "Sup. Contravención No Reg. Código Urbanístico (m²)": item.sup_contra_no_reg_cur || 0
+        }));
+        
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Ley de Blanqueo");
+        
+        worksheet['!cols'] = [
+            { wch: 25 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 15 },
+            { wch: 18 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 20 },
+            { wch: 10 }, { wch: 45 }, { wch: 45 }, { wch: 45 }, { wch: 45 }
+        ];
+        
+        XLSX.writeFile(workbook, "dataset_ley_de_blanqueo_parcelas.xlsx");
+    } catch (e) {
+        alert("Error al descargar dataset de Ley de Blanqueo: " + e.message);
+    }
+}
+
 // Exponer funciones globales
 window.loadAnalyticsEstadistica = loadAnalyticsEstadistica;
+window.loadAnalyticsLeyBlanqueo = loadAnalyticsLeyBlanqueo;
 window.switchAnalyticsTab = switchAnalyticsTab;
 window.loadAnalyticsDatasets = loadAnalyticsDatasets;
 window.downloadDataset = downloadDataset;
+window.exportChartToPNG = exportChartToPNG;
+window.downloadLeyBlanqueoExcel = downloadLeyBlanqueoExcel;
+
+// --- ACCESO A BUZONES (ADMIN BACKLOG) ---
+let allBuzonesCatalogo = [];
+let allBuzonesAccesos = [];
+
+async function loadBuzonesAccesoConfig() {
+    const checkboxesContainer = document.getElementById('buzones-checkboxes-container');
+    const accesosContainer = document.getElementById('buzon-accesos-list-container');
+    if (!checkboxesContainer || !accesosContainer) return;
+
+    checkboxesContainer.innerHTML = '<div style="padding: 10px;"><span class="loader"></span> Cargando...</div>';
+    accesosContainer.innerHTML = '<div style="padding: 10px;"><span class="loader"></span> Cargando...</div>';
+
+    try {
+        if (allBuzonesCatalogo.length === 0) {
+            const catResp = await def_fetch(`${API_BASE}/admin/buzones-analisis/catalogo`);
+            if (catResp && catResp.ok) {
+                allBuzonesCatalogo = await catResp.json();
+            }
+        }
+
+        let cbHtml = '';
+        allBuzonesCatalogo.forEach(mb => {
+            cbHtml += `
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                    <input type="checkbox" class="buzon-checkbox" value="${mb}" id="chk-buzon-${mb}" style="cursor: pointer;">
+                    <label for="chk-buzon-${mb}" style="font-size: 0.85rem; color: #334155; cursor: pointer; font-family: 'Outfit';">${mb}</label>
+                </div>
+            `;
+        });
+        checkboxesContainer.innerHTML = cbHtml;
+
+        if (allAdminRoles.length === 0) {
+            const rResp = await def_fetch(`${API_BASE}/admin/roles`);
+            if (rResp && rResp.ok) allAdminRoles = await rResp.json();
+        }
+        if (allAdminUsers.length === 0) {
+            const uResp = await def_fetch(`${API_BASE}/admin/users`);
+            if (uResp && uResp.ok) allAdminUsers = await uResp.json();
+        }
+
+        onBuzonTipoSujetoChange();
+
+        const accResp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`);
+        if (accResp && accResp.ok) {
+            allBuzonesAccesos = await accResp.json();
+            renderBuzonAccesosList();
+        }
+
+    } catch (err) {
+        console.error(err);
+        checkboxesContainer.innerHTML = '<p style="color: #ef4444; padding: 10px;">Error al cargar datos.</p>';
+    }
+}
+
+function onBuzonTipoSujetoChange() {
+    const tipo = document.getElementById('buzon-tipo-sujeto').value;
+    const selectSujeto = document.getElementById('buzon-nombre-sujeto');
+    const labelSujeto = document.getElementById('buzon-nombre-sujeto-label');
+    if (!selectSujeto) return;
+
+    let html = '';
+    if (tipo === 'usuario') {
+        labelSujeto.innerText = 'Seleccionar Usuario';
+        allAdminUsers.forEach(u => {
+            html += `<option value="${u.username}">${u.apellido_nombre || u.username} (${u.username})</option>`;
+        });
+    } else {
+        labelSujeto.innerText = 'Seleccionar Rol';
+        allAdminRoles.forEach(r => {
+            html += `<option value="${r.role_name}">${r.role_name.toUpperCase()}</option>`;
+        });
+    }
+    selectSujeto.innerHTML = html;
+}
+
+function selectAllBuzones(checked) {
+    const checkboxes = document.querySelectorAll('.buzon-checkbox');
+    checkboxes.forEach(chk => chk.checked = checked);
+}
+
+function renderBuzonAccesosList() {
+    const container = document.getElementById('buzon-accesos-list-container');
+    if (!container) return;
+
+    if (allBuzonesAccesos.length === 0) {
+        container.innerHTML = '<p style="color: #64748b; font-style: italic; text-align: center; padding: 1rem;">No hay accesos especiales configurados.</p>';
+        return;
+    }
+
+    let html = '';
+    allBuzonesAccesos.forEach(acc => {
+        const typeBadge = acc.tipo_sujeto === 'usuario' 
+            ? '<span style="background: #eff6ff; color: #1d4ed8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold;">Usuario</span>'
+            : '<span style="background: #f3e8ff; color: #a855f7; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold;">Rol</span>';
+        
+        const buzonesChips = acc.buzones.map(b => 
+            `<span style="background: #f1f5f9; color: #334155; font-size: 0.8rem; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: 'Outfit';">${b}</span>`
+        ).join(' ');
+
+        html += `
+            <div class="admin-card" style="padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">${acc.nombre_sujeto.toUpperCase()}</h4>
+                        ${typeBadge}
+                    </div>
+                    <button onclick="deleteBuzonAcceso('${acc.nombre_sujeto}')" style="background: #fee2e2; color: #ef4444; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-trash"></i> Eliminar
+                    </button>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    ${buzonesChips}
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+async function deleteBuzonAcceso(nombreSujeto) {
+    if (!confirm(`¿Seguro que deseas eliminar la regla para "${nombreSujeto}"? Volverá al acceso general.`)) return;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos/${nombreSujeto}`, {
+            method: 'DELETE'
+        });
+        if (resp && resp.ok) {
+            alert('Regla eliminada correctamente');
+            loadBuzonesAccesoConfig();
+        } else {
+            const err = await resp.json();
+            alert('Error: ' + err.detail);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al intentar eliminar la regla.');
+    }
+}
+
+// --- PRODUCTIVIDAD ANALISTAS ---
+let selectedAnalystUser = null;
+let selectedAnalystName = null;
+let selectedAnalystSector = null;
+
+let currentProdMixChart = null;
+let currentProdDiarioChart = null;
+let currentProdTimelineChart = null;
+
+async function loadProductividadAnalistasView() {
+    const container = document.getElementById('prod-sectors-container');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align:center; padding: 1rem;"><span class="loader"></span></div>';
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/productividad/sectores-analistas`);
+        if (!resp || !resp.ok) {
+            container.innerHTML = '<p style="color:red; text-align:center;">Error al cargar sectores.</p>';
+            return;
+        }
+
+        const sectores = await resp.json();
+        let html = '';
+
+        const sectorLabels = {
+            catastro: "Catastro",
+            instalaciones: "Instalaciones",
+            regularizacion: "Regularización",
+            conforme: "Conforme a Obra",
+            contable: "Contable",
+            etapa_proyecto: "Etapa Proyecto",
+            aviso_obra: "Aviso de Obra",
+            morfologia: "Morfología",
+            aph: "APH",
+            usos: "Usos"
+        };
+
+        for (const sec in sectores) {
+            const analysts = sectores[sec];
+            let analystsHtml = '';
+            analysts.forEach(a => {
+                analystsHtml += `
+                    <button class="prod-analyst-item" onclick="selectProductividadAnalista('${a.usuario}', '${a.nombre}', '${sec}')">
+                        <i class="fa-solid fa-user"></i> ${a.nombre} (${a.usuario})
+                    </button>
+                `;
+            });
+
+            const displaySec = sectorLabels[sec.toLowerCase()] || (sec.charAt(0).toUpperCase() + sec.slice(1));
+
+            html += `
+                <div style="margin-bottom: 10px;">
+                    <div class="prod-sector-header" onclick="toggleProdSector(this)">
+                        <span>${displaySec} <span style="font-size:0.8rem; color:#64748b; font-weight:normal;">(${analysts.length})</span></span>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button class="btn-primary" onclick="event.stopPropagation(); downloadSectorComparativePDF('${sec}')" style="font-size: 0.7rem; padding: 2px 8px; height: auto; font-family: 'Outfit';" title="Descargar PDF Comparativo del Sector">
+                                <i class="fa-solid fa-file-pdf"></i> Comp
+                            </button>
+                            <span class="chevron" style="transition: transform 0.2s;">▼</span>
+                        </div>
+                    </div>
+                    <div class="prod-sector-content">
+                        ${analystsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = html || '<p style="text-align:center; color:#64748b;">No se encontraron sectores.</p>';
+
+        // Set default dates if empty
+        const fromInput = document.getElementById('prod-date-from');
+        const toInput = document.getElementById('prod-date-to');
+        if (fromInput && !fromInput.value) {
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            fromInput.value = ninetyDaysAgo.toISOString().split('T')[0];
+        }
+        if (toInput && !toInput.value) {
+            toInput.value = new Date().toISOString().split('T')[0];
+        }
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p style="color:red; text-align:center;">Error de conexión.</p>';
+    }
+}
+
+function toggleProdSector(headerEl) {
+    const content = headerEl.nextElementSibling;
+    const chevron = headerEl.querySelector('.chevron');
+    if (content) {
+        content.classList.toggle('open');
+        const isOpen = content.classList.contains('open');
+        if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : 'none';
+    }
+}
+
+async function selectProductividadAnalista(username, fullname, sector) {
+    selectedAnalystUser = username;
+    selectedAnalystName = fullname;
+    selectedAnalystSector = sector;
+
+    // Highlight selected item in sidebar
+    document.querySelectorAll('.prod-analyst-item').forEach(btn => {
+        if (btn.textContent.includes(`(${username})`)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    document.getElementById('prod-no-selection').style.display = 'none';
+    document.getElementById('prod-loader').style.display = 'block';
+    document.getElementById('prod-dashboard-content').style.display = 'none';
+
+    await loadAnalystDashboardData();
+}
+
+async function loadAnalystDashboardData() {
+    if (!selectedAnalystUser) return;
+
+    const from = document.getElementById('prod-date-from').value;
+    const to = document.getElementById('prod-date-to').value;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/productividad/analista/${selectedAnalystUser}?date_from=${from}&date_to=${to}`);
+        if (!resp || !resp.ok) {
+            alert('Error al cargar la productividad del analista.');
+            document.getElementById('prod-loader').style.display = 'none';
+            document.getElementById('prod-no-selection').style.display = 'block';
+            return;
+        }
+
+        const data = await resp.json();
+        const kpis = data.kpis;
+
+        // Render header details
+        document.getElementById('prod-analyst-name').textContent = selectedAnalystName;
+        document.getElementById('prod-analyst-meta').textContent = `Usuario: ${selectedAnalystUser} | Sector: ${selectedAnalystSector}`;
+
+        // Fill KPIs
+        document.getElementById('prod-kpi-tareas').textContent = kpis.tareas_totales;
+        document.getElementById('prod-kpi-diario').textContent = kpis.promedio_diario;
+        document.getElementById('prod-kpi-jornada').textContent = `${kpis.jornada_media}h`;
+        document.getElementById('prod-kpi-stock').textContent = kpis.stock_total;
+        document.getElementById('prod-kpi-stock-details').textContent = `Propio: ${kpis.stock_propio} | Subs: ${kpis.stock_subs}`;
+        document.getElementById('prod-kpi-firmas').textContent = `${kpis.firmados} / ${kpis.rechazados}`;
+        document.getElementById('prod-kpi-rechazo-rate').textContent = `Tasa de rechazo: ${kpis.tasa_rechazo}%`;
+
+        // Render Mix donut chart
+        renderMixChart(data.mix_tareas);
+
+        // Render Daily stacked bar chart
+        renderDailyChart(data.desglose_diario);
+
+        // Render Horarios table
+        renderHorariosTable(data.detalles_jornada);
+
+        // Render Connection Timeline Chart
+        renderTimelineChart(data.detalles_jornada);
+
+
+
+        document.getElementById('prod-loader').style.display = 'none';
+        document.getElementById('prod-dashboard-content').style.display = 'flex';
+
+    } catch (err) {
+        console.error(err);
+        alert('Error de conexión con el backend.');
+        document.getElementById('prod-loader').style.display = 'none';
+        document.getElementById('prod-no-selection').style.display = 'block';
+    }
+}
+
+function renderMixChart(mix) {
+    const ctx = document.getElementById('prod-chart-mix').getContext('2d');
+    if (currentProdMixChart) currentProdMixChart.destroy();
+
+    const labels = Object.keys(mix);
+    const values = labels.map(l => mix[l].cantidad);
+    const percentages = labels.map(l => mix[l].porcentaje);
+
+    const taskColors = {
+        "OBSERVACIÓN DE EXPEDIENTE": "#1e3a8a",
+        "PEDIDO DE PLANOS": "#0284c7",
+        "VINCULACIÓN DE GEDO Y PASE A OBRAS ADMIN": "#10b981",
+        "ENVÍO A FIRMA": "#6366f1",
+        "OBSERVACIÓN EN SUBSANACIÓN": "#a855f7",
+        "SUSPENSIÓN DE EXPEDIENTE": "#f59e0b"
+    };
+    const backgroundColors = labels.map(l => taskColors[l] || "#cccccc");
+
+    currentProdMixChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels.map(l => l.length > 20 ? l.substring(0, 20) + '...' : l),
+            datasets: [{
+                data: values,
+                backgroundColor: backgroundColors,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            return `${labels[index]}: ${values[index]} (${percentages[index]}%)`;
+                        }
+                    }
+                }
+            },
+            cutout: '60%'
+        }
+    });
+}
+
+function renderDailyChart(diario) {
+    const ctx = document.getElementById('prod-chart-diario').getContext('2d');
+    if (currentProdDiarioChart) currentProdDiarioChart.destroy();
+
+    const days = Object.keys(diario).sort();
+    const taskTypes = [
+        "OBSERVACIÓN DE EXPEDIENTE",
+        "PEDIDO DE PLANOS",
+        "VINCULACIÓN DE GEDO Y PASE A OBRAS ADMIN",
+        "ENVÍO A FIRMA",
+        "OBSERVACIÓN EN SUBSANACIÓN",
+        "SUSPENSIÓN DE EXPEDIENTE"
+    ];
+    
+    const taskColors = {
+        "OBSERVACIÓN DE EXPEDIENTE": "#1e3a8a",
+        "PEDIDO DE PLANOS": "#0284c7",
+        "VINCULACIÓN DE GEDO Y PASE A OBRAS ADMIN": "#10b981",
+        "ENVÍO A FIRMA": "#6366f1",
+        "OBSERVACIÓN EN SUBSANACIÓN": "#a855f7",
+        "SUSPENSIÓN DE EXPEDIENTE": "#f59e0b"
+    };
+
+    const datasets = taskTypes.map(type => {
+        return {
+            label: type.length > 15 ? type.substring(0, 15) + '...' : type,
+            data: days.map(d => diario[d][type] || 0),
+            backgroundColor: taskColors[type],
+            stack: 'Stack 0'
+        };
+    });
+
+    currentProdDiarioChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: days.map(d => d.substring(5)),
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false }
+                },
+                y: {
+                    stacked: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 10, font: { size: 9, family: 'Outfit' } }
+                }
+            }
+        }
+    });
+}
+
+function renderHorariosTable(jornadas) {
+    const tbody = document.getElementById('prod-table-horarios');
+    if (!tbody) return;
+
+    let html = '';
+    jornadas.forEach(j => {
+        html += `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding: 10px; font-weight:600;">${j.fecha}</td>
+                <td style="padding: 10px; color:#475569;">${j.primera_accion}</td>
+                <td style="padding: 10px; color:#475569;">${j.ultima_accion}</td>
+                <td style="padding: 10px; color:var(--primary); font-weight:700;">${j.duracion}h</td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html || '<tr><td colspan="4" style="padding:20px; color:#64748b;">Sin registros en el período</td></tr>';
+}
+
+function timeToDecimal(timeStr) {
+    if (!timeStr || timeStr === '--' || timeStr.split(':').length < 2) return null;
+    const parts = timeStr.split(':');
+    const hh = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10);
+    const ss = parts[2] ? parseInt(parts[2], 10) : 0;
+    return hh + mm / 60 + ss / 3600;
+}
+
+function renderTimelineChart(jornadas) {
+    const canvas = document.getElementById('prod-chart-timeline');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (currentProdTimelineChart) currentProdTimelineChart.destroy();
+
+    // Sort ascending by date
+    const sorted = [...jornadas].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+    const labels = sorted.map(j => j.fecha.substring(5)); // MM-DD format
+    const dataPoints = sorted.map(j => {
+        const start = timeToDecimal(j.primera_accion);
+        const end = timeToDecimal(j.ultima_accion);
+        if (start === null || end === null) return [0, 0];
+        return [start, end];
+    });
+
+    currentProdTimelineChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Rango de Conexión',
+                data: dataPoints,
+                backgroundColor: 'rgba(15, 118, 110, 0.75)',
+                borderColor: 'rgb(15, 118, 110)',
+                borderWidth: 1,
+                borderSkipped: false,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y', // Makes it horizontal
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    min: 0,
+                    max: 24,
+                    title: {
+                        display: true,
+                        text: 'Hora del Día (0h - 24h)',
+                        font: { family: 'Outfit', weight: 'bold' }
+                    },
+                    ticks: {
+                        stepSize: 2,
+                        callback: function(value) {
+                            return value.toString().padStart(2, '0') + ':00';
+                        }
+                    }
+                },
+                y: {
+                    grid: { display: false }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            const item = sorted[index];
+                            return `Conectado: ${item.primera_accion} - ${item.ultima_accion} (${item.duracion}h)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+
+function updateAnalystProductivity() {
+    loadAnalystDashboardData();
+}
+
+function downloadIndividualPDF() {
+    if (!selectedAnalystUser) return;
+    const from = document.getElementById('prod-date-from').value;
+    const to = document.getElementById('prod-date-to').value;
+    window.open(`${API_BASE}/productividad/pdf/individual?username=${selectedAnalystUser}&date_from=${from}&date_to=${to}&token=${authToken}`, '_blank');
+}
+
+function downloadSectorComparativePDF(sector) {
+    const from = document.getElementById('prod-date-from').value;
+    const to = document.getElementById('prod-date-to').value;
+    window.open(`${API_BASE}/productividad/pdf/comparativo?sector=${encodeURIComponent(sector)}&date_from=${from}&date_to=${to}&token=${authToken}`, '_blank');
+}
+
+window.loadAdminRoles = loadAdminRoles;
+window.toggleRolePermission = toggleRolePermission;
+window.deleteRole = deleteRole;
+window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
+window.onBuzonTipoSujetoChange = onBuzonTipoSujetoChange;
+window.selectAllBuzones = selectAllBuzones;
+window.deleteBuzonAcceso = deleteBuzonAcceso;
+window.loadProductividadAnalistasView = loadProductividadAnalistasView;
+window.toggleProdSector = toggleProdSector;
+window.selectProductividadAnalista = selectProductividadAnalista;
+window.updateAnalystProductivity = updateAnalystProductivity;
+window.downloadIndividualPDF = downloadIndividualPDF;
+window.downloadSectorComparativePDF = downloadSectorComparativePDF;
+
+async function loadCiudad3DStats() {
+    const elParcelas = document.getElementById('c3d-stat-parcelas');
+    const elManzanas = document.getElementById('c3d-stat-manzanas');
+    
+    if (elParcelas) elParcelas.innerText = "Cargando...";
+    if (elManzanas) elManzanas.innerText = "Cargando...";
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/stats`);
+        if (res && res.ok) {
+            const data = await res.json();
+            if (elParcelas) elParcelas.innerText = Number(data.total_parcelas).toLocaleString('es-AR');
+            if (elManzanas) elManzanas.innerText = Number(data.total_manzanas).toLocaleString('es-AR');
+        } else {
+            throw new Error("Respuesta no exitosa del servidor");
+        }
+    } catch (err) {
+        console.error("Error al cargar estadísticas de Ciudad 3D:", err);
+        if (elParcelas) elParcelas.innerText = "Error";
+        if (elManzanas) elManzanas.innerText = "Error";
+    }
+}
+
+window.loadCiudad3DStats = loadCiudad3DStats;
+
+let c3dTronerasRawData = [];
+let c3dTronerasGroupedData = {};
+
+async function loadCiudad3DTroneras() {
+    const tbody = document.getElementById('c3d-troneras-table-body');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 3rem; color: #64748b;">
+                    <h3 style="color: var(--primary-dark); font-family: 'Outfit'; margin: 0 0 0.5rem 0;">Cargando barrios y línea de frente interno...</h3>
+                    <p style="margin: 0; font-size: 0.9rem;">Esto puede demorar unos segundos mientras conectamos a geo-mdr.</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/troneras`);
+        if (res && res.ok) {
+            c3dTronerasRawData = await res.json();
+            
+            // Group the data by Barrio and Sección
+            c3dTronerasGroupedData = {};
+            c3dTronerasRawData.forEach(row => {
+                const bName = row.barrio || "SIN BARRIO";
+                if (!c3dTronerasGroupedData[bName]) {
+                    c3dTronerasGroupedData[bName] = {
+                        name: bName,
+                        total_manzanas: 0,
+                        total_si: 0,
+                        total_no: 0,
+                        secciones: {}
+                    };
+                }
+                const b = c3dTronerasGroupedData[bName];
+                b.total_manzanas += 1;
+                b.total_si += row.irregular_si;
+                b.total_no += row.irregular_no;
+                
+                const sName = row.seccion || "SIN SECCION";
+                if (!b.secciones[sName]) {
+                    b.secciones[sName] = [];
+                }
+                b.secciones[sName].push(row);
+            });
+            
+            renderCiudad3DTronerasBarrios();
+        } else {
+            throw new Error("Respuesta no exitosa del servidor");
+        }
+    } catch (err) {
+        console.error("Error al cargar troneras:", err);
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: #ef4444;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 2.5rem; margin-bottom: 1rem;"></i>
+                        <h3 style="font-family: 'Outfit'; margin: 0;">Error al cargar datos</h3>
+                        <p style="color: #64748b; font-size: 0.9rem; margin-top: 8px;">No se pudo conectar a la base de datos geo-mdr.</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function renderCiudad3DTronerasBarrios(filteredNames = null) {
+    const tbody = document.getElementById('c3d-troneras-table-body');
+    if (!tbody) return;
+    
+    tbody.innerHTML = "";
+    
+    // Sort barrios alphabetically
+    const sortedBarrioNames = Object.keys(c3dTronerasGroupedData).sort();
+    
+    // Get current user role info
+    const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
+    const uRole = (userObj.role || '').toLowerCase();
+    const uName = userObj.username || '';
+    
+    const canManageTroneras = (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
+    const canReviewTroneras = (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    const canEditDispo = (uRole === 'troneras' || uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+
+    let count = 0;
+    sortedBarrioNames.forEach(bName => {
+        if (filteredNames && !filteredNames.includes(bName)) return;
+        
+        count++;
+        const b = c3dTronerasGroupedData[bName];
+        
+        // Parent row
+        const parentTr = document.createElement('tr');
+        parentTr.style.cssText = "cursor: pointer; border-bottom: 1px solid #cbd5e1; transition: background 0.15s; font-family: 'Outfit', sans-serif;";
+        parentTr.onmouseover = () => { parentTr.style.background = '#f8fafc'; };
+        parentTr.onmouseout = () => { parentTr.style.background = 'none'; };
+        
+        // We will toggle the details row on click
+        const uniqueId = `details-${bName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        const chevronId = `chevron-${bName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        parentTr.onclick = () => {
+            const detailsRow = document.getElementById(uniqueId);
+            const chevron = document.getElementById(chevronId);
+            if (detailsRow.style.display === "none") {
+                detailsRow.style.display = "table-row";
+                chevron.style.transform = "rotate(90deg)";
+            } else {
+                detailsRow.style.display = "none";
+                chevron.style.transform = "rotate(0deg)";
+            }
+        };
+        
+        const cantSecciones = Object.keys(b.secciones).length;
+        
+        parentTr.innerHTML = `
+            <td style="padding: 12px 16px; text-align: center;">
+                <i id="${chevronId}" class="fa-solid fa-chevron-right" style="transition: transform 0.2s; color: #64748b;"></i>
+            </td>
+            <td style="padding: 12px 16px; font-weight: 700; text-transform: uppercase; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">${b.name}</td>
+            <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #475569; font-family: 'Outfit', sans-serif;">${cantSecciones}</td>
+            <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #1d4ed8; font-family: 'Outfit', sans-serif;">${b.total_manzanas}</td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span class="badge ${b.total_si > 0 ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit', sans-serif;">${b.total_si}</span>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span class="badge badge-success" style="background: #e2e8f0; color: #475569; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit', sans-serif;">${b.total_no}</span>
+            </td>
+        `;
+        tbody.appendChild(parentTr);
+        
+        // Details row (initially hidden)
+        const detailsTr = document.createElement('tr');
+        detailsTr.id = uniqueId;
+        detailsTr.style.display = "none";
+        detailsTr.style.background = "#f8fafc";
+        
+        const sortedSections = Object.keys(b.secciones).sort();
+        let sectionsHtml = "";
+        
+        sortedSections.forEach(sName => {
+            sectionsHtml += `
+                <div style="margin-bottom: 1.5rem; background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 1rem; font-family: 'Outfit', sans-serif;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.75rem;">
+                        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif;">SECCIÓN</span>
+                        <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem;">${sName}</h4>
+                    </div>
+                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; font-family: 'Outfit', sans-serif;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                <th style="padding: 8px 10px;">Sección - Manzana</th>
+                                <th style="padding: 8px 10px; text-align: center;">Irregular SÍ</th>
+                                <th style="padding: 8px 10px; text-align: center;">Irregular NO</th>
+                                <th style="padding: 8px 10px; text-align: center;">Estado</th>
+                                <th style="padding: 8px 10px;">Analista</th>
+                                <th style="padding: 8px 10px;">Disposición</th>
+                                <th style="padding: 8px 10px; text-align: center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody style="color: #334155; font-family: 'Outfit', sans-serif;">
+                            ${b.secciones[sName].map(row => {
+                                const isSiDanger = row.irregular_si > 0;
+                                const rowEstado = row.estado || 'Pendiente';
+                                const rowAnalista = row.analista_asignado || '';
+                                const rowDisposicion = row.disposicion || '';
+                                const rowArchivo = row.archivo_trazado || '';
+                                
+                                // Estado Badge styling
+                                let badgeBg = '#e2e8f0';
+                                let badgeColor = '#475569';
+                                if (rowEstado === 'Pendiente') {
+                                    badgeBg = '#f1f5f9';
+                                    badgeColor = '#64748b';
+                                } else if (rowEstado === 'En curso') {
+                                    badgeBg = '#dbeafe';
+                                    badgeColor = '#1e40af';
+                                } else if (rowEstado === 'Para revisión') {
+                                    badgeBg = '#ffedd5';
+                                    badgeColor = '#c2410c';
+                                } else if (rowEstado === 'Subir a Ciudad 3D') {
+                                    badgeBg = '#dcfce7';
+                                    badgeColor = '#166534';
+                                }
+                                const badgeHtml = `<span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${rowEstado}</span>`;
+                                
+                                // Disposición link style
+                                let dispoHtml = '';
+                                if (rowDisposicion) {
+                                    dispoHtml = `<span style="font-weight: 600; color: #334155; font-size: 0.8rem;">${rowDisposicion}</span>`;
+                                    if (canEditDispo) {
+                                        dispoHtml += ` <a href="javascript:void(0)" onclick="event.stopPropagation(); openEditLFIDisposicionDirect('${row.seccion}', '${row.manzana}', '${rowDisposicion.replace(/'/g, "\\'")}')" style="margin-left: 4px; color: #64748b;" title="Editar disposición"><i class="fa-solid fa-pen" style="font-size: 0.75rem;"></i></a>`;
+                                    }
+                                } else {
+                                    if (canEditDispo) {
+                                        dispoHtml = `<a href="javascript:void(0)" onclick="event.stopPropagation(); openEditLFIDisposicionDirect('${row.seccion}', '${row.manzana}', '')" style="color: #94a3b8; font-size: 0.78rem;"><i class="fa-solid fa-plus-circle"></i> Agregar</a>`;
+                                    } else {
+                                        dispoHtml = `<span style="color: #94a3b8;">-</span>`;
+                                    }
+                                }
+                                
+                                // Action buttons
+                                let actionButtonsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;">`;
+                                
+                                // DXF Base
+                                actionButtonsHtml += `
+                                    <button onclick="event.stopPropagation(); downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar DXF Base">
+                                        <i class="fa-solid fa-download"></i> DXF
+                                    </button>
+                                `;
+                                
+                                // Ficha de Trabajo
+                                actionButtonsHtml += `
+                                    <button onclick="event.stopPropagation(); openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: var(--primary-dark); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Ficha de Trabajo">
+                                        <i class="fa-solid fa-file-signature"></i> Ficha
+                                    </button>
+                                `;
+                                
+                                actionButtonsHtml += `</div>`;
+                                
+                                return `
+                                    <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                                        <td style="padding: 8px 10px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.9rem;">
+                                            ${row.seccion} - ${row.manzana}
+                                        </td>
+                                        <td style="padding: 8px 10px; text-align: center;">
+                                            <span class="badge ${isSiDanger ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif;">
+                                                ${row.irregular_si}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 8px 10px; text-align: center;">
+                                            <span class="badge badge-success" style="background: #e2e8f0; color: #475569; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif;">
+                                                ${row.irregular_no}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 8px 10px; text-align: center;">${badgeHtml}</td>
+                                        <td style="padding: 8px 10px; font-weight: 600; color: #475569;">${rowAnalista || '<span style="color: #cbd5e1; font-weight: 400;">Sin asignar</span>'}</td>
+                                        <td style="padding: 8px 10px;">${dispoHtml}</td>
+                                        <td style="padding: 8px 10px; text-align: center;">${actionButtonsHtml}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        });
+        
+        detailsTr.innerHTML = `
+            <td colspan="6" style="padding: 1.5rem;">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    ${sectionsHtml}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(detailsTr);
+    });
+    
+    if (count === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    <p style="margin: 0; font-size: 1rem; font-family: 'Outfit'; font-weight: 500;">No se encontraron barrios coincidentes.</p>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function filterCiudad3DTroneras() {
+    const q = document.getElementById('c3d-troneras-search').value.toUpperCase().trim();
+    if (!q) {
+        renderCiudad3DTronerasBarrios();
+        return;
+    }
+    
+    const matchedNames = Object.keys(c3dTronerasGroupedData).filter(bName => bName.includes(q));
+    renderCiudad3DTronerasBarrios(matchedNames);
+}
+
+function expandBarrioTroneras(barrioName) {
+    const modal = document.getElementById('c3d-barrio-modal');
+    const title = document.getElementById('c3d-modal-barrio-name');
+    const body = document.getElementById('c3d-modal-barrio-body');
+    
+    if (!modal || !title || !body) return;
+    
+    title.innerText = barrioName;
+    body.innerHTML = "";
+    
+    const b = c3dTronerasGroupedData[barrioName];
+    if (!b) return;
+    
+    // Sort sections alphabetically
+    const sortedSections = Object.keys(b.secciones).sort();
+    
+    sortedSections.forEach(sName => {
+        const sectionContainer = document.createElement('div');
+        sectionContainer.style.cssText = "margin-bottom: 2rem; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; overflow: hidden;";
+        
+        sectionContainer.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 1rem;">
+                <span style="background: var(--primary); color: white; padding: 3px 10px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit';">SECCIÓN</span>
+                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.15rem;">${sName}</h3>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700;">
+                            <th style="padding: 10px 12px;">Sección - Manzana</th>
+                            <th style="padding: 10px 12px; text-align: center;">Irregular SÍ</th>
+                            <th style="padding: 10px 12px; text-align: center;">Irregular NO</th>
+                            <th style="padding: 10px 12px; text-align: center;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody style="color: #334155;">
+                        ${b.secciones[sName].map(row => {
+                            const isSiDanger = row.irregular_si > 0;
+                            return `
+                                <tr style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+                                    <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; font-size: 0.95rem;">
+                                        ${row.seccion} - ${row.manzana}
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: center;">
+                                        <span class="badge ${isSiDanger ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem;">
+                                            ${row.irregular_si}
+                                        </span>
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: center;">
+                                        <span class="badge badge-success" style="background: #e2e8f0; color: #475569; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem;">
+                                            ${row.irregular_no}
+                                        </span>
+                                    </td>
+                                    <td style="padding: 10px 12px; text-align: center;">
+                                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
+                                            <i class="fa-solid fa-download"></i> DXF
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        body.appendChild(sectionContainer);
+    });
+    
+    modal.style.display = "flex";
+}
+
+function downloadManzanaDXF(seccion, manzana) {
+    const token = localStorage.getItem('sgdu_token') || '';
+    window.open(`${API_BASE}/ciudad3d/dxf/download?seccion=${encodeURIComponent(seccion)}&manzana=${encodeURIComponent(manzana)}&token=${encodeURIComponent(token)}`, '_blank');
+}
+
+let c3dAtipicasRawData = [];
+
+let activeWorkflowSeccion = '';
+let activeWorkflowManzana = '';
+let activeWorkflowFile = '';
+
+async function loadCiudad3DManzanasAtipicas() {
+    const tbody = document.getElementById('c3d-atipicas-tbody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    <h3 style="color: var(--primary-dark); font-family: 'Outfit'; margin: 0 0 0.5rem 0;">Cargando manzanas atípicas...</h3>
+                    <p style="margin: 0; font-size: 0.9rem;">Por favor espere mientras recuperamos la información.</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_atipicas`);
+        if (res && res.ok) {
+            c3dAtipicasRawData = await res.json();
+            renderCiudad3DManzanasAtipicas();
+        } else {
+            throw new Error("Respuesta no exitosa del servidor");
+        }
+    } catch (err) {
+        console.error("Error al cargar manzanas atípicas:", err);
+        if (tbody) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 3rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 2.5rem; margin-bottom: 1rem;"></i>
+                        <h3 style="font-family: 'Outfit'; margin: 0;">Error al cargar datos</h3>
+                        <p style="color: #64748b; font-size: 0.9rem; margin-top: 8px;">No se pudo conectar a la base de datos.</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+}
+
+function renderCiudad3DManzanasAtipicas(filteredData = null) {
+    const tbody = document.getElementById('c3d-atipicas-tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = "";
+    const data = filteredData || c3dAtipicasRawData;
+    
+    if (data.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    No se encontraron manzanas atípicas que coincidan con la búsqueda.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.style.cssText = "border-bottom: 1px solid #e2e8f0; transition: background 0.15s; font-family: 'Outfit', sans-serif;";
+        tr.onmouseover = () => { tr.style.background = '#f8fafc'; };
+        tr.onmouseout = () => { tr.style.background = 'none'; };
+        
+        tr.innerHTML = `
+            <td style="padding: 12px 16px; font-weight: 600;">${row.barrio}</td>
+            <td style="padding: 12px 16px; color: #64748b;">${row.comuna}</td>
+            <td style="padding: 12px 16px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--primary-dark);">
+                ${row.seccion} - ${row.manzana}
+            </td>
+            <td style="padding: 12px 16px;">
+                <div style="font-weight: 600; color: #334155; font-size: 0.85rem;">${row.gedo_documento}</div>
+                <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Exp: ${row.expediente} (${row.fecha_egreso})</div>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
+                    <i class="fa-solid fa-download"></i> DXF
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Atypical block workflow helpers removed
+
+function filterCiudad3DManzanasAtipicas() {
+    const searchVal = (document.getElementById('c3d-atipicas-search')?.value || '').toLowerCase().trim();
+    if (!searchVal) {
+        renderCiudad3DManzanasAtipicas();
+        return;
+    }
+    
+    const matched = c3dAtipicasRawData.filter(row => {
+        return (row.barrio || '').toLowerCase().includes(searchVal) ||
+               (row.comuna || '').toLowerCase().includes(searchVal) ||
+               (row.seccion || '').toLowerCase().includes(searchVal) ||
+               (row.manzana || '').toLowerCase().includes(searchVal) ||
+               (row.gedo_documento || '').toLowerCase().includes(searchVal) ||
+               (row.expediente || '').toLowerCase().includes(searchVal);
+    });
+    
+    renderCiudad3DManzanasAtipicas(matched);
+}
+
+window.loadCiudad3DTroneras = loadCiudad3DTroneras;
+window.filterCiudad3DTroneras = filterCiudad3DTroneras;
+window.expandBarrioTroneras = expandBarrioTroneras;
+window.downloadManzanaDXF = downloadManzanaDXF;
+window.loadCiudad3DManzanasAtipicas = loadCiudad3DManzanasAtipicas;
+window.filterCiudad3DManzanasAtipicas = filterCiudad3DManzanasAtipicas;
+window.assignManzanaAtipica = assignManzanaAtipica;
+window.openManzanaAtipicaNotes = openManzanaAtipicaNotes;
+window.saveManzanaAtipicaNote = saveManzanaAtipicaNote;
+window.openManzanaAtipicaUpload = openManzanaAtipicaUpload;
+window.submitTrazadoFile = submitTrazadoFile;
+// LFI Manzanas Workflow JS Handlers
+async function assignManzanaLFI(seccion, manzana) {
+    if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion, manzana })
+        });
+        if (res && res.ok) {
+            alert("Manzana LFI asignada con éxito.");
+            loadCiudad3DTroneras();
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
+        }
+    } catch (err) {
+        console.error("Error al asignar manzana LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+
+// Unified LFI Ficha de Trabajo Handlers
+async function assignManzanaLFI(seccion, manzana) {
+    if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion, manzana })
+        });
+        if (res && res.ok) {
+            alert("Manzana LFI asignada con éxito.");
+            await loadCiudad3DTroneras();
+            openLFIFicha(seccion, manzana);
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
+        }
+    } catch (err) {
+        console.error("Error al asignar manzana LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+
+async function openLFIFicha(seccion, manzana) {
+    activeWorkflowSeccion = seccion;
+    activeWorkflowManzana = manzana;
+    
+    const row = c3dTronerasRawData.find(r => r.seccion.trim() === seccion.trim() && r.manzana.trim() === manzana.trim());
+    if (!row) {
+        alert("No se encontró información de la manzana.");
+        return;
+    }
+    
+    document.getElementById('c3d-lfi-ficha-title').innerText = `Ficha de Trabajo LFI - Manzana ${seccion} - ${manzana}`;
+    document.getElementById('c3d-lfi-ficha-subtitle').innerText = `Barrio: ${row.barrio || 'Sin Barrio'}`;
+    document.getElementById('c3d-lfi-ficha-seccion').value = seccion;
+    document.getElementById('c3d-lfi-ficha-manzana').value = manzana;
+    
+    const badge = document.getElementById('c3d-lfi-ficha-estado-badge');
+    badge.innerText = row.estado || 'Pendiente';
+    badge.className = 'badge';
+    let badgeBg = '#f1f5f9';
+    let badgeColor = '#64748b';
+    if (row.estado === 'En curso') {
+        badgeBg = '#dbeafe';
+        badgeColor = '#1e40af';
+    } else if (row.estado === 'Para revisión') {
+        badgeBg = '#ffedd5';
+        badgeColor = '#c2410c';
+    } else if (row.estado === 'Subir a Ciudad 3D') {
+        badgeBg = '#dcfce7';
+        badgeColor = '#166534';
+    }
+    badge.style.cssText = `background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem;`;
+    
+    document.getElementById('c3d-lfi-ficha-analista-nombre').innerText = row.analista_asignado || 'Sin asignar';
+    document.getElementById('c3d-lfi-ficha-disposicion-input').value = row.disposicion || '';
+    
+    const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
+    const uRole = (userObj.role || '').toLowerCase();
+    const uName = userObj.username || '';
+    
+    const canManageTroneras = (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
+    const canReviewTroneras = (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    
+    const assignContainer = document.getElementById('c3d-lfi-ficha-asignar-container');
+    assignContainer.innerHTML = '';
+    if (row.estado === 'Pendiente' && canManageTroneras) {
+        assignContainer.innerHTML = `
+            <button onclick="assignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                <i class="fa-solid fa-user-plus"></i> Asignarme
+            </button>
+        `;
+    }
+    
+    const downloadsContainer = document.getElementById('c3d-lfi-downloads-container');
+    downloadsContainer.innerHTML = `
+        <button onclick="downloadManzanaDXF('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
+            <i class="fa-solid fa-download"></i> DXF Base original
+        </button>
+    `;
+    if (row.archivo_trazado) {
+        downloadsContainer.innerHTML += `
+            <button onclick="downloadUploadedLFITrazado('draft')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #64748b; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
+                <i class="fa-solid fa-file-invoice"></i> Descargar Borrador
+            </button>
+        `;
+    }
+    if (row.archivo_finalizado) {
+        downloadsContainer.innerHTML += `
+            <button onclick="downloadUploadedLFITrazado('final')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #15803d; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
+                <i class="fa-solid fa-file-circle-check"></i> Descargar Final
+            </button>
+        `;
+    }
+    
+    const actionsContainer = document.getElementById('c3d-lfi-ficha-actions-container');
+    actionsContainer.innerHTML = '';
+    
+    const isAssignee = (row.analista_asignado === uName || uRole === 'admin' || uRole === 'administrador');
+    
+    if (row.estado === 'En curso' && canManageTroneras && isAssignee) {
+        actionsContainer.innerHTML = `
+            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Subir Borrador de Trazado</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <input type="file" id="c3d-lfi-ficha-upload-file" style="font-family: inherit; font-size: 0.88rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: white; width: 100%;">
+                <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 8px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: #f59e0b; color: white;">
+                    <i class="fa-solid fa-upload"></i> Subir Trazado Preliminar
+                </button>
+            </div>
+        `;
+    } else if (row.estado === 'Para revisión' && canReviewTroneras) {
+        actionsContainer.innerHTML = `
+            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Revisión de Trazado LFI (Visor)</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Trazado Finalizado (Solo si aprueba):</label>
+                    <input type="file" id="c3d-lfi-ficha-review-file-final" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: white;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Comentarios / Motivo de Rechazo:</label>
+                    <textarea id="c3d-lfi-ficha-review-comentario" placeholder="Escriba los comentarios u observaciones de la revisión..." style="width: 100%; height: 50px; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.82rem; resize: none;"></textarea>
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button onclick="submitLFIFichaReview('REJECT')" class="btn-primary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">Rechazar</button>
+                    <button onclick="submitLFIFichaReview('OK')" class="btn-primary" style="background: #22c55e; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">Aprobar</button>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (actionsContainer.innerHTML) {
+        actionsContainer.style.display = 'flex';
+    } else {
+        actionsContainer.style.display = 'none';
+    }
+    
+    document.getElementById('c3d-lfi-ficha-notes-textarea').value = "";
+    await loadLFIFichaNotes();
+    
+    document.getElementById('c3d-lfi-ficha-modal').style.display = 'flex';
+}
+
+async function loadLFIFichaNotes() {
+    const listDiv = document.getElementById('c3d-lfi-ficha-notes-list');
+    if (!listDiv) return;
+    listDiv.innerHTML = "<p style='color: #64748b; font-size: 0.85rem;'>Cargando bitácora...</p>";
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/notes?seccion=${encodeURIComponent(activeWorkflowSeccion)}&manzana=${encodeURIComponent(activeWorkflowManzana)}`);
+        if (res && res.ok) {
+            const notes = await res.json();
+            listDiv.innerHTML = "";
+            if (notes.length === 0) {
+                listDiv.innerHTML = "<p style='color: #94a3b8; font-size: 0.85rem; text-align: center; margin: 1rem 0;'>No hay comentarios registrados.</p>";
+                return;
+            }
+            notes.forEach(n => {
+                const noteCard = document.createElement('div');
+                noteCard.style.cssText = "background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem;";
+                
+                const cleanDate = n.created_at ? n.created_at.substring(0, 19).replace('T', ' ') : '-';
+                
+                noteCard.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-dark);">
+                        <span>${n.full_name}</span>
+                        <span style="font-weight: 500; color: #94a3b8; font-size: 0.75rem;">${cleanDate}</span>
+                    </div>
+                    <div style="color: #334155; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${n.nota}</div>
+                `;
+                listDiv.appendChild(noteCard);
+            });
+            listDiv.scrollTop = listDiv.scrollHeight;
+        }
+    } catch (err) {
+        console.error("Error al cargar notas LFI:", err);
+        listDiv.innerHTML = "<p style='color: #ef4444; font-size: 0.85rem;'>Error al conectar con el servidor.</p>";
+    }
+}
+
+async function saveLFIFichaNote() {
+    const textVal = document.getElementById('c3d-lfi-ficha-notes-textarea').value.trim();
+    if (!textVal) return;
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion: activeWorkflowSeccion, manzana: activeWorkflowManzana, nota: textVal })
+        });
+        if (res && res.ok) {
+            document.getElementById('c3d-lfi-ficha-notes-textarea').value = "";
+            await loadLFIFichaNotes();
+        } else {
+            alert("No se pudo guardar la nota.");
+        }
+    } catch (err) {
+        console.error("Error al guardar nota LFI:", err);
+    }
+}
+
+async function saveLFIFichaDisposicion() {
+    const dispVal = document.getElementById('c3d-lfi-ficha-disposicion-input').value.trim();
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/disposicion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion: activeWorkflowSeccion, manzana: activeWorkflowManzana, disposicion: dispVal })
+        });
+        if (res && res.ok) {
+            alert("Disposición LFI actualizada.");
+            await loadCiudad3DTroneras();
+            const row = c3dTronerasRawData.find(r => r.seccion.trim() === activeWorkflowSeccion.trim() && r.manzana.trim() === activeWorkflowManzana.trim());
+            if (row) {
+                document.getElementById('c3d-lfi-ficha-disposicion-input').value = row.disposicion || '';
+            }
+        } else {
+            alert("No se pudo actualizar la disposición LFI.");
+        }
+    } catch (err) {
+        console.error("Error al actualizar disposición LFI:", err);
+    }
+}
+
+async function uploadLFIFichaTrazado() {
+    const fileInput = document.getElementById('c3d-lfi-ficha-upload-file');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert("Debe seleccionar un archivo para subir.");
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', activeWorkflowSeccion);
+    formData.append('manzana', activeWorkflowManzana);
+    formData.append('file', fileInput.files[0]);
+    
+    const token = localStorage.getItem('sgdu_token') || '';
+    
+    try {
+        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_lfi/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        if (res.ok) {
+            alert("Trazado LFI subido correctamente.");
+            await loadCiudad3DTroneras();
+            openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo subir el trazado.'}`);
+        }
+    } catch (err) {
+        console.error("Error al subir archivo LFI:", err);
+        alert("Error de conexión al servidor.");
+    }
+}
+
+async function submitLFIFichaReview(decision) {
+    const comentario = document.getElementById('c3d-lfi-ficha-review-comentario').value.trim();
+    const disposicion = document.getElementById('c3d-lfi-ficha-disposicion-input').value.trim();
+    const fileFinalInput = document.getElementById('c3d-lfi-ficha-review-file-final');
+    
+    if (decision === 'REJECT' && !comentario) {
+        alert("Debe detallar los motivos de rechazo en el campo de comentarios.");
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', activeWorkflowSeccion);
+    formData.append('manzana', activeWorkflowManzana);
+    formData.append('decision', decision);
+    if (comentario) formData.append('comentario', comentario);
+    if (decision === 'OK' && disposicion) formData.append('disposicion', disposicion);
+    
+    if (decision === 'OK' && fileFinalInput && fileFinalInput.files && fileFinalInput.files.length > 0) {
+        formData.append('file_final', fileFinalInput.files[0]);
+    }
+    
+    const token = localStorage.getItem('sgdu_token') || '';
+    
+    try {
+        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_lfi/review`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        if (res.ok) {
+            alert(`Trazado LFI ${decision === 'OK' ? 'aprobado' : 'rechazado'} con éxito.`);
+            await loadCiudad3DTroneras();
+            openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo registrar la revisión.'}`);
+        }
+    } catch (err) {
+        console.error("Error en revisión LFI:", err);
+        alert("Error de conexión al servidor.");
+    }
+}
+
+function downloadUploadedLFITrazado(fileType = "draft") {
+    const token = localStorage.getItem('sgdu_token') || '';
+    window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_trazado?seccion=${encodeURIComponent(activeWorkflowSeccion)}&manzana=${encodeURIComponent(activeWorkflowManzana)}&file_type=${encodeURIComponent(fileType)}&token=${encodeURIComponent(token)}`, '_blank');
+}
+
+window.assignManzanaLFI = assignManzanaLFI;
+window.openLFIFicha = openLFIFicha;
+window.loadLFIFichaNotes = loadLFIFichaNotes;
+window.saveLFIFichaNote = saveLFIFichaNote;
+window.saveLFIFichaDisposicion = saveLFIFichaDisposicion;
+window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
+window.submitLFIFichaReview = submitLFIFichaReview;
+window.downloadUploadedLFITrazado = downloadUploadedLFITrazado;
+
+// Atypical window exports removed
+
+
 
 
 

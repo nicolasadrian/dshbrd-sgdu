@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -71,8 +72,10 @@
                         Buzones <span class="chevron">▼</span>
                     </button>
                     <div class="dropdown-content">
-                        <a href="#" onclick="event.preventDefault(); showBuzonesView('dgroc')">DGROC</a>
-                        <a href="#" onclick="event.preventDefault(); showBuzonesView('dgiur')">DGIUR</a>
+                        <a href="#/buzones/dgroc" id="link-buzones-dgroc">DGROC</a>
+                        <a href="#/buzones/dgiur" id="link-buzones-dgiur">DGIUR</a>
+                        <a href="#/buzones/secgdu" id="link-buzones-secgdu">SECGDU</a>
+                        <a href="#/buzones/analisis" id="link-buzones-analisis">Análisis</a>
                     </div>
                 </div>
 
@@ -87,6 +90,7 @@
                         <a href="#" id="sla-link" onclick="event.preventDefault(); showView('sla')">Tiempos de tramitación</a>
                         <a href="#" onclick="event.preventDefault(); showView('subsanaciones')">Subsanaciones</a>
                         <a href="#" id="pendientes-asoc-link" onclick="event.preventDefault(); showView('pendientes_asociacion')">Pendientes Asociación</a>
+                        <a href="#" id="productividad-link" onclick="event.preventDefault(); showView('productividad_analistas')">Productividad Analistas</a>
                     </div>
                 </div>
 
@@ -98,6 +102,18 @@
                     <div class="dropdown-content">
                         <a href="#" onclick="event.preventDefault(); showView('analytics_estadistica')">Estadística</a>
                         <a href="#" onclick="event.preventDefault(); showView('analytics_datasets')">Datasets</a>
+                    </div>
+                </div>
+
+                <!-- Ciudad 3D Dropdown -->
+                <div class="nav-dropdown" id="nav-dropdown-ciudad3d">
+                    <button class="btn-header-nav dropdown-trigger">
+                        Ciudad 3D <span class="chevron">▼</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="event.preventDefault(); showView('ciudad3d_home')">Home</a>
+                        <a href="#" onclick="event.preventDefault(); showView('ciudad3d_troneras')">Línea de Frente Interno</a>
+                        <a href="#" onclick="event.preventDefault(); showView('ciudad3d_manzanas_atipicas')">Manzanas Atípicas</a>
                     </div>
                 </div>
 
@@ -1006,6 +1022,152 @@
             </div>
         </section>
 
+        <!-- Vista: Productividad Analistas -->
+        <section id="productividad_analistas" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Reportes / Productividad Analistas
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1 class="landing-title" style="margin: 0;">Productividad Analistas</h1>
+            </div>
+
+            <div class="prod-layout" style="display: grid; grid-template-columns: 280px 1fr; gap: 2rem;">
+                <!-- Sidebar: Sectores y Analistas -->
+                <div class="prod-sidebar" style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); height: fit-content;">
+                    <h3 style="margin-top: 0; margin-bottom: 1.25rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.15rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">Sectores</h3>
+                    <div id="prod-sectors-container" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Se llena dinámicamente con JS -->
+                    </div>
+                </div>
+
+                <!-- Main Content: Dashboard del Analista -->
+                <div class="prod-main" style="display: flex; flex-direction: column; gap: 2rem;">
+                    <!-- Mensaje Inicial -->
+                    <div id="prod-no-selection" style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <i class="fa-solid fa-user-circle" style="font-size: 4rem; color: #94a3b8; margin-bottom: 1rem;"></i>
+                        <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-size: 1.5rem;">Selecciona un analista</h3>
+                        <p style="color: #64748b; margin-top: 0.5rem;">Elige un sector y haz clic en un analista para ver su reporte de productividad, KPIs y plan de metas.</p>
+                    </div>
+
+                    <!-- Panel de Carga / Spinner -->
+                    <div id="prod-loader" style="display: none; background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <span class="loader" style="width: 48px; height: 48px; border-width: 5px; margin: 0 auto 1.5rem auto;"></span>
+                        <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">Procesando datos del analista...</h3>
+                        <p style="color: #64748b; margin-top: 0.5rem;">Unificando pases, actividades y analizando tiempos de SADE.</p>
+                    </div>
+
+                    <!-- Dashboard Activo -->
+                    <div id="prod-dashboard-content" style="display: none; flex-direction: column; gap: 2rem;">
+                        <!-- Header del Analista con filtros -->
+                        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                                <div>
+                                    <h2 id="prod-analyst-name" style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.6rem;">Nombre Completo</h2>
+                                    <p id="prod-analyst-meta" style="color: #64748b; margin: 4px 0 0 0; font-size: 0.95rem;">Usuario: USERNAME | Sector: SECTOR</p>
+                                </div>
+                                <div style="display: flex; gap: 10px;">
+                                    <button class="btn-primary" onclick="downloadIndividualPDF()" style="padding: 10px 16px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: var(--primary);">
+                                        <i class="fa-solid fa-file-pdf"></i> Reporte PDF
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Filtros de fecha -->
+                            <div style="display: flex; align-items: flex-end; gap: 15px; border-top: 1px solid #f1f5f9; padding-top: 1.25rem; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 150px;">
+                                    <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Fecha Desde</label>
+                                    <input type="date" id="prod-date-from" class="form-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div style="flex: 1; min-width: 150px;">
+                                    <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Fecha Hasta</label>
+                                    <input type="date" id="prod-date-to" class="form-input" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <button class="btn-primary" onclick="updateAnalystProductivity()" style="padding: 9px 18px; font-family: 'Outfit'; font-weight: 600; height: 38px; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: 6px;">
+                                    Filtrar
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Panel de KPIs -->
+                        <div class="admin-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; display: grid;">
+                            <div class="analyst-card-premium" style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Tareas Totales</span>
+                                <span id="prod-kpi-tareas" style="font-size: 2.2rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit'; margin: 10px 0;">0</span>
+                                <span style="font-size: 0.8rem; color: #94a3b8;">En el período seleccionado</span>
+                            </div>
+                            <div class="analyst-card-premium" style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Promedio Diario</span>
+                                <span id="prod-kpi-diario" style="font-size: 2.2rem; font-weight: 800; color: var(--primary); font-family: 'Outfit'; margin: 10px 0;">0</span>
+                                <span style="font-size: 0.8rem; color: #94a3b8;">Tareas por día hábil</span>
+                            </div>
+                            <div class="analyst-card-premium" style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Jornada Activa Media</span>
+                                <span id="prod-kpi-jornada" style="font-size: 2.2rem; font-weight: 800; color: #0f766e; font-family: 'Outfit'; margin: 10px 0;">0h</span>
+                                <span style="font-size: 0.8rem; color: #94a3b8;">Entre primera y última acción</span>
+                            </div>
+                            <div class="analyst-card-premium" style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Stock en Bandeja</span>
+                                <span id="prod-kpi-stock" style="font-size: 2.2rem; font-weight: 800; color: #b45309; font-family: 'Outfit'; margin: 10px 0;">0</span>
+                                <span id="prod-kpi-stock-details" style="font-size: 0.8rem; color: #94a3b8;">Propio: -- | Subs: --</span>
+                            </div>
+                            <div class="analyst-card-premium" style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                                <span style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Firmados / Rechazados</span>
+                                <span id="prod-kpi-firmas" style="font-size: 1.8rem; font-weight: 800; color: #15803d; font-family: 'Outfit'; margin: 10px 0;">0 / 0</span>
+                                <span id="prod-kpi-rechazo-rate" style="font-size: 0.8rem; color: #ef4444; font-weight: 600;">Tasa de rechazo: --%</span>
+                            </div>
+                        </div>
+
+                        <!-- Gráficos de Productividad -->
+                        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; flex-wrap: wrap;">
+                            <!-- Mix de Tareas -->
+                            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <h3 style="margin-top: 0; margin-bottom: 1.5rem; align-self: flex-start; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700;">Mix de Tareas (%)</h3>
+                                <div style="width: 240px; height: 240px; position: relative;">
+                                    <canvas id="prod-chart-mix"></canvas>
+                                </div>
+                            </div>
+                            <!-- Actividad Diaria -->
+                            <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                                <h3 style="margin-top: 0; margin-bottom: 1.5rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700;">Tareas Completadas por Día</h3>
+                                <div style="height: 250px; position: relative;">
+                                    <canvas id="prod-chart-diario"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tablas y Gráfico de Detalle de Horarios -->
+                        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                            <h3 style="margin-top: 0; margin-bottom: 1.5rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700;">Rango de Conexión Diario y Horarios Activos</h3>
+                            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; align-items: start;">
+                                <!-- Gráfico de Rango de Conexión -->
+                                <div style="height: 300px; position: relative; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; background: #f8fafc;">
+                                    <canvas id="prod-chart-timeline"></canvas>
+                                </div>
+                                <!-- Tabla de Detalles -->
+                                <div style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 12px;">
+                                    <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.9rem;" class="cierre-table">
+                                        <thead>
+                                            <tr style="background: #f8fafc; font-family: 'Outfit'; font-weight: 700; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #cbd5e1;">
+                                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Fecha</th>
+                                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Inicio</th>
+                                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Fin</th>
+                                                <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Activo (h)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="prod-table-horarios">
+                                            <!-- Se llena con JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Vista Admin: Backlog de Configuración -->
         <section id="admin" class="view-container">
             <div class="breadcrumbs">
@@ -1052,6 +1214,20 @@
                     <div>
                         <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">Configuración de Roles</h3>
                         <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Crear y configurar roles y los permisos de acceso a las secciones del tablero.</p>
+                    </div>
+                    <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 4: Buzones para Análisis -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('buzones_acceso')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #fff7ed; color: #ea580c; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">Buzones para Análisis</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Configurar el acceso a buzones específicos de Buzones Análisis a nivel de rol y de usuario.</p>
                     </div>
                     <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
                         Acceder <i class="fa-solid fa-arrow-right"></i>
@@ -1339,6 +1515,54 @@
                         
                         <div id="roles-list-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
                             <!-- Se llenará dinámicamente con las tarjetas de cada rol -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 4: Configuración de Acceso a Buzones -->
+            <div id="admin-tab-buzones_acceso" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
+                    <!-- Crear/Editar Acceso Form Card -->
+                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1;">
+                        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark);">Configurar Acceso Especial</h3>
+                        <form id="buzon-acceso-form" style="display: flex; flex-direction: column; gap: 1.2rem;">
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px;">Tipo de Sujeto</label>
+                                <select id="buzon-tipo-sujeto" onchange="onBuzonTipoSujetoChange()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <option value="usuario">Usuario</option>
+                                    <option value="rol">Rol</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label id="buzon-nombre-sujeto-label" style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px;">Seleccionar Usuario</label>
+                                <select id="buzon-nombre-sujeto" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <!-- Se llenará dinámicamente -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px;">Buzones Permitidos</label>
+                                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                    <button type="button" onclick="selectAllBuzones(true)" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px;">Seleccionar Todos</button>
+                                    <button type="button" onclick="selectAllBuzones(false)" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 4px;">Limpiar Todos</button>
+                                </div>
+                                <div id="buzones-checkboxes-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; background: #f8fafc;">
+                                    <!-- Se llenará dinámicamente -->
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary" style="padding: 10px; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; width: 100%;">Guardar Regla de Acceso</button>
+                        </form>
+                    </div>
+
+                    <!-- Configured Rules List -->
+                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1;">
+                        <h3 style="margin-top: 0; margin-bottom: 6px; color: var(--primary-dark);">Reglas Activas</h3>
+                        <p style="margin: 0 0 1.5rem 0; font-size: 0.85rem; color: #64748b;">Si un rol o usuario no figura en la lista, tendrá acceso a todos los buzones por defecto.</p>
+                        <div id="buzon-accesos-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Se llenará dinámicamente -->
                         </div>
                     </div>
                 </div>
@@ -1822,7 +2046,7 @@
                     <table class="minimal-table" style="margin-top: 0; width: 100%;">
                         <thead>
                             <tr>
-                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;">★</th>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;"><i class="fa-solid fa-bookmark"></i></th>
                                 <th onclick="sortSearchResults('expediente')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente <span id="sort-indicator-expediente" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
                                 <th onclick="sortSearchResults('descripcion_trata')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Trámite <span id="sort-indicator-descripcion_trata" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
                                 <th onclick="sortSearchResults('gerencia')" style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Área / Gerencia <span id="sort-indicator-gerencia" style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
@@ -1966,13 +2190,14 @@
                         </select>
                     </div>
 
-                    <!-- Filtro Estado SADE -->
+                    <!-- Filtro Estado Tablero -->
                     <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
-                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Estado SADE</label>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Estado Tablero</label>
                         <select id="fav-seg-filter-sade" onchange="filterAndRenderFavoritosSeguimiento()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
                             <option value="ALL">Todos</option>
-                            <option value="STOCK PROPIO">Stock Propio</option>
+                            <option value="STOCK">Stock</option>
                             <option value="SUBSANACION">Subsanación</option>
+                            <option value="EGRESADO">Egresos</option>
                             <option value="EN FLUJO">En Flujo</option>
                         </select>
                     </div>
@@ -2019,7 +2244,7 @@
                     <table class="matrix-table" style="margin-top: 0; width: 100%;">
                         <thead>
                             <tr>
-                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;">★</th>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;"><i class="fa-solid fa-bookmark"></i></th>
                                 <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente</th>
                                 <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Área / Gerencia</th>
                                 <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Dirección</th>
@@ -2055,12 +2280,20 @@
                     <h1 class="landing-title" id="buzones-title" style="margin-bottom: 0.25rem;">Buzones</h1>
                     <p style="color: #64748b; font-size: 0.95rem; margin: 0;" id="buzones-subtitle">Stock actual de expedientes distribuido por analistas oficiales e intervenciones.</p>
                 </div>
-                <!-- Buscador de Analistas -->
-                <div style="position: relative; width: 280px; font-family: 'Outfit';">
-                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </span>
-                    <input type="text" id="buzones-analyst-search" placeholder="Buscar analista por nombre..." oninput="filterBuzonesAnalysts()" style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                <!-- Contenedor Filtros -->
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <!-- Buscador de Analistas -->
+                    <div style="position: relative; width: 260px; font-family: 'Outfit';">
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </span>
+                        <input type="text" id="buzones-analyst-search" placeholder="Buscar analista por nombre..." oninput="filterBuzonesAnalysts()" style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                    </div>
+                    <!-- Filtro por Días de Stock -->
+                    <div style="display: flex; align-items: center; gap: 8px; font-family: 'Outfit';">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; white-space: nowrap; text-transform: uppercase;">Días Stock ≥</label>
+                        <input type="number" id="buzones-dias-filter" min="0" placeholder="0" oninput="onBuzonesDiasFilterChange()" style="width: 90px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                    </div>
                 </div>
             </div>
 
@@ -2080,6 +2313,20 @@
                 <div style="font-size: 3rem; margin-bottom: 1rem; color: #94a3b8;"><i class="fa-regular fa-user"></i></div>
                 <h3 style="color: #64748b; margin: 0; font-family: 'Outfit';">No hay stock activo en esta gerencia</h3>
                 <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Todos los trámites se encuentran finalizados o egresados.</p>
+            </div>
+
+            <!-- Metrics Cards -->
+            <div id="buzones-metrics-container" class="summary-cards-container" style="display: none; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <!-- Total -->
+                <div class="summary-card" style="align-items: flex-start; padding: 1.25rem 1.5rem; position: relative;">
+                    <span class="summary-label" style="font-size: 0.8rem; font-weight: 700; color: #64748b; font-family: 'Outfit';">Expedientes Totales</span>
+                    <span id="buzones-metric-total-expedientes" class="summary-value" style="color: var(--primary); font-size: 2.2rem; font-weight: 800; font-family: 'Outfit'; margin-top: 0.5rem;">0</span>
+                </div>
+                <!-- Buzones Totales -->
+                <div class="summary-card" style="align-items: flex-start; padding: 1.25rem 1.5rem; position: relative;">
+                    <span class="summary-label" style="font-size: 0.8rem; font-weight: 700; color: #0284c7; font-family: 'Outfit';">Buzones Totales</span>
+                    <span id="buzones-metric-total-mailboxes" class="summary-value" style="color: #0284c7; font-size: 2.2rem; font-weight: 800; font-family: 'Outfit'; margin-top: 0.5rem;">0</span>
+                </div>
             </div>
 
             <!-- Analyst Table List -->
@@ -2129,20 +2376,31 @@
                 </div>
             </div>
 
+            <!-- Controles de Filtros para Detalle de Buzón -->
+            <div class="filter-controls-container" style="background: white; padding: 1.25rem 1.5rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; margin-top: 1.5rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                    <!-- Búsqueda -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscador</label>
+                        <input type="text" id="buzon-detalle-search" class="form-input" placeholder="Buscar por expediente, código, descripción, motivo de pase..." oninput="filterAndRenderBuzonDetalle()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                    </div>
+                </div>
+            </div>
+
             <!-- Analyst Detail Table -->
             <div class="matrix-table-container" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
                 <div style="overflow-x: auto; width: 100%;">
                     <table class="matrix-table" style="margin-top: 0; width: 100%;">
                         <thead>
                             <tr>
-                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 80px;"><i class="fa-solid fa-star"></i></th>
+                                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 80px;"><i class="fa-solid fa-bookmark"></i></th>
                                 <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Expediente</th>
                                 <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Código Trámite</th>
                                 <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Detalle Trámite</th>
                                 <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 120px;">Días Stock</th>
                                 <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 150px;">Días en Gerencia</th>
                                 <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 190px;">Último Pase</th>
-                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 150px;">Estado SADE</th>
+                                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Motivo del Último Pase</th>
                             </tr>
                         </thead>
                         <tbody id="buzon-analista-tbody">
@@ -2156,39 +2414,62 @@
         <!-- Vista: Analytics Estadística -->
         <section id="analytics_estadistica" class="view-container" style="display: none;">
             <div class="breadcrumbs">
-                <span onclick="showView('landing')">Inicio</span> / Analytics / Estadística
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="switchAnalyticsTab('landing')" style="cursor: pointer;">Estadística</span>
             </div>
             
-            <div class="analytics-layout" style="display: grid; grid-template-columns: 240px 1fr; gap: 2rem; margin-top: 1rem; align-items: start;">
-                <!-- Sidebar lateral de temáticas -->
-                <aside class="analytics-sidebar" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 0.5rem;">
-                    <h3 style="font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; margin: 0 0 1rem 0; border-bottom: 2px solid #f1f5f9; padding-bottom: 0.5rem;">Temáticas</h3>
-                    <button class="analytics-tab-btn active" onclick="switchAnalyticsTab('permisos_obra')" style="text-align: left; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 10px 14px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;">
-                        <i class="fa-solid fa-building-user"></i> Permisos de Obra
-                    </button>
-                    <button class="analytics-tab-btn" disabled style="text-align: left; background: transparent; color: #94a3b8; border: none; border-radius: 8px; padding: 10px 14px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 500; cursor: not-allowed; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-tree-city"></i> Morfología y Usos <span style="font-size: 0.65rem; background: #e2e8f0; color: #64748b; padding: 2px 6px; border-radius: 9999px; margin-left: auto;">Próximamente</span>
-                    </button>
-                    <button class="analytics-tab-btn" disabled style="text-align: left; background: transparent; color: #94a3b8; border: none; border-radius: 8px; padding: 10px 14px; font-family: 'Outfit'; font-size: 0.9rem; font-weight: 500; cursor: not-allowed; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-map-location-dot"></i> Catastro y Mensuras <span style="font-size: 0.65rem; background: #e2e8f0; color: #64748b; padding: 2px 6px; border-radius: 9999px; margin-left: auto;">Próximamente</span>
-                    </button>
-                </aside>
-                
+            <div class="analytics-layout" style="margin-top: 1rem;">
                 <!-- Contenedor de Dashboard -->
-                <div class="analytics-main-content" style="display: flex; flex-direction: column; gap: 2rem;">
-                    <!-- Dashboard: Permisos de Obra -->
-                    <div id="analytics-panel-permisos_obra" class="analytics-panel active">
-                        <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
-                            <div>
-                                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Permisos de Obra (IFPDO)</h1>
-                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Egresos Efectivos con acrónimo IFPDO desde Enero de 2022.</p>
+                <div class="analytics-main-content" style="display: flex; flex-direction: column; gap: 2rem; width: 100%;">
+                    
+                    <!-- Landing / Selección de Temáticas -->
+                    <div id="analytics-panel-landing" class="analytics-panel active">
+                        <div style="margin-bottom: 2rem;">
+                            <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Estadísticas y Análisis</h1>
+                            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Seleccione una de las siguientes áreas temáticas para visualizar los tableros analíticos interactivos.</p>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Tarjeta Permisos de Obra -->
+                            <div class="meta-card hover-card" id="card-goto-permisos" onclick="switchAnalyticsTab('permisos_obra')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid var(--primary); transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="background: rgba(0, 159, 227, 0.1); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                                        <i class="fa-solid fa-building-user" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b;">Permisos de Obra (IFPDO)</h3>
+                                </div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.45;">Egresos Efectivos con acrónimo IFPDO y análisis de producción desde Enero de 2022.</p>
+                                <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; color: var(--primary); font-size: 0.85rem;">
+                                    Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
+                                </div>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 8px 14px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                                <i class="fa-solid fa-filter" style="color: #64748b; font-size: 0.85rem;"></i>
-                                <label for="filter-analytics-usuario" style="font-family: 'Outfit'; font-weight: 700; color: #475569; font-size: 0.85rem; margin: 0;">Analista:</label>
-                                <select id="filter-analytics-usuario" onchange="handleAnalyticsUsuarioFilterChange(this.value)" style="border: none; outline: none; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: transparent; cursor: pointer; min-width: 150px; padding-right: 5px;">
-                                    <!-- Opciones cargadas dinámicamente -->
-                                </select>
+
+                            <!-- Tarjeta Ley de Blanqueo -->
+                            <div class="meta-card hover-card" id="card-goto-blanqueo" onclick="switchAnalyticsTab('ley_blanqueo')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid #ef4444; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div style="background: rgba(239, 68, 68, 0.1); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #ef4444;">
+                                        <i class="fa-solid fa-file-shield" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b;">Ley de Blanqueo (Ley 6478)</h3>
+                                </div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.45;">Distribución de parcelas registradas, m² en contravención por barrio y evolución temporal.</p>
+                                <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; color: #ef4444; font-size: 0.85rem;">
+                                    Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard: Permisos de Obra -->
+                    <div id="analytics-panel-permisos_obra" class="analytics-panel" style="display: none;">
+                        <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <button onclick="switchAnalyticsTab('landing')" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important; transition: background 0.2s;">
+                                    <i class="fa-solid fa-arrow-left"></i> Volver
+                                </button>
+                                <div>
+                                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Permisos de Obra (IFPDO)</h1>
+                                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Egresos Efectivos con acrónimo IFPDO desde Enero de 2022.</p>
+                                </div>
                             </div>
                         </div>
                         
@@ -2202,6 +2483,83 @@
                             <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Evolución Mensual de Permisos Otorgados</h3>
                             <div style="height: 400px; position: relative;">
                                 <canvas id="permisosObraChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard: Ley de Blanqueo -->
+                    <div id="analytics-panel-ley_blanqueo" class="analytics-panel" style="display: none;">
+                        <div style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <button onclick="switchAnalyticsTab('landing')" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important; transition: background 0.2s;">
+                                    <i class="fa-solid fa-arrow-left"></i> Volver
+                                </button>
+                                <div>
+                                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Ley de Blanqueo (Ley 6478)</h1>
+                                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Distribución de parcelas registradas bajo la Ley de Blanqueo.</p>
+                                </div>
+                            </div>
+                            <button onclick="downloadLeyBlanqueoExcel()" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border: none; border-radius: 8px; cursor: pointer; background: #10b981; color: #ffffff !important; transition: background 0.2s;">
+                                <i class="fa-solid fa-file-excel"></i> Descargar Excel
+                            </button>
+                        </div>
+                        
+                        <!-- Tarjetas de KPIs de Superficie -->
+                        <div id="blanqueo-kpi-cards" class="summary-cards-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                            <!-- Cargado dinámicamente -->
+                        </div>
+                        <!-- Contenedor de Gráficos -->
+                        <div class="charts-grid" style="display: flex; flex-direction: column; gap: 2rem; transition: opacity 0.3s ease;">
+                            <!-- Gráfico Superficies por Barrio Stacked -->
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Superficie (m²) en Contravención por Barrio</h3>
+                                    <button onclick="exportChartToPNG('blanqueoBarrioSurfacesChart', 'superficie_contravencion_barrio')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important;">
+                                        <i class="fa-solid fa-file-image" style="color: #ffffff !important;"></i> Exportar PNG
+                                    </button>
+                                </div>
+                                <div style="height: 900px; position: relative;">
+                                    <canvas id="blanqueoBarrioSurfacesChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Gráfico Barrio -->
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Cantidad de Registros por Barrio</h3>
+                                    <button onclick="exportChartToPNG('blanqueoBarrioChart', 'cantidad_registros_barrio')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important;">
+                                        <i class="fa-solid fa-file-image" style="color: #ffffff !important;"></i> Exportar PNG
+                                    </button>
+                                </div>
+                                <div style="height: 900px; position: relative;">
+                                    <canvas id="blanqueoBarrioChart"></canvas>
+                                </div>
+                            </div>
+                            
+                            <!-- Gráfico Comuna -->
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Cantidad de Registros por Comuna</h3>
+                                    <button onclick="exportChartToPNG('blanqueoComunaChart', 'cantidad_registros_comuna')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important;">
+                                        <i class="fa-solid fa-file-image" style="color: #ffffff !important;"></i> Exportar PNG
+                                    </button>
+                                </div>
+                                <div style="height: 350px; position: relative;">
+                                    <canvas id="blanqueoComunaChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Gráfico Línea Temporal de Superficies -->
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Superficie (m²) Registrada Mes a Mes</h3>
+                                    <button onclick="exportChartToPNG('blanqueoTimelineChart', 'superficie_mes_a_mes')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important;">
+                                        <i class="fa-solid fa-file-image" style="color: #ffffff !important;"></i> Exportar PNG
+                                    </button>
+                                </div>
+                                <div style="height: 350px; position: relative;">
+                                    <canvas id="blanqueoTimelineChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2219,13 +2577,6 @@
                 <div>
                     <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Descarga de Datasets Consolidados</h1>
                     <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Acceda a los datos crudos en formato estructurado para auditorías y análisis externos.</p>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; background: white; padding: 8px 14px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <i class="fa-solid fa-filter" style="color: #64748b; font-size: 0.85rem;"></i>
-                    <label for="filter-datasets-usuario" style="font-family: 'Outfit'; font-weight: 700; color: #475569; font-size: 0.85rem; margin: 0;">Analista:</label>
-                    <select id="filter-datasets-usuario" onchange="handleDatasetsUsuarioFilterChange(this.value)" style="border: none; outline: none; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; color: #1e293b; background: transparent; cursor: pointer; min-width: 150px; padding-right: 5px;">
-                        <!-- Opciones cargadas dinámicamente -->
-                    </select>
                 </div>
             </div>
             
@@ -2262,6 +2613,155 @@
                             <i class="fa-solid fa-download"></i> Descargar
                         </button>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Ciudad 3D Home -->
+        <section id="ciudad3d_home" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Ciudad 3D / Home
+            </div>
+            
+            <div style="margin-bottom: 2.5rem;">
+                <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">Ciudad 3D</h1>
+                <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem; max-width: 700px; line-height: 1.5;">Plataforma analítica e informativa para el análisis territorial e identificaciones espaciales en la Ciudad.</p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="admin-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem; display: grid; margin-bottom: 3rem;">
+                <!-- Card: Parcelas -->
+                <div class="analyst-card-premium" style="padding: 30px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 20px; transition: all 0.2s; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); position: relative; overflow: hidden;">
+                    <div style="position: absolute; right: -10px; top: -10px; font-size: 8rem; color: #f1f5f9; opacity: 0.5; z-index: 1; pointer-events: none;">
+                        <i class="fa-solid fa-draw-polygon"></i>
+                    </div>
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; z-index: 2;">
+                        <i class="fa-solid fa-draw-polygon"></i>
+                    </div>
+                    <div style="z-index: 2;">
+                        <span style="color: #64748b; font-size: 0.88rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cantidad de Parcelas</span>
+                        <h2 id="c3d-stat-parcelas" style="margin: 8px 0 0 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.8rem; line-height: 1;">---</h2>
+                    </div>
+                </div>
+
+                <!-- Card: Manzanas -->
+                <div class="analyst-card-premium" style="padding: 30px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 20px; transition: all 0.2s; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); position: relative; overflow: hidden;">
+                    <div style="position: absolute; right: -10px; top: -10px; font-size: 8rem; color: #f1f5f9; opacity: 0.5; z-index: 1; pointer-events: none;">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; z-index: 2;">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    <div style="z-index: 2;">
+                        <span style="color: #64748b; font-size: 0.88rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cantidad de Manzanas</span>
+                        <h2 id="c3d-stat-manzanas" style="margin: 8px 0 0 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.8rem; line-height: 1;">---</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Welcome/Promo Section -->
+            <div style="background: linear-gradient(135deg, var(--primary-dark) 0%, #1e1b4b 100%); border-radius: 24px; padding: 3rem; color: white; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+                <div style="max-width: 600px;">
+                    <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.8rem; margin: 0; color: #38bdf8;">Módulos de Ciudad 3D</h2>
+                    <p style="margin: 1rem 0 2rem 0; color: #cbd5e1; font-size: 1rem; line-height: 1.6;">Explore las herramientas de análisis de morfología y tejido urbano mediante nuestros módulos especializados en línea de frente interno y manzanas atípicas.</p>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <button onclick="showView('ciudad3d_troneras')" class="btn-primary" style="padding: 12px 24px; font-weight: 700; border-radius: 12px; cursor: pointer; border: none; background: #38bdf8; color: var(--primary-dark);">Ir a Línea de Frente Interno</button>
+                        <button onclick="showView('ciudad3d_manzanas_atipicas')" class="btn-primary" style="padding: 12px 24px; font-weight: 700; border-radius: 12px; cursor: pointer; border: none; background: rgba(255,255,255,0.1); color: white;">Ver Manzanas Atípicas</button>
+                    </div>
+                </div>
+                <div style="font-size: 8rem; color: rgba(56, 189, 248, 0.15);">
+                    <i class="fa-solid fa-city"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Ciudad 3D Línea de Frente Interno -->
+        <section id="ciudad3d_troneras" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')">Ciudad 3D</span> / Línea de Frente Interno
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">Línea de Frente Interno</h1>
+                    <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem;">Visualización y análisis de línea de frente interno en la base geo-mdr.</p>
+                </div>
+                <button onclick="showView('ciudad3d_home')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; transition: all 0.2s;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver a Ciudad 3D
+                </button>
+            </div>
+
+            <!-- Search & Filters -->
+            <div style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #cbd5e1; margin-bottom: 2rem; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <div style="flex-grow: 1; position: relative;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                    <input type="text" id="c3d-troneras-search" oninput="filterCiudad3DTroneras()" placeholder="Buscar barrio..." style="width: 100%; padding: 12px 12px 12px 42px; border: 1px solid #cbd5e1; border-radius: 10px; font-family: inherit; font-size: 0.95rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+            </div>
+
+            <!-- Nested Table for Barrios -->
+            <div style="background: white; border-radius: 20px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 3rem;">
+                <div style="overflow-x: auto;">
+                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                <th style="padding: 12px 16px; width: 40px; text-align: center;"></th>
+                                <th style="padding: 12px 16px;">Barrio</th>
+                                <th style="padding: 12px 16px; text-align: center;">Cantidad de Secciones</th>
+                                <th style="padding: 12px 16px; text-align: center;">Cantidad de Manzanas</th>
+                                <th style="padding: 12px 16px; text-align: center;">Irregular SÍ</th>
+                                <th style="padding: 12px 16px; text-align: center;">Irregular NO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="c3d-troneras-table-body" style="color: #334155;">
+                            <!-- Dinámico via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Ciudad 3D Manzanas Atípicas -->
+        <section id="ciudad3d_manzanas_atipicas" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')">Ciudad 3D</span> / Manzanas Atípicas
+            </div>
+            
+            <div style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">Manzanas Atípicas</h1>
+                    <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem;">Análisis y catalogación de manzanas atípicas y sus particularidades morfológicas.</p>
+                </div>
+                <button onclick="showView('ciudad3d_home')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; transition: all 0.2s;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver a Ciudad 3D
+                </button>
+            </div>
+
+            <!-- Search bar -->
+            <div style="background: white; border-radius: 12px; border: 1px solid #cbd5e1; padding: 1.25rem; margin-bottom: 2rem; display: flex; gap: 1rem; align-items: center;">
+                <div style="position: relative; flex: 1;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #64748b;"></i>
+                    <input type="text" id="c3d-atipicas-search" oninput="filterCiudad3DManzanasAtipicas()" placeholder="Buscar por barrio, sección, manzana o expediente..." style="width: 100%; padding: 12px 12px 12px 42px; border: 1px solid #cbd5e1; border-radius: 10px; font-family: inherit; font-size: 0.95rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div style="background: white; border-radius: 20px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 3rem;">
+                <div style="overflow-x: auto;">
+                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; font-family: 'Outfit', sans-serif;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                <th style="padding: 12px 16px;">Barrio</th>
+                                <th style="padding: 12px 16px;">Comuna</th>
+                                <th style="padding: 12px 16px;">Sección - Manzana</th>
+                                <th style="padding: 12px 16px;">Expediente / DI</th>
+                                <th style="padding: 12px 16px; text-align: center;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="c3d-atipicas-tbody" style="color: #334155;">
+                            <!-- Dinámico via JS -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>
@@ -2565,6 +3065,228 @@
                     <button type="button" class="btn-secondary" onclick="closeModal('stock-intervenciones-download-modal')" style="padding: 10px 20px;">Cancelar</button>
                     <button type="button" class="btn-primary" onclick="triggerIntervencionesDownload()" style="padding: 10px 20px;">Descargar Excel</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Detalle de Barrio Troneras -->
+    <div id="c3d-barrio-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px; width: 90%; padding: 30px; background: white; border-radius: 20px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div>
+                    <h2 id="c3d-modal-barrio-name" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem;">Barrio</h2>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">Listado de manzanas y estado de irregularidad de línea de frente interno agrupadas por sección.</p>
+                </div>
+                <span class="close-modal" onclick="closeModal('c3d-barrio-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <div id="c3d-modal-barrio-body" style="flex-grow: 1; overflow-y: auto; padding-right: 5px; margin-bottom: 15px;">
+                <!-- Dinámico via JS -->
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; border-top: 1px solid #e2e8f0; padding-top: 15px; flex-shrink: 0;">
+                <button type="button" class="btn-primary" onclick="closeModal('c3d-barrio-modal')" style="background: #64748b; color: white; padding: 0.7rem 1.5rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Notas de Manzanas Atípicas -->
+    <div id="c3d-atipicas-notes-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; width: 90%; padding: 30px; background: white; border-radius: 20px; max-height: 80vh; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div>
+                    <h2 id="c3d-notes-modal-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.5rem;">Notas de Manzana</h2>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">Historial de observaciones de analistas.</p>
+                </div>
+                <span class="close-modal" onclick="closeModal('c3d-atipicas-notes-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <div id="c3d-notes-list" style="flex-grow: 1; overflow-y: auto; padding-right: 5px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 12px;">
+                <!-- Dinámico via JS -->
+            </div>
+            
+            <div style="border-top: 1px solid #e2e8f0; padding-top: 15px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;">
+                <textarea id="c3d-notes-textarea" placeholder="Escribir una nueva nota..." style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.9rem; resize: none; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn-primary" onclick="closeModal('c3d-atipicas-notes-modal')" style="background: #64748b; color: white; padding: 0.6rem 1.2rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;">Cerrar</button>
+                    <button type="button" class="btn-primary" onclick="saveManzanaAtipicaNote()" style="padding: 0.6rem 1.5rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;">Guardar Nota</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Subir Trazado de Manzanas Atípicas -->
+    <div id="c3d-atipicas-upload-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px; width: 90%; padding: 30px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 id="c3d-upload-modal-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.5rem;">Subir Archivo de Trazado</h2>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">Una vez subido, pasará a estado 'Para revisión'.</p>
+                </div>
+                <span class="close-modal" onclick="closeModal('c3d-atipicas-upload-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <form id="c3d-upload-form" onsubmit="event.preventDefault(); submitTrazadoFile();" style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="c3d-upload-seccion">
+                <input type="hidden" id="c3d-upload-manzana">
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.9rem;">Seleccionar Archivo:</label>
+                    <input type="file" id="c3d-upload-file" required style="font-family: inherit; font-size: 0.9rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; background: #f8fafc;">
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" class="btn-primary" onclick="closeModal('c3d-atipicas-upload-modal')" style="background: #64748b; color: white; padding: 0.6rem 1.2rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;">Cancelar</button>
+                    <button type="submit" class="btn-primary" style="padding: 0.6rem 1.5rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;">Subir trazado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Revisión de Manzanas Atípicas -->
+    <div id="c3d-atipicas-review-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px; width: 90%; padding: 30px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 id="c3d-review-modal-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.5rem;">Revisión de Trazado</h2>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">Aprobar o rechazar el trazado de la manzana.</p>
+                </div>
+                <span class="close-modal" onclick="closeModal('c3d-atipicas-review-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="c3d-review-seccion">
+                <input type="hidden" id="c3d-review-manzana">
+                
+                <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px;">
+                    <span style="font-weight: 600; font-size: 0.9rem; color: #334155;">Descargar archivo subido:</span>
+                    <button onclick="downloadUploadedTrazado()" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                        <i class="fa-solid fa-download"></i> Trazado
+                    </button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.9rem;">Disposición / Resolución (Solo si aprueba):</label>
+                    <input type="text" id="c3d-review-disposicion" placeholder="Ej: DI-2026-12345-GCABA-DGIUR..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.9rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.9rem;">Comentario u Observaciones (Requerido al rechazar):</label>
+                    <textarea id="c3d-review-comentario" placeholder="Detalle los motivos en caso de rechazo, o comentarios adicionales de la aprobación..." style="width: 100%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.9rem; resize: none; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type="button" class="btn-primary" onclick="submitReviewDecision('REJECT')" style="background: #ef4444; color: white; padding: 0.6rem 1.2rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">Rechazar</button>
+                    <button type="button" class="btn-primary" onclick="submitReviewDecision('OK')" style="background: #22c55e; color: white; padding: 0.6rem 1.5rem; cursor: pointer; border: none; border-radius: 8px; font-weight: 600;" onmouseover="this.style.background='#16a34a'" onmouseout="this.style.background='#22c55e'">Aprobar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Disposición Directamente -->
+    <div id="c3d-atipicas-disposicion-modal" class="modal">
+        <div class="modal-content" style="max-width: 450px; width: 90%; padding: 30px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 id="c3d-disposicion-modal-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.4rem;">Actualizar Disposición</h2>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">Modifique la disposición de la manzana.</p>
+                </div>
+                <span class="close-modal" onclick="closeModal('c3d-atipicas-disposicion-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="c3d-disposicion-seccion">
+                <input type="hidden" id="c3d-disposicion-manzana">
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.9rem;">Disposición:</label>
+                    <input type="text" id="c3d-disposicion-input" placeholder="Ej: DI-2026-12345-GCABA-DGIUR..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.9rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                    <button type    <!-- Modal: Ficha de Trabajo de Manzana LFI -->
+    <div id="c3d-lfi-ficha-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px; width: 95%; padding: 25px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif; gap: 20px; max-height: 90vh;">
+            <div class="modal-header" style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div>
+                    <h2 id="c3d-lfi-ficha-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.5rem;">Ficha de Trabajo - Manzana</h2>
+                    <p id="c3d-lfi-ficha-subtitle" style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">Información general, trazados y bitácora de la manzana.</p>
+                </div>
+                <span class="close-modal" onclick="closeModal('c3d-lfi-ficha-modal')" style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+            </div>
+            
+            <!-- Hidden Fields for state tracking -->
+            <input type="hidden" id="c3d-lfi-ficha-seccion">
+            <input type="hidden" id="c3d-lfi-ficha-manzana">
+            
+            <div style="display: flex; gap: 25px; overflow: hidden; flex-wrap: wrap; flex-grow: 1;">
+                
+                <!-- Columna Izquierda: Información y Acciones de Trazado -->
+                <div style="flex: 1 1 400px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px;">
+                    
+                    <!-- Tarjeta de Estado & Asignación -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Estado y Responsable</h4>
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <span id="c3d-lfi-ficha-estado-badge" class="badge" style="padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.85rem;">-</span>
+                            <div id="c3d-lfi-ficha-asignar-container"></div>
+                        </div>
+                        <div style="font-size: 0.9rem; color: #334155; margin-top: 4px;">
+                            <strong>Analista Asignado:</strong> <span id="c3d-lfi-ficha-analista-nombre" style="font-weight: 600;">-</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Ficha Alfanumérica: Disposición -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Disposición / Resolución Municipal</h4>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="text" id="c3d-lfi-ficha-disposicion-input" placeholder="Ej: DI-2026-12345-GCABA-DGIUR" style="flex-grow: 1; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.9rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                            <button id="c3d-lfi-ficha-disposicion-save-btn" onclick="saveLFIFichaDisposicion()" class="btn-primary" style="padding: 10px 15px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer;">
+                                Guardar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Archivos Descargables (DXF Base, Borrador, Final) -->
+                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Descarga de Archivos</h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="c3d-lfi-ficha-downloads-container">
+                            <!-- Botón DXF Base -->
+                            <button id="c3d-lfi-ficha-dxf-base-btn" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i class="fa-solid fa-download"></i> DXF Base original
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Panel de Flujo de Trabajo Activo (Subir trazado o Revisar) -->
+                    <div id="c3d-lfi-ficha-actions-container" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Se llena dinámicamente según el estado -->
+                    </div>
+                    
+                </div>
+                
+                <!-- Columna Derecha: Bitácora de Observaciones -->
+                <div style="flex: 1 1 400px; display: flex; flex-direction: column; gap: 15px; overflow: hidden; border-left: 1px solid #e2e8f0; padding-left: 20px;">
+                    <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem; flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Historial y Observaciones
+                    </h4>
+                    
+                    <!-- Lista de notas (scrollable) -->
+                    <div id="c3d-lfi-ficha-notes-list" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
+                        <!-- Dinámico via JS -->
+                    </div>
+                    
+                    <!-- Nueva nota -->
+                    <div style="flex-shrink: 0; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                        <textarea id="c3d-lfi-ficha-notes-textarea" placeholder="Escribir un comentario o nota de avance..." style="width: 100%; height: 70px; padding: 8px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.88rem; resize: none; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button type="button" class="btn-primary" onclick="saveLFIFichaNote()" style="padding: 6px 15px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">
+                                Agregar Nota
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
         </div>
     </div>
