@@ -10127,11 +10127,6 @@ window.expandBarrioTroneras = expandBarrioTroneras;
 window.downloadManzanaDXF = downloadManzanaDXF;
 window.loadCiudad3DManzanasAtipicas = loadCiudad3DManzanasAtipicas;
 window.filterCiudad3DManzanasAtipicas = filterCiudad3DManzanasAtipicas;
-window.assignManzanaAtipica = assignManzanaAtipica;
-window.openManzanaAtipicaNotes = openManzanaAtipicaNotes;
-window.saveManzanaAtipicaNote = saveManzanaAtipicaNote;
-window.openManzanaAtipicaUpload = openManzanaAtipicaUpload;
-window.submitTrazadoFile = submitTrazadoFile;
 // LFI Manzanas Workflow JS Handlers
 async function assignManzanaLFI(seccion, manzana) {
     if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;

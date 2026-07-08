@@ -3694,3 +3694,64 @@ span.perf-low {
     border-color: #e2e8f0;
 }
 
+/* --- PRODUCTIVIDAD ANALISTAS VIEW STYLES --- */
+.prod-sector-header {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: 'Outfit';
+    font-weight: 700;
+    color: var(--primary-dark);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+.prod-sector-header:hover {
+    background: #e2e8f0;
+    border-color: var(--primary);
+}
+.prod-sector-content {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 6px;
+    border-left: 2px solid #cbd5e1;
+    margin-left: 10px;
+    margin-top: 4px;
+}
+.prod-sector-content.open {
+    display: flex;
+}
+.prod-analyst-item {
+    font-family: 'Outfit';
+    font-size: 0.9rem;
+    padding: 8px 12px;
+    border-radius: 6px;
+    color: #475569;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.prod-analyst-item:hover {
+    background: #eff6ff;
+    color: var(--primary);
+    padding-left: 16px;
+}
+.prod-analyst-item.active {
+    background: var(--primary);
+    color: white;
+    font-weight: 700;
+}
+.prod-layout {
+    animation: fadeIn 0.6s ease-out;
+}
+
+
