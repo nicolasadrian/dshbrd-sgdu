@@ -1,4 +1,6 @@
 import os
+import sys
+import json
 from fastapi import FastAPI, HTTPException, Depends, status, Query, Header, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -11,6 +13,14 @@ from jose import JWTError, jwt
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from dotenv import load_dotenv
+
+# Ensure backend and root paths are in sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 # Cargar variables de entorno desde .env
 load_dotenv()
