@@ -1960,6 +1960,37 @@ const PERMISSION_KEYS = {
     admin: "Backlog (Administración)"
 };
 
+const PERMISSION_GROUPS = {
+    "Monitoreo & Reportes": {
+        dgroc: { label: "Seguimiento DGROC", desc: "Ver indicadores clave y pases de la gerencia DGROC." },
+        dgiur: { label: "Seguimiento DGIUR", desc: "Ver indicadores clave y pases de la gerencia DGIUR." },
+        seguimiento: { label: "Reporte Metas", desc: "Acceder al informe consolidado de cumplimiento de metas." },
+        cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
+        sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
+        subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
+        pendientes_asociacion: { label: "Pendientes Asociación", desc: "Expedientes pendientes de asociar a analistas." },
+        productividad_analistas: { label: "Productividad Analistas", desc: "Ver rankings, bitácoras y metas de analistas." }
+    },
+    "Buzones & Gestión": {
+        buscador: { label: "Buscador de Expedientes", desc: "Búsqueda universal de expedientes en el universo SADE." },
+        favoritos: { label: "Marcadores", desc: "Marcar expedientes favoritos para seguimiento rápido." },
+        'favoritos-seguimiento': { label: "Gestión de Marcadores", desc: "Panel de administración y control de marcadores." },
+        'asignados-mi': { label: "Asignados a Mí", desc: "Buzón de tareas asignadas al usuario actual." },
+        buzones_analisis: { label: "Buzones para Análisis", desc: "Visualizar la bandeja de buzones configurados." },
+        secgdu: { label: "Buzones SECGDU (Total Universo)", desc: "Visualizar el universo total de expedientes de la secretaría." }
+    },
+    "Visualización & Datos": {
+        ciudad_3d: { label: "Ciudad 3D", desc: "Acceso al módulo de Línea de Frente Interno de Ciudad 3D." },
+        analytics_estadistica: { label: "Analytics (Estadística)", desc: "Acceso a tableros estadísticos interactivos de trámites." },
+        ley_blanqueo: { label: "Analytics (Ley de Blanqueo)", desc: "Acceso a reportes del blanqueo de capitales." },
+        analytics_datasets: { label: "Analytics (Datasets)", desc: "Descarga de datasets crudos del tablero." },
+        family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites de un mismo expediente." }
+    },
+    "Administración": {
+        admin: { label: "Backlog (Administración)", desc: "Acceso completo a la configuración del sistema, roles y usuarios." }
+    }
+};
+
 let allAdminRoles = [];
 let allAdminUsers = [];
 
@@ -2115,77 +2146,329 @@ function openEditUser(username) {
     showEditUserView();
 }
 
+let currentSelectedRole = null;
+
 async function loadAdminRoles() {
     const container = document.getElementById('roles-list-container');
     if (!container) return;
 
-    container.innerHTML = '<div style="padding: 2rem; text-align: center;"><span class="loader"></span><p style="margin-top: 1rem; color: #64748b;">Cargando roles y permisos...</p></div>';
+    container.innerHTML = '<div style="padding: 1rem; text-align: center;"><span class="loader"></span></div>';
 
     try {
         const resp = await def_fetch(`${API_BASE}/admin/roles`);
-        if (!resp || !resp.ok) return;
+        if (!resp || !resp.ok) {
+            container.innerHTML = '<p style="padding: 1rem; color: #ef4444; font-size: 0.85rem; text-align: center;">Error al obtener roles.</p>';
+            return;
+        }
 
         allAdminRoles = await resp.json();
 
-        let html = '';
+        let sidebarHtml = '';
         allAdminRoles.forEach(r => {
             const isBuiltin = ['admin', 'administrador', 'seguimiento', 'usuario', 'user'].includes(r.role_name.toLowerCase());
-
-            let permGrid = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">';
-            for (const key in PERMISSION_KEYS) {
-                const hasPerm = !!r.permissions[key];
-                const checked = hasPerm ? 'checked' : '';
-                permGrid += `
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 0.88rem; color: #334155; font-weight: 500;">${PERMISSION_KEYS[key]}</span>
-                        <label class="switch-premium" style="position: relative; display: inline-block; width: 44px; height: 22px;">
-                            <input type="checkbox" onchange="toggleRolePermission('${r.role_name}', '${key}', this.checked)" ${checked} style="opacity: 0; width: 0; height: 0;">
-                            <span class="slider-premium"></span>
-                        </label>
-                    </div>
-                `;
+            
+            // Count active permissions
+            let activeCount = 0;
+            const totalCount = Object.keys(PERMISSION_GROUPS).reduce((acc, group) => acc + Object.keys(PERMISSION_GROUPS[group]).length, 0);
+            
+            for (const groupName in PERMISSION_GROUPS) {
+                for (const key in PERMISSION_GROUPS[groupName]) {
+                    if (r.permissions && r.permissions[key]) {
+                        activeCount++;
+                    }
+                }
             }
-            permGrid += '</div>';
 
-            html += `
-                <div class="admin-card" style="padding: 20px; border: 1px solid #cbd5e1; border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); background: white;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <h4 style="margin: 0; font-size: 1.15rem; color: var(--primary-dark); font-weight: 700;">${r.role_name.toUpperCase()}</h4>
-                            ${isBuiltin ? '<span style="background: #e0f2fe; color: #0369a1; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold;">Sistema</span>' : ''}
-                        </div>
-                        ${!isBuiltin ? `<button onclick="deleteRole('${r.role_name}')" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem;"><i class="fa-solid fa-trash"></i> Eliminar Rol</button>` : ''}
+            sidebarHtml += `
+                <div class="role-item-card" data-role-name="${r.role_name}" onclick="selectRole('${r.role_name}')">
+                    <div class="role-card-title">
+                        <span>${r.role_name.toUpperCase()}</span>
+                        ${isBuiltin ? '<span class="badge-builtin">Sistema</span>' : '<span class="badge-custom">Personalizado</span>'}
                     </div>
-                    ${permGrid}
+                    <div class="role-card-meta">
+                        <span id="role-count-badge-${r.role_name}" style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
+                            ${activeCount} / ${totalCount} accesos
+                        </span>
+                    </div>
                 </div>
             `;
         });
 
-        container.innerHTML = html;
+        container.innerHTML = sidebarHtml;
+
+        // Auto select role
+        if (allAdminRoles.length > 0) {
+            if (!currentSelectedRole || !allAdminRoles.find(r => r.role_name === currentSelectedRole)) {
+                currentSelectedRole = allAdminRoles[0].role_name;
+            }
+            selectRole(currentSelectedRole);
+        } else {
+            const detailContainer = document.getElementById('permissions-detail-container');
+            if (detailContainer) {
+                detailContainer.innerHTML = `
+                    <div style="padding: 3rem; text-align: center; color: #64748b;">
+                        <i class="fa-solid fa-user-shield" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
+                        <p style="margin: 0; font-weight: 600;">No hay roles registrados en el sistema.</p>
+                    </div>
+                `;
+            }
+        }
     } catch (err) {
-        container.innerHTML = '<p style="padding: 2rem; color: #ef4444; text-align: center;">Error al cargar los roles.</p>';
+        console.error("Error loading roles:", err);
+        container.innerHTML = '<p style="padding: 1rem; color: #ef4444; text-align: center; font-size: 0.85rem;">Error al cargar roles.</p>';
     }
+}
+
+function selectRole(roleName) {
+    currentSelectedRole = roleName;
+    
+    // Highlight sidebar item
+    document.querySelectorAll('.role-item-card').forEach(card => {
+        if (card.getAttribute('data-role-name') === roleName) {
+            card.classList.add('active');
+        } else {
+            card.classList.remove('active');
+        }
+    });
+
+    renderRolePermissions(roleName);
+}
+
+function renderRolePermissions(roleName) {
+    const detailContainer = document.getElementById('permissions-detail-container');
+    if (!detailContainer) return;
+
+    const role = allAdminRoles.find(r => r.role_name === roleName);
+    if (!role) {
+        detailContainer.innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #64748b;">
+                <i class="fa-solid fa-user-shield" style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
+                <p style="margin: 0; font-weight: 600;">Seleccione un rol de la lista izquierda para editar sus permisos.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const isBuiltin = ['admin', 'administrador', 'seguimiento', 'usuario', 'user'].includes(roleName.toLowerCase());
+
+    let headerHtml = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.4rem;">
+                        Permisos para: <span style="color: var(--primary);">${roleName.toUpperCase()}</span>
+                    </h3>
+                    ${isBuiltin ? '<span class="badge-builtin" style="font-size: 0.75rem; padding: 3px 10px; border-radius: 12px;">Rol de Sistema</span>' : '<span class="badge-custom" style="font-size: 0.75rem; padding: 3px 10px; border-radius: 12px;">Rol Personalizado</span>'}
+                </div>
+                <p style="margin: 6px 0 0 0; font-size: 0.85rem; color: #64748b;">Modifique los accesos interactuando con los interruptores. Los cambios se guardan automáticamente.</p>
+            </div>
+            ${!isBuiltin ? `
+                <button onclick="deleteRole('${roleName}')" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                    <i class="fa-solid fa-trash"></i> Eliminar Rol
+                </button>
+            ` : ''}
+        </div>
+        
+        <!-- Controles Superiores: Filtro y Búsqueda -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0;">
+            <div class="perm-search-box">
+                <i class="fa-solid fa-magnifying-glass" style="color: #64748b; font-size: 0.85rem;"></i>
+                <input type="text" id="perm-search-input" placeholder="Buscar permiso..." oninput="filterPermissionsDetail(this.value)">
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="toggleAllRolePerms('${roleName}', true)" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; border-radius: 6px; font-weight: 600; font-family: 'Outfit'; transition: all 0.2s;">
+                    Seleccionar Todo
+                </button>
+                <button onclick="toggleAllRolePerms('${roleName}', false)" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; border-radius: 6px; font-weight: 600; font-family: 'Outfit'; transition: all 0.2s;">
+                    Limpiar Todo
+                </button>
+            </div>
+        </div>
+    `;
+
+    let groupsHtml = '<div style="display: flex; flex-direction: column; gap: 1.5rem;">';
+    for (const groupName in PERMISSION_GROUPS) {
+        const groupItems = PERMISSION_GROUPS[groupName];
+        let itemsHtml = '';
+        let totalGroupKeys = 0;
+        let activeGroupKeys = 0;
+
+        for (const key in groupItems) {
+            totalGroupKeys++;
+            const meta = groupItems[key];
+            const hasPerm = !!role.permissions[key];
+            const checked = hasPerm ? 'checked' : '';
+            if (hasPerm) activeGroupKeys++;
+
+            itemsHtml += `
+                <div class="perm-card-premium" data-perm-key="${key}" data-perm-label="${meta.label.toLowerCase()}" data-perm-desc="${meta.desc.toLowerCase()}" style="background: white; border: 1px solid #cbd5e1; padding: 12px 16px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+                    <div style="text-align: left;">
+                        <span style="font-size: 0.88rem; color: #334155; font-weight: 700; display: block;">${meta.label}</span>
+                        <span style="font-size: 0.72rem; color: #64748b; line-height: 1.3; display: block; font-weight: normal; margin-top: 2px;">${meta.desc}</span>
+                    </div>
+                    <label class="switch-premium" style="position: relative; display: inline-block; width: 44px; height: 22px; flex-shrink: 0; margin: 0;">
+                        <input type="checkbox" onchange="toggleRolePermission('${roleName}', '${key}', this.checked)" ${checked} style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider-premium"></span>
+                    </label>
+                </div>
+            `;
+        }
+
+        groupsHtml += `
+            <div class="perm-group-section" data-group-name="${groupName}">
+                <div class="perm-group-title">
+                    <span>${groupName}</span>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="toggleGroupPermsAction('${roleName}', '${groupName}', true)" style="background: transparent; border: none; color: var(--primary); font-size: 0.75rem; cursor: pointer; font-family: 'Outfit'; font-weight: 600; padding: 2px 6px; border-radius: 4px;">
+                            Activar Sección
+                        </button>
+                        <span style="color: #cbd5e1;">|</span>
+                        <button onclick="toggleGroupPermsAction('${roleName}', '${groupName}', false)" style="background: transparent; border: none; color: #64748b; font-size: 0.75rem; cursor: pointer; font-family: 'Outfit'; font-weight: 600; padding: 2px 6px; border-radius: 4px;">
+                            Desactivar
+                        </button>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px;">
+                    ${itemsHtml}
+                </div>
+            </div>
+        `;
+    }
+    groupsHtml += '</div>';
+
+    detailContainer.innerHTML = headerHtml + groupsHtml;
+}
+
+function filterPermissionsDetail(query) {
+    const cleanQuery = (query || "").trim().toLowerCase();
+    
+    document.querySelectorAll('.perm-group-section').forEach(section => {
+        let visibleCount = 0;
+        
+        section.querySelectorAll('.perm-card-premium').forEach(card => {
+            const label = card.getAttribute('data-perm-label') || '';
+            const desc = card.getAttribute('data-perm-desc') || '';
+            
+            if (!cleanQuery || label.includes(cleanQuery) || desc.includes(cleanQuery)) {
+                card.style.display = 'flex';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Hide entire section if no permissions match
+        if (visibleCount === 0) {
+            section.style.display = 'none';
+        } else {
+            section.style.display = 'flex';
+        }
+    });
 }
 
 async function toggleRolePermission(roleName, permissionKey, isChecked) {
     const role = allAdminRoles.find(r => r.role_name === roleName);
     if (!role) return;
 
-    const updatedPerms = { ...role.permissions, [permissionKey]: isChecked };
+    if (!role.permissions) role.permissions = {};
+    role.permissions[permissionKey] = isChecked;
 
     try {
         const resp = await def_fetch(`${API_BASE}/admin/roles/${roleName}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ permissions: updatedPerms })
+            body: JSON.stringify({ permissions: role.permissions })
         });
         if (resp && resp.ok) {
-            role.permissions = updatedPerms;
+            updateRoleCardCount(roleName);
         } else {
             alert("Error al actualizar permisos del rol");
         }
     } catch (err) {
         console.error("Error toggling role permission:", err);
+    }
+}
+
+async function toggleAllRolePerms(roleName, isChecked) {
+    const role = allAdminRoles.find(r => r.role_name === roleName);
+    if (!role) return;
+
+    const newPerms = {};
+    for (const groupName in PERMISSION_GROUPS) {
+        for (const key in PERMISSION_GROUPS[groupName]) {
+            newPerms[key] = isChecked;
+        }
+    }
+    role.permissions = newPerms;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/roles/${roleName}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions: role.permissions })
+        });
+        if (resp && resp.ok) {
+            loadAdminRoles();
+        } else {
+            alert("Error al actualizar todos los permisos");
+        }
+    } catch (err) {
+        console.error("Error toggling all permissions:", err);
+    }
+}
+
+async function toggleGroupPermsAction(roleName, groupName, isChecked) {
+    const role = allAdminRoles.find(r => r.role_name === roleName);
+    if (!role) return;
+
+    if (!role.permissions) role.permissions = {};
+    
+    const groupItems = PERMISSION_GROUPS[groupName];
+    for (const key in groupItems) {
+        role.permissions[key] = isChecked;
+    }
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/roles/${roleName}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions: role.permissions })
+        });
+        if (resp && resp.ok) {
+            // Update individual switches in the DOM immediately
+            const sectionEl = document.querySelector(`.perm-group-section[data-group-name="${groupName}"]`);
+            if (sectionEl) {
+                sectionEl.querySelectorAll('.switch-premium input').forEach(input => {
+                    input.checked = isChecked;
+                });
+            }
+            updateRoleCardCount(roleName);
+        } else {
+            alert("Error al actualizar permisos de la sección");
+        }
+    } catch (err) {
+        console.error("Error toggling section permissions:", err);
+    }
+}
+
+function updateRoleCardCount(roleName) {
+    const role = allAdminRoles.find(r => r.role_name === roleName);
+    if (!role) return;
+
+    let activeCount = 0;
+    const totalCount = Object.keys(PERMISSION_GROUPS).reduce((acc, group) => acc + Object.keys(PERMISSION_GROUPS[group]).length, 0);
+    
+    for (const groupName in PERMISSION_GROUPS) {
+        for (const key in PERMISSION_GROUPS[groupName]) {
+            if (role.permissions && role.permissions[key]) {
+                activeCount++;
+            }
+        }
+    }
+
+    const badge = document.getElementById(`role-count-badge-${roleName}`);
+    if (badge) {
+        badge.textContent = `${activeCount} / ${totalCount} accesos`;
     }
 }
 
@@ -2196,6 +2479,7 @@ async function deleteRole(roleName) {
             method: 'DELETE'
         });
         if (resp && resp.ok) {
+            currentSelectedRole = null;
             loadAdminRoles();
         } else {
             const err = await resp.json();
@@ -6411,18 +6695,93 @@ function populatePermsCheckboxes(containerId, permissionsObj) {
     const grid = document.getElementById(containerId);
     if (!grid) return;
 
+    grid.style.cssText = "display: flex; flex-direction: column; gap: 1.5rem; background: transparent; border: none; padding: 0; font-family: 'Outfit';";
+
     const resolvedPerms = permissionsObj || {};
     let html = '';
-    for (const key in PERMISSION_KEYS) {
-        const checked = resolvedPerms[key] ? 'checked' : '';
+
+    html += `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; padding: 10px 15px; border-radius: 8px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.85rem;">Acciones rápidas:</span>
+                <button type="button" onclick="toggleAllUserPerms('${containerId}', true)" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 6px; font-weight: 600; font-family: 'Outfit';">Seleccionar Todos</button>
+                <button type="button" onclick="toggleAllUserPerms('${containerId}', false)" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border-radius: 6px; font-weight: 600; font-family: 'Outfit';">Limpiar Todos</button>
+            </div>
+            <div class="perm-search-box" style="width: 220px; padding: 4px 10px; margin: 0;">
+                <i class="fa-solid fa-magnifying-glass" style="color: #64748b; font-size: 0.8rem;"></i>
+                <input type="text" placeholder="Filtrar..." style="font-size: 0.8rem;" oninput="filterUserPermsGrid('${containerId}', this.value)">
+            </div>
+        </div>
+    `;
+
+    for (const groupName in PERMISSION_GROUPS) {
+        const groupItems = PERMISSION_GROUPS[groupName];
+        
+        let itemsHtml = '';
+        for (const key in groupItems) {
+            const meta = groupItems[key];
+            const checked = resolvedPerms[key] ? 'checked' : '';
+            itemsHtml += `
+                <div class="perm-card-premium" data-perm-label="${meta.label.toLowerCase()}" data-perm-desc="${meta.desc.toLowerCase()}" style="background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: all 0.2s;">
+                    <div style="flex-grow: 1; text-align: left;">
+                        <span style="font-weight: 700; color: #1e293b; font-size: 0.90rem; display: block;">${meta.label}</span>
+                        <span style="font-size: 0.74rem; color: #64748b; line-height: 1.3; display: block; margin-top: 2px; font-weight: normal;">${meta.desc}</span>
+                    </div>
+                    <label class="switch-premium" style="position: relative; display: inline-block; width: 44px; height: 22px; flex-shrink: 0;">
+                        <input type="checkbox" class="user-perm-checkbox" data-permission="${key}" ${checked} style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider-premium"></span>
+                    </label>
+                </div>
+            `;
+        }
+
         html += `
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; margin: 2px 0;">
-                <input type="checkbox" class="user-perm-checkbox" data-permission="${key}" ${checked}>
-                ${PERMISSION_KEYS[key]}
-            </label>
+            <div class="perm-group-section-user" style="display: flex; flex-direction: column; gap: 8px;">
+                <h4 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; text-align: left;">${groupName}</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+                    ${itemsHtml}
+                </div>
+            </div>
         `;
     }
+
     grid.innerHTML = html;
+}
+
+function filterUserPermsGrid(containerId, query) {
+    const cleanQuery = (query || "").trim().toLowerCase();
+    const grid = document.getElementById(containerId);
+    if (!grid) return;
+    
+    grid.querySelectorAll('.perm-group-section-user').forEach(section => {
+        let visibleCount = 0;
+        
+        section.querySelectorAll('.perm-card-premium').forEach(card => {
+            const label = card.getAttribute('data-perm-label') || '';
+            const desc = card.getAttribute('data-perm-desc') || '';
+            
+            if (!cleanQuery || label.includes(cleanQuery) || desc.includes(cleanQuery)) {
+                card.style.display = 'flex';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        if (visibleCount === 0) {
+            section.style.display = 'none';
+        } else {
+            section.style.display = 'flex';
+        }
+    });
+}
+
+function toggleAllUserPerms(containerId, checkAll) {
+    const grid = document.getElementById(containerId);
+    if (!grid) return;
+    grid.querySelectorAll('.user-perm-checkbox').forEach(cb => {
+        cb.checked = checkAll;
+    });
 }
 
 function handleRoleSelectionChange(mode, roleName) {
@@ -9619,6 +9978,7 @@ function downloadSectorComparativePDF(sector) {
 }
 
 window.loadAdminRoles = loadAdminRoles;
+window.toggleAllUserPerms = toggleAllUserPerms;
 window.toggleRolePermission = toggleRolePermission;
 window.deleteRole = deleteRole;
 window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
@@ -9661,6 +10021,7 @@ window.loadCiudad3DStats = loadCiudad3DStats;
 
 let c3dTronerasRawData = [];
 let c3dTronerasGroupedData = {};
+let currentLfiStatusFilter = null;
 
 async function loadCiudad3DTroneras() {
     const tbody = document.getElementById('c3d-troneras-table-body');
@@ -9705,7 +10066,25 @@ async function loadCiudad3DTroneras() {
                 b.secciones[sName].push(row);
             });
             
+            // Render all panels
             renderCiudad3DTronerasBarrios();
+            calculateLFIStats();
+            renderLFIMisTrazados();
+            renderLFIRevision();
+            // Actualizar filtros del mapa si ya está inicializado
+            lfiApplyManzanaFilter();
+            
+            // Set tab visibilities based on roles
+            const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
+            const uRole = (userObj.role || '').toLowerCase();
+            const canManageTroneras = (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
+            const canReviewTroneras = (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+            
+            const btnMisTrazados = document.getElementById('lfi-tab-btn-mis-trazados');
+            const btnRevision = document.getElementById('lfi-tab-btn-revision');
+            if (btnMisTrazados) btnMisTrazados.style.display = canManageTroneras ? 'flex' : 'none';
+            if (btnRevision) btnRevision.style.display = canReviewTroneras ? 'flex' : 'none';
+            
         } else {
             throw new Error("Respuesta no exitosa del servidor");
         }
@@ -9723,6 +10102,565 @@ async function loadCiudad3DTroneras() {
             `;
         }
     }
+}
+
+// ─── LFI Map ─────────────────────────────────────────────────────────────────
+let _lfiMap = null;
+let _lfiMapInitialized = false;
+
+// Buenos Aires center (WGS84)
+const LFI_MAP_CENTER = [-58.4173, -34.6118];
+const LFI_MAP_ZOOM = 13;
+
+const LFI_LAYER_CONFIG = {
+    parcelas: {
+        table: 'cur_parcelas_ok',
+        type: 'fill',
+        paint: { 'fill-color': '#94a3b8', 'fill-opacity': 0.15, 'fill-outline-color': '#64748b' },
+        minzoom: 16,
+    },
+    lfi: {
+        table: 'mdr_lineadefrenteinterno',
+        type: 'line',
+        paint: { 'line-color': '#1d4ed8', 'line-width': 2.5 },
+        minzoom: 14,
+    },
+    basamento: {
+        table: 'mdr_lineadebasamento',
+        type: 'line',
+        paint: { 'line-color': '#FFD306', 'line-width': 2.5 },
+        minzoom: 14,
+    },
+    banda_minima: {
+        table: 'mdr_banda_minima',
+        type: 'fill',
+        paint: { 'fill-color': '#ef4444', 'fill-opacity': 0.60 },
+        minzoom: 14,
+    },
+};
+
+
+function changeLfiSubTab(tabId) {
+    // Update active tab buttons
+    document.querySelectorAll('.lfi-tab-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`lfi-tab-btn-${tabId}`);
+    if (activeBtn) activeBtn.classList.add('active');
+    
+    // Update active content panels
+    document.querySelectorAll('.lfi-tab-content-panel').forEach(panel => panel.classList.remove('active'));
+    const activePanel = document.getElementById(`c3d-lfi-panel-${tabId}`);
+    if (activePanel) activePanel.classList.add('active');
+    
+    // Lazy init del mapa
+    if (tabId === 'mapa' && !_lfiMapInitialized) {
+        setTimeout(() => initLFIMap(), 100);
+    }
+}
+window.changeLfiSubTab = changeLfiSubTab;
+
+function _getLFIToken() {
+    return localStorage.getItem('sgdu_token') || '';
+}
+
+function _lfiTileUrl(layerKey) {
+    // API_BASE = 'http://127.0.0.1:8000/api' → origin = 'http://127.0.0.1:8000'
+    const origin = API_BASE.replace(/\/api$/, '');
+    const token = _getLFIToken();
+    return `${origin}/api/lfi/tiles/${layerKey}/{z}/{x}/{y}?token=${token}`;
+}
+
+async function initLFIMap() {
+    if (_lfiMapInitialized) return;
+    _lfiMapInitialized = true;
+
+    // Mostrar loading
+    const wrapper = document.querySelector('.lfi-map-wrapper');
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'lfi-map-loading';
+    loadingDiv.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem; color: var(--primary);"></i> Cargando mapa...`;
+    wrapper.appendChild(loadingDiv);
+
+    // MapLibre GL instance — basemap Carto Light (escala de grises)
+    _lfiMap = new maplibregl.Map({
+        container: 'lfi-map',
+        style: {
+            version: 8,
+            sources: {
+                'carto-tiles': {
+                    type: 'raster',
+                    tiles: [
+                        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                    ],
+                    tileSize: 256,
+                    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    maxzoom: 19
+                }
+            },
+            layers: [{
+                id: 'carto-basemap',
+                type: 'raster',
+                source: 'carto-tiles',
+                minzoom: 0,
+                maxzoom: 22
+            }]
+        },
+        center: LFI_MAP_CENTER,
+        zoom: LFI_MAP_ZOOM,
+        attributionControl: false,
+        maxParallelImageRequests: 4,
+        maxTileCacheSize: 50,
+    });
+
+    _lfiMap.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+    _lfiMap.addControl(new maplibregl.ScaleControl({ maxWidth: 150, unit: 'metric' }), 'bottom-left');
+    _lfiMap.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+
+    _lfiMap.on('load', () => {
+        // Construir filtro de manzanas con tronera
+        const manzanaFilter = _buildManzanaFilter();
+
+        // Agregar capas del config (sin troneras — se agregan por separado)
+        Object.entries(LFI_LAYER_CONFIG).forEach(([key, cfg]) => {
+            const sourceId = `lfi-src-${key}`;
+            const layerId = `lfi-lyr-${key}`;
+            const srcMinzoom = cfg.minzoom || 14;
+
+            _lfiMap.addSource(sourceId, {
+                type: 'vector',
+                tiles: [_lfiTileUrl(key)],
+                minzoom: srcMinzoom,
+                maxzoom: 20,
+                tileSize: 512,
+            });
+
+            const layerDef = {
+                id: layerId,
+                type: cfg.type,
+                source: sourceId,
+                'source-layer': key,
+                paint: cfg.paint,
+                minzoom: srcMinzoom,
+            };
+            if (manzanaFilter) layerDef.filter = manzanaFilter;
+            _lfiMap.addLayer(layerDef);
+        });
+
+        // Capa troneras: dos sub-capas por campo irregular
+        _lfiMap.addSource('lfi-src-troneras', {
+            type: 'vector',
+            tiles: [_lfiTileUrl('troneras')],
+            minzoom: 14,
+            maxzoom: 20,
+            tileSize: 512,
+        });
+
+        const troneraSiFilter = manzanaFilter
+            ? ['all', ['==', ['get', 'irregular'], 'SI'], manzanaFilter]
+            : ['==', ['get', 'irregular'], 'SI'];
+        
+        // Capas de relleno transparente para capturar clicks en todo el polígono
+        _lfiMap.addLayer({
+            id: 'lfi-lyr-troneras-si-hit',
+            type: 'fill',
+            source: 'lfi-src-troneras',
+            'source-layer': 'troneras',
+            paint: { 'fill-color': '#ef4444', 'fill-opacity': 0 },
+            minzoom: 14,
+            filter: troneraSiFilter,
+        });
+        _lfiMap.addLayer({
+            id: 'lfi-lyr-troneras-si',
+            type: 'line',
+            source: 'lfi-src-troneras',
+            'source-layer': 'troneras',
+            paint: { 'line-color': '#ef4444', 'line-width': 2.5 },
+            minzoom: 14,
+            filter: troneraSiFilter,
+        });
+        // irregular ≠ SI → igual que LFI (azul)
+        const troneraNoFilter = manzanaFilter
+            ? ['all', ['!=', ['get', 'irregular'], 'SI'], manzanaFilter]
+            : ['!=', ['get', 'irregular'], 'SI'];
+        _lfiMap.addLayer({
+            id: 'lfi-lyr-troneras-no-hit',
+            type: 'fill',
+            source: 'lfi-src-troneras',
+            'source-layer': 'troneras',
+            paint: { 'fill-color': '#1d4ed8', 'fill-opacity': 0 },
+            minzoom: 14,
+            filter: troneraNoFilter,
+        });
+        _lfiMap.addLayer({
+            id: 'lfi-lyr-troneras-no',
+            type: 'line',
+            source: 'lfi-src-troneras',
+            'source-layer': 'troneras',
+            paint: { 'line-color': '#1d4ed8', 'line-width': 2.5 },
+            minzoom: 14,
+            filter: troneraNoFilter,
+        });
+
+        // Quitar loading
+        const ld = document.getElementById('lfi-map-loading');
+        if (ld) ld.remove();
+
+        // Hint: acercate para ver capas
+        const _zHint = document.createElement('div');
+        _zHint.id = 'lfi-zoom-hint';
+        _zHint.style.cssText = 'position:absolute;bottom:40px;left:50%;transform:translateX(-50%);background:rgba(30,41,59,0.82);color:#fff;padding:6px 16px;border-radius:20px;font-size:0.78rem;pointer-events:none;transition:opacity .3s;z-index:5;font-family:Outfit,sans-serif;white-space:nowrap;';
+        _zHint.innerHTML = '<i class="fa-solid fa-magnifying-glass-plus" style="margin-right:5px;"></i>Acercá el mapa para ver las capas';
+        document.querySelector('.lfi-map-wrapper').appendChild(_zHint);
+        const _updateZHint = () => { _zHint.style.opacity = _lfiMap.getZoom() < 13.9 ? '1' : '0'; };
+        _lfiMap.on('zoom', _updateZHint);
+        _updateZHint();
+    });
+
+    // Click en troneras → abrir ficha (usando capas hit de relleno transparente)
+    ['lfi-lyr-troneras-si-hit', 'lfi-lyr-troneras-no-hit'].forEach(lid => {
+        _lfiMap.on('click', lid, (e) => {
+            const f = e.features && e.features[0];
+            if (!f) return;
+            const sec = (f.properties.seccion || '').trim();
+            const mzn = (f.properties.manzana || '').trim();
+            if (sec && mzn) openLFIFicha(sec, mzn);
+        });
+        _lfiMap.on('mouseenter', lid, () => { _lfiMap.getCanvas().style.cursor = 'pointer'; });
+        _lfiMap.on('mouseleave', lid, () => { _lfiMap.getCanvas().style.cursor = ''; });
+    });
+
+    _lfiMap.on('error', (e) => { console.warn('LFI Map error:', e); });
+}
+
+
+/**
+ * Construye una expresión de filtro MapLibre para mostrar solo features
+ * de las manzanas que tienen troneras registradas en c3dTronerasRawData.
+ */
+function _buildManzanaFilter() {
+    if (!c3dTronerasRawData || c3dTronerasRawData.length === 0) return null;
+    const keys = c3dTronerasRawData.map(r => `${(r.seccion||'').trim()}|${(r.manzana||'').trim()}`);
+    if (keys.length === 0) return null;
+    return [
+        'in',
+        ['concat', ['get', 'seccion'], '|', ['get', 'manzana']],
+        ['literal', keys]
+    ];
+}
+
+/**
+ * Aplica el filtro de manzanas a todas las capas del mapa.
+ * Se llama cuando los datos de troneras se cargan (puede ser antes o después de inicializar el mapa).
+ */
+function lfiApplyManzanaFilter() {
+    if (!_lfiMap || !_lfiMapInitialized) return;
+    const f = _buildManzanaFilter();
+    if (!f) return;
+
+    // Capas del config
+    Object.keys(LFI_LAYER_CONFIG).forEach(key => {
+        const layerId = `lfi-lyr-${key}`;
+        if (_lfiMap.getLayer(layerId)) _lfiMap.setFilter(layerId, f);
+    });
+    // Troneras: combinar con filtro de irregular (line + hit)
+    const siF = ['all', ['==', ['get', 'irregular'], 'SI'], f];
+    const noF = ['all', ['!=', ['get', 'irregular'], 'SI'], f];
+    ['lfi-lyr-troneras-si', 'lfi-lyr-troneras-si-hit'].forEach(id => { if (_lfiMap.getLayer(id)) _lfiMap.setFilter(id, siF); });
+    ['lfi-lyr-troneras-no', 'lfi-lyr-troneras-no-hit'].forEach(id => { if (_lfiMap.getLayer(id)) _lfiMap.setFilter(id, noF); });
+}
+window.lfiApplyManzanaFilter = lfiApplyManzanaFilter;
+
+function toggleLFIMapLayer(layerKey, visible) {
+    if (!_lfiMap || !_lfiMapInitialized) return;
+    const v = visible ? 'visible' : 'none';
+    if (layerKey === 'troneras-si') {
+        ['lfi-lyr-troneras-si', 'lfi-lyr-troneras-si-hit'].forEach(id => { if (_lfiMap.getLayer(id)) _lfiMap.setLayoutProperty(id, 'visibility', v); });
+        return;
+    }
+    if (layerKey === 'troneras-no') {
+        if (_lfiMap.getLayer('lfi-lyr-troneras-no')) _lfiMap.setLayoutProperty('lfi-lyr-troneras-no', 'visibility', v);
+        return;
+    }
+    // Retrocompatibilidad: 'troneras' controla ambas
+    if (layerKey === 'troneras') {
+        ['lfi-lyr-troneras-si', 'lfi-lyr-troneras-no'].forEach(id => {
+            if (_lfiMap.getLayer(id)) _lfiMap.setLayoutProperty(id, 'visibility', v);
+        });
+        return;
+    }
+    const layerId = `lfi-lyr-${layerKey}`;
+    if (_lfiMap.getLayer(layerId)) {
+        _lfiMap.setLayoutProperty(layerId, 'visibility', v);
+    }
+}
+window.toggleLFIMapLayer = toggleLFIMapLayer;
+
+function lfiMapFitBounds() {
+    if (!_lfiMap) return;
+    _lfiMap.flyTo({ center: LFI_MAP_CENTER, zoom: LFI_MAP_ZOOM, duration: 1200 });
+}
+window.lfiMapFitBounds = lfiMapFitBounds;
+
+// ─── Buscador de calles (Nominatim) ─────────────────────────────────────────
+let _streetSearchTimeout = null;
+
+async function searchStreetLFI(query) {
+    const resultsEl = document.getElementById('lfi-street-results');
+    if (!resultsEl) return;
+
+    clearTimeout(_streetSearchTimeout);
+    if (!query || query.length < 3) {
+        resultsEl.style.display = 'none';
+        return;
+    }
+
+    _streetSearchTimeout = setTimeout(async () => {
+        try {
+            // Buscar en Buenos Aires usando Nominatim
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=ar&q=${encodeURIComponent(query + ', Buenos Aires')}&accept-language=es`;
+            const resp = await fetch(url, { headers: { 'Accept-Language': 'es' } });
+            const data = await resp.json();
+
+            if (!data || data.length === 0) {
+                resultsEl.innerHTML = '<div style="padding:10px 14px;color:#94a3b8;font-size:0.82rem;">Sin resultados</div>';
+                resultsEl.style.display = 'block';
+                return;
+            }
+
+            resultsEl.innerHTML = data.map((item, i) => `
+                <div onclick="selectStreetLFI(${item.lon}, ${item.lat}, '${(item.display_name||'').replace(/'/g,"\\'")}', ${item.boundingbox ? `[${item.boundingbox.map(Number).join(',')}]` : 'null'})"
+                    style="padding:9px 14px;cursor:pointer;font-size:0.84rem;color:#1e293b;border-top:${i>0?'1px solid #f1f5f9':'none'};transition:background .15s;"
+                    onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''"
+                    title="${item.display_name}">
+                    <i class="fa-solid fa-location-dot" style="color:#64748b;margin-right:6px;font-size:0.75rem;"></i>
+                    ${item.display_name.split(',').slice(0, 3).join(', ')}
+                </div>
+            `).join('');
+            resultsEl.style.display = 'block';
+        } catch (e) {
+            console.warn('Street search error:', e);
+        }
+    }, 400);
+}
+window.searchStreetLFI = searchStreetLFI;
+
+function selectStreetLFI(lon, lat, name, bbox) {
+    const resultsEl = document.getElementById('lfi-street-results');
+    const inputEl = document.getElementById('lfi-street-input');
+    if (resultsEl) resultsEl.style.display = 'none';
+    if (inputEl) inputEl.value = name.split(',').slice(0, 2).join(', ');
+
+    if (!_lfiMap) return;
+    if (bbox && bbox.length === 4) {
+        // bbox = [south, north, west, east]
+        _lfiMap.fitBounds([[bbox[2], bbox[0]], [bbox[3], bbox[1]]], { padding: 60, duration: 900 });
+    } else {
+        _lfiMap.flyTo({ center: [parseFloat(lon), parseFloat(lat)], zoom: 16, duration: 900 });
+    }
+}
+window.selectStreetLFI = selectStreetLFI;
+
+function clearStreetLFI() {
+    const inputEl = document.getElementById('lfi-street-input');
+    const resultsEl = document.getElementById('lfi-street-results');
+    if (inputEl) inputEl.value = '';
+    if (resultsEl) resultsEl.style.display = 'none';
+}
+window.clearStreetLFI = clearStreetLFI;
+
+// Cerrar resultados al hacer click fuera
+document.addEventListener('click', (e) => {
+    const search = document.getElementById('lfi-street-search');
+    if (search && !search.contains(e.target)) {
+        const resultsEl = document.getElementById('lfi-street-results');
+        if (resultsEl) resultsEl.style.display = 'none';
+    }
+});
+
+
+function calculateLFIStats() {
+    let pendientes = 0;
+    let enCurso = 0;
+    let revision = 0;
+    let aprobadas = 0;
+    
+    c3dTronerasRawData.forEach(row => {
+        const estado = (row.estado || 'Pendiente').toLowerCase();
+        if (estado === 'pendiente' || estado === '') {
+            pendientes++;
+        } else if (estado === 'en curso') {
+            enCurso++;
+        } else if (estado === 'para revisión' || estado === 'para revision') {
+            revision++;
+        } else if (estado === 'subir a ciudad 3d' || estado === 'aprobado' || estado === 'aprobada') {
+            aprobadas++;
+        }
+    });
+    
+    const elPendientes = document.getElementById('kpi-lfi-val-pendientes');
+    const elEnCurso = document.getElementById('kpi-lfi-val-en-curso');
+    const elRevision = document.getElementById('kpi-lfi-val-revision');
+    const elAprobadas = document.getElementById('kpi-lfi-val-aprobadas');
+    
+    if (elPendientes) elPendientes.innerText = pendientes;
+    if (elEnCurso) elEnCurso.innerText = enCurso;
+    if (elRevision) elRevision.innerText = revision;
+    if (elAprobadas) elAprobadas.innerText = aprobadas;
+}
+
+function renderLFIMisTrazados() {
+    const tbody = document.getElementById('c3d-lfi-mis-trazados-table-body');
+    if (!tbody) return;
+    
+    const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
+    const uName = (userObj.username || '').toLowerCase();
+    
+    const myRows = c3dTronerasRawData.filter(row => {
+        const asignado = (row.analista_asignado || '').toLowerCase();
+        const estado = (row.estado || '').toLowerCase();
+        return asignado === uName && (estado === 'en curso' || estado === 'para revisión' || estado === 'para revision');
+    });
+    
+    if (myRows.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">
+                    <i class="fa-solid fa-folder-open" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">No tiene trazados asignados o en curso en este momento.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = myRows.map(row => {
+        const badgeColor = row.estado === 'Para revisión' ? 'background: #fef3c7; color: #d97706;' : 'background: #e0f2fe; color: #0284c7;';
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 12px 16px; font-weight: 700; font-family: monospace; font-size: 0.95rem;">
+                    ${row.seccion} - ${row.manzana}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                        ${row.irregular_si}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                        ${row.irregular_no}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-family: 'Outfit'; ${badgeColor}">
+                        ${row.estado}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div style="display: flex; gap: 6px; justify-content: center;">
+                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-download"></i> DXF
+                        </button>
+                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-folder-open"></i> Ficha
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderLFIRevision() {
+    const tbody = document.getElementById('c3d-lfi-revision-table-body');
+    if (!tbody) return;
+    
+    const revRows = c3dTronerasRawData.filter(row => {
+        const estado = (row.estado || '').toLowerCase();
+        return estado === 'para revisión' || estado === 'para revision';
+    });
+    
+    if (revRows.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">
+                    <i class="fa-solid fa-check-double" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">No hay trazados pendientes de revisión en este momento.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = revRows.map(row => {
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 12px 16px; font-weight: 700; font-family: monospace; font-size: 0.95rem;">
+                    ${row.seccion} - ${row.manzana}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                        ${row.irregular_si}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                        ${row.irregular_no}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; font-weight: 600; color: #475569;">
+                    ${row.analista_asignado || 'Sin asignar'}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterLFIByStatus(statusName) {
+    // Clear active status on all cards
+    document.querySelectorAll('.lfi-kpi-card').forEach(card => card.classList.remove('active'));
+    
+    if (currentLfiStatusFilter === statusName) {
+        // Toggle off the filter
+        currentLfiStatusFilter = null;
+    } else {
+        // Toggle on the filter
+        currentLfiStatusFilter = statusName;
+        const cardId = statusName === 'Pendiente' ? 'pendientes' : 
+                       statusName === 'En curso' ? 'en-curso' :
+                       statusName === 'Para revisión' ? 'revision' : 'aprobadas';
+        const card = document.getElementById(`kpi-lfi-${cardId}`);
+        if (card) card.classList.add('active');
+    }
+    
+    // Switch to all blocks tab to see the filtered table
+    changeLfiSubTab('todas');
+    
+    // Re-render
+    renderCiudad3DTronerasBarrios();
+}
+window.filterLFIByStatus = filterLFIByStatus;
+
+
+function rowMatchesLfiFilter(row, filter) {
+    if (!filter) return true;
+    const estado = (row.estado || 'Pendiente').toLowerCase();
+    const f = filter.toLowerCase();
+    if (f === 'pendiente') {
+        return estado === 'pendiente' || estado === '';
+    } else if (f === 'en curso') {
+        return estado === 'en curso';
+    } else if (f === 'para revisión' || f === 'para revision') {
+        return estado === 'para revisión' || estado === 'para revision';
+    } else if (f === 'aprobadas') {
+        return estado === 'subir a ciudad 3d' || estado === 'aprobado' || estado === 'aprobada';
+    }
+    return true;
 }
 
 function renderCiudad3DTronerasBarrios(filteredNames = null) {
@@ -9747,8 +10685,30 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
     sortedBarrioNames.forEach(bName => {
         if (filteredNames && !filteredNames.includes(bName)) return;
         
-        count++;
         const b = c3dTronerasGroupedData[bName];
+        
+        // Filter sections and calculate counts on the fly if filter is active
+        const filteredSecciones = {};
+        let totalManzanas = 0;
+        let totalSi = 0;
+        let totalNo = 0;
+        
+        Object.keys(b.secciones).forEach(sName => {
+            const matchedRows = b.secciones[sName].filter(row => rowMatchesLfiFilter(row, currentLfiStatusFilter));
+            if (matchedRows.length > 0) {
+                filteredSecciones[sName] = matchedRows;
+                totalManzanas += matchedRows.length;
+                matchedRows.forEach(r => {
+                    totalSi += r.irregular_si;
+                    totalNo += r.irregular_no;
+                });
+            }
+        });
+        
+        const cantSecciones = Object.keys(filteredSecciones).length;
+        if (cantSecciones === 0) return; // Skip this barrio
+        
+        count++;
         
         // Parent row
         const parentTr = document.createElement('tr');
@@ -9771,20 +10731,18 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
             }
         };
         
-        const cantSecciones = Object.keys(b.secciones).length;
-        
         parentTr.innerHTML = `
             <td style="padding: 12px 16px; text-align: center;">
                 <i id="${chevronId}" class="fa-solid fa-chevron-right" style="transition: transform 0.2s; color: #64748b;"></i>
             </td>
             <td style="padding: 12px 16px; font-weight: 700; text-transform: uppercase; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">${b.name}</td>
             <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #475569; font-family: 'Outfit', sans-serif;">${cantSecciones}</td>
-            <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #1d4ed8; font-family: 'Outfit', sans-serif;">${b.total_manzanas}</td>
+            <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #1d4ed8; font-family: 'Outfit', sans-serif;">${totalManzanas}</td>
             <td style="padding: 12px 16px; text-align: center;">
-                <span class="badge ${b.total_si > 0 ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit', sans-serif;">${b.total_si}</span>
+                <span style="background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 32px; text-align: center;">${totalSi}</span>
             </td>
             <td style="padding: 12px 16px; text-align: center;">
-                <span class="badge badge-success" style="background: #e2e8f0; color: #475569; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit', sans-serif;">${b.total_no}</span>
+                <span style="background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 32px; text-align: center;">${totalNo}</span>
             </td>
         `;
         tbody.appendChild(parentTr);
@@ -9795,7 +10753,7 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         detailsTr.style.display = "none";
         detailsTr.style.background = "#f8fafc";
         
-        const sortedSections = Object.keys(b.secciones).sort();
+        const sortedSections = Object.keys(filteredSecciones).sort();
         let sectionsHtml = "";
         
         sortedSections.forEach(sName => {
@@ -9809,8 +10767,8 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                         <thead>
                             <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
                                 <th style="padding: 8px 10px;">Sección - Manzana</th>
-                                <th style="padding: 8px 10px; text-align: center;">Irregular SÍ</th>
-                                <th style="padding: 8px 10px; text-align: center;">Irregular NO</th>
+                                <th style="padding: 8px 10px; text-align: center;">Esquinas consolidadas</th>
+                                <th style="padding: 8px 10px; text-align: center;">Esquinas no consolidadas</th>
                                 <th style="padding: 8px 10px; text-align: center;">Estado</th>
                                 <th style="padding: 8px 10px;">Analista</th>
                                 <th style="padding: 8px 10px;">Disposición</th>
@@ -9818,10 +10776,10 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                             </tr>
                         </thead>
                         <tbody style="color: #334155; font-family: 'Outfit', sans-serif;">
-                            ${b.secciones[sName].map(row => {
+                            ${filteredSecciones[sName].map(row => {
                                 const isSiDanger = row.irregular_si > 0;
                                 const rowEstado = row.estado || 'Pendiente';
-                                const rowAnalista = row.analista_asignado || '';
+                                const rowAnalista = row.analista_nombre || row.analista_asignado || '';
                                 const rowDisposicion = row.disposicion || '';
                                 const rowArchivo = row.archivo_trazado || '';
                                 
@@ -9847,15 +10805,8 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                 let dispoHtml = '';
                                 if (rowDisposicion) {
                                     dispoHtml = `<span style="font-weight: 600; color: #334155; font-size: 0.8rem;">${rowDisposicion}</span>`;
-                                    if (canEditDispo) {
-                                        dispoHtml += ` <a href="javascript:void(0)" onclick="event.stopPropagation(); openEditLFIDisposicionDirect('${row.seccion}', '${row.manzana}', '${rowDisposicion.replace(/'/g, "\\'")}')" style="margin-left: 4px; color: #64748b;" title="Editar disposición"><i class="fa-solid fa-pen" style="font-size: 0.75rem;"></i></a>`;
-                                    }
                                 } else {
-                                    if (canEditDispo) {
-                                        dispoHtml = `<a href="javascript:void(0)" onclick="event.stopPropagation(); openEditLFIDisposicionDirect('${row.seccion}', '${row.manzana}', '')" style="color: #94a3b8; font-size: 0.78rem;"><i class="fa-solid fa-plus-circle"></i> Agregar</a>`;
-                                    } else {
-                                        dispoHtml = `<span style="color: #94a3b8;">-</span>`;
-                                    }
+                                    dispoHtml = `<span style="color: #94a3b8;">-</span>`;
                                 }
                                 
                                 // Action buttons
@@ -9883,12 +10834,12 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                             ${row.seccion} - ${row.manzana}
                                         </td>
                                         <td style="padding: 8px 10px; text-align: center;">
-                                            <span class="badge ${isSiDanger ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif;">
+                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 28px; text-align: center;">
                                                 ${row.irregular_si}
                                             </span>
                                         </td>
                                         <td style="padding: 8px 10px; text-align: center;">
-                                            <span class="badge badge-success" style="background: #e2e8f0; color: #475569; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif;">
+                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 28px; text-align: center;">
                                                 ${row.irregular_no}
                                             </span>
                                         </td>
@@ -9919,7 +10870,7 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    <p style="margin: 0; font-size: 1rem; font-family: 'Outfit'; font-weight: 500;">No se encontraron barrios coincidentes.</p>
+                    <p style="margin: 0; font-size: 1rem; font-family: 'Outfit'; font-weight: 500;">No se encontraron barrios con manzanas en este estado.</p>
                 </td>
             </tr>
         `;
@@ -9967,8 +10918,8 @@ function expandBarrioTroneras(barrioName) {
                     <thead>
                         <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700;">
                             <th style="padding: 10px 12px;">Sección - Manzana</th>
-                            <th style="padding: 10px 12px; text-align: center;">Irregular SÍ</th>
-                            <th style="padding: 10px 12px; text-align: center;">Irregular NO</th>
+                            <th style="padding: 10px 12px; text-align: center;">Esquinas consolidadas</th>
+                            <th style="padding: 10px 12px; text-align: center;">Esquinas no consolidadas</th>
                             <th style="padding: 10px 12px; text-align: center;">Acción</th>
                         </tr>
                     </thead>
@@ -9981,12 +10932,12 @@ function expandBarrioTroneras(barrioName) {
                                         ${row.seccion} - ${row.manzana}
                                     </td>
                                     <td style="padding: 10px 12px; text-align: center;">
-                                        <span class="badge ${isSiDanger ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem;">
+                                        <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
                                             ${row.irregular_si}
                                         </span>
                                     </td>
                                     <td style="padding: 10px 12px; text-align: center;">
-                                        <span class="badge badge-success" style="background: #e2e8f0; color: #475569; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem;">
+                                        <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
                                             ${row.irregular_no}
                                         </span>
                                     </td>
@@ -10127,28 +11078,8 @@ window.expandBarrioTroneras = expandBarrioTroneras;
 window.downloadManzanaDXF = downloadManzanaDXF;
 window.loadCiudad3DManzanasAtipicas = loadCiudad3DManzanasAtipicas;
 window.filterCiudad3DManzanasAtipicas = filterCiudad3DManzanasAtipicas;
-// LFI Manzanas Workflow JS Handlers
-async function assignManzanaLFI(seccion, manzana) {
-    if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
-    try {
-        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seccion, manzana })
-        });
-        if (res && res.ok) {
-            alert("Manzana LFI asignada con éxito.");
-            loadCiudad3DTroneras();
-        } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
-        }
-    } catch (err) {
-        console.error("Error al asignar manzana LFI:", err);
-        alert("Error de conexión con el servidor.");
-    }
-}
-
+window.assignManzanaLFI = assignManzanaLFI;
+window.openLFIFicha = openLFIFicha;
 // Unified LFI Ficha de Trabajo Handlers
 async function assignManzanaLFI(seccion, manzana) {
     if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
@@ -10204,7 +11135,7 @@ async function openLFIFicha(seccion, manzana) {
     }
     badge.style.cssText = `background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem;`;
     
-    document.getElementById('c3d-lfi-ficha-analista-nombre').innerText = row.analista_asignado || 'Sin asignar';
+    document.getElementById('c3d-lfi-ficha-analista-nombre').innerText = row.analista_nombre || row.analista_asignado || 'Sin asignar';
     document.getElementById('c3d-lfi-ficha-disposicion-input').value = row.disposicion || '';
     
     const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
@@ -10222,9 +11153,15 @@ async function openLFIFicha(seccion, manzana) {
                 <i class="fa-solid fa-user-plus"></i> Asignarme
             </button>
         `;
+    } else if (row.estado !== 'Pendiente' && (uRole === 'admin' || uRole === 'administrador')) {
+        assignContainer.innerHTML = `
+            <button onclick="unassignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #ef4444; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                <i class="fa-solid fa-rotate-left"></i> Liberar a Bandeja General
+            </button>
+        `;
     }
     
-    const downloadsContainer = document.getElementById('c3d-lfi-downloads-container');
+    const downloadsContainer = document.getElementById('c3d-lfi-ficha-downloads-container');
     downloadsContainer.innerHTML = `
         <button onclick="downloadManzanaDXF('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
             <i class="fa-solid fa-download"></i> DXF Base original
@@ -10350,6 +11287,42 @@ async function saveLFIFichaNote() {
     }
 }
 
+function openEditLFIDisposicionDirect(seccion, manzana, currentVal) {
+    document.getElementById('c3d-disposicion-seccion').value = seccion;
+    document.getElementById('c3d-disposicion-manzana').value = manzana;
+    document.getElementById('c3d-disposicion-input').value = currentVal || '';
+    
+    const modal = document.getElementById('c3d-atipicas-disposicion-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+window.openEditLFIDisposicionDirect = openEditLFIDisposicionDirect;
+
+async function saveDirectLFIDisposicion() {
+    const seccion = document.getElementById('c3d-disposicion-seccion').value;
+    const manzana = document.getElementById('c3d-disposicion-manzana').value;
+    const disposicion = document.getElementById('c3d-disposicion-input').value.trim();
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/disposicion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion, manzana, disposicion })
+        });
+        if (res && res.ok) {
+            alert("Disposición actualizada correctamente.");
+            closeModal('c3d-atipicas-disposicion-modal');
+            await loadCiudad3DTroneras();
+        } else {
+            alert("Error al actualizar la disposición.");
+        }
+    } catch (err) {
+        console.error("Error saving direct LFI disposicion:", err);
+        alert("Error de conexión al guardar la disposición.");
+    }
+}
+
 async function saveLFIFichaDisposicion() {
     const dispVal = document.getElementById('c3d-lfi-ficha-disposicion-input').value.trim();
     
@@ -10467,7 +11440,28 @@ window.saveLFIFichaNote = saveLFIFichaNote;
 window.saveLFIFichaDisposicion = saveLFIFichaDisposicion;
 window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
 window.submitLFIFichaReview = submitLFIFichaReview;
-window.downloadUploadedLFITrazado = downloadUploadedLFITrazado;
+async function unassignManzanaLFI(seccion, manzana) {
+    if (!confirm(`¿Está seguro de que desea liberar la manzana LFI ${seccion} - ${manzana} y volverla a la bandeja general (Pendiente)?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/unassign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion, manzana })
+        });
+        if (res && res.ok) {
+            alert("Manzana LFI liberada con éxito.");
+            await loadCiudad3DTroneras();
+            closeModal('c3d-lfi-ficha-modal');
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo liberar la manzana.'}`);
+        }
+    } catch (err) {
+        console.error("Error al liberar manzana LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+window.unassignManzanaLFI = unassignManzanaLFI;
 
 // Atypical window exports removed
 

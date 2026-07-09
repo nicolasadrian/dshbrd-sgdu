@@ -237,7 +237,7 @@ try:
             );
         """))
         conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS public.manzanas_lfi_notas (
+            CREATE TABLE IF NOT EXISTS public.manzanas_lfi_notes (
                 id SERIAL PRIMARY KEY,
                 seccion VARCHAR(50) NOT NULL,
                 manzana VARCHAR(50) NOT NULL,
@@ -5401,8 +5401,9 @@ def get_ciudad3d_troneras(current_user: User = Depends(get_current_user)):
         try:
             with engine.connect() as conn:
                 wf_res = conn.execute(text("""
-                    SELECT seccion, manzana, estado, analista_asignado, disposicion, archivo_trazado, archivo_finalizado
-                    FROM public.manzanas_lfi_workflow
+                    SELECT w.seccion, w.manzana, w.estado, w.analista_asignado, w.disposicion, w.archivo_trazado, w.archivo_finalizado, u.full_name
+                    FROM public.manzanas_lfi_workflow w
+                    LEFT JOIN public.auth_users u ON w.analista_asignado = u.username
                 """)).fetchall()
                 for r in wf_res:
                     key = (r[0].strip(), r[1].strip())
@@ -5411,7 +5412,8 @@ def get_ciudad3d_troneras(current_user: User = Depends(get_current_user)):
                         "analista_asignado": r[3] if r[3] else "",
                         "disposicion": r[4] if r[4] else "",
                         "archivo_trazado": r[5] if r[5] else "",
-                        "archivo_finalizado": r[6] if r[6] else ""
+                        "archivo_finalizado": r[6] if r[6] else "",
+                        "analista_nombre": r[7] if r[7] else (r[3] if r[3] else "")
                     }
         except Exception as wf_e:
             logger.error(f"Error fetching LFI workflow maps: {wf_e}")
@@ -5429,7 +5431,8 @@ def get_ciudad3d_troneras(current_user: User = Depends(get_current_user)):
                     "analista_asignado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("analista_asignado", ""),
                     "disposicion": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("disposicion", ""),
                     "archivo_trazado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("archivo_trazado", ""),
-                    "archivo_finalizado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("archivo_finalizado", "")
+                    "archivo_finalizado": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("archivo_finalizado", ""),
+                    "analista_nombre": workflow_map.get((r[1].strip(), r[2].strip()), {}).get("analista_nombre", "")
                 }
                 for r in res
             ]
@@ -5451,7 +5454,7 @@ def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_c
         existing = conn.execute(text("""
             SELECT estado FROM public.manzanas_lfi_workflow
             WHERE seccion = :s AND manzana = :m
-        """), {"s": req.seccion, "m": req.manzana}).fetchone()
+        """), {"s": req.seccion.strip(), "m": req.manzana.strip()}).fetchone()
         
         if existing and existing[0] != 'Pendiente':
             raise HTTPException(status_code=400, detail=f"Esta manzana ya está en estado '{existing[0]}'")
@@ -5461,28 +5464,197 @@ def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_c
             VALUES (:s, :m, 'En curso', :a, CURRENT_TIMESTAMP)
             ON CONFLICT (seccion, manzana) 
             DO UPDATE SET estado = 'En curso', analista_asignado = :a, updated_at = CURRENT_TIMESTAMP
-        """), {"s": req.seccion, "m": req.manzana, "a": current_user.username})
+        """), {"s": req.seccion.strip(), "m": req.manzana.strip(), "a": current_user.username})
         
     return {"status": "ok", "estado": "En curso", "analista_asignado": current_user.username}
+
+@app.post("/api/ciudad3d/manzanas_lfi/unassign")
+def unassign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden liberar asignaciones.")
+        
+    s_clean = req.seccion.strip()
+    m_clean = req.manzana.strip()
+    with engine.begin() as conn:
+        conn.execute(text("""
+            INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, estado, analista_asignado, updated_at)
+            VALUES (:s, :m, 'Pendiente', NULL, CURRENT_TIMESTAMP)
+            ON CONFLICT (seccion, manzana) 
+            DO UPDATE SET estado = 'Pendiente', analista_asignado = NULL, updated_at = CURRENT_TIMESTAMP
+        """), {"s": s_clean, "m": m_clean})
+        
+    return {"status": "ok", "estado": "Pendiente", "analista_asignado": None}
+
 
 class LFINoteRequest(BaseModel):
     seccion: str
     manzana: str
     nota: str
 
+# ─── LFI Map Tile Endpoints (ST_AsMVT) ────────────────────────────────────────
+
+LFI_MAP_LAYERS = {
+    "parcelas":     ("cur_parcelas_ok",           "geom", 22186),
+    "lfi":          ("mdr_lineadefrenteinterno",  "geom", 22186),
+    "basamento":    ("mdr_lineadebasamento",      "geom", 22186),
+    "troneras":     ("mdr_troneras",              "geom", 22186),
+    "banda_minima": ("mdr_banda_minima",          "geom", 22186),
+}
+
+def _create_lfi_gist_indexes():
+    """Crea índices GIST en las capas del mapa LFI si no existen."""
+    index_queries = [
+        "CREATE INDEX IF NOT EXISTS idx_cur_parcelas_ok_geom ON public.cur_parcelas_ok USING GIST(geom)",
+        "CREATE INDEX IF NOT EXISTS idx_mdr_lfi_geom ON public.mdr_lineadefrenteinterno USING GIST(geom)",
+        "CREATE INDEX IF NOT EXISTS idx_mdr_lineadebasamento_geom ON public.mdr_lineadebasamento USING GIST(geom)",
+        "CREATE INDEX IF NOT EXISTS idx_mdr_troneras_geom ON public.mdr_troneras USING GIST(geom)",
+        "CREATE INDEX IF NOT EXISTS idx_mdr_banda_minima_geom ON public.mdr_banda_minima USING GIST(geom)",
+    ]
+    try:
+        with geo_engine.begin() as conn:
+            for q in index_queries:
+                conn.execute(text(q))
+        logger.info("LFI Map: índices GIST verificados/creados correctamente.")
+    except Exception as e:
+        logger.warning(f"LFI Map: no se pudieron crear algunos índices GIST: {e}")
+
+# Ejecutar creación de índices al arrancar
+try:
+    _create_lfi_gist_indexes()
+except Exception:
+    pass
+
+# Cache en memoria para tiles MVT (evita queries repetidas)
+import functools, hashlib
+_lfi_tile_cache: dict = {}
+_LFI_TILE_CACHE_MAX = 500
+
+def _lfi_tile_cache_key(layer, z, x, y):
+    return f"{layer}/{z}/{x}/{y}"
+
+@app.get("/api/lfi/tiles/{layer}/{z}/{x}/{y}")
+def get_lfi_map_tile(layer: str, z: int, x: int, y: int, current_user: User = Depends(get_current_user_from_param_or_header)):
+    """Sirve Vector Tiles MVT para las capas del mapa LFI."""
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="Sin permisos para Ciudad 3D")
+    
+    # No generar tiles para zoom < 14 (demasiado costoso y no se muestra en frontend)
+    if z < 14:
+        from fastapi.responses import Response as FastResponse
+        return FastResponse(content=b"", media_type="application/x-protobuf",
+                           headers={"Cache-Control": "public, max-age=86400"})
+
+    if layer not in LFI_MAP_LAYERS:
+        raise HTTPException(status_code=404, detail=f"Capa '{layer}' no encontrada.")
+
+    # Verificar cache en memoria
+    cache_key = _lfi_tile_cache_key(layer, z, x, y)
+    if cache_key in _lfi_tile_cache:
+        mvt_bytes = _lfi_tile_cache[cache_key]
+        from fastapi.responses import Response as FastResponse
+        return FastResponse(content=bytes(mvt_bytes), media_type="application/x-protobuf",
+                           headers={"Cache-Control": "public, max-age=21600", "X-Cache": "HIT",
+                                    "Access-Control-Allow-Origin": "*"})
+    table, col, srid = LFI_MAP_LAYERS[layer]
+    
+    # Simplificación progresiva en metros (3857 usa metros)
+    if z >= 17:
+        simplify_tol = 0.0
+    elif z >= 15:
+        simplify_tol = 1.0
+    elif z >= 13:
+        simplify_tol = 3.0
+    else:
+        simplify_tol = 8.0
+
+    # Filtro espacial: bbox del tile transformada al SRID de origen para usar el índice GIST
+    bbox_filter = f"ST_Transform(ST_TileEnvelope({z}, {x}, {y}), {srid})" if srid != 3857 else f"ST_TileEnvelope({z}, {x}, {y})"
+    
+    # ST_AsMVTGeom requiere geometrías en 3857 (Web Mercator)
+    # Usamos ST_SetSRID para forzar el SRID origen antes del transform (defensive pattern)
+    if simplify_tol > 0:
+        geom_to_3857 = f"ST_Simplify(ST_Transform(ST_SetSRID({col}, {srid}), 3857), {simplify_tol})"
+    else:
+        geom_to_3857 = f"ST_Transform(ST_SetSRID({col}, {srid}), 3857)"
+
+    # Atributos extra por capa para filtrado y estilos en frontend
+    extra_cols = ""
+    extra_join = ""
+    if layer == "troneras":
+        extra_cols = ", t.seccion, t.manzana, COALESCE(UPPER(TRIM(t.irregular)), '') AS irregular"
+    elif layer in ("lfi", "basamento", "parcelas"):
+        extra_cols = ", t.seccion, t.manzana"
+    elif layer == "banda_minima":
+        # mdr_banda_minima no tiene seccion/manzana, se obtienen via JOIN con cur_parcelas_ok
+        extra_cols = ", p.seccion, p.manzana"
+        extra_join = f"LEFT JOIN public.cur_parcelas_ok p ON p.smp = {table}.smp"
+
+    # Alias de tabla en la subquery
+    table_alias = "t" if layer != "banda_minima" else table
+    from_clause = f"public.{table} t {extra_join}" if layer != "banda_minima" else f"public.{table} {extra_join}"
+    geom_col_ref = f"t.{col}" if layer != "banda_minima" else f"{table}.{col}"
+    geom_to_3857_aliased = geom_to_3857.replace(f"{col}", geom_col_ref)
+    bbox_filter_aliased = bbox_filter
+
+    query = text(f"""
+        SELECT ST_AsMVT(q, :layer_name, 4096, 'geom') AS mvt
+        FROM (
+            SELECT ST_AsMVTGeom(
+                {geom_to_3857_aliased},
+                ST_TileEnvelope({z}, {x}, {y}),
+                 4096,
+                256,
+                true
+            ) AS geom{extra_cols}
+            FROM {from_clause}
+            WHERE {geom_col_ref} IS NOT NULL
+              AND ST_SetSRID({geom_col_ref}, {srid}) && {bbox_filter_aliased}
+        ) q
+        WHERE q.geom IS NOT NULL
+    """)
+    
+    try:
+        with geo_engine.connect() as conn:
+            result = conn.execute(query, {"layer_name": layer}).fetchone()
+            mvt_bytes = result[0] if result else b""
+            if mvt_bytes is None:
+                mvt_bytes = b""
+            # Guardar en cache (con límite de tamaño)
+            if len(_lfi_tile_cache) >= _LFI_TILE_CACHE_MAX:
+                # Eliminar entrada más antigua
+                oldest = next(iter(_lfi_tile_cache))
+                del _lfi_tile_cache[oldest]
+            _lfi_tile_cache[cache_key] = bytes(mvt_bytes)
+
+        from fastapi.responses import Response as FastResponse
+        return FastResponse(
+            content=bytes(mvt_bytes),
+            media_type="application/x-protobuf",
+            headers={
+                "Cache-Control": "public, max-age=21600",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generando tile MVT para capa {layer} ({z}/{x}/{y}): {e}")
+        raise HTTPException(status_code=500, detail=f"Error generando tile: {e}")
+
+
 @app.get("/api/ciudad3d/manzanas_lfi/notes")
 def get_manzana_lfi_notes(seccion: str, manzana: str, current_user: User = Depends(get_current_user)):
     if not current_user.permissions.get("ciudad_3d"):
         raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
     
+    s_clean = seccion.strip()
+    m_clean = manzana.strip()
     with engine.connect() as conn:
         res = conn.execute(text("""
             SELECT n.id, n.username, n.nota, n.created_at, u.full_name
             FROM public.manzanas_lfi_notes n
             LEFT JOIN public.auth_users u ON n.username = u.username
-            WHERE n.seccion = :s AND n.manzana = :m
+            WHERE TRIM(n.seccion) = :s AND TRIM(n.manzana) = :m
             ORDER BY n.created_at DESC
-        """), {"s": seccion, "m": manzana}).fetchall()
+        """), {"s": s_clean, "m": m_clean}).fetchall()
         
         return [
             {
@@ -5500,11 +5672,13 @@ def add_manzana_lfi_note(req: LFINoteRequest, current_user: User = Depends(get_c
     if not current_user.permissions.get("ciudad_3d"):
         raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
     
+    s_clean = req.seccion.strip()
+    m_clean = req.manzana.strip()
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
             VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
-        """), {"s": req.seccion, "m": req.manzana, "u": current_user.username, "n": req.nota})
+        """), {"s": s_clean, "m": m_clean, "u": current_user.username, "n": req.nota})
         
     return {"status": "ok"}
 
@@ -5654,13 +5828,15 @@ def update_manzana_lfi_disposicion(req: LFIDisposicionRequest, current_user: Use
     if current_user.role.lower() not in ['troneras', 'troneras-visor', 'admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tiene permisos para actualizar la disposición.")
         
+    s_clean = req.seccion.strip()
+    m_clean = req.manzana.strip()
     with engine.begin() as conn:
         conn.execute(text("""
             INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, disposicion, updated_at)
             VALUES (:s, :m, :d, CURRENT_TIMESTAMP)
             ON CONFLICT (seccion, manzana)
             DO UPDATE SET disposicion = :d, updated_at = CURRENT_TIMESTAMP
-        """), {"s": req.seccion, "m": req.manzana, "d": req.disposicion})
+        """), {"s": s_clean, "m": m_clean, "d": req.disposicion})
         
     return {"status": "ok"}
 
