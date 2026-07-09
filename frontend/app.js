@@ -11136,6 +11136,8 @@ async function openLFIFicha(seccion, manzana) {
     document.getElementById('c3d-lfi-ficha-analista-nombre').innerText = row.analista_nombre || row.analista_asignado || 'Sin asignar';
     document.getElementById('c3d-lfi-ficha-disposicion-input').value = row.disposicion || '';
     
+    const uRole = (currentUser && currentUser.role || '').toLowerCase();
+    const uName = currentUser && currentUser.username || '';
     const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
     const canManageTroneras = !!uPerms.lfi_dibujar;
     const canReviewTroneras = !!uPerms.lfi_revisar;
