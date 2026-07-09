@@ -270,10 +270,10 @@ try:
         if roles_count == 0:
             import json
             default_roles = [
-                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True})),
-                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True})),
-                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": True, "ciudad_3d": True})),
-                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": False, "ciudad_3d": False}))
+                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": True, "lfi_revisar": True})),
+                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": True, "lfi_revisar": True})),
+                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": False, "lfi_revisar": False})),
+                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": False, "ciudad_3d": False, "lfi_dibujar": False, "lfi_revisar": False}))
             ]
             for r_name, r_perms in default_roles:
                 conn.execute(text("INSERT INTO auth_roles (role_name, permissions) VALUES (:n, :p)"), {"n": r_name, "p": r_perms})
@@ -319,6 +319,29 @@ try:
                 SET permissions = permissions || '{"ciudad_3d": false}'::jsonb
                 WHERE NOT (permissions ? 'ciudad_3d')
             """))
+            # Migrations for lfi_dibujar
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"lfi_dibujar": true}'::jsonb
+                WHERE NOT (permissions ? 'lfi_dibujar') AND role_name IN ('administrador', 'admin', 'troneras')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"lfi_dibujar": false}'::jsonb
+                WHERE NOT (permissions ? 'lfi_dibujar')
+            """))
+            # Migrations for lfi_revisar
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"lfi_revisar": true}'::jsonb
+                WHERE NOT (permissions ? 'lfi_revisar') AND role_name IN ('administrador', 'admin', 'troneras-visor')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"lfi_revisar": false}'::jsonb
+                WHERE NOT (permissions ? 'lfi_revisar')
+            """))
+            # User overrides synchronization
             conn.execute(text("""
                 UPDATE auth_users 
                 SET permissions = permissions || '{"ciudad_3d": true}'::jsonb
@@ -331,6 +354,32 @@ try:
                 SET permissions = permissions || '{"ciudad_3d": false}'::jsonb
                 WHERE permissions IS NOT NULL 
                   AND NOT (permissions ? 'ciudad_3d')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users 
+                SET permissions = permissions || '{"lfi_dibujar": true}'::jsonb
+                WHERE permissions IS NOT NULL 
+                  AND NOT (permissions ? 'lfi_dibujar')
+                  AND role IN ('administrador', 'admin', 'troneras')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users 
+                SET permissions = permissions || '{"lfi_dibujar": false}'::jsonb
+                WHERE permissions IS NOT NULL 
+                  AND NOT (permissions ? 'lfi_dibujar')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users 
+                SET permissions = permissions || '{"lfi_revisar": true}'::jsonb
+                WHERE permissions IS NOT NULL 
+                  AND NOT (permissions ? 'lfi_revisar')
+                  AND role IN ('administrador', 'admin', 'troneras-visor')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users 
+                SET permissions = permissions || '{"lfi_revisar": false}'::jsonb
+                WHERE permissions IS NOT NULL 
+                  AND NOT (permissions ? 'lfi_revisar')
             """))
             
             # Synchronize missing permission keys from roles to user overrides
@@ -5447,8 +5496,8 @@ class LFIAssignRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_lfi/assign")
 def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para asignarse manzanas.")
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para asignarse manzanas.")
     
     with engine.begin() as conn:
         existing = conn.execute(text("""
@@ -5690,8 +5739,8 @@ async def upload_trazado_lfi(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para subir trazados.")
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir trazados.")
         
     with engine.connect() as conn:
         existing = conn.execute(text("""
@@ -5738,8 +5787,8 @@ async def review_manzana_lfi(
     file_final: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role.lower() not in ['troneras-visor', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras-visor' para revisar manzanas.")
+    if not (current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras-visor', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de revisión de LFI ('lfi_revisar') para revisar manzanas.")
         
     with engine.begin() as conn:
         existing = conn.execute(text("""
@@ -5826,8 +5875,8 @@ class LFIDisposicionRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_lfi/disposicion")
 def update_manzana_lfi_disposicion(req: LFIDisposicionRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['troneras', 'troneras-visor', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene permisos para actualizar la disposición.")
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras', 'troneras-visor', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo o revisión de LFI ('lfi_dibujar'/'lfi_revisar') para actualizar la disposición.")
         
     s_clean = req.seccion.strip()
     m_clean = req.manzana.strip()
@@ -5886,8 +5935,8 @@ class AssignRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_atipicas/assign")
 def assign_manzana_atipica(req: AssignRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para asignarse manzanas.")
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para asignarse manzanas.")
     
     with engine.begin() as conn:
         existing = conn.execute(text("""
@@ -5958,8 +6007,8 @@ async def upload_trazado(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role.lower() not in ['troneras', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras' para subir archivos.")
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir archivos.")
         
     with engine.connect() as conn:
         existing = conn.execute(text("""
@@ -6005,8 +6054,8 @@ class ReviewRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_atipicas/review")
 def review_manzana_atipica(req: ReviewRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['troneras-visor', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene el rol 'troneras-visor' para revisar manzanas.")
+    if not (current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras-visor', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de revisión de LFI ('lfi_revisar') para revisar manzanas.")
         
     with engine.begin() as conn:
         existing = conn.execute(text("""
@@ -6068,8 +6117,8 @@ class DisposicionRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_atipicas/disposicion")
 def update_manzana_atipica_disposicion(req: DisposicionRequest, current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['troneras', 'troneras-visor', 'admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tiene permisos para actualizar la disposición.")
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras', 'troneras-visor', 'admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo o revisión de LFI ('lfi_dibujar'/'lfi_revisar') para actualizar la disposición.")
         
     with engine.begin() as conn:
         conn.execute(text("""

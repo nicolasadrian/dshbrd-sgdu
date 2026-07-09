@@ -1981,6 +1981,8 @@ const PERMISSION_GROUPS = {
     },
     "Visualización & Datos": {
         ciudad_3d: { label: "Ciudad 3D", desc: "Acceso al módulo de Línea de Frente Interno de Ciudad 3D." },
+        lfi_dibujar: { label: "LFI: Dibujar Trazados", desc: "Permiso para asignarse manzanas y subir borrador de trazado de LFI (Troneras)." },
+        lfi_revisar: { label: "LFI: Revisar Trazados", desc: "Permiso para revisar, aprobar/rechazar trazado finalizado de LFI (Visor)." },
         analytics_estadistica: { label: "Analytics (Estadística)", desc: "Acceso a tableros estadísticos interactivos de trámites." },
         ley_blanqueo: { label: "Analytics (Ley de Blanqueo)", desc: "Acceso a reportes del blanqueo de capitales." },
         analytics_datasets: { label: "Analytics (Datasets)", desc: "Descarga de datasets crudos del tablero." },
@@ -10077,8 +10079,9 @@ async function loadCiudad3DTroneras() {
             // Set tab visibilities based on roles
             const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
             const uRole = (userObj.role || '').toLowerCase();
-            const canManageTroneras = (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
-            const canReviewTroneras = (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+            const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
+            const canManageTroneras = !!uPerms.lfi_dibujar || (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
+            const canReviewTroneras = !!uPerms.lfi_revisar || (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
             
             const btnMisTrazados = document.getElementById('lfi-tab-btn-mis-trazados');
             const btnRevision = document.getElementById('lfi-tab-btn-revision');
@@ -10677,9 +10680,10 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
     const uRole = (userObj.role || '').toLowerCase();
     const uName = userObj.username || '';
     
-    const canManageTroneras = (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
-    const canReviewTroneras = (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
-    const canEditDispo = (uRole === 'troneras' || uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
+    const canManageTroneras = !!uPerms.lfi_dibujar || (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
+    const canReviewTroneras = !!uPerms.lfi_revisar || (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    const canEditDispo = canManageTroneras || canReviewTroneras;
 
     let count = 0;
     sortedBarrioNames.forEach(bName => {
@@ -11142,8 +11146,9 @@ async function openLFIFicha(seccion, manzana) {
     const uRole = (userObj.role || '').toLowerCase();
     const uName = userObj.username || '';
     
-    const canManageTroneras = (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
-    const canReviewTroneras = (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
+    const canManageTroneras = !!uPerms.lfi_dibujar || (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
+    const canReviewTroneras = !!uPerms.lfi_revisar || (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
     
     const assignContainer = document.getElementById('c3d-lfi-ficha-asignar-container');
     assignContainer.innerHTML = '';
