@@ -5542,7 +5542,8 @@ def get_lfi_map_tile(layer: str, z: int, x: int, y: int, current_user: User = De
     if z < 14:
         from fastapi.responses import Response as FastResponse
         return FastResponse(content=b"", media_type="application/x-protobuf",
-                           headers={"Cache-Control": "public, max-age=86400"})
+                           headers={"Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*"})
+
 
     if layer not in LFI_MAP_LAYERS:
         raise HTTPException(status_code=404, detail=f"Capa '{layer}' no encontrada.")
