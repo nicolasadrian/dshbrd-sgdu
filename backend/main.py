@@ -266,6 +266,34 @@ try:
         conn.execute(text("""
             ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS permissions JSONB DEFAULT NULL
         """))
+        # dynamic families DDL
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.cfg_tramites_familias (
+                id SERIAL PRIMARY KEY,
+                nombre VARCHAR(100) UNIQUE NOT NULL,
+                tratas JSONB NOT NULL DEFAULT '[]'::jsonb
+            )
+        """))
+        fam_count = conn.execute(text("SELECT COUNT(*) FROM public.cfg_tramites_familias")).scalar()
+        if fam_count == 0:
+            import json
+            default_familias = {
+                "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
+                "Registros": ["MDUG3001A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
+                "Incendio": ["MDUG2101A"],
+                "Conforme": ["MDUG0141A", "MDUG0104A"],
+                "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
+                "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
+                "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
+                "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A"],
+                "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A"],
+                "Otros": ["MDUG0901A", "MDUG0120A", "MDUG0102B", "MDUG0107A", "MJGG1601A", "MDUG0904A", "MDUG3801A", "MJGG1701A", "MDUG1802A"]
+            }
+            for name, tratas in default_familias.items():
+                conn.execute(
+                    text("INSERT INTO public.cfg_tramites_familias (nombre, tratas) VALUES (:n, :t) ON CONFLICT DO NOTHING"),
+                    {"n": name, "t": json.dumps(tratas)}
+                )
         roles_count = conn.execute(text("SELECT COUNT(*) FROM auth_roles")).scalar()
         if roles_count == 0:
             import json
@@ -748,6 +776,38 @@ async def delete_role(role_name: str, current_user: User = Depends(get_current_u
         with engine.begin() as conn:
             conn.execute(text("DELETE FROM auth_roles WHERE role_name = :n"), {"n": role_name})
             return {"status": "ok", "message": f"Rol {role_name} eliminado"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints de Familias de Trámites (Admin) ---
+
+class FamiliaUpdate(BaseModel):
+    tratas: List[str]
+
+@app.get("/api/admin/familias")
+async def list_admin_familias(current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT id, nombre, tratas FROM public.cfg_tramites_familias ORDER BY id"))
+            return [dict(r._mapping) for r in result]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/admin/familias/{nombre}")
+async def update_admin_familia(nombre: str, data: FamiliaUpdate, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        import json
+        clean_tratas = [t.strip().upper() for t in data.tratas if t.strip()]
+        with engine.begin() as conn:
+            conn.execute(
+                text("UPDATE public.cfg_tramites_familias SET tratas = :t WHERE nombre = :n"),
+                {"t": json.dumps(clean_tratas), "n": nombre}
+            )
+            return {"status": "ok", "message": f"Familia {nombre} actualizada"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1622,18 +1682,13 @@ async def get_reporte_familia(
 
 @app.get("/api/reporte/familias_overview")
 async def get_reporte_familias_overview(current_user: User = Depends(get_current_user)):
-    FAMILIAS_CONFIG = {
-        "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
-        "Registros": ["MDUG3001A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
-        "Incendio": ["MDUG2101A"],
-        "Conforme": ["MDUG0141A", "MDUG0104A"],
-        "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
-        "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
-        "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
-        "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A"],
-        "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A"],
-        "Otros": ["MDUG0901A", "MDUG0120A", "MDUG0102B", "MDUG0107A", "MJGG1601A", "MDUG0904A", "MDUG3801A", "MJGG1701A", "MDUG1802A"]
-    }
+    try:
+        with engine.connect() as conn:
+            db_rows = conn.execute(text("SELECT nombre, tratas FROM public.cfg_tramites_familias ORDER BY id")).fetchall()
+            FAMILIAS_CONFIG = {r[0]: r[1] for r in db_rows}
+    except Exception as db_err:
+        logger.error(f"Error reading families config from DB: {db_err}")
+        FAMILIAS_CONFIG = {}
     
     trata_to_gerencia = {}
     for g, cfg in TRAMITES_CONFIG.items():
@@ -1744,7 +1799,8 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                     "progress_pct": progress_pct,
                     "variation_pct": variation_pct,
                     "trata_count": len(tratas),
-                    "description": descriptions.get(family_name, "")
+                    "tratas": tratas,
+                    "description": descriptions.get(family_name, f"{len(tratas)} trámites")
                 })
                 
         return results

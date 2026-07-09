@@ -2532,6 +2532,8 @@ function enterBacklogSection(sectionName) {
             subBread.innerText = ' / Configuración de Roles';
         } else if (sectionName === 'buzones_acceso') {
             subBread.innerText = ' / Acceso a Buzones';
+        } else if (sectionName === 'familias') {
+            subBread.innerText = ' / Familias de Trámites';
         }
         subBread.style.display = 'inline';
     }
@@ -2546,6 +2548,8 @@ function enterBacklogSection(sectionName) {
         loadAdminRoles();
     } else if (sectionName === 'buzones_acceso') {
         loadBuzonesAccesoConfig();
+    } else if (sectionName === 'familias') {
+        loadAdminFamilias();
     }
 }
 
@@ -3586,18 +3590,7 @@ async function exportSlaCardDetail(event, gerencia, trataCode) {
 
 
 // --- FAMILIAS DE TRÁMITES ---
-const FAMILIAS_CONFIG = {
-    "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
-    "Registros": ["MDUG3001A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
-    "Incendio": ["MDUG2101A"],
-    "Conforme": ["MDUG0141A", "MDUG0104A"],
-    "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
-    "Otros": ["MDUG0901A", "MDUG0120A", "MDUG0102B", "MDUG0107A", "MJGG1601A", "MDUG0904A", "MDUG3801A", "MJGG1701A", "MDUG1802A"],
-    "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
-    "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
-    "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A"],
-    "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A"]
-};
+let FAMILIAS_CONFIG = {};
 
 const TRATA_NAMES_LOOKUP = {
     "MDUG0134N": "Constitución De Estado Parcelario",
@@ -3655,7 +3648,7 @@ const TRATA_NAMES_LOOKUP = {
 let familyChart = null;
 let currentFamily = "";
 
-function enterFamily(familyName) {
+async function enterFamily(familyName) {
     currentFamily = familyName;
 
     // Ocultar selector, mostrar dashboard
@@ -3664,6 +3657,22 @@ function enterFamily(familyName) {
 
     // Cambiar título del dashboard
     document.getElementById('family-dashboard-title').innerText = familyName;
+
+    // Si FAMILIAS_CONFIG está vacío, cargar el overview primero
+    if (!FAMILIAS_CONFIG || Object.keys(FAMILIAS_CONFIG).length === 0) {
+        try {
+            const response = await def_fetch(`${API_BASE}/reporte/familias_overview`);
+            if (response && response.ok) {
+                const data = await response.json();
+                FAMILIAS_CONFIG = {};
+                data.forEach(f => {
+                    FAMILIAS_CONFIG[f.family_name] = f.tratas || [];
+                });
+            }
+        } catch (e) {
+            console.error("Error loading families config inside enterFamily:", e);
+        }
+    }
 
     // Generar checkboxes para la familia
     const tratas = FAMILIAS_CONFIG[familyName] || [];
@@ -3711,6 +3720,12 @@ async function backToFamilySelector() {
         if (!response || !response.ok) throw new Error("Error fetching families overview.");
 
         const data = await response.json();
+        
+        // Populate FAMILIAS_CONFIG dynamically
+        FAMILIAS_CONFIG = {};
+        data.forEach(f => {
+            FAMILIAS_CONFIG[f.family_name] = f.tratas || [];
+        });
 
         const now = new Date();
         const currentDay = now.getDate();
@@ -11460,7 +11475,103 @@ async function unassignManzanaLFI(seccion, manzana) {
 }
 window.unassignManzanaLFI = unassignManzanaLFI;
 
-// Atypical window exports removed
+// --- ADMIN FAMILIAS DE TRÁMITES ---
+let adminFamiliasLoadedList = [];
+
+async function loadAdminFamilias() {
+    const tbody = document.getElementById('admin-familias-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Cargando familias...</p></td></tr>';
+
+    try {
+        const response = await def_fetch(`${API_BASE}/admin/familias`);
+        if (!response || !response.ok) throw new Error("Error loading admin families");
+        adminFamiliasLoadedList = await response.json();
+
+        tbody.innerHTML = adminFamiliasLoadedList.map(fam => {
+            const tratasString = fam.tratas && fam.tratas.length > 0 
+                ? fam.tratas.map(t => `<span class="badge-blue" style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:4px; padding:2px 6px; font-size:0.75rem; font-weight:600; margin-right:4px; display:inline-block; margin-bottom:4px;">${t}</span>`).join('')
+                : '<span style="color:#94a3b8; font-style:italic;">Ninguno</span>';
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px 16px; font-weight:700; color:#1e293b;">${fam.nombre}</td>
+                    <td style="padding: 12px 16px;">${tratasString}</td>
+                    <td style="padding: 12px 16px; text-align:center;">
+                        <button onclick="editAdminFamilia('${fam.nombre}')" class="btn-action-view" style="background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:700; font-family:'Outfit';">
+                            <i class="fa-solid fa-edit"></i> Editar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error("Error loading families in admin panel:", err);
+        tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ef4444; padding: 2rem;">Error al cargar las familias de trámites.</td></tr>`;
+    }
+}
+
+function editAdminFamilia(nombre) {
+    const fam = adminFamiliasLoadedList.find(f => f.nombre === nombre);
+    if (!fam) return;
+
+    document.getElementById('admin-familia-nombre').value = fam.nombre;
+
+    const checkboxesContainer = document.getElementById('admin-familia-tratas-checkboxes-container');
+    if (!checkboxesContainer) return;
+
+    // Get all available unique codes of tratas from TRATA_NAMES_LOOKUP keys
+    const allAvailableTratas = Object.keys(TRATA_NAMES_LOOKUP).sort();
+    
+    checkboxesContainer.innerHTML = allAvailableTratas.map(trata => {
+        const desc = TRATA_NAMES_LOOKUP[trata] || "Trámite Especial";
+        const isChecked = fam.tratas && fam.tratas.includes(trata) ? 'checked' : '';
+        return `
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 4px; border-radius: 4px; cursor: pointer; transition: background 0.1s; user-select:none;">
+                <input type="checkbox" name="admin-trata-item" value="${trata}" ${isChecked} style="accent-color: var(--primary);">
+                <span title="${desc}"><strong>${trata}</strong> - ${desc}</span>
+            </label>
+        `;
+    }).join('');
+}
+
+async function saveAdminFamilia(event) {
+    if (event) event.preventDefault();
+
+    const nombre = document.getElementById('admin-familia-nombre').value;
+    if (!nombre) {
+        alert("Seleccione primero una familia para configurar.");
+        return;
+    }
+
+    const checkboxes = document.querySelectorAll('input[name="admin-trata-item"]:checked');
+    const selectedTratas = Array.from(checkboxes).map(cb => cb.value);
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/familias/${encodeURIComponent(nombre)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tratas: selectedTratas })
+        });
+
+        if (res && res.ok) {
+            alert("Familia de trámites guardada con éxito.");
+            await loadAdminFamilias();
+            // Clear editing fields
+            document.getElementById('admin-familia-nombre').value = '';
+            document.getElementById('admin-familia-tratas-checkboxes-container').innerHTML = '';
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo guardar la familia"}`);
+        }
+    } catch (err) {
+        console.error("Error saving admin family:", err);
+        alert("Error de red al guardar los cambios.");
+    }
+}
+
+window.loadAdminFamilias = loadAdminFamilias;
+window.editAdminFamilia = editAdminFamilia;
+window.saveAdminFamilia = saveAdminFamilia;
 
 
 
