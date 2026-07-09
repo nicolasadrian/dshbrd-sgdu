@@ -11477,6 +11477,7 @@ window.unassignManzanaLFI = unassignManzanaLFI;
 
 // --- ADMIN FAMILIAS DE TRÁMITES ---
 let adminFamiliasLoadedList = [];
+let adminFamiliaEditMode = 'edit'; // 'edit' or 'create'
 
 async function loadAdminFamilias() {
     const tbody = document.getElementById('admin-familias-table-body');
@@ -11494,11 +11495,14 @@ async function loadAdminFamilias() {
                 : '<span style="color:#94a3b8; font-style:italic;">Ninguno</span>';
             return `
                 <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <td style="padding: 12px 16px; font-weight:700; color:#1e293b;">${fam.nombre}</td>
+                    <td style="padding: 12px 16px; font-weight:700; color:#1e293b; font-family:'Outfit';">${fam.nombre}</td>
                     <td style="padding: 12px 16px;">${tratasString}</td>
-                    <td style="padding: 12px 16px; text-align:center;">
-                        <button onclick="editAdminFamilia('${fam.nombre}')" class="btn-action-view" style="background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:700; font-family:'Outfit';">
+                    <td style="padding: 12px 16px; text-align:center; display:flex; gap:6px; justify-content:center; align-items:center;">
+                        <button onclick="editAdminFamilia('${fam.nombre}')" class="btn-action-view" style="background:#e0f2fe; color:#0369a1; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:700; font-family:'Outfit'; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px;">
                             <i class="fa-solid fa-edit"></i> Editar
+                        </button>
+                        <button onclick="deleteAdminFamilia('${fam.nombre}')" class="btn-action-delete" style="background:#fee2e2; color:#b91c1c; border:none; border-radius:6px; padding:6px 12px; cursor:pointer; font-weight:700; font-family:'Outfit'; font-size:0.8rem; display:inline-flex; align-items:center; gap:4px;">
+                            <i class="fa-solid fa-trash"></i> Borrar
                         </button>
                     </td>
                 </tr>
@@ -11510,36 +11514,122 @@ async function loadAdminFamilias() {
     }
 }
 
-function editAdminFamilia(nombre) {
-    const fam = adminFamiliasLoadedList.find(f => f.nombre === nombre);
-    if (!fam) return;
+function setAdminFamiliaCreateMode() {
+    adminFamiliaEditMode = 'create';
+    
+    const title = document.getElementById('admin-familia-form-title');
+    if (title) title.innerText = "Crear Nueva Familia";
 
-    document.getElementById('admin-familia-nombre').value = fam.nombre;
+    const nombreInput = document.getElementById('admin-familia-nombre');
+    if (nombreInput) {
+        nombreInput.removeAttribute('readonly');
+        nombreInput.style.background = '#ffffff';
+        nombreInput.style.color = '#1e293b';
+        nombreInput.value = '';
+        nombreInput.placeholder = "Nombre de la nueva familia...";
+        nombreInput.focus();
+    }
+
+    const searchInput = document.getElementById('admin-familia-tratas-search');
+    if (searchInput) searchInput.value = '';
 
     const checkboxesContainer = document.getElementById('admin-familia-tratas-checkboxes-container');
     if (!checkboxesContainer) return;
 
-    // Get all available unique codes of tratas from TRATA_NAMES_LOOKUP keys
     const allAvailableTratas = Object.keys(TRATA_NAMES_LOOKUP).sort();
-    
     checkboxesContainer.innerHTML = allAvailableTratas.map(trata => {
         const desc = TRATA_NAMES_LOOKUP[trata] || "Trámite Especial";
-        const isChecked = fam.tratas && fam.tratas.includes(trata) ? 'checked' : '';
         return `
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 4px; border-radius: 4px; cursor: pointer; transition: background 0.1s; user-select:none;">
-                <input type="checkbox" name="admin-trata-item" value="${trata}" ${isChecked} style="accent-color: var(--primary);">
-                <span title="${desc}"><strong>${trata}</strong> - ${desc}</span>
+            <label class="admin-trata-checkbox-label" style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select:none; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:2px;" onclick="styleCheckedTrataLabel(this)">
+                <input type="checkbox" name="admin-trata-item" value="${trata}" style="accent-color: var(--primary); width:16px; height:16px;" onchange="styleCheckedTrataLabel(this.parentNode)">
+                <span style="color:#334155; line-height:1.2;"><strong>${trata}</strong> - ${desc}</span>
             </label>
         `;
     }).join('');
 }
 
+function editAdminFamilia(nombre) {
+    adminFamiliaEditMode = 'edit';
+
+    const title = document.getElementById('admin-familia-form-title');
+    if (title) title.innerText = "Configurar Familia";
+
+    const fam = adminFamiliasLoadedList.find(f => f.nombre === nombre);
+    if (!fam) return;
+
+    const nombreInput = document.getElementById('admin-familia-nombre');
+    if (nombreInput) {
+        nombreInput.setAttribute('readonly', 'true');
+        nombreInput.style.background = '#f8fafc';
+        nombreInput.style.color = '#64748b';
+        nombreInput.value = fam.nombre;
+    }
+
+    const searchInput = document.getElementById('admin-familia-tratas-search');
+    if (searchInput) searchInput.value = '';
+
+    const checkboxesContainer = document.getElementById('admin-familia-tratas-checkboxes-container');
+    if (!checkboxesContainer) return;
+
+    const allAvailableTratas = Object.keys(TRATA_NAMES_LOOKUP).sort();
+    
+    checkboxesContainer.innerHTML = allAvailableTratas.map(trata => {
+        const desc = TRATA_NAMES_LOOKUP[trata] || "Trámite Especial";
+        const isChecked = fam.tratas && fam.tratas.includes(trata);
+        const checkedAttr = isChecked ? 'checked' : '';
+        const bgStyle = isChecked ? 'background:#f0fdf4; border-color:#bbf7d0;' : 'background:#ffffff; border-color:#e2e8f0;';
+        return `
+            <label class="admin-trata-checkbox-label" style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select:none; ${bgStyle} margin-bottom:2px;">
+                <input type="checkbox" name="admin-trata-item" value="${trata}" ${checkedAttr} style="accent-color: var(--primary); width:16px; height:16px;" onchange="styleCheckedTrataLabel(this.parentNode)">
+                <span style="color:#334155; line-height:1.2;"><strong>${trata}</strong> - ${desc}</span>
+            </label>
+        `;
+    }).join('');
+}
+
+function styleCheckedTrataLabel(labelElement) {
+    if (!labelElement) return;
+    const checkbox = labelElement.querySelector('input[type="checkbox"]');
+    if (checkbox && checkbox.checked) {
+        labelElement.style.background = '#f0fdf4';
+        labelElement.style.borderColor = '#bbf7d0';
+    } else {
+        labelElement.style.background = '#ffffff';
+        labelElement.style.borderColor = '#e2e8f0';
+    }
+}
+
+function filterAdminTratas() {
+    const query = (document.getElementById('admin-familia-tratas-search').value || '').toLowerCase().trim();
+    const labels = document.querySelectorAll('.admin-trata-checkbox-label');
+    labels.forEach(label => {
+        const text = label.textContent.toLowerCase();
+        if (text.includes(query)) {
+            label.style.display = 'flex';
+        } else {
+            label.style.display = 'none';
+        }
+    });
+}
+
+function selectAdminTratas(checked) {
+    const checkboxes = document.querySelectorAll('input[name="admin-trata-item"]');
+    checkboxes.forEach(cb => {
+        // Only modify checkboxes that are currently visible
+        const label = cb.parentNode;
+        if (label && label.style.display !== 'none') {
+            cb.checked = checked;
+            styleCheckedTrataLabel(label);
+        }
+    });
+}
+
 async function saveAdminFamilia(event) {
     if (event) event.preventDefault();
 
-    const nombre = document.getElementById('admin-familia-nombre').value;
+    const nombre = (document.getElementById('admin-familia-nombre').value || '').trim();
     if (!nombre) {
-        alert("Seleccione primero una familia para configurar.");
+        alert("Escriba o seleccione primero una familia para configurar.");
         return;
     }
 
@@ -11547,21 +11637,40 @@ async function saveAdminFamilia(event) {
     const selectedTratas = Array.from(checkboxes).map(cb => cb.value);
 
     try {
-        const res = await def_fetch(`${API_BASE}/admin/familias/${encodeURIComponent(nombre)}`, {
-            method: 'PUT',
+        let url = `${API_BASE}/admin/familias`;
+        let method = 'POST';
+
+        if (adminFamiliaEditMode === 'edit') {
+            url = `${API_BASE}/admin/familias/${encodeURIComponent(nombre)}`;
+            method = 'PUT';
+        }
+
+        const res = await def_fetch(url, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tratas: selectedTratas })
+            body: JSON.stringify({ nombre: nombre, tratas: selectedTratas })
         });
 
         if (res && res.ok) {
-            alert("Familia de trámites guardada con éxito.");
+            alert(adminFamiliaEditMode === 'create' ? "Familia creada con éxito." : "Familia guardada con éxito.");
             await loadAdminFamilias();
-            // Clear editing fields
+            // Clear fields
             document.getElementById('admin-familia-nombre').value = '';
             document.getElementById('admin-familia-tratas-checkboxes-container').innerHTML = '';
+            document.getElementById('admin-familia-tratas-search').value = '';
+            // Reset mode
+            adminFamiliaEditMode = 'edit';
+            const title = document.getElementById('admin-familia-form-title');
+            if (title) title.innerText = "Configurar Familia";
+            const nombreInput = document.getElementById('admin-familia-nombre');
+            if (nombreInput) {
+                nombreInput.setAttribute('readonly', 'true');
+                nombreInput.style.background = '#f8fafc';
+                nombreInput.style.color = '#64748b';
+            }
         } else {
             const err = await res.json();
-            alert(`Error: ${err.detail || "No se pudo guardar la familia"}`);
+            alert(`Error: ${err.detail || "No se pudo procesar la familia"}`);
         }
     } catch (err) {
         console.error("Error saving admin family:", err);
@@ -11569,9 +11678,41 @@ async function saveAdminFamilia(event) {
     }
 }
 
+async function deleteAdminFamilia(nombre) {
+    if (!confirm(`¿Está seguro de que desea eliminar la familia "${nombre}"? Esta acción no se puede deshacer.`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/familias/${encodeURIComponent(nombre)}`, {
+            method: 'DELETE'
+        });
+
+        if (res && res.ok) {
+            alert("Familia eliminada con éxito.");
+            await loadAdminFamilias();
+            // Clear editing fields if they correspond to deleted family
+            const currentEditing = document.getElementById('admin-familia-nombre').value;
+            if (currentEditing === nombre) {
+                document.getElementById('admin-familia-nombre').value = '';
+                document.getElementById('admin-familia-tratas-checkboxes-container').innerHTML = '';
+            }
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo eliminar la familia"}`);
+        }
+    } catch (err) {
+        console.error("Error deleting family:", err);
+        alert("Error de red al intentar eliminar la familia.");
+    }
+}
+
 window.loadAdminFamilias = loadAdminFamilias;
 window.editAdminFamilia = editAdminFamilia;
+window.setAdminFamiliaCreateMode = setAdminFamiliaCreateMode;
+window.styleCheckedTrataLabel = styleCheckedTrataLabel;
+window.filterAdminTratas = filterAdminTratas;
+window.selectAdminTratas = selectAdminTratas;
 window.saveAdminFamilia = saveAdminFamilia;
+window.deleteAdminFamilia = deleteAdminFamilia;
 
 
 

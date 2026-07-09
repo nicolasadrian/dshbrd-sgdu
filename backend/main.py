@@ -784,6 +784,10 @@ async def delete_role(role_name: str, current_user: User = Depends(get_current_u
 class FamiliaUpdate(BaseModel):
     tratas: List[str]
 
+class FamiliaCreate(BaseModel):
+    nombre: str
+    tratas: List[str]
+
 @app.get("/api/admin/familias")
 async def list_admin_familias(current_user: User = Depends(get_current_user)):
     if current_user.role.lower() not in ['admin', 'administrador']:
@@ -794,6 +798,25 @@ async def list_admin_familias(current_user: User = Depends(get_current_user)):
             return [dict(r._mapping) for r in result]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/familias")
+async def create_admin_familia(data: FamiliaCreate, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    name_clean = data.nombre.strip()
+    if not name_clean:
+        raise HTTPException(status_code=400, detail="El nombre de la familia no puede estar vacío")
+    try:
+        import json
+        clean_tratas = [t.strip().upper() for t in data.tratas if t.strip()]
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO public.cfg_tramites_familias (nombre, tratas) VALUES (:n, :t)"),
+                {"n": name_clean, "t": json.dumps(clean_tratas)}
+            )
+            return {"status": "ok", "message": f"Familia {name_clean} creada con éxito"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al crear familia (tal vez ya existe): {str(e)}")
 
 @app.put("/api/admin/familias/{nombre}")
 async def update_admin_familia(nombre: str, data: FamiliaUpdate, current_user: User = Depends(get_current_user)):
@@ -808,6 +831,20 @@ async def update_admin_familia(nombre: str, data: FamiliaUpdate, current_user: U
                 {"t": json.dumps(clean_tratas), "n": nombre}
             )
             return {"status": "ok", "message": f"Familia {nombre} actualizada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/familias/{nombre}")
+async def delete_admin_familia(nombre: str, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("DELETE FROM public.cfg_tramites_familias WHERE nombre = :n"),
+                {"n": nombre}
+            )
+            return {"status": "ok", "message": f"Familia {nombre} eliminada"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

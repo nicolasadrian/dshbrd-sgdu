@@ -2019,37 +2019,59 @@
                     <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
                 </button>
                 <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
-                    <!-- Editar Familia Form Card -->
-                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1;">
-                        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark);">Configurar Familia</h3>
+                    <!-- Configurar/Crear Familia Form Card -->
+                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 id="admin-familia-form-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.2rem;">Configurar Familia</h3>
+                            <button type="button" onclick="setAdminFamiliaCreateMode()" class="btn-primary" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Familia
+                            </button>
+                        </div>
+                        
                         <form id="admin-familia-form" onsubmit="saveAdminFamilia(event)" style="display: flex; flex-direction: column; gap: 1.2rem;">
                             <div class="form-group">
-                                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px;">Familia Seleccionada</label>
-                                <input type="text" id="admin-familia-nombre" readonly style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; background: #f8fafc; font-weight: bold; color: #64748b;">
+                                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Nombre de Familia</label>
+                                <input type="text" id="admin-familia-nombre" readonly placeholder="Seleccione una familia para editar o pulse 'Nueva Familia'..." style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; background: #f8fafc; font-weight: bold; color: #64748b; outline: none; transition: all 0.2s;">
                             </div>
+                            
                             <div class="form-group">
-                                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px;">Tratas de esta Familia</label>
+                                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Tratas Incluidas</label>
                                 <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Selecciona qué códigos de trámite pertenecen a esta familia.</p>
-                                <div id="admin-familia-tratas-checkboxes-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; background: #fafafa;">
+                                
+                                <!-- Filtro de Búsqueda -->
+                                <input type="text" id="admin-familia-tratas-search" oninput="filterAdminTratas()" placeholder="Buscar trámite por código o nombre..." style="width: 100%; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none;">
+                                
+                                <!-- Acciones Rápidas -->
+                                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                                    <button type="button" onclick="selectAdminTratas(true)" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; transition: background 0.2s;">
+                                        <i class="fa-solid fa-check-double"></i> Seleccionar Todos
+                                    </button>
+                                    <button type="button" onclick="selectAdminTratas(false)" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; transition: background 0.2s;">
+                                        <i class="fa-solid fa-square"></i> Desmarcar Todos
+                                    </button>
+                                </div>
+                                
+                                <div id="admin-familia-tratas-checkboxes-container" style="max-height: 250px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: #f8fafc;">
                                     <!-- Dinámico -->
                                 </div>
                             </div>
-                            <button type="submit" class="btn-primary" style="padding: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                <i class="fa-solid fa-save"></i> Guardar Cambios
+                            
+                            <button type="submit" class="btn-primary" style="padding: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: 'Outfit'; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                <i class="fa-solid fa-save"></i> Guardar Configuración
                             </button>
                         </form>
                     </div>
 
                     <!-- Lista de Familias Card -->
-                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1;">
-                        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark);">Familias Configuradas</h3>
+                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">Familias Configuradas</h3>
                         <div class="table-container" style="overflow-x: auto;">
                             <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
                                 <thead>
                                     <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc;">
-                                        <th style="padding: 12px 16px; font-weight: 700; color: #475569;">Familia</th>
-                                        <th style="padding: 12px 16px; font-weight: 700; color: #475569;">Trámites Incluidos</th>
-                                        <th style="padding: 12px 16px; font-weight: 700; color: #475569; width: 100px; text-align: center;">Acción</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #475569; font-family: 'Outfit';">Familia</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #475569; font-family: 'Outfit';">Trámites Incluidos</th>
+                                        <th style="padding: 14px 16px; font-weight: 700; color: #475569; width: 150px; text-align: center; font-family: 'Outfit';">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody id="admin-familias-table-body">
