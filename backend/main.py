@@ -5496,7 +5496,7 @@ class LFIAssignRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_lfi/assign")
 def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
-    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+    if not current_user.permissions.get("lfi_dibujar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para asignarse manzanas.")
     
     with engine.begin() as conn:
@@ -5739,7 +5739,7 @@ async def upload_trazado_lfi(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+    if not current_user.permissions.get("lfi_dibujar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir trazados.")
         
     with engine.connect() as conn:
@@ -5787,7 +5787,7 @@ async def review_manzana_lfi(
     file_final: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user)
 ):
-    if not (current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras-visor', 'admin', 'administrador']):
+    if not current_user.permissions.get("lfi_revisar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de revisión de LFI ('lfi_revisar') para revisar manzanas.")
         
     with engine.begin() as conn:
@@ -5875,7 +5875,7 @@ class LFIDisposicionRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_lfi/disposicion")
 def update_manzana_lfi_disposicion(req: LFIDisposicionRequest, current_user: User = Depends(get_current_user)):
-    if not (current_user.permissions.get("lfi_dibujar") or current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras', 'troneras-visor', 'admin', 'administrador']):
+    if not (current_user.permissions.get("lfi_dibujar") or current_user.permissions.get("lfi_revisar")):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo o revisión de LFI ('lfi_dibujar'/'lfi_revisar') para actualizar la disposición.")
         
     s_clean = req.seccion.strip()
@@ -5935,7 +5935,7 @@ class AssignRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_atipicas/assign")
 def assign_manzana_atipica(req: AssignRequest, current_user: User = Depends(get_current_user)):
-    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+    if not current_user.permissions.get("lfi_dibujar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para asignarse manzanas.")
     
     with engine.begin() as conn:
@@ -6007,7 +6007,7 @@ async def upload_trazado(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    if not (current_user.permissions.get("lfi_dibujar") or current_user.role.lower() in ['troneras', 'admin', 'administrador']):
+    if not current_user.permissions.get("lfi_dibujar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir archivos.")
         
     with engine.connect() as conn:
@@ -6054,7 +6054,7 @@ class ReviewRequest(BaseModel):
 
 @app.post("/api/ciudad3d/manzanas_atipicas/review")
 def review_manzana_atipica(req: ReviewRequest, current_user: User = Depends(get_current_user)):
-    if not (current_user.permissions.get("lfi_revisar") or current_user.role.lower() in ['troneras-visor', 'admin', 'administrador']):
+    if not current_user.permissions.get("lfi_revisar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de revisión de LFI ('lfi_revisar') para revisar manzanas.")
         
     with engine.begin() as conn:

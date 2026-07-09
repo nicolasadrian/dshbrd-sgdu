@@ -10077,11 +10077,9 @@ async function loadCiudad3DTroneras() {
             lfiApplyManzanaFilter();
             
             // Set tab visibilities based on roles
-            const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
-            const uRole = (userObj.role || '').toLowerCase();
             const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
-            const canManageTroneras = !!uPerms.lfi_dibujar || (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
-            const canReviewTroneras = !!uPerms.lfi_revisar || (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+            const canManageTroneras = !!uPerms.lfi_dibujar;
+            const canReviewTroneras = !!uPerms.lfi_revisar;
             
             const btnMisTrazados = document.getElementById('lfi-tab-btn-mis-trazados');
             const btnRevision = document.getElementById('lfi-tab-btn-revision');
@@ -10676,13 +10674,9 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
     const sortedBarrioNames = Object.keys(c3dTronerasGroupedData).sort();
     
     // Get current user role info
-    const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
-    const uRole = (userObj.role || '').toLowerCase();
-    const uName = userObj.username || '';
-    
     const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
-    const canManageTroneras = !!uPerms.lfi_dibujar || (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
-    const canReviewTroneras = !!uPerms.lfi_revisar || (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    const canManageTroneras = !!uPerms.lfi_dibujar;
+    const canReviewTroneras = !!uPerms.lfi_revisar;
     const canEditDispo = canManageTroneras || canReviewTroneras;
 
     let count = 0;
@@ -11142,13 +11136,9 @@ async function openLFIFicha(seccion, manzana) {
     document.getElementById('c3d-lfi-ficha-analista-nombre').innerText = row.analista_nombre || row.analista_asignado || 'Sin asignar';
     document.getElementById('c3d-lfi-ficha-disposicion-input').value = row.disposicion || '';
     
-    const userObj = JSON.parse(localStorage.getItem('sgdu_user') || '{}');
-    const uRole = (userObj.role || '').toLowerCase();
-    const uName = userObj.username || '';
-    
     const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
-    const canManageTroneras = !!uPerms.lfi_dibujar || (uRole === 'troneras' || uRole === 'admin' || uRole === 'administrador');
-    const canReviewTroneras = !!uPerms.lfi_revisar || (uRole === 'troneras-visor' || uRole === 'admin' || uRole === 'administrador');
+    const canManageTroneras = !!uPerms.lfi_dibujar;
+    const canReviewTroneras = !!uPerms.lfi_revisar;
     
     const assignContainer = document.getElementById('c3d-lfi-ficha-asignar-container');
     assignContainer.innerHTML = '';
