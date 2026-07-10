@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-from fastapi import FastAPI, HTTPException, Depends, status, Query, Header, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, Depends, status, Query, Header, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import create_engine, text
@@ -5705,7 +5705,7 @@ def _lfi_tile_cache_key(layer, z, x, y):
 
 @app.get("/api/lfi/wms")
 async def lfi_wms_proxy(
-    request: fastapi.Request,
+    request: Request,
     current_user: User = Depends(get_current_user_from_param_or_header)
 ):
     if not current_user.permissions.get("ciudad_3d"):
