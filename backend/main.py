@@ -5705,7 +5705,7 @@ def _lfi_tile_cache_key(layer, z, x, y):
 
 @app.get("/api/lfi/wms")
 async def lfi_wms_proxy(
-    request: Request,
+    request: fastapi.Request,
     current_user: User = Depends(get_current_user_from_param_or_header)
 ):
     if not current_user.permissions.get("ciudad_3d"):
