@@ -9427,8 +9427,8 @@ async function loadBuzonesAccesoConfig() {
     const accesosContainer = document.getElementById('buzon-accesos-list-container');
     if (!checkboxesContainer || !accesosContainer) return;
 
-    checkboxesContainer.innerHTML = '<div style="padding: 10px;"><span class="loader"></span> Cargando...</div>';
-    accesosContainer.innerHTML = '<div style="padding: 10px;"><span class="loader"></span> Cargando...</div>';
+    checkboxesContainer.innerHTML = '<div style="padding: 10px; text-align: center;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b; font-size:0.85rem;">Cargando catálogo...</p></div>';
+    accesosContainer.innerHTML = '<div style="padding: 10px; text-align: center;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b; font-size:0.85rem;">Cargando reglas...</p></div>';
 
     try {
         if (allBuzonesCatalogo.length === 0) {
@@ -9441,10 +9441,10 @@ async function loadBuzonesAccesoConfig() {
         let cbHtml = '';
         allBuzonesCatalogo.forEach(mb => {
             cbHtml += `
-                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-                    <input type="checkbox" class="buzon-checkbox" value="${mb}" id="chk-buzon-${mb}" style="cursor: pointer;">
-                    <label for="chk-buzon-${mb}" style="font-size: 0.85rem; color: #334155; cursor: pointer; font-family: 'Outfit';">${mb}</label>
-                </div>
+                <label class="admin-buzon-checkbox-label" style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select:none; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:2px;">
+                    <input type="checkbox" class="buzon-checkbox" value="${mb}" id="chk-buzon-${mb}" style="accent-color: var(--primary); width:16px; height:16px;" onchange="styleCheckedBuzonLabel(this.parentNode)">
+                    <span style="color:#334155; line-height:1.2;"><strong>${mb}</strong></span>
+                </label>
             `;
         });
         checkboxesContainer.innerHTML = cbHtml;
@@ -9493,9 +9493,40 @@ function onBuzonTipoSujetoChange() {
     selectSujeto.innerHTML = html;
 }
 
+function styleCheckedBuzonLabel(labelElement) {
+    if (!labelElement) return;
+    const checkbox = labelElement.querySelector('input[type="checkbox"]');
+    if (checkbox && checkbox.checked) {
+        labelElement.style.background = '#f0fdf4';
+        labelElement.style.borderColor = '#bbf7d0';
+    } else {
+        labelElement.style.background = '#ffffff';
+        labelElement.style.borderColor = '#e2e8f0';
+    }
+}
+
+function filterAdminBuzones() {
+    const query = (document.getElementById('admin-buzon-search').value || '').toLowerCase().trim();
+    const labels = document.querySelectorAll('.admin-buzon-checkbox-label');
+    labels.forEach(label => {
+        const text = label.textContent.toLowerCase();
+        if (text.includes(query)) {
+            label.style.display = 'flex';
+        } else {
+            label.style.display = 'none';
+        }
+    });
+}
+
 function selectAllBuzones(checked) {
     const checkboxes = document.querySelectorAll('.buzon-checkbox');
-    checkboxes.forEach(chk => chk.checked = checked);
+    checkboxes.forEach(cb => {
+        const label = cb.parentNode;
+        if (label && label.style.display !== 'none') {
+            cb.checked = checked;
+            styleCheckedBuzonLabel(label);
+        }
+    });
 }
 
 function renderBuzonAccesosList() {
@@ -9510,31 +9541,83 @@ function renderBuzonAccesosList() {
     let html = '';
     allBuzonesAccesos.forEach(acc => {
         const typeBadge = acc.tipo_sujeto === 'usuario' 
-            ? '<span style="background: #eff6ff; color: #1d4ed8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold;">Usuario</span>'
-            : '<span style="background: #f3e8ff; color: #a855f7; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold;">Rol</span>';
+            ? '<span style="background: #eff6ff; color: #1d4ed8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #bfdbfe;">Usuario</span>'
+            : '<span style="background: #f3e8ff; color: #a855f7; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #e9d5ff;">Rol</span>';
         
         const buzonesChips = acc.buzones.map(b => 
-            `<span style="background: #f1f5f9; color: #334155; font-size: 0.8rem; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: 'Outfit';">${b}</span>`
+            `<span style="background: #f8fafc; color: #1e293b; font-size: 0.78rem; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: 'Outfit'; font-weight: 600; display: inline-block;">${b}</span>`
         ).join(' ');
 
         html += `
-            <div class="admin-card" style="padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div class="admin-buzon-regla-card" data-sujeto="${acc.nombre_sujeto.toLowerCase()}" style="padding: 20px; border: 1px solid #cbd5e1; border-radius: 12px; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">${acc.nombre_sujeto.toUpperCase()}</h4>
+                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.05rem;">${acc.nombre_sujeto.toUpperCase()}</h4>
                         ${typeBadge}
                     </div>
-                    <button onclick="deleteBuzonAcceso('${acc.nombre_sujeto}')" style="background: #fee2e2; color: #ef4444; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 600;">
-                        <i class="fa-solid fa-trash"></i> Eliminar
+                    <button onclick="deleteBuzonAcceso('${acc.nombre_sujeto}')" class="btn-action-delete" style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
+                        <i class="fa-solid fa-trash"></i> Eliminar Regla
                     </button>
                 </div>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; background: #fafafa; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
                     ${buzonesChips}
                 </div>
             </div>
         `;
     });
     container.innerHTML = html;
+}
+
+function filterAdminReglas() {
+    const query = (document.getElementById('admin-reglas-search').value || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('.admin-buzon-regla-card');
+    cards.forEach(card => {
+        const sujeto = card.getAttribute('data-sujeto') || '';
+        if (sujeto.includes(query)) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+async function saveBuzonAcceso(event) {
+    if (event) event.preventDefault();
+    const tipo_sujeto = document.getElementById('buzon-tipo-sujeto').value;
+    const nombre_sujeto = document.getElementById('buzon-nombre-sujeto').value;
+    
+    const checkedBoxes = document.querySelectorAll('.buzon-checkbox:checked');
+    const buzones = Array.from(checkedBoxes).map(cb => cb.value);
+
+    if (buzones.length === 0) {
+        alert('Debes seleccionar al menos un buzón.');
+        return;
+    }
+
+    const data = {
+        tipo_sujeto,
+        nombre_sujeto,
+        buzones
+    };
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (resp && resp.ok) {
+            alert('Regla de acceso guardada correctamente');
+            loadBuzonesAccesoConfig();
+        } else {
+            const err = await resp.json();
+            alert('Error: ' + err.detail);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error al guardar la regla de acceso.');
+    }
 }
 
 async function deleteBuzonAcceso(nombreSujeto) {
