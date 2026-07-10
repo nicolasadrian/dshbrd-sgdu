@@ -10261,48 +10261,12 @@ function _getLFIToken() {
     return localStorage.getItem('sgdu_token') || '';
 }
 
-function _buildCQLFilter(extraFilter) {
-    if (!c3dTronerasRawData || c3dTronerasRawData.length === 0) {
-        return extraFilter || null;
-    }
-    const clauses = c3dTronerasRawData.map(r => `(seccion='${(r.seccion||'').trim()}' AND manzana='${(r.manzana||'').trim()}')`);
-    const mznFilter = `(${clauses.join(' OR ')})`;
-    if (extraFilter) {
-        return `${mznFilter} AND (${extraFilter})`;
-    }
-    return mznFilter;
-}
-
-function _lfiWmsTileUrl(layerName, extraCql = null) {
-    const origin = API_BASE.replace(/\/api$/, '');
-    const token = _getLFIToken();
-    let url = `${origin}/api/lfi/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=512&height=512&srs=EPSG:3857&styles=&format=image/png&transparent=true&token=${encodeURIComponent(token)}`;
-    const cql = _buildCQLFilter(extraCql);
-    if (cql) {
-        url += `&cql_filter=${encodeURIComponent(cql)}`;
-    }
-    return url;
+function _lfiWmsTileUrl(layerName) {
+    return `https://geo-epesege.com.ar/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=512&height=512&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
 }
 
 function _updateWmsSources() {
-    if (!_lfiMap) return;
-    const wmsLayers = {
-        parcelas: { layer: 'GEO-MDR:parcelas' },
-        lfi: { layer: 'GEO-MDR:mdr_lineadefrenteinterno' },
-        basamento: { layer: 'GEO-MDR:mdr_lineadebasamento' },
-        banda_minima: { layer: 'GEO-MDR:mdr_banda_minima' },
-        'troneras-si': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular='SI'" },
-        'troneras-no': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular<>'SI'" },
-        tejido: { layer: 'GEO-MDR:tejido' }
-    };
-    Object.entries(wmsLayers).forEach(([key, cfg]) => {
-        const sourceId = `lfi-src-${key}`;
-        const source = _lfiMap.getSource(sourceId);
-        if (source) {
-            const newTileUrl = _lfiWmsTileUrl(cfg.layer, cfg.extraCql);
-            source.setTiles([newTileUrl]);
-        }
-    });
+    // No-op: Geoserver WMS layers render city-wide statically
 }
 
 async function initLFIMap() {
@@ -10359,8 +10323,8 @@ async function initLFIMap() {
             lfi: { layer: 'GEO-MDR:mdr_lineadefrenteinterno', minzoom: 14 },
             basamento: { layer: 'GEO-MDR:mdr_lineadebasamento', minzoom: 14 },
             banda_minima: { layer: 'GEO-MDR:mdr_banda_minima', minzoom: 14 },
-            'troneras-si': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular='SI'", minzoom: 14 },
-            'troneras-no': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular<>'SI'", minzoom: 14 },
+            'troneras-si': { layer: 'GEO-MDR:mdr_troneras', minzoom: 14 },
+            'troneras-no': { layer: 'GEO-MDR:mdr_troneras', minzoom: 14 },
             tejido: { layer: 'GEO-MDR:tejido', minzoom: 14 }
         };
 
@@ -10371,7 +10335,7 @@ async function initLFIMap() {
 
             _lfiMap.addSource(sourceId, {
                 type: 'raster',
-                tiles: [_lfiWmsTileUrl(cfg.layer, cfg.extraCql)],
+                tiles: [_lfiWmsTileUrl(cfg.layer)],
                 minzoom: srcMinzoom,
                 maxzoom: 20,
                 tileSize: 256,

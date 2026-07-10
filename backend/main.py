@@ -5703,37 +5703,6 @@ _LFI_TILE_CACHE_MAX = 500
 def _lfi_tile_cache_key(layer, z, x, y):
     return f"{layer}/{z}/{x}/{y}"
 
-@app.get("/api/lfi/wms")
-async def lfi_wms_proxy(
-    request: Request,
-    current_user: User = Depends(get_current_user_from_param_or_header)
-):
-    if not current_user.permissions.get("ciudad_3d"):
-        raise HTTPException(status_code=403, detail="Sin permisos para Ciudad 3D")
-    
-    params = dict(request.query_params)
-    params.pop("token", None)
-    
-    wms_url = "https://geo-epesege.com.ar/geoserver/GEO-MDR/wms"
-    
-    import httpx
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        try:
-            resp = await client.get(wms_url, params=params)
-            from fastapi.responses import Response as FastResponse
-            return FastResponse(
-                content=resp.content,
-                status_code=resp.status_code,
-                media_type=resp.headers.get("content-type", "image/png"),
-                headers={
-                    "Cache-Control": "public, max-age=86400",
-                    "Access-Control-Allow-Origin": "*"
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error proxying WMS request: {e}")
-            raise HTTPException(status_code=502, detail="Error fetching map layer from geoserver.")
-
 @app.get("/api/lfi/tiles/{layer}/{z}/{x}/{y}")
 def get_lfi_map_tile(layer: str, z: int, x: int, y: int, current_user: User = Depends(get_current_user_from_param_or_header)):
     """Sirve Vector Tiles MVT para las capas del mapa LFI."""
