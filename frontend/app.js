@@ -10178,11 +10178,46 @@ function _getLFIToken() {
     return localStorage.getItem('sgdu_token') || '';
 }
 
-function _lfiTileUrl(layerKey) {
-    // API_BASE = 'http://127.0.0.1:8000/api' → origin = 'http://127.0.0.1:8000'
-    const origin = API_BASE.replace(/\/api$/, '');
-    const token = _getLFIToken();
-    return `${origin}/api/lfi/tiles/${layerKey}/{z}/{x}/{y}?token=${token}`;
+function _buildCQLFilter(extraFilter) {
+    if (!c3dTronerasRawData || c3dTronerasRawData.length === 0) {
+        return extraFilter || null;
+    }
+    const clauses = c3dTronerasRawData.map(r => `(seccion='${(r.seccion||'').trim()}' AND manzana='${(r.manzana||'').trim()}')`);
+    const mznFilter = `(${clauses.join(' OR ')})`;
+    if (extraFilter) {
+        return `${mznFilter} AND (${extraFilter})`;
+    }
+    return mznFilter;
+}
+
+function _lfiWmsTileUrl(layerName, extraCql = null) {
+    let url = `https://geo-epesege.com.ar/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=512&height=512&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
+    const cql = _buildCQLFilter(extraCql);
+    if (cql) {
+        url += `&cql_filter=${encodeURIComponent(cql)}`;
+    }
+    return url;
+}
+
+function _updateWmsSources() {
+    if (!_lfiMap) return;
+    const wmsLayers = {
+        parcelas: { layer: 'GEO-MDR:parcelas' },
+        lfi: { layer: 'GEO-MDR:mdr_lineadefrenteinterno' },
+        basamento: { layer: 'GEO-MDR:mdr_lineadebasamento' },
+        banda_minima: { layer: 'GEO-MDR:mdr_banda_minima' },
+        'troneras-si': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular='SI'" },
+        'troneras-no': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular<>'SI'" },
+        tejido: { layer: 'GEO-MDR:tejido' }
+    };
+    Object.entries(wmsLayers).forEach(([key, cfg]) => {
+        const sourceId = `lfi-src-${key}`;
+        const source = _lfiMap.getSource(sourceId);
+        if (source) {
+            const newTileUrl = _lfiWmsTileUrl(cfg.layer, cfg.extraCql);
+            source.setTiles([newTileUrl]);
+        }
+    });
 }
 
 async function initLFIMap() {
@@ -10234,88 +10269,64 @@ async function initLFIMap() {
     _lfiMap.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
 
     _lfiMap.on('load', () => {
-        // Construir filtro de manzanas con tronera
-        const manzanaFilter = _buildManzanaFilter();
+        const wmsLayers = {
+            parcelas: { layer: 'GEO-MDR:parcelas', minzoom: 16 },
+            lfi: { layer: 'GEO-MDR:mdr_lineadefrenteinterno', minzoom: 14 },
+            basamento: { layer: 'GEO-MDR:mdr_lineadebasamento', minzoom: 14 },
+            banda_minima: { layer: 'GEO-MDR:mdr_banda_minima', minzoom: 14 },
+            'troneras-si': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular='SI'", minzoom: 14 },
+            'troneras-no': { layer: 'GEO-MDR:mdr_troneras', extraCql: "irregular<>'SI'", minzoom: 14 },
+            tejido: { layer: 'GEO-MDR:tejido', minzoom: 14 }
+        };
 
-        // Agregar capas del config (sin troneras — se agregan por separado)
-        Object.entries(LFI_LAYER_CONFIG).forEach(([key, cfg]) => {
+        Object.entries(wmsLayers).forEach(([key, cfg]) => {
             const sourceId = `lfi-src-${key}`;
             const layerId = `lfi-lyr-${key}`;
             const srcMinzoom = cfg.minzoom || 14;
 
             _lfiMap.addSource(sourceId, {
-                type: 'vector',
-                tiles: [_lfiTileUrl(key)],
+                type: 'raster',
+                tiles: [_lfiWmsTileUrl(cfg.layer, cfg.extraCql)],
                 minzoom: srcMinzoom,
                 maxzoom: 20,
-                tileSize: 512,
+                tileSize: 256,
             });
 
-            const layerDef = {
+            _lfiMap.addLayer({
                 id: layerId,
-                type: cfg.type,
+                type: 'raster',
                 source: sourceId,
-                'source-layer': key,
-                paint: cfg.paint,
                 minzoom: srcMinzoom,
-            };
-            if (manzanaFilter) layerDef.filter = manzanaFilter;
-            _lfiMap.addLayer(layerDef);
+                paint: { 'raster-opacity': 1 }
+            });
         });
 
-        // Capa troneras: dos sub-capas por campo irregular
-        _lfiMap.addSource('lfi-src-troneras', {
-            type: 'vector',
-            tiles: [_lfiTileUrl('troneras')],
-            minzoom: 14,
-            maxzoom: 20,
-            tileSize: 512,
+        // Click handler anywhere on the map to query coordinates via backend spatial query
+        _lfiMap.on('click', async (e) => {
+            if (_lfiMap.getZoom() < 14) return;
+            const lat = e.lngLat.lat;
+            const lng = e.lngLat.lng;
+
+            try {
+                const response = await def_fetch(`${API_BASE}/ciudad3d/manzana_by_coords?lng=${lng}&lat=${lat}`);
+                if (response && response.ok) {
+                    const data = await response.json();
+                    if (data && data.seccion && data.manzana) {
+                        openLFIFicha(data.seccion, data.manzana);
+                    }
+                }
+            } catch (err) {
+                console.error("Error querying clicked coordinates:", err);
+            }
         });
 
-        const troneraSiFilter = manzanaFilter
-            ? ['all', ['==', ['get', 'irregular'], 'SI'], manzanaFilter]
-            : ['==', ['get', 'irregular'], 'SI'];
-        
-        // Capas de relleno transparente para capturar clicks en todo el polígono
-        _lfiMap.addLayer({
-            id: 'lfi-lyr-troneras-si-hit',
-            type: 'fill',
-            source: 'lfi-src-troneras',
-            'source-layer': 'troneras',
-            paint: { 'fill-color': '#ef4444', 'fill-opacity': 0 },
-            minzoom: 14,
-            filter: troneraSiFilter,
-        });
-        _lfiMap.addLayer({
-            id: 'lfi-lyr-troneras-si',
-            type: 'line',
-            source: 'lfi-src-troneras',
-            'source-layer': 'troneras',
-            paint: { 'line-color': '#ef4444', 'line-width': 2.5 },
-            minzoom: 14,
-            filter: troneraSiFilter,
-        });
-        // irregular ≠ SI → igual que LFI (azul)
-        const troneraNoFilter = manzanaFilter
-            ? ['all', ['!=', ['get', 'irregular'], 'SI'], manzanaFilter]
-            : ['!=', ['get', 'irregular'], 'SI'];
-        _lfiMap.addLayer({
-            id: 'lfi-lyr-troneras-no-hit',
-            type: 'fill',
-            source: 'lfi-src-troneras',
-            'source-layer': 'troneras',
-            paint: { 'fill-color': '#1d4ed8', 'fill-opacity': 0 },
-            minzoom: 14,
-            filter: troneraNoFilter,
-        });
-        _lfiMap.addLayer({
-            id: 'lfi-lyr-troneras-no',
-            type: 'line',
-            source: 'lfi-src-troneras',
-            'source-layer': 'troneras',
-            paint: { 'line-color': '#1d4ed8', 'line-width': 2.5 },
-            minzoom: 14,
-            filter: troneraNoFilter,
+        // Hover pointer cursor effect on zoom >= 14
+        _lfiMap.on('mousemove', () => {
+            if (_lfiMap.getZoom() >= 14) {
+                _lfiMap.getCanvas().style.cursor = 'pointer';
+            } else {
+                _lfiMap.getCanvas().style.cursor = '';
+            }
         });
 
         // Quitar loading
@@ -10331,19 +10342,6 @@ async function initLFIMap() {
         const _updateZHint = () => { _zHint.style.opacity = _lfiMap.getZoom() < 13.9 ? '1' : '0'; };
         _lfiMap.on('zoom', _updateZHint);
         _updateZHint();
-    });
-
-    // Click en troneras → abrir ficha (usando capas hit de relleno transparente)
-    ['lfi-lyr-troneras-si-hit', 'lfi-lyr-troneras-no-hit'].forEach(lid => {
-        _lfiMap.on('click', lid, (e) => {
-            const f = e.features && e.features[0];
-            if (!f) return;
-            const sec = (f.properties.seccion || '').trim();
-            const mzn = (f.properties.manzana || '').trim();
-            if (sec && mzn) openLFIFicha(sec, mzn);
-        });
-        _lfiMap.on('mouseenter', lid, () => { _lfiMap.getCanvas().style.cursor = 'pointer'; });
-        _lfiMap.on('mouseleave', lid, () => { _lfiMap.getCanvas().style.cursor = ''; });
     });
 
     _lfiMap.on('error', (e) => { console.warn('LFI Map error:', e); });
@@ -10371,19 +10369,7 @@ function _buildManzanaFilter() {
  */
 function lfiApplyManzanaFilter() {
     if (!_lfiMap || !_lfiMapInitialized) return;
-    const f = _buildManzanaFilter();
-    if (!f) return;
-
-    // Capas del config
-    Object.keys(LFI_LAYER_CONFIG).forEach(key => {
-        const layerId = `lfi-lyr-${key}`;
-        if (_lfiMap.getLayer(layerId)) _lfiMap.setFilter(layerId, f);
-    });
-    // Troneras: combinar con filtro de irregular (line + hit)
-    const siF = ['all', ['==', ['get', 'irregular'], 'SI'], f];
-    const noF = ['all', ['!=', ['get', 'irregular'], 'SI'], f];
-    ['lfi-lyr-troneras-si', 'lfi-lyr-troneras-si-hit'].forEach(id => { if (_lfiMap.getLayer(id)) _lfiMap.setFilter(id, siF); });
-    ['lfi-lyr-troneras-no', 'lfi-lyr-troneras-no-hit'].forEach(id => { if (_lfiMap.getLayer(id)) _lfiMap.setFilter(id, noF); });
+    _updateWmsSources();
 }
 window.lfiApplyManzanaFilter = lfiApplyManzanaFilter;
 
@@ -10391,14 +10377,13 @@ function toggleLFIMapLayer(layerKey, visible) {
     if (!_lfiMap || !_lfiMapInitialized) return;
     const v = visible ? 'visible' : 'none';
     if (layerKey === 'troneras-si') {
-        ['lfi-lyr-troneras-si', 'lfi-lyr-troneras-si-hit'].forEach(id => { if (_lfiMap.getLayer(id)) _lfiMap.setLayoutProperty(id, 'visibility', v); });
+        if (_lfiMap.getLayer('lfi-lyr-troneras-si')) _lfiMap.setLayoutProperty('lfi-lyr-troneras-si', 'visibility', v);
         return;
     }
     if (layerKey === 'troneras-no') {
         if (_lfiMap.getLayer('lfi-lyr-troneras-no')) _lfiMap.setLayoutProperty('lfi-lyr-troneras-no', 'visibility', v);
         return;
     }
-    // Retrocompatibilidad: 'troneras' controla ambas
     if (layerKey === 'troneras') {
         ['lfi-lyr-troneras-si', 'lfi-lyr-troneras-no'].forEach(id => {
             if (_lfiMap.getLayer(id)) _lfiMap.setLayoutProperty(id, 'visibility', v);

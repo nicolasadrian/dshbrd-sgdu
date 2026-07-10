@@ -5633,7 +5633,36 @@ class LFINoteRequest(BaseModel):
     manzana: str
     nota: str
 
-# ─── LFI Map Tile Endpoints (ST_AsMVT) ────────────────────────────────────────
+# ─── LFI Map Coord Queries and Tile Endpoints ───────────────────────────────
+
+@app.get("/api/ciudad3d/manzana_by_coords")
+def get_manzana_by_coords(lng: float, lat: float, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="Sin permisos para Ciudad 3D")
+    
+    query = """
+        SELECT seccion, manzana FROM public.mdr_troneras
+        WHERE ST_Contains(geom, ST_Transform(ST_SetSRID(ST_Point(:lng, :lat), 4326), 22186))
+        LIMIT 1
+    """
+    try:
+        with geo_engine.connect() as conn:
+            row = conn.execute(text(query), {"lng": lng, "lat": lat}).fetchone()
+            if row:
+                return {"seccion": row[0].strip(), "manzana": row[1].strip()}
+            
+            row_p = conn.execute(text("""
+                SELECT seccion, manzana FROM public.cur_parcelas_ok
+                WHERE ST_Contains(geom, ST_Transform(ST_SetSRID(ST_Point(:lng, :lat), 4326), 22186))
+                LIMIT 1
+            """), {"lng": lng, "lat": lat}).fetchone()
+            if row_p:
+                return {"seccion": row_p[0].strip(), "manzana": row_p[1].strip()}
+                
+            return {"seccion": None, "manzana": None}
+    except Exception as e:
+        logger.error(f"Error querying manzana by coords: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 LFI_MAP_LAYERS = {
     "parcelas":     ("cur_parcelas_ok",           "geom", 22186),
