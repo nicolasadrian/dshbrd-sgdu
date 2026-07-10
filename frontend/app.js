@@ -10191,7 +10191,9 @@ function _buildCQLFilter(extraFilter) {
 }
 
 function _lfiWmsTileUrl(layerName, extraCql = null) {
-    let url = `https://geo-epesege.com.ar/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=512&height=512&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
+    const origin = API_BASE.replace(/\/api$/, '');
+    const token = _getLFIToken();
+    let url = `${origin}/api/lfi/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=512&height=512&srs=EPSG:3857&styles=&format=image/png&transparent=true&token=${encodeURIComponent(token)}`;
     const cql = _buildCQLFilter(extraCql);
     if (cql) {
         url += `&cql_filter=${encodeURIComponent(cql)}`;
