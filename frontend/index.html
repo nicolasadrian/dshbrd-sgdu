@@ -3599,7 +3599,10 @@
             <div class="lfi-kpi-grid">
                 <div class="lfi-kpi-card" id="kpi-lfi-pendientes" onclick="filterLFIByStatus('Pendiente')">
                     <div class="lfi-kpi-info">
-                        <span class="lfi-kpi-val" id="kpi-lfi-val-pendientes">-</span>
+                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                            <span class="lfi-kpi-val" id="kpi-lfi-val-pendientes">-</span>
+                            <span id="kpi-lfi-pct-pendientes" style="font-size: 0.85rem; font-weight: 600; color: #64748b;">(0%)</span>
+                        </div>
                         <span class="lfi-kpi-label">Pendientes</span>
                     </div>
                     <div class="lfi-kpi-icon-wrapper" style="background: #f1f5f9; color: #475569;">
@@ -3608,7 +3611,10 @@
                 </div>
                 <div class="lfi-kpi-card" id="kpi-lfi-en-curso" onclick="filterLFIByStatus('En curso')">
                     <div class="lfi-kpi-info">
-                        <span class="lfi-kpi-val" id="kpi-lfi-val-en-curso">-</span>
+                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                            <span class="lfi-kpi-val" id="kpi-lfi-val-en-curso">-</span>
+                            <span id="kpi-lfi-pct-en-curso" style="font-size: 0.85rem; font-weight: 600; color: #0284c7;">(0%)</span>
+                        </div>
                         <span class="lfi-kpi-label">En curso</span>
                     </div>
                     <div class="lfi-kpi-icon-wrapper" style="background: #e0f2fe; color: #0284c7;">
@@ -3617,7 +3623,10 @@
                 </div>
                 <div class="lfi-kpi-card" id="kpi-lfi-revision" onclick="filterLFIByStatus('Para revisión')">
                     <div class="lfi-kpi-info">
-                        <span class="lfi-kpi-val" id="kpi-lfi-val-revision">-</span>
+                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                            <span class="lfi-kpi-val" id="kpi-lfi-val-revision">-</span>
+                            <span id="kpi-lfi-pct-revision" style="font-size: 0.85rem; font-weight: 600; color: #b45309;">(0%)</span>
+                        </div>
                         <span class="lfi-kpi-label">Para revisión</span>
                     </div>
                     <div class="lfi-kpi-icon-wrapper" style="background: #fef3c7; color: #d97706;">
@@ -3626,7 +3635,10 @@
                 </div>
                 <div class="lfi-kpi-card" id="kpi-lfi-aprobadas" onclick="filterLFIByStatus('Aprobadas')">
                     <div class="lfi-kpi-info">
-                        <span class="lfi-kpi-val" id="kpi-lfi-val-aprobadas">-</span>
+                        <div style="display: flex; align-items: baseline; gap: 6px;">
+                            <span class="lfi-kpi-val" id="kpi-lfi-val-aprobadas">-</span>
+                            <span id="kpi-lfi-pct-aprobadas" style="font-size: 0.85rem; font-weight: 600; color: #15803d;">(0%)</span>
+                        </div>
                         <span class="lfi-kpi-label">Aprobadas</span>
                     </div>
                     <div class="lfi-kpi-icon-wrapper" style="background: #dcfce7; color: #16a34a;">

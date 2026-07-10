@@ -10548,15 +10548,34 @@ function calculateLFIStats() {
         }
     });
     
+    const total = pendientes + enCurso + revision + aprobadas;
+    
     const elPendientes = document.getElementById('kpi-lfi-val-pendientes');
     const elEnCurso = document.getElementById('kpi-lfi-val-en-curso');
     const elRevision = document.getElementById('kpi-lfi-val-revision');
     const elAprobadas = document.getElementById('kpi-lfi-val-aprobadas');
     
+    const elPctPendientes = document.getElementById('kpi-lfi-pct-pendientes');
+    const elPctEnCurso = document.getElementById('kpi-lfi-pct-en-curso');
+    const elPctRevision = document.getElementById('kpi-lfi-pct-revision');
+    const elPctAprobadas = document.getElementById('kpi-lfi-pct-aprobadas');
+    
     if (elPendientes) elPendientes.innerText = pendientes;
     if (elEnCurso) elEnCurso.innerText = enCurso;
     if (elRevision) elRevision.innerText = revision;
     if (elAprobadas) elAprobadas.innerText = aprobadas;
+    
+    if (total > 0) {
+        if (elPctPendientes) elPctPendientes.innerText = `(${Math.round((pendientes / total) * 100)}%)`;
+        if (elPctEnCurso) elPctEnCurso.innerText = `(${Math.round((enCurso / total) * 100)}%)`;
+        if (elPctRevision) elPctRevision.innerText = `(${Math.round((revision / total) * 100)}%)`;
+        if (elPctAprobadas) elPctAprobadas.innerText = `(${Math.round((aprobadas / total) * 100)}%)`;
+    } else {
+        if (elPctPendientes) elPctPendientes.innerText = `(0%)`;
+        if (elPctEnCurso) elPctEnCurso.innerText = `(0%)`;
+        if (elPctRevision) elPctRevision.innerText = `(0%)`;
+        if (elPctAprobadas) elPctAprobadas.innerText = `(0%)`;
+    }
 }
 
 function renderLFIMisTrazados() {
