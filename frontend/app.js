@@ -2534,6 +2534,8 @@ function enterBacklogSection(sectionName) {
             subBread.innerText = ' / Acceso a Buzones';
         } else if (sectionName === 'familias') {
             subBread.innerText = ' / Familias de Trámites';
+        } else if (sectionName === 'analistas') {
+            subBread.innerText = ' / Analistas por Área';
         }
         subBread.style.display = 'inline';
     }
@@ -2550,6 +2552,8 @@ function enterBacklogSection(sectionName) {
         loadBuzonesAccesoConfig();
     } else if (sectionName === 'familias') {
         loadAdminFamilias();
+    } else if (sectionName === 'analistas') {
+        loadAdminAnalistas();
     }
 }
 
@@ -11766,6 +11770,202 @@ window.filterAdminTratas = filterAdminTratas;
 window.selectAdminTratas = selectAdminTratas;
 window.saveAdminFamilia = saveAdminFamilia;
 window.deleteAdminFamilia = deleteAdminFamilia;
+
+
+// --- ANALISTAS POR ÁREA / GERENCIA ---
+let allAdminAnalistasData = [];
+
+async function loadAdminAnalistas() {
+    const select = document.getElementById('admin-analistas-gerencia-select');
+    const tableBody = document.getElementById('admin-analistas-table-body');
+    if (!select || !tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;"><span class="loader"></span> Cargando analistas...</td></tr>';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas`);
+        if (res && res.ok) {
+            allAdminAnalistasData = await res.json();
+            
+            // Populate select dropdown preserving selected index if possible
+            const currentSelVal = select.value;
+            let optionsHtml = '';
+            allAdminAnalistasData.forEach(item => {
+                const display = item.gerencia.toUpperCase();
+                optionsHtml += `<option value="${item.gerencia}">${display}</option>`;
+            });
+            select.innerHTML = optionsHtml;
+            
+            if (currentSelVal && allAdminAnalistasData.some(x => x.gerencia === currentSelVal)) {
+                select.value = currentSelVal;
+            } else if (allAdminAnalistasData.length > 0) {
+                select.value = allAdminAnalistasData[0].gerencia;
+            }
+            
+            onAdminAnalistasGerenciaChange();
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar datos del servidor.</td></tr>';
+        }
+    } catch (err) {
+        console.error("Error loading admin analysts:", err);
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
+    }
+}
+
+function onAdminAnalistasGerenciaChange() {
+    const select = document.getElementById('admin-analistas-gerencia-select');
+    const tableBody = document.getElementById('admin-analistas-table-body');
+    if (!select || !tableBody) return;
+
+    const gerencia = select.value;
+    const item = allAdminAnalistasData.find(x => x.gerencia === gerencia);
+    if (!item || !item.analistas || item.analistas.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas configurados para esta área.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    item.analistas.forEach(a => {
+        html += `
+            <tr class="analista-row" style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;">
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.apellido}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.nombre}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.mail}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.ocupacion}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.numero_cuit}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <button type="button" onclick="deleteAnalistaFromGerencia('${gerencia}', '${a.usuario}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
+                        <i class="fa-solid fa-trash"></i> Eliminar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    tableBody.innerHTML = html;
+}
+
+function filterAdminAnalistasTable() {
+    const query = (document.getElementById('admin-analistas-table-search').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#admin-analistas-table-body .analista-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+async function searchSadeUsersForAnalistas(q) {
+    const resultsPanel = document.getElementById('admin-analistas-search-results');
+    const clearBtn = document.getElementById('btn-clear-analistas-search');
+    if (!resultsPanel) return;
+
+    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
+
+    if (q.trim().length < 2) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+        return;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
+        if (res && res.ok) {
+            const users = await res.json();
+            if (users.length === 0) {
+                resultsPanel.innerHTML = '<div style="padding: 12px; color: #64748b; font-style: italic; font-size: 0.85rem; text-align: center;">No se encontraron usuarios.</div>';
+                resultsPanel.style.display = 'block';
+                return;
+            }
+
+            let html = '';
+            users.forEach(u => {
+                html += `
+                    <div class="search-result-item" onclick="addAnalistaToGerencia('${u.usuario}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px;">
+                        <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
+                        <span style="color: #64748b; font-size: 0.8rem;">${u.apellido_nombre || ""}</span>
+                    </div>
+                `;
+            });
+            resultsPanel.innerHTML = html;
+            resultsPanel.style.display = 'block';
+        }
+    } catch (err) {
+        console.error("Error searching SADE users:", err);
+    }
+}
+
+function clearAdminAnalistasUserSearch() {
+    const input = document.getElementById('admin-analistas-user-search');
+    const resultsPanel = document.getElementById('admin-analistas-search-results');
+    const clearBtn = document.getElementById('btn-clear-analistas-search');
+    if (input) input.value = '';
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+}
+
+async function addAnalistaToGerencia(username) {
+    const select = document.getElementById('admin-analistas-gerencia-select');
+    if (!select) return;
+    const gerencia = select.value;
+    
+    if (!confirm(`¿Está seguro de que desea agregar al usuario "${username.toUpperCase()}" como analista de ${gerencia.toUpperCase()}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario: username })
+        });
+
+        if (res && res.ok) {
+            alert('Analista agregado con éxito.');
+            clearAdminAnalistasUserSearch();
+            await loadAdminAnalistas();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo agregar el analista."}`);
+        }
+    } catch (err) {
+        console.error("Error adding analyst:", err);
+        alert("Error de red al agregar el analista.");
+    }
+}
+
+async function deleteAnalistaFromGerencia(gerencia, username) {
+    if (!confirm(`¿Está seguro de que desea eliminar al analista "${username.toUpperCase()}" de la gerencia ${gerencia.toUpperCase()}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}`, {
+            method: 'DELETE'
+        });
+
+        if (res && res.ok) {
+            alert('Analista eliminado con éxito.');
+            await loadAdminAnalistas();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo eliminar el analista."}`);
+        }
+    } catch (err) {
+        console.error("Error removing analyst:", err);
+        alert("Error de red al eliminar el analista.");
+    }
+}
+
+window.loadAdminAnalistas = loadAdminAnalistas;
+window.onAdminAnalistasGerenciaChange = onAdminAnalistasGerenciaChange;
+window.filterAdminAnalistasTable = filterAdminAnalistasTable;
+window.searchSadeUsersForAnalistas = searchSadeUsersForAnalistas;
+window.clearAdminAnalistasUserSearch = clearAdminAnalistasUserSearch;
+window.addAnalistaToGerencia = addAnalistaToGerencia;
+window.deleteAnalistaFromGerencia = deleteAnalistaFromGerencia;
 
 
 

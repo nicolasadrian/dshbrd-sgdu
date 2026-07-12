@@ -911,6 +911,116 @@ async def delete_buzon_acceso(nombre_sujeto: str, current_user: User = Depends(g
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def format_capital(val):
+    if not val:
+        return ""
+    val = str(val).strip()
+    if not val:
+        return ""
+    return val[0].upper() + val[1:].lower()
+
+class AddAnalystRequest(BaseModel):
+    usuario: str
+
+@app.get("/api/admin/analistas")
+async def list_admin_analistas(current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                WITH unnested AS (
+                    SELECT DISTINCT TRIM(gerencia) as gerencia, TRIM(unnest(analistas_oficiales)) as usuario_raw
+                    FROM cfg_gestion_metas
+                    WHERE analistas_oficiales IS NOT NULL
+                )
+                SELECT u.gerencia, u.usuario_raw,
+                       du.usuario, du.apellido, du.nombre, du.mail, du.ocupacion, du.numero_cuit
+                FROM unnested u
+                LEFT JOIN public.datos_usuario du ON TRIM(UPPER(u.usuario_raw)) = TRIM(UPPER(du.usuario))
+                ORDER BY u.gerencia, du.apellido, du.nombre
+            """))
+            
+            # Get list of unique gerencias from the table to ensure we return even empty ones
+            g_result = conn.execute(text("SELECT DISTINCT TRIM(gerencia) as gerencia FROM cfg_gestion_metas ORDER BY 1"))
+            gerencias_map = {row[0]: [] for row in g_result}
+            
+            for row in result:
+                g = row[0]
+                raw_user = row[1]
+                db_user = row[2]
+                
+                user_code = (db_user or raw_user).strip().upper()
+                apellido = format_capital(row[3])
+                nombre = format_capital(row[4])
+                mail = format_capital(row[5])
+                ocupacion = format_capital(row[6])
+                cuit = format_capital(row[7])
+                
+                if g in gerencias_map:
+                    gerencias_map[g].append({
+                        "usuario": user_code,
+                        "apellido": apellido,
+                        "nombre": nombre,
+                        "mail": mail,
+                        "ocupacion": ocupacion,
+                        "numero_cuit": cuit
+                    })
+            
+            return [{"gerencia": k, "analistas": v} for k, v in gerencias_map.items()]
+    except Exception as e:
+        logger.error(f"Error listing admin analysts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/analistas/{gerencia}")
+async def add_admin_analista(gerencia: str, req: AddAnalystRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    usuario_to_add = req.usuario.strip().upper()
+    if not usuario_to_add:
+        raise HTTPException(status_code=400, detail="Debe ingresar un usuario válido.")
+        
+    try:
+        with engine.begin() as conn:
+            user_exists = conn.execute(text("SELECT 1 FROM public.datos_usuario WHERE TRIM(UPPER(usuario)) = :u"), {"u": usuario_to_add}).fetchone()
+            if not user_exists:
+                raise HTTPException(status_code=404, detail=f"El usuario '{usuario_to_add}' no existe en la base de datos.")
+                
+            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(gerencia) = :g"), {"g": gerencia.strip()}).fetchall()
+            for r in rows:
+                current_analysts = r[1] or []
+                current_analysts_upper = [a.strip().upper() for a in current_analysts if a]
+                if usuario_to_add not in current_analysts_upper:
+                    new_analysts = current_analysts + [usuario_to_add]
+                    conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a WHERE id = :id"), {"a": new_analysts, "id": r[0]})
+            
+            return {"status": "ok", "message": f"Usuario {usuario_to_add} agregado a {gerencia}."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding analyst: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/analistas/{gerencia}/{usuario}")
+async def delete_admin_analista(gerencia: str, usuario: str, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    usuario_to_remove = usuario.strip().upper()
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(gerencia) = :g"), {"g": gerencia.strip()}).fetchall()
+            for r in rows:
+                current_analysts = r[1] or []
+                new_analysts = [a for a in current_analysts if a and a.strip().upper() != usuario_to_remove]
+                conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a WHERE id = :id"), {"a": new_analysts, "id": r[0]})
+            
+            return {"status": "ok", "message": f"Usuario {usuario_to_remove} eliminado de {gerencia}."}
+    except Exception as e:
+        logger.error(f"Error deleting analyst: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/admin/metas")
 async def list_metas(current_user: User = Depends(get_current_user)):
     if current_user.role.lower() not in ['admin', 'administrador']:

@@ -1524,6 +1524,25 @@
                         Acceder <i class="fa-solid fa-arrow-right"></i>
                     </div>
                 </div>
+                
+                <!-- Tarjeta 6: Analistas por Área -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('analistas')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Analistas por Área</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Definir y listar los analistas oficiales que pertenecen a cada área y gerencia del tablero.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
             </div>
 
             <!-- Contenido Pestaña 1: Usuarios -->
@@ -2076,6 +2095,72 @@
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 6: Analistas por Área/Gerencia -->
+            <div id="admin-tab-analistas" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 2.5fr; gap: 1.5rem; align-items: start;">
+                    
+                    <!-- Formulario / Panel de Asignación -->
+                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.2rem;">Gestionar Analistas</h3>
+                        
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Seleccionar Área / Gerencia</label>
+                            <select id="admin-analistas-gerencia-select" onchange="onAdminAnalistasGerenciaChange()" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none; font-weight: bold; color: var(--primary-dark);">
+                                <!-- Dinámico -->
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="position: relative; margin-bottom: 1.5rem;">
+                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Agregar Nuevo Analista</label>
+                            <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Busca al usuario por su nombre o nombre de usuario SADE para agregarlo al área.</p>
+                            <div style="position: relative;">
+                                <input type="text" id="admin-analistas-user-search" oninput="searchSadeUsersForAnalistas(this.value)" placeholder="Buscar usuario SADE..." style="width: 100%; padding: 10px 14px 10px 35px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; outline: none;" autocomplete="off">
+                                <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 0.9rem;"></i>
+                                <button type="button" onclick="clearAdminAnalistasUserSearch()" style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;" id="btn-clear-analistas-search">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            <!-- Dropdown de resultados de búsqueda -->
+                            <div id="admin-analistas-search-results" style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 100; margin-top: 5px;">
+                                <!-- Dinámico -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de Analistas del Área -->
+                    <div class="admin-card" style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;" id="admin-analistas-table-title">Analistas Asignados</h3>
+                            <input type="text" id="admin-analistas-table-search" oninput="filterAdminAnalistasTable()" placeholder="Filtrar por nombre o usuario..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
+                        </div>
+                        
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc;">
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Usuario</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Apellido</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Nombre</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Email</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Ocupación</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Número CUIT</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; text-align: center; font-family: 'Outfit';">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-analistas-table-body">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
         </section>
