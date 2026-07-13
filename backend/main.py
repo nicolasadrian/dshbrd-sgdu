@@ -1643,6 +1643,8 @@ async def upload_rrhh_excel(
                 records_to_insert
             )
 
+        min_date = min(dates_present) if dates_present else "N/A"
+        max_date = max(dates_present) if dates_present else "N/A"
         return {
             "status": "ok", 
             "message": f"Se procesaron e ingresaron correctamente {len(records_to_insert)} registros correspondientes a las fechas {min_date} hasta {max_date}."
