@@ -12454,7 +12454,7 @@ async function loadRRHHReport() {
                             <td style="padding: 10px 12px; text-align: center; font-weight: 600; color: #10b981;">${a.asistencia_pct}%</td>
                             <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: ${horasColor}; font-family: 'Outfit'; font-size: 0.95rem;">${a.promedio_horas} hs</td>
                             <td style="padding: 10px 12px; text-align: center;">
-                                <button type="button" onclick="openRRHHAgentModal('${a.cuil}', '${a.nombre}')" class="btn-action-view" style="padding: 6px 12px; background: #eff6ff; color: #2563eb; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s;">
+                                <button type="button" onclick="openRRHHAgentPage('${a.cuil}', '${encodeURIComponent(a.nombre)}')" class="btn-action-view" style="padding: 6px 12px; background: #eff6ff; color: #2563eb; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s;">
                                     <i class="fa-solid fa-calendar-days"></i> Ver Bitácora
                                 </button>
                             </td>
@@ -12519,62 +12519,231 @@ async function loadRRHHReport() {
     }
 }
 
-async function openRRHHAgentModal(cuil, name) {
-    const modal = document.getElementById('rrhh-detalle-agente-modal');
-    const tableBody = document.getElementById('rrhh-agent-detail-table-body');
-    const titleEl = document.getElementById('rrhh-modal-agent-name');
-    const cuilEl = document.getElementById('rrhh-modal-agent-cuil');
-    const monthVal = document.getElementById('rrhh-filter-month').value;
+// ─── RRHH AGENT CALENDAR PAGE ───────────────────────────────────────────────
 
-    if (!modal || !tableBody) return;
+let _rrhhAgentLogs = [];   // data cache for current agent
+let _rrhhCurrentCuil = '';
+let _rrhhCurrentName = '';
+let _rrhhCurrentMonth = '';
 
-    if (titleEl) titleEl.innerText = name;
-    if (cuilEl) cuilEl.innerText = `CUIL: ${cuil}`;
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span> Cargando bitácora diaria...</td></tr>';
-    
-    modal.style.display = 'flex';
+function openRRHHAgentPage(cuil, nameEncoded) {
+    _rrhhCurrentCuil  = cuil;
+    _rrhhCurrentName  = decodeURIComponent(nameEncoded);
+    _rrhhCurrentMonth = document.getElementById('rrhh-filter-month')?.value || '';
 
+    // Ocultar el reporte y mostrar la sub-página
+    const reportSection = document.getElementById('reportes_rrhh');
+    let page = document.getElementById('rrhh-agent-calendar-page');
+
+    if (!page) {
+        page = document.createElement('section');
+        page.id = 'rrhh-agent-calendar-page';
+        page.style.cssText = 'display:none; padding: 24px; max-width: 1200px; margin: 0 auto;';
+        reportSection.parentNode.insertBefore(page, reportSection.nextSibling);
+    }
+
+    reportSection.style.display = 'none';
+    page.style.display = 'block';
+    page.innerHTML = `
+        <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+            <button onclick="closeRRHHAgentPage()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-family: 'Outfit'; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrow-left"></i> Volver al Reporte
+            </button>
+            <div>
+                <h2 style="margin: 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.4rem; color: var(--primary-dark);">${_rrhhCurrentName}</h2>
+                <span style="font-size: 0.82rem; color: #64748b;">CUIL: ${_rrhhCurrentCuil} &nbsp;|&nbsp; Mes: ${_rrhhCurrentMonth}</span>
+            </div>
+        </div>
+
+        <!-- Leyenda -->
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding: 14px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #10b981; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">Presente</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #ef4444; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">Ausente</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">No convocado</span></div>
+            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">Fin de semana / Feriado</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start;">
+            <div id="rrhh-calendar-grid" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <div style="text-align: center; padding: 3rem;"><span class="loader"></span></div>
+            </div>
+            <div id="rrhh-day-detail" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: none;">
+                <h4 style="margin: 0 0 16px 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">Detalle del día</h4>
+                <div id="rrhh-day-detail-body"></div>
+            </div>
+        </div>
+    `;
+
+    _loadRRHHAgentCalendar();
+}
+
+async function _loadRRHHAgentCalendar() {
     try {
-        const res = await def_fetch(`${API_BASE}/rrhh/reporte/detalle-agente?cuil=${cuil}&month=${monthVal}`);
-        if (res && res.ok) {
-            const logs = await res.json();
-            if (logs.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay registros cargados para este analista en el mes.</td></tr>';
-                return;
-            }
-
-            let html = '';
-            logs.forEach(l => {
-                const ferBadge = l.feriado.toUpperCase() === 'SI' ? '<span style="color: #ef4444; font-weight: 700;">Sí</span>' : 'No';
-                const convBadge = l.convocado.toUpperCase() === 'SI' ? '<span style="color: #2563eb; font-weight: 700;">Sí</span>' : 'No';
-                const estStyle = l.estado.toUpperCase().includes('PRESENTE') ? 'color: #10b981; font-weight: 700;' : 'color: #ef4444; font-weight: 700;';
-
-                html += `
-                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                        <td style="padding: 10px 12px; font-weight: 600; color: #334155;">${l.fecha}</td>
-                        <td style="padding: 10px 12px; text-align: center;">${ferBadge}</td>
-                        <td style="padding: 10px 12px; text-align: center;">${convBadge}</td>
-                        <td style="padding: 10px 12px;">${l.hora_ingreso || "-"}</td>
-                        <td style="padding: 10px 12px;">${l.hora_salida || "-"}</td>
-                        <td style="padding: 10px 12px;">${l.cant_horas || "-"}</td>
-                        <td style="padding: 10px 12px; color: #dc2626;">${l.estado_incidencia || "-"}</td>
-                        <td style="padding: 10px 12px; ${estStyle}">${l.estado}</td>
-                    </tr>
-                `;
-            });
-            tableBody.innerHTML = html;
-        } else {
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar bitácora.</td></tr>';
-        }
-    } catch (err) {
-        console.error("Error loading agent logs:", err);
-        tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #ef4444;">Error de red.</td></tr>';
+        const res = await def_fetch(`${API_BASE}/rrhh/reporte/detalle-agente?cuil=${_rrhhCurrentCuil}&month=${_rrhhCurrentMonth}`);
+        if (!res || !res.ok) throw new Error('fetch failed');
+        _rrhhAgentLogs = await res.json();
+        _renderRRHHCalendar();
+    } catch (e) {
+        const grid = document.getElementById('rrhh-calendar-grid');
+        if (grid) grid.innerHTML = '<p style="color:#ef4444;text-align:center;">Error al cargar los datos.</p>';
     }
 }
 
-function closeRRHHAgentModal() {
-    const modal = document.getElementById('rrhh-detalle-agente-modal');
-    if (modal) modal.style.display = 'none';
+function _renderRRHHCalendar() {
+    const grid = document.getElementById('rrhh-calendar-grid');
+    if (!grid) return;
+
+    const [yStr, mStr] = _rrhhCurrentMonth.split('-');
+    const year  = parseInt(yStr);
+    const month = parseInt(mStr);  // 1-based
+
+    // Mapear logs por fecha 'YYYY-MM-DD'
+    const byDate = {};
+    _rrhhAgentLogs.forEach(l => { byDate[l.fecha] = l; });
+
+    // Nombre del mes
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const monthName  = monthNames[month - 1];
+
+    // Primer día y días del mes
+    const firstDay  = new Date(year, month - 1, 1).getDay(); // 0=Dom
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startOffset = (firstDay === 0) ? 6 : firstDay - 1; // lunes primero
+
+    const dayHeaders = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+
+    let calHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.15rem; color: var(--primary-dark);">${monthName} ${year}</h3>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 8px;">
+    `;
+
+    dayHeaders.forEach(d => {
+        calHTML += `<div style="text-align: center; font-size: 0.72rem; font-weight: 700; color: #94a3b8; padding: 6px 0; text-transform: uppercase;">${d}</div>`;
+    });
+    calHTML += '</div><div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;">';
+
+    // Celdas vacías del inicio
+    for (let i = 0; i < startOffset; i++) {
+        calHTML += '<div></div>';
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr  = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const jsDate   = new Date(year, month - 1, day);
+        const dayOfWeek = jsDate.getDay(); // 0=Dom, 6=Sáb
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        const log       = byDate[dateStr];
+
+        let bgColor   = '#f1f5f9';   // sin datos
+        let textColor = '#64748b';
+        let cursor    = 'default';
+        let title     = '';
+        let clickable = false;
+
+        if (log) {
+            const isFeriado  = log.feriado  && log.feriado.toUpperCase()  === 'SI';
+            const isConvocado = log.convocado && log.convocado.toUpperCase() === 'SI';
+            const fromTime   = t => t && t !== '00:00:00' && t !== '00:00';
+            const ingresaValido = fromTime(log.hora_ingreso);
+            const esPresente = (log.estado && log.estado.toUpperCase().includes('PRESENTE')) || ingresaValido;
+
+            if (isFeriado || isWeekend) {
+                bgColor = '#cbd5e1'; textColor = '#475569'; title = isFeriado ? 'Feriado' : 'Fin de semana';
+            } else if (!isConvocado) {
+                bgColor = '#3b82f6'; textColor = '#fff'; title = 'No convocado';
+            } else if (esPresente) {
+                bgColor = '#10b981'; textColor = '#fff'; title = 'Presente'; clickable = true;
+            } else {
+                bgColor = '#ef4444'; textColor = '#fff'; title = 'Ausente'; clickable = true;
+            }
+        } else if (isWeekend) {
+            bgColor = '#cbd5e1'; textColor = '#475569'; title = 'Fin de semana';
+        }
+
+        const clickAttr = clickable || log ? `onclick="_rrhhShowDayDetail('${dateStr}')"` : '';
+        const hoverStyle = (clickable || log) ? 'cursor:pointer;' : '';
+
+        calHTML += `
+            <div ${clickAttr}
+                 title="${title}"
+                 style="
+                    background: ${bgColor};
+                    color: ${textColor};
+                    border-radius: 10px;
+                    padding: 10px 4px;
+                    text-align: center;
+                    font-family: 'Outfit';
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    min-height: 48px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: opacity 0.15s, transform 0.15s;
+                    ${hoverStyle}
+                 "
+                 onmouseover="this.style.opacity='0.82'; this.style.transform='scale(1.07)';"
+                 onmouseout="this.style.opacity='1'; this.style.transform='scale(1)';"
+            >${day}</div>
+        `;
+    }
+
+    calHTML += '</div>';
+    grid.innerHTML = calHTML;
+}
+
+function _rrhhShowDayDetail(dateStr) {
+    const log    = _rrhhAgentLogs.find(l => l.fecha === dateStr);
+    const panel  = document.getElementById('rrhh-day-detail');
+    const body   = document.getElementById('rrhh-day-detail-body');
+    if (!panel || !body) return;
+
+    panel.style.display = 'block';
+
+    if (!log) {
+        body.innerHTML = `<p style="color:#94a3b8; font-style:italic; font-size:0.9rem;">Sin registro para este día.</p>`;
+        return;
+    }
+
+    const fromTime = t => t && t !== '00:00:00' && t !== '00:00';
+    const ingresaValido = fromTime(log.hora_ingreso);
+    const esPresente = (log.estado && log.estado.toUpperCase().includes('PRESENTE')) || ingresaValido;
+    const estadoColor = esPresente ? '#10b981' : '#ef4444';
+
+    // Formatear fecha larga
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dias   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const meses  = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const jsDate = new Date(y, m - 1, d);
+    const fechaLarga = `${dias[jsDate.getDay()]} ${d} de ${meses[m - 1]} de ${y}`;
+
+    const field = (label, value, color = '#334155') => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9;">
+            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">${label}</span>
+            <span style="font-size: 0.85rem; font-weight: 700; color: ${color};">${value || '-'}</span>
+        </div>
+    `;
+
+    body.innerHTML = `
+        <p style="font-size: 0.9rem; font-weight: 800; color: var(--primary-dark); margin: 0 0 16px 0; font-family: 'Outfit';">${fechaLarga}</p>
+        ${field('Estado', log.estado || '-', estadoColor)}
+        ${field('Convocado', log.convocado || '-')}
+        ${field('Feriado',   log.feriado   || '-')}
+        ${field('Ingreso',   ingresaValido ? log.hora_ingreso.substring(0,5) : '-')}
+        ${field('Salida',    fromTime(log.hora_salida) ? log.hora_salida.substring(0,5) : '-')}
+        ${field('Hs. realizadas', fromTime(log.cant_horas) ? log.cant_horas.substring(0,5) : '-', '#f97316')}
+        ${field('Incidencia', log.estado_incidencia || '-', '#dc2626')}
+    `;
+}
+
+function closeRRHHAgentPage() {
+    const page = document.getElementById('rrhh-agent-calendar-page');
+    const report = document.getElementById('reportes_rrhh');
+    if (page) page.style.display = 'none';
+    if (report) report.style.display = 'block';
+    _rrhhAgentLogs = [];
 }
 
 function handleRRHHDrop(e) {
@@ -12654,15 +12823,16 @@ async function uploadRRHHExcel(e) {
     }
 }
 
-window.initRRHHReportView = initRRHHReportView;
-window.switchRRHHTab = switchRRHHTab;
-window.loadRRHHReport = loadRRHHReport;
-window.openRRHHAgentModal = openRRHHAgentModal;
-window.closeRRHHAgentModal = closeRRHHAgentModal;
-window.handleRRHHDrop = handleRRHHDrop;
-window.handleRRHHFileSelect = handleRRHHFileSelect;
-window.clearRRHHFile = clearRRHHFile;
-window.uploadRRHHExcel = uploadRRHHExcel;
+window.initRRHHReportView   = initRRHHReportView;
+window.switchRRHHTab        = switchRRHHTab;
+window.loadRRHHReport       = loadRRHHReport;
+window.openRRHHAgentPage    = openRRHHAgentPage;
+window.closeRRHHAgentPage   = closeRRHHAgentPage;
+window._rrhhShowDayDetail   = _rrhhShowDayDetail;
+window.handleRRHHDrop       = handleRRHHDrop;
+window.handleRRHHFileSelect  = handleRRHHFileSelect;
+window.clearRRHHFile        = clearRRHHFile;
+window.uploadRRHHExcel      = uploadRRHHExcel;
 
 
 
