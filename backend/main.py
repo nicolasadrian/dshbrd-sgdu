@@ -647,6 +647,44 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
 
+async def get_current_user_from_param_or_header(token: Optional[str] = Query(None), authorization: Optional[str] = Header(None, alias="Authorization")):
+    actual_token = None
+    if authorization and authorization.startswith("Bearer "):
+        actual_token = authorization.split(" ")[1]
+    elif token:
+        actual_token = token
+        
+    if not actual_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se pudo validar el acceso",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    try:
+        payload = jwt.decode(actual_token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Token inválido")
+        with engine.connect() as conn:
+            user_row = conn.execute(text("""
+                SELECT username, role, full_name, sector 
+                FROM auth_users WHERE username = :u
+            """), {"u": username}).fetchone()
+            if not user_row:
+                raise HTTPException(status_code=401, detail="Usuario no encontrado")
+            resolved_perms = get_resolved_permissions(conn, user_row[0], user_row[1])
+            return User(
+                username=user_row[0],
+                role=user_row[1],
+                full_name=user_row[2],
+                sector=user_row[3],
+                permissions=resolved_perms
+            )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
 # --- Endpoints de Autenticación ---
 
 @app.post("/api/auth/login", response_model=Token)
@@ -6299,42 +6337,6 @@ async def get_analista_productividad(username: str, date_from: Optional[str] = N
         logger.error(f"Error fetching analista productivity: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def get_current_user_from_param_or_header(token: Optional[str] = Query(None), authorization: Optional[str] = Header(None, alias="Authorization")):
-    actual_token = None
-    if authorization and authorization.startswith("Bearer "):
-        actual_token = authorization.split(" ")[1]
-    elif token:
-        actual_token = token
-        
-    if not actual_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="No se pudo validar el acceso",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-        
-    try:
-        payload = jwt.decode(actual_token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Token inválido")
-        with engine.connect() as conn:
-            user_row = conn.execute(text("""
-                SELECT username, role, full_name, sector 
-                FROM auth_users WHERE username = :u
-            """), {"u": username}).fetchone()
-            if not user_row:
-                raise HTTPException(status_code=401, detail="Usuario no encontrado")
-            resolved_perms = get_resolved_permissions(conn, user_row[0], user_row[1])
-            return User(
-                username=user_row[0],
-                role=user_row[1],
-                full_name=user_row[2],
-                sector=user_row[3],
-                permissions=resolved_perms
-            )
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido o expirado")
 
 @app.get("/api/productividad/pdf/individual")
 async def get_pdf_individual(username: str, date_from: Optional[str] = None, date_to: Optional[str] = None, token: Optional[str] = Query(None), current_user: User = Depends(get_current_user_from_param_or_header)):
