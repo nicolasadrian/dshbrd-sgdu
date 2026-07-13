@@ -12337,7 +12337,8 @@ async function loadRRHHReport() {
     if (cardsContainer) cardsContainer.innerHTML = '';
 
     try {
-        const res = await def_fetch(`${API_BASE}/rrhh/reporte?month=${monthVal}`);
+        const url = monthVal ? `${API_BASE}/rrhh/reporte?month=${monthVal}` : `${API_BASE}/rrhh/reporte`;
+        const res = await def_fetch(url);
         if (res && res.ok) {
             const data = await res.json();
             currentRRHHReportData = data;
