@@ -12531,49 +12531,73 @@ function openRRHHAgentPage(cuil, nameEncoded) {
     _rrhhCurrentName  = decodeURIComponent(nameEncoded);
     _rrhhCurrentMonth = document.getElementById('rrhh-filter-month')?.value || '';
 
-    // Ocultar el reporte y mostrar la sub-página
-    const reportSection = document.getElementById('reportes_rrhh');
-    let page = document.getElementById('rrhh-agent-calendar-page');
-
-    if (!page) {
-        page = document.createElement('section');
-        page.id = 'rrhh-agent-calendar-page';
-        page.style.cssText = 'display:none; padding: 24px; max-width: 1200px; margin: 0 auto;';
-        reportSection.parentNode.insertBefore(page, reportSection.nextSibling);
+    // Crear modal si no existe
+    let modal = document.getElementById('rrhh-agent-calendar-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'rrhh-agent-calendar-modal';
+        modal.style.cssText = [
+            'display:none',
+            'position:fixed',
+            'inset:0',
+            'z-index:9999',
+            'background:rgba(15,23,42,0.55)',
+            'backdrop-filter:blur(4px)',
+            'align-items:center',
+            'justify-content:center',
+            'padding:20px'
+        ].join(';');
+        // Cerrar al hacer click en el backdrop
+        modal.addEventListener('click', e => { if (e.target === modal) closeRRHHAgentPage(); });
+        document.body.appendChild(modal);
     }
 
-    reportSection.style.display = 'none';
-    page.style.display = 'block';
-    page.innerHTML = `
-        <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
-            <button onclick="closeRRHHAgentPage()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-family: 'Outfit'; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
-                <i class="fa-solid fa-arrow-left"></i> Volver al Reporte
-            </button>
-            <div>
-                <h2 style="margin: 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.4rem; color: var(--primary-dark);">${_rrhhCurrentName}</h2>
-                <span style="font-size: 0.82rem; color: #64748b;">CUIL: ${_rrhhCurrentCuil} &nbsp;|&nbsp; Mes: ${_rrhhCurrentMonth}</span>
+    modal.innerHTML = `
+        <div style="
+            background: #f8fafc;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 1100px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 28px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.25);
+            position: relative;
+        ">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div>
+                    <h2 style="margin: 0 0 4px 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.35rem; color: var(--primary-dark);">${_rrhhCurrentName}</h2>
+                    <span style="font-size: 0.82rem; color: #64748b;">CUIL: ${_rrhhCurrentCuil} &nbsp;|&nbsp; Mes: ${_rrhhCurrentMonth}</span>
+                </div>
+                <button onclick="closeRRHHAgentPage()" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; color: #475569; flex-shrink: 0;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-        </div>
 
-        <!-- Leyenda -->
-        <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding: 14px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
-            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #10b981; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">Presente</span></div>
-            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #ef4444; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">Ausente</span></div>
-            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">No convocado</span></div>
-            <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 14px; border-radius: 50%; background: #94a3b8; display: inline-block;"></span><span style="font-size: 0.82rem; color: #475569; font-weight: 600;">Fin de semana / Feriado</span></div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start;">
-            <div id="rrhh-calendar-grid" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <div style="text-align: center; padding: 3rem;"><span class="loader"></span></div>
+            <!-- Leyenda -->
+            <div style="display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 20px; padding: 12px 18px; background: white; border: 1px solid #e2e8f0; border-radius: 10px;">
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; display: inline-block;"></span><span style="font-size: 0.8rem; color: #475569; font-weight: 600;">Presente</span></div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: #ef4444; display: inline-block;"></span><span style="font-size: 0.8rem; color: #475569; font-weight: 600;">Ausente</span></div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: #3b82f6; display: inline-block;"></span><span style="font-size: 0.8rem; color: #475569; font-weight: 600;">No convocado</span></div>
+                <div style="display: flex; align-items: center; gap: 6px;"><span style="width: 12px; height: 12px; border-radius: 50%; background: #cbd5e1; display: inline-block;"></span><span style="font-size: 0.8rem; color: #475569; font-weight: 600;">Fin de semana / Feriado</span></div>
             </div>
-            <div id="rrhh-day-detail" style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: none;">
-                <h4 style="margin: 0 0 16px 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">Detalle del día</h4>
-                <div id="rrhh-day-detail-body"></div>
+
+            <!-- Contenido: calendario + detalle -->
+            <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start;">
+                <div id="rrhh-calendar-grid" style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;">
+                    <div style="text-align: center; padding: 3rem;"><span class="loader"></span></div>
+                </div>
+                <div id="rrhh-day-detail" style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; display: none;">
+                    <h4 style="margin: 0 0 14px 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 0.95rem;">Detalle del día</h4>
+                    <div id="rrhh-day-detail-body"></div>
+                </div>
             </div>
         </div>
     `;
 
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
     _loadRRHHAgentCalendar();
 }
 
@@ -12739,10 +12763,9 @@ function _rrhhShowDayDetail(dateStr) {
 }
 
 function closeRRHHAgentPage() {
-    const page = document.getElementById('rrhh-agent-calendar-page');
-    const report = document.getElementById('reportes_rrhh');
-    if (page) page.style.display = 'none';
-    if (report) report.style.display = 'block';
+    const modal = document.getElementById('rrhh-agent-calendar-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
     _rrhhAgentLogs = [];
 }
 
