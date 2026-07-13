@@ -1544,8 +1544,11 @@ async def upload_rrhh_excel(
 
         for idx, row in df.iterrows():
             cuil_raw = str(row.iloc[0]).strip()
+            if cuil_raw.endswith('.0'):
+                cuil_raw = cuil_raw[:-2]
+                
             # Skip header lookalikes or empty rows
-            if not cuil_raw or cuil_raw.lower() in ['cuil', 'nan', 'none']:
+            if not cuil_raw or cuil_raw.lower() in ['cuil', 'nan', 'none', '']:
                 continue
 
             nombre = str(row.iloc[1]).strip()
@@ -1562,12 +1565,20 @@ async def upload_rrhh_excel(
 
             # Parse date safely
             try:
-                if isinstance(fecha_raw, str):
-                    fecha = pd.to_datetime(fecha_raw).to_pydatetime()
+                if pd.isna(fecha_raw):
+                    continue
+                if hasattr(fecha_raw, 'to_pydatetime'):
+                    fecha = fecha_raw.to_pydatetime()
+                elif isinstance(fecha_raw, (datetime, date)):
+                    # Si es datetime o date de Python
+                    if isinstance(fecha_raw, date) and not isinstance(fecha_raw, datetime):
+                        fecha = datetime.combine(fecha_raw, datetime.min.time())
+                    else:
+                        fecha = fecha_raw
                 else:
-                    fecha = pd.to_datetime(fecha_raw).to_pydatetime()
-            except Exception:
-                # Skip invalid date rows
+                    fecha = pd.to_datetime(str(fecha_raw).strip()).to_pydatetime()
+            except Exception as e:
+                logger.warning(f"Fila {idx} salteada: Error parseando fecha '{fecha_raw}': {e}")
                 continue
 
             dates_present.add(fecha.date())
