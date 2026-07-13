@@ -4185,7 +4185,17 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/cierre_mes")
-async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user)):
+async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
+    if not mes:
+        # Default al mes anterior
+        now = datetime.now()
+        prev_m = now.month - 1
+        prev_y = now.year
+        if prev_m == 0:
+            prev_m = 12
+            prev_y -= 1
+        mes = f"{prev_y}-{str(prev_m).zfill(2)}"
+
     _ck = f"cierre_mes_{mes}"
     hit, data = cached_response(_ck, ttl_seconds=300)
     if hit:
