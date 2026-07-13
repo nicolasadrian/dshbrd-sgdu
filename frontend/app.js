@@ -12924,7 +12924,7 @@ async function loadLandingStats() {
               label: 'Trámites configurados',        value: d.tramites_total,            sub: 'tipos de trámite activos' },
             { icon: 'fa-solid fa-users',             iconBg: '#f0fdf4', iconColor: '#10b981',
               label: 'Analistas activos',            value: d.analistas_count,           sub: 'en el sistema' },
-            { icon: 'fa-solid fa-arrow-down-to-line', iconBg: '#eff6ff', iconColor: '#6366f1',
+            { icon: 'fa-solid fa-file-import',          iconBg: '#eff6ff', iconColor: '#6366f1',
               label: `Ingresados ${_mesLabel(d.mes)}`, value: d.ingresos_mes,            sub: 'expedientes en el mes' },
             { icon: 'fa-solid fa-circle-check',      iconBg: '#f0fdf4', iconColor: '#10b981',
               label: `Egresados efectivos ${_mesLabel(d.mes)}`, value: d.egresos_efectivos_mes, sub: 'resoluciones definitivas', valueColor: '#10b981' },
