@@ -12348,10 +12348,10 @@ async function loadRRHHReport() {
             // Calculate global statistics
             let totalPresentes = 0;
             let totalAusentes = 0;
-            let totalTardes = 0;
             let totalAgentes = 0;
             let sumAsistencia = 0;
-            let sumPuntualidad = 0;
+            let totalMinutos = 0;
+            let totalDiasHoras = 0;
 
             const sectorKeys = Object.keys(data.sectores);
             sectorKeys.forEach(sec => {
@@ -12359,14 +12359,26 @@ async function loadRRHHReport() {
                 s.agentes_list.forEach(a => {
                     totalAgentes++;
                     sumAsistencia += a.asistencia_pct;
-                    sumPuntualidad += a.puntualidad_pct;
                     if (a.ausentes > 0) totalAusentes += a.ausentes;
                     totalPresentes += a.presentes;
                 });
             });
 
             const avgAsistencia = totalAgentes > 0 ? Math.round(sumAsistencia / totalAgentes) : 100;
-            const avgPuntualidad = totalAgentes > 0 ? Math.round(sumPuntualidad / totalAgentes) : 100;
+
+            // Calcular promedio global de horas desde sectores
+            sectorKeys.forEach(sec => {
+                data.sectores[sec].agentes_list.forEach(a => {
+                    if (a.promedio_horas && a.promedio_horas !== '--') {
+                        const parts = a.promedio_horas.split(':');
+                        totalMinutos += parseInt(parts[0]) * 60 + parseInt(parts[1]);
+                        totalDiasHoras++;
+                    }
+                });
+            });
+            const avgPromHoras = totalDiasHoras > 0
+                ? (() => { const m = Math.round(totalMinutos / totalDiasHoras); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; })()
+                : '--';
 
             // Render Global KPI Cards
             if (cardsContainer) {
@@ -12386,10 +12398,10 @@ async function loadRRHHReport() {
                         </div>
                     </div>
                     <div class="metric-card-premium" style="background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <div style="width: 50px; height: 50px; border-radius: 50%; background: #fff7ed; color: #f97316; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-clock"></i></div>
+                        <div style="width: 50px; height: 50px; border-radius: 50%; background: #fff7ed; color: #f97316; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-hourglass-half"></i></div>
                         <div>
-                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Puntualidad Global</span>
-                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem; color: #f97316;">${avgPuntualidad}%</h3>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Prom. Horas Realizadas</span>
+                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem; color: #f97316;">${avgPromHoras} hs</h3>
                         </div>
                     </div>
                 `;
@@ -12431,7 +12443,7 @@ async function loadRRHHReport() {
                             <td style="padding: 10px 12px; font-weight: 700; color: var(--primary-dark);">${a.usuario.toUpperCase()}</td>
                             <td style="padding: 10px 12px; color: #334155;">${a.nombre}</td>
                             <td style="padding: 10px 12px; text-align: center; font-weight: 600; color: #10b981;">${a.asistencia_pct}%</td>
-                            <td style="padding: 10px 12px; text-align: center; font-weight: 600; color: #f97316;">${a.puntualidad_pct}%</td>
+                            <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: #f97316; font-family: 'Outfit'; font-size: 0.95rem;">${a.promedio_horas} hs</td>
                             <td style="padding: 10px 12px; text-align: center;">
                                 <button type="button" onclick="openRRHHAgentModal('${a.cuil}', '${a.nombre}')" class="btn-action-view" style="padding: 6px 12px; background: #eff6ff; color: #2563eb; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s;">
                                     <i class="fa-solid fa-calendar-days"></i> Ver Bitácora
@@ -12475,7 +12487,7 @@ async function loadRRHHReport() {
                                             <th style="padding: 10px 12px; font-weight: 700; color: #475569;">Usuario</th>
                                             <th style="padding: 10px 12px; font-weight: 700; color: #475569;">Nombre y Apellido</th>
                                             <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Asistencia</th>
-                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Puntualidad</th>
+                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Prom. Horas</th>
                                             <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Acción</th>
                                         </tr>
                                     </thead>

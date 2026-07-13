@@ -1281,10 +1281,11 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
                         "usuario": r[10] or "N/A",
                         "presentes": 0,
                         "ausentes": 0,
-                        "tardes": 0,
                         "total_convocado": 0,
                         "asistencia_pct": 0,
-                        "puntualidad_pct": 0
+                        "total_minutos_horas": 0,
+                        "dias_con_horas": 0,
+                        "promedio_horas": "--"
                     }
                 ag_data = s_data["agentes"][agente_key]
 
@@ -1317,14 +1318,12 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
                         if h_key in s_data["hourly_coverage"]:
                             s_data["hourly_coverage"][h_key] += 1
 
-                    # Check punctual check-in (antes de las 09:30)
-                    if h_ingreso.hour < 9 or (h_ingreso.hour == 9 and h_ingreso.minute <= 30):
-                        s_data["dias_a_tiempo"] += 1
-                        if convocado:
-                            ag_data["tardes"] = ag_data.get("tardes", 0)
-                    else:
-                        if convocado:
-                            ag_data["tardes"] = ag_data.get("tardes", 0) + 1
+                    # Acumular horas trabajadas (cant_horas) — excluir 00:00
+                    c_horas = r[7]  # cant_horas
+                    if c_horas and c_horas != _time(0, 0):
+                        minutos = c_horas.hour * 60 + c_horas.minute
+                        ag_data["total_minutos_horas"] += minutos
+                        ag_data["dias_con_horas"] += 1
 
                 if h_salida:
                     s_str = h_salida.strftime("%H:%M")
@@ -1339,10 +1338,18 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
                     tot = ag_data["total_convocado"]
                     if tot > 0:
                         ag_data["asistencia_pct"] = round((ag_data["presentes"] / tot) * 100)
-                        ag_data["puntualidad_pct"] = round(((ag_data["presentes"] - ag_data["tardes"]) / ag_data["presentes"]) * 100) if ag_data["presentes"] > 0 else 0
                     else:
                         ag_data["asistencia_pct"] = 100
-                        ag_data["puntualidad_pct"] = 100
+                    # Promedio de horas realizadas (excluye registros sin ingreso válido)
+                    dias_h = ag_data["dias_con_horas"]
+                    if dias_h > 0:
+                        prom_min = ag_data["total_minutos_horas"] // dias_h
+                        ag_data["promedio_horas"] = f"{prom_min // 60:02d}:{prom_min % 60:02d}"
+                    else:
+                        ag_data["promedio_horas"] = "--"
+                    # Limpiar campos intermedios
+                    del ag_data["total_minutos_horas"]
+                    del ag_data["dias_con_horas"]
 
                 # Convert agents dict to list
                 s_data["agentes_list"] = list(s_data["agentes"].values())
