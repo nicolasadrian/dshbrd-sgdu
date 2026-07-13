@@ -1899,15 +1899,13 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                         END as "STOCK_SUBS"
                     FROM periodos p
                     CROSS JOIN (
-                        SELECT DISTINCT 
-                            t.trata, 
-                            COALESCE(
-                                (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = t.trata AND gerencia = :g LIMIT 1),
-                                (SELECT descripcion_trata FROM cfg_gestion_metas WHERE t.trata = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
-                                t.descripcion_trata
-                            ) as descripcion_trata 
-                        FROM vw_expedientes_maestro t
-                        WHERE t.trata IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)
+                        SELECT v.trata_code as trata,
+                               COALESCE(
+                                   (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = v.trata_code AND gerencia = :g LIMIT 1),
+                                   (SELECT descripcion_trata FROM cfg_gestion_metas WHERE v.trata_code = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                                   v.trata_code
+                               ) as descripcion_trata
+                        FROM (VALUES {", ".join([f"('{c}')" for c in trata_codes])}) as v(trata_code)
                         UNION ALL
                         SELECT 'INTERVENCIONES', 'Intervenciones'
                     ) et
