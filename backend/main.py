@@ -1530,8 +1530,10 @@ async def upload_rrhh_excel(
     if not (current_user.permissions.get("carga_reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
-        # Read Excel using pandas
-        df = pd.read_excel(file.file)
+        # Read Excel using pandas via BytesIO to avoid 'seekable' error on SpooledTemporaryFile
+        contents = await file.read()
+        import io
+        df = pd.read_excel(io.BytesIO(contents))
         
         # Check minimum columns count
         if len(df.columns) < 10:
