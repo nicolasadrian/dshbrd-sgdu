@@ -1619,7 +1619,9 @@ async def upload_rrhh_excel(
 
             # Parse date safely
             try:
-                if pd.isna(fecha_raw):
+                from datetime import time as datetime_time
+                if pd.isna(fecha_raw) or isinstance(fecha_raw, datetime_time):
+                    # Si es una hora o nulo, no es una fecha válida
                     continue
                 if hasattr(fecha_raw, 'to_pydatetime'):
                     fecha = fecha_raw.to_pydatetime()
@@ -1631,6 +1633,10 @@ async def upload_rrhh_excel(
                         fecha = fecha_raw
                 else:
                     fecha = pd.to_datetime(str(fecha_raw).strip()).to_pydatetime()
+                
+                # Doble validación de tipo
+                if isinstance(fecha, datetime_time):
+                    continue
             except Exception as e:
                 logger.warning(f"Fila {idx} salteada: Error parseando fecha '{fecha_raw}': {e}")
                 continue
