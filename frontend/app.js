@@ -12940,8 +12940,8 @@ async function loadLandingStats() {
               label: 'Stock en trámite',             value: d.stock_total,               sub: 'expedientes activos hoy', valueColor: '#8b5cf6' },
             { icon: 'fa-solid fa-triangle-exclamation', iconBg: '#fef2f2', iconColor: '#ef4444',
               label: 'Subsanaciones abiertas',       value: d.subs_abiertas,            sub: 'pendientes de respuesta', valueColor: '#ef4444' },
-            { icon: 'fa-solid fa-trophy',            iconBg: '#fffbeb', iconColor: '#f59e0b',
-              label: 'Trámite con mayor stock',      value: d.top_trata_stock,          sub: d.top_trata_nombre, valueColor: '#f59e0b' },
+            { icon: 'fa-solid fa-fire-flame-curved', iconBg: '#fef2f2', iconColor: '#dc2626',
+              label: 'Trámite con mayor stock',      value: d.top_trata_stock,          sub: d.top_trata_nombre, valueColor: '#dc2626' },
         ];
 
         const grid = document.getElementById('landing-kpi-grid');
