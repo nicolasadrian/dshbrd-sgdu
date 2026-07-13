@@ -1,9 +1,12 @@
 import os
 import sys
 import json
+import time
+import threading
 from fastapi import FastAPI, HTTPException, Depends, status, Query, Header, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from starlette.middleware.gzip import GZipMiddleware
 from sqlalchemy import create_engine, text
 import pandas as pd
 from datetime import datetime, timedelta, date
@@ -43,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SGDU Analytics API")
 
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -50,6 +54,32 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Performance: Caché TTL en memoria ─────────────────────────────────────
+_response_cache: Dict[str, Any] = {}
+_response_cache_lock = threading.Lock()
+
+def cached_response(key: str, ttl_seconds: int = 120):
+    """Devuelve (hit, data). Si hit=True, data es la respuesta cacheada."""
+    with _response_cache_lock:
+        entry = _response_cache.get(key)
+        if entry and (time.time() - entry["ts"]) < ttl_seconds:
+            return True, entry["data"]
+    return False, None
+
+def set_cache(key: str, data):
+    """Guarda una respuesta en caché con timestamp."""
+    with _response_cache_lock:
+        # Limitar tamaño del caché (evitar memory leak)
+        if len(_response_cache) > 200:
+            oldest = sorted(_response_cache.items(), key=lambda x: x[1]["ts"])[:50]
+            for k, _ in oldest:
+                _response_cache.pop(k, None)
+        _response_cache[key] = {"ts": time.time(), "data": data}
+
+# Caché de autenticación por token (evita 2-3 queries DB por request)
+_auth_cache: Dict[str, Any] = {}
+_AUTH_CACHE_TTL = 60  # segundos
 
 # Modelos Pydantic
 class Token(BaseModel):
@@ -125,7 +155,15 @@ def get_engine():
     if db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
         
-    return create_engine(db_url, pool_size=5, max_overflow=10)
+    return create_engine(
+        db_url,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_timeout=30,
+        connect_args={"options": "-c statement_timeout=30000"},
+    )
 
 engine = get_engine()
 
@@ -141,7 +179,14 @@ def get_geo_mdr_engine():
     if geo_url.startswith("postgres://"):
         geo_url = geo_url.replace("postgres://", "postgresql://", 1)
         
-    return create_engine(geo_url, pool_size=5, max_overflow=10)
+    return create_engine(
+        geo_url,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_timeout=30,
+    )
 
 geo_engine = get_geo_mdr_engine()
 
@@ -546,6 +591,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         detail="No se pudo validar el acceso",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    # Caché de auth por token (60s TTL)
+    cached = _auth_cache.get(token)
+    if cached and (time.time() - cached["ts"]) < _AUTH_CACHE_TTL:
+        return cached["user"]
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -561,13 +611,22 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
                 raise credentials_exception
             
             resolved_perms = get_resolved_permissions(conn, user_row[0], user_row[1])
-            return User(
+            user = User(
                 username=user_row[0],
                 role=user_row[1],
                 full_name=user_row[2],
                 sector=user_row[3],
                 permissions=resolved_perms
             )
+            # Guardar en caché
+            _auth_cache[token] = {"ts": time.time(), "user": user}
+            # Limitar tamaño del caché de auth
+            if len(_auth_cache) > 100:
+                cutoff = time.time() - _AUTH_CACHE_TTL
+                expired = [k for k, v in _auth_cache.items() if v["ts"] < cutoff]
+                for k in expired:
+                    _auth_cache.pop(k, None)
+            return user
     except JWTError:
         raise credentials_exception
 
@@ -1616,6 +1675,83 @@ def calculate_trata_expected_egresos(conn, gerencia_clean: str, trata: Optional[
         logger.error(f"Error calculate_trata_expected_egresos: {e}")
         return 0
 
+
+def calculate_all_trata_expected_egresos_batch(conn, gerencia_clean: str, trata_codes: list) -> dict:
+    """Versión batch: 1 sola query para todas las tratas en vez de N queries separadas."""
+    try:
+        interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+
+        now = datetime.now()
+        curr_y, curr_m = now.year, now.month
+        curr_m -= 1
+        if curr_m == 0:
+            curr_m = 12
+            curr_y -= 1
+        complete_months = []
+        for _ in range(6):
+            complete_months.append(f"{curr_y}-{str(curr_m).zfill(2)}")
+            curr_m -= 1
+            if curr_m == 0:
+                curr_m = 12
+                curr_y -= 1
+
+        sql = f"""
+            WITH periodos(mes_label) AS (
+                SELECT * FROM (VALUES {", ".join([f"('{m}')" for m in complete_months])}) as t(m)
+            ),
+            egr AS (
+                SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, TRIM(trata) as trata, COUNT(*) as cant
+                FROM mv_{gerencia_clean}_gedos_egreso
+                GROUP BY 1, 2
+            ),
+            egr_interv AS (
+                SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, 'INTERVENCIONES' as trata, COUNT(*) as cant
+                FROM {interv_egr_table}
+                GROUP BY 1
+            ),
+            egr_ne AS (
+                SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, TRIM(trata) as trata, COUNT(*) as cant
+                FROM mv_{gerencia_clean}_egresos_no_efectivos
+                GROUP BY 1, 2
+            ),
+            all_egr AS (
+                SELECT mes_label, trata, cant FROM egr
+                UNION ALL
+                SELECT mes_label, trata, cant FROM egr_interv
+                UNION ALL
+                SELECT mes_label, trata, cant FROM egr_ne
+            )
+            SELECT p.mes_label, ae.trata, COALESCE(SUM(ae.cant), 0) as total
+            FROM periodos p
+            LEFT JOIN all_egr ae ON ae.mes_label = p.mes_label
+            GROUP BY p.mes_label, ae.trata
+        """
+        result = conn.execute(text(sql))
+
+        # Agrupar por trata
+        from collections import defaultdict
+        trata_months: dict = defaultdict(lambda: defaultdict(int))
+        for row in result:
+            r = row._mapping
+            t = str(r["trata"] or "").strip().upper()
+            trata_months[t][r["mes_label"]] += int(r["total"] or 0)
+
+        # Calcular mediana por trata
+        targets = {}
+        for t_code in trata_codes:
+            t_upper = t_code.strip().upper()
+            vals = sorted(float(trata_months[t_upper].get(m, 0)) for m in complete_months)
+            n = len(vals)
+            if n == 0:
+                targets[t_upper] = 0
+            else:
+                mid = n // 2
+                targets[t_upper] = round(vals[mid] if n % 2 == 1 else (vals[mid - 1] + vals[mid]) / 2.0)
+        return targets
+    except Exception as e:
+        logger.error(f"Error calculate_all_trata_expected_egresos_batch: {e}")
+        return {t.strip().upper(): 0 for t in trata_codes}
+
 @app.get("/api/reporte/{gerencia}/config/all")
 async def get_gerencia_config(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
@@ -1647,6 +1783,11 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
     gerencia_clean = gerencia.lower()
     if gerencia_clean == 'conforme':
         gerencia_clean = 'regularizacion'
+
+    _ck = f"consolidado_{gerencia_clean}"
+    hit, data = cached_response(_ck, ttl_seconds=120)
+    if hit:
+        return data
         
     if gerencia_clean not in TRAMITES_CONFIG:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
@@ -1819,15 +1960,16 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                 except Exception:
                     pass
                 logger.warning(f"No se pudo consultar mv_metas_dinamicas_{gerencia_clean}, usando fallback: {e}")
-                for t_code in trata_codes + ['INTERVENCIONES']:
-                    expected_targets[t_code] = calculate_trata_expected_egresos(conn, gerencia_clean, t_code)
+                expected_targets = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, trata_codes + ['INTERVENCIONES'])
 
             # Enriquecer con acrónimos oficiales desde TRAMITES_CONFIG
             config_for_g = TRAMITES_CONFIG.get(gerencia_clean, {})
             df["acronimos"] = df["COD TRATA"].apply(lambda x: config_for_g.get(x, {}).get("acronimos", ""))
             df["meta_egr_prom"] = df["COD TRATA"].apply(lambda x: expected_targets.get(str(x).strip().upper(), 0))
             
-            return df.to_dict(orient='records')
+            result = df.to_dict(orient='records')
+            set_cache(_ck, result)
+            return result
     except Exception as e:
         logger.error(f"Error en consolidado: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2125,6 +2267,10 @@ async def get_reporte_familia(
     trata: List[str] = Query(...), 
     current_user: User = Depends(get_current_user)
 ):
+    _ck = f"familia_{'_'.join(sorted(trata))}"
+    hit, data = cached_response(_ck, ttl_seconds=300)
+    if hit:
+        return data
     try:
         # Group tratas by gerencia
         trata_to_gerencia = {}
@@ -2247,13 +2393,15 @@ async def get_reporte_familia(
                 "STOCK_SUBS": h["STOCK_SUBS"]
             })
 
-        return {
+        result = {
             "history": formatted_history,
             "metas": {
                 "ingresos_esperados": round(total_ingresos_promedio),
                 "egresos_totales_plan": round(total_egresos_totales_plan)
             }
         }
+        set_cache(_ck, result)
+        return result
     except Exception as e:
         logger.error(f"Error en reporte familia: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -3810,8 +3958,8 @@ async def get_tramite_detalle_periodo(
                     raise HTTPException(status_code=400, detail="Métrica no soportada.")
                     
             result = conn.execute(text(sql), params)
-            df = pd.DataFrame(result.fetchall(), columns=result.keys())
-            return df.to_dict(orient='records')
+            rows = result.fetchall()
+            return [dict(row._mapping) for row in rows]
     except Exception as e:
         logger.error(f"Error en detalle_periodo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -3819,6 +3967,10 @@ async def get_tramite_detalle_periodo(
 @app.get("/api/landing/stats")
 async def get_landing_stats(current_user: User = Depends(get_current_user)):
     """Endpoint de métricas globales para el landing del tablero."""
+    _ck = "landing_stats"
+    hit, data = cached_response(_ck, ttl_seconds=120)
+    if hit:
+        return data
     try:
         from datetime import date as _date, timedelta
         import calendar as _calendar
@@ -3946,7 +4098,7 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 except Exception:
                     pass
 
-            return {
+            result = {
                 "mes": mes_actual,
                 "pct_mes": pct_mes,
                 "dia_actual": today.day,
@@ -3962,12 +4114,18 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 "top_trata_nombre": top_trata_nombre,
                 "top_trata_stock": top_trata_stock,
             }
+            set_cache(_ck, result)
+            return result
     except Exception as e:
         logger.error(f"Error en landing/stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/reporte/cierre_mes")
 async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user)):
+    _ck = f"cierre_mes_{mes}"
+    hit, data = cached_response(_ck, ttl_seconds=300)
+    if hit:
+        return data
     try:
         # 1. Parsear el mes recibido (Ej: "2026-05") y calcular el anterior y el interanual
         try:
@@ -4028,8 +4186,7 @@ async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user
                     # Fallback: si no hay metas de planificación unificadas para el mes seleccionado,
                     # calcular una meta estimada basada en la mediana de los últimos 6 meses
                     if not metas_plan:
-                        for t_code in trata_codes:
-                            metas_plan[t_code.upper()] = calculate_trata_expected_egresos(conn, g_clean, t_code)
+                        metas_plan = calculate_all_trata_expected_egresos_batch(conn, g_clean, trata_codes)
 
                 # B. Obtener Ingresos (Mes Objetivo vs Mes Previo vs Mes YoY)
                 ingresos = {}
@@ -4249,6 +4406,7 @@ async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user
             # Evaluar cumplimiento general del tablero
             response_data["totales"]["cumplido"] = (response_data["totales"]["egresos"] >= response_data["totales"]["meta"]) if response_data["totales"]["meta"] > 0 else True
 
+        set_cache(_ck, response_data)
         return response_data
     except Exception as e:
         logger.error(f"Error en cierre_mes: {e}")
@@ -4256,6 +4414,10 @@ async def get_cierre_mes(mes: str, current_user: User = Depends(get_current_user
 
 @app.get("/api/reporte/sla")
 async def get_sla_report(gerencia: Optional[str] = 'ALL', current_user: User = Depends(get_current_user)):
+    _ck = f"sla_{gerencia or 'ALL'}"
+    hit, data = cached_response(_ck, ttl_seconds=120)
+    if hit:
+        return data
     try:
         with engine.connect() as conn:
             gerencias_to_query = []
@@ -4337,6 +4499,7 @@ async def get_sla_report(gerencia: Optional[str] = 'ALL', current_user: User = D
                             row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
                             
                         records.append(row_dict)
+            set_cache(_ck, records)
             return records
     except Exception as e:
         logger.error(f"Error en reporte/sla: {e}")
@@ -5665,6 +5828,11 @@ async def get_subsanaciones_report(
     if g_param == 'conforme':
         g_param = 'regularizacion'
 
+    _ck = f"subsanaciones_{g_param}"
+    hit, data = cached_response(_ck, ttl_seconds=120)
+    if hit:
+        return data
+
     gerencias_to_query = []
     if g_param != 'all':
         if g_param not in TRAMITES_CONFIG:
@@ -5777,6 +5945,7 @@ async def get_subsanaciones_report(
                         "mediana_dias": float(tr_dict["mediana_dias"] or 0.0),
                         "analistas": trata_analysts.get(t_code, [])
                     })
+        set_cache(_ck, records)
         return records
     except Exception as e:
         logger.error(f"Error en reporte/subsanaciones: {e}")
