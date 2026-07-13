@@ -1535,8 +1535,34 @@ async def upload_rrhh_excel(
         import io
         df = pd.read_excel(io.BytesIO(contents))
         
-        # Log columnas para diagnóstico
-        logger.info(f"Excel subido: {len(df)} filas, columnas detectadas: {list(df.columns)}")
+        # Log columnas originales
+        logger.info(f"Excel subido: {len(df)} filas, columnas originales detectadas: {list(df.columns)}")
+        
+        # Auto-detectar fila de cabecera si las columnas son Unnamed o si no contienen 'cuil'
+        has_cuil = any("cuil" in str(c).lower() for c in df.columns)
+        is_unnamed = all(str(c).startswith("Unnamed:") for c in df.columns) or not has_cuil
+        
+        if is_unnamed:
+            header_row_idx = None
+            # Buscar en las primeras 20 filas una que contenga "cuil"
+            for i in range(min(20, len(df))):
+                row_values = [str(val).strip().lower() for val in df.iloc[i].values if pd.notna(val)]
+                if any("cuil" in val for val in row_values):
+                    header_row_idx = i
+                    break
+            
+            if header_row_idx is not None:
+                logger.info(f"Fila de cabecera detectada dinámicamente en el índice {header_row_idx}")
+                # Definir nuevas columnas usando los valores de esa fila
+                new_cols = []
+                for col_idx in range(len(df.columns)):
+                    val = df.iloc[header_row_idx, col_idx]
+                    new_cols.append(str(val).strip() if pd.notna(val) else f"col_{col_idx}")
+                
+                df.columns = new_cols
+                # Quedarse con las filas posteriores
+                df = df.iloc[header_row_idx + 1:].reset_index(drop=True)
+                logger.info(f"Columnas reasignadas a: {list(df.columns)}")
         
         # Check minimum columns count
         if len(df.columns) < 10:
