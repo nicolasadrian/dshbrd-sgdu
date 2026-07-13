@@ -1574,12 +1574,13 @@ async def upload_rrhh_excel(
 
             # Parse times safely helper
             def parse_time(val):
+                from datetime import time as datetime_time
                 if pd.isna(val) or str(val).strip().lower() in ['nan', 'none', '']:
                     return None
                 try:
                     if isinstance(val, datetime):
                         return val.time()
-                    if isinstance(val, time):
+                    if isinstance(val, datetime_time):
                         return val
                     # String parse
                     t_str = str(val).strip()
@@ -1589,9 +1590,9 @@ async def upload_rrhh_excel(
                         h = int(parts[0])
                         m = int(parts[1])
                         s = int(parts[2]) if len(parts) > 2 else 0
-                        return time(h, m, s)
-                except Exception:
-                    pass
+                        return datetime_time(h, m, s)
+                except Exception as e:
+                    logger.debug(f"Error parsing time value '{val}': {e}")
                 return None
 
             h_ingreso = parse_time(h_ingreso_raw)
