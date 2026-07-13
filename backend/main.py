@@ -3906,18 +3906,27 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                     """), {"tratas": tratas_oficiales}).scalar()
                     g_stock = int(r or 0)
                     stock_total += g_stock
-                    # Top trámite por stock dentro de esta gerencia
+                    # Top trámite por stock dentro de esta gerencia — con descripción
                     top_res = conn.execute(text(f"""
-                        SELECT TRIM(trata), COUNT(*) as cnt
-                        FROM mv_{g_clean}_stock_propio
-                        WHERE TRIM(trata) = ANY(:tratas)
+                        SELECT
+                            TRIM(sp.trata) as trata,
+                            COUNT(*) as cnt,
+                            COALESCE(
+                                (SELECT TRIM(c.descripcion_trata) FROM cfg_gestion_metas c
+                                 WHERE TRIM(sp.trata) = ANY(c.tratas_incluidas)
+                                    OR TRIM(c.trata_reporte) = TRIM(sp.trata)
+                                 LIMIT 1),
+                                TRIM(sp.trata)
+                            ) as descripcion
+                        FROM mv_{g_clean}_stock_propio sp
+                        WHERE TRIM(sp.trata) = ANY(:tratas)
                         GROUP BY 1
                         ORDER BY cnt DESC
                         LIMIT 1
                     """), {"tratas": tratas_oficiales}).fetchone()
                     if top_res and (top_res[1] or 0) > top_trata_stock:
                         top_trata_stock  = int(top_res[1])
-                        top_trata_nombre = top_res[0]
+                        top_trata_nombre = top_res[2] or top_res[0]  # descripcion o fallback al código
                 except Exception:
                     pass
 
