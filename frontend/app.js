@@ -12438,12 +12438,21 @@ async function loadRRHHReport() {
                 // Generate agents table rows
                 let agentsRows = '';
                 s.agentes_list.forEach(a => {
+                    // Color semafórico para promedio de horas
+                    let horasColor = '#94a3b8'; // gris para '--'
+                    if (a.promedio_horas && a.promedio_horas !== '--') {
+                        const [hh, mm] = a.promedio_horas.split(':').map(Number);
+                        const totalMin = hh * 60 + mm;
+                        if (totalMin >= 420)       horasColor = '#10b981'; // verde  > 7h
+                        else if (totalMin >= 300)  horasColor = '#f59e0b'; // amarillo 5–7h
+                        else                       horasColor = '#ef4444'; // rojo  < 5h
+                    }
                     agentsRows += `
                         <tr style="border-bottom: 1px solid #f1f5f9;">
                             <td style="padding: 10px 12px; font-weight: 700; color: var(--primary-dark);">${a.usuario.toUpperCase()}</td>
                             <td style="padding: 10px 12px; color: #334155;">${a.nombre}</td>
                             <td style="padding: 10px 12px; text-align: center; font-weight: 600; color: #10b981;">${a.asistencia_pct}%</td>
-                            <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: #f97316; font-family: 'Outfit'; font-size: 0.95rem;">${a.promedio_horas} hs</td>
+                            <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: ${horasColor}; font-family: 'Outfit'; font-size: 0.95rem;">${a.promedio_horas} hs</td>
                             <td style="padding: 10px 12px; text-align: center;">
                                 <button type="button" onclick="openRRHHAgentModal('${a.cuil}', '${a.nombre}')" class="btn-action-view" style="padding: 6px 12px; background: #eff6ff; color: #2563eb; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s;">
                                     <i class="fa-solid fa-calendar-days"></i> Ver Bitácora
