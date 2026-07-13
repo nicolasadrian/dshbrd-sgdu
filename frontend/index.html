@@ -245,10 +245,25 @@
         <section id="landing" class="view-container active">
 
             <!-- Hero Banner -->
-            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0c4a6e 100%); border-radius: 20px; padding: 36px 40px; margin-bottom: 28px; position: relative; overflow: hidden;">
-                <!-- Decorative blobs -->
-                <div style="position: absolute; top: -40px; right: -40px; width: 220px; height: 220px; border-radius: 50%; background: rgba(56,189,248,0.08);"></div>
-                <div style="position: absolute; bottom: -60px; right: 120px; width: 160px; height: 160px; border-radius: 50%; background: rgba(99,102,241,0.10);"></div>
+            <div style="
+                background: url('landing_banner_bg.png') center center / cover no-repeat;
+                border-radius: 20px;
+                padding: 36px 40px;
+                margin-bottom: 28px;
+                position: relative;
+                overflow: hidden;
+                min-height: 160px;
+            ">
+                <!-- Dark overlay for readability -->
+                <div style="position: absolute; inset: 0; border-radius: 20px;
+                    background: linear-gradient(120deg, rgba(10,17,34,0.82) 0%, rgba(15,30,60,0.70) 55%, rgba(8,25,50,0.78) 100%);
+                    backdrop-filter: blur(1px);
+                "></div>
+                <!-- Subtle city-grid line overlay -->
+                <div style="position: absolute; inset: 0; border-radius: 20px; opacity: 0.07;
+                    background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(125,209,252,0.8) 40px),
+                                      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(125,209,252,0.8) 60px);
+                "></div>
 
                 <div style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
                     <div>
