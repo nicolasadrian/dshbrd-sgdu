@@ -12912,14 +12912,11 @@ async function loadLandingStats() {
         if (!res || !res.ok) throw new Error('fetch');
         const d   = await res.json();
 
-        // Progress bar
-        const pctBar   = document.getElementById('landing-progress-bar');
-        const wdLabel  = document.getElementById('landing-workdays-label');
-        if (wdLabel) wdLabel.textContent = `${d.dias_habiles_transcurridos} / ${d.dias_habiles_mes} días háb.`;
-        if (pctBar) {
-            const pct = d.dias_habiles_mes > 0 ? Math.round((d.dias_habiles_transcurridos / d.dias_habiles_mes) * 100) : 0;
-            setTimeout(() => { pctBar.style.width = pct + '%'; }, 200);
-        }
+        // Progress bar — % días naturales del mes
+        const pctBar  = document.getElementById('landing-progress-bar');
+        const wdLabel = document.getElementById('landing-workdays-label');
+        if (wdLabel) wdLabel.textContent = `Día ${d.dia_actual} de ${d.dias_mes} · ${d.pct_mes}%`;
+        if (pctBar) setTimeout(() => { pctBar.style.width = d.pct_mes + '%'; }, 200);
 
         // ── KPI cards ──
         const cards = [

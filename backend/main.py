@@ -3820,39 +3820,52 @@ async def get_tramite_detalle_periodo(
 async def get_landing_stats(current_user: User = Depends(get_current_user)):
     """Endpoint de métricas globales para el landing del tablero."""
     try:
-        from datetime import date as _date
+        from datetime import date as _date, timedelta
+        import calendar as _calendar
         today = _date.today()
         mes_actual = f"{today.year}-{str(today.month).zfill(2)}"
 
+        # % avance del mes (días naturales)
+        days_in_month = _calendar.monthrange(today.year, today.month)[1]
+        pct_mes = round((today.day / days_in_month) * 100)
+
         with engine.connect() as conn:
-            # 1. Cantidad de trámites configurados (oficiales)
+            # 1. Cantidad de trámites configurados (oficiales, excluye INTERVENCIONES)
             tramites_total = sum(
                 len([t for t in cfg.keys() if t != 'INTERVENCIONES'])
                 for cfg in TRAMITES_CONFIG.values()
             )
 
-            # 2. Analistas (tabla datos_usuario) — sin filtro de columna activo que puede no existir
+            # 2. Analistas configurados en cfg_gestion_metas
             try:
-                analistas_count = conn.execute(text(
-                    "SELECT COUNT(*) FROM public.datos_usuario"
-                )).scalar() or 0
+                analistas_count = conn.execute(text("""
+                    SELECT COUNT(DISTINCT TRIM(unnest_val))
+                    FROM (
+                        SELECT unnest(analistas_oficiales) as unnest_val
+                        FROM cfg_gestion_metas
+                        WHERE analistas_oficiales IS NOT NULL
+                    ) t
+                    WHERE TRIM(unnest_val) != ''
+                """)).scalar() or 0
             except Exception:
                 analistas_count = 0
 
-            # 3. Ingresos del mes en curso (todas las gerencias)
-            ingresos_mes = 0
-            egresos_ef_mes = 0
+            # 3. Métricas por gerencia (sólo trámites configurados)
+            ingresos_mes     = 0
+            egresos_ef_mes   = 0
             egresos_no_ef_mes = 0
-            stock_total = 0
-            subs_abiertas = 0
+            stock_total      = 0
+            subs_abiertas    = 0
             top_trata_nombre = "-"
-            top_trata_stock = 0
+            top_trata_stock  = 0
 
             for g, cfg in TRAMITES_CONFIG.items():
                 g_clean = g.lower()
                 tratas_oficiales = [t for t in cfg.keys() if t != 'INTERVENCIONES']
+                if not tratas_oficiales:
+                    continue
 
-                # Ingresos mes actual
+                # Ingresos mes actual (mv_{g}_ingresos_eventos, fecha_ingreso)
                 try:
                     r = conn.execute(text(f"""
                         SELECT COUNT(*) FROM mv_{g_clean}_ingresos_eventos
@@ -3863,23 +3876,29 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 except Exception:
                     pass
 
-                # Egresos efectivos y no efectivos mes actual
+                # Egresos efectivos mes actual (mv_{g}_gedos_egreso, fecha_egreso)
                 try:
-                    egr_res = conn.execute(text(f"""
-                        SELECT
-                            SUM(CASE WHEN tipo_egreso = 'EFECTIVO' THEN 1 ELSE 0 END),
-                            SUM(CASE WHEN tipo_egreso != 'EFECTIVO' THEN 1 ELSE 0 END)
-                        FROM mv_{g_clean}_egresos_eventos
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_gedos_egreso
                         WHERE to_char(fecha_egreso, 'YYYY-MM') = :m
                           AND TRIM(trata) = ANY(:tratas)
-                    """), {"m": mes_actual, "tratas": tratas_oficiales}).fetchone()
-                    if egr_res:
-                        egresos_ef_mes += (egr_res[0] or 0)
-                        egresos_no_ef_mes += (egr_res[1] or 0)
+                    """), {"m": mes_actual, "tratas": tratas_oficiales}).scalar()
+                    egresos_ef_mes += (r or 0)
                 except Exception:
                     pass
 
-                # Stock (STOCK_PROPIO) y subsanaciones abiertas
+                # Egresos no efectivos mes actual (mv_{g}_egresos_no_efectivos, fecha_ultimo_movimiento)
+                try:
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_egresos_no_efectivos
+                        WHERE to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"m": mes_actual, "tratas": tratas_oficiales}).scalar()
+                    egresos_no_ef_mes += (r or 0)
+                except Exception:
+                    pass
+
+                # Stock (STOCK_PROPIO) y subsanaciones abiertas (vw_expedientes_maestro)
                 try:
                     st_res = conn.execute(text(f"""
                         SELECT
@@ -3889,14 +3908,12 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                         WHERE gerencia = :g AND TRIM(trata) = ANY(:tratas)
                     """), {"g": g, "tratas": tratas_oficiales}).fetchone()
                     if st_res:
-                        g_stock = int(st_res[0] or 0)
-                        g_subs  = int(st_res[1] or 0)
-                        stock_total  += g_stock
-                        subs_abiertas += g_subs
+                        stock_total   += int(st_res[0] or 0)
+                        subs_abiertas += int(st_res[1] or 0)
                 except Exception:
                     pass
 
-                # Top trámite por stock
+                # Top trámite por stock (considerando solo trámites configurados)
                 try:
                     top_res = conn.execute(text(f"""
                         SELECT TRIM(trata), SUM(cant_expedientes) as tot
@@ -3913,25 +3930,11 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 except Exception:
                     pass
 
-            # 4. Días hábiles transcurridos en el mes (Lun-Vie, sin feriados registrados)
-            from datetime import timedelta
-            first_day = _date(today.year, today.month, 1)
-            dias_habiles = sum(
-                1 for i in range((today - first_day).days + 1)
-                if (first_day + timedelta(days=i)).weekday() < 5
-            )
-            # Días hábiles totales del mes
-            last_day_month = _date(today.year, today.month + 1 if today.month < 12 else 1,
-                                   1 if today.month < 12 else 1) - timedelta(days=1)
-            if today.month == 12:
-                last_day_month = _date(today.year, 12, 31)
-            dias_habiles_mes = sum(
-                1 for i in range((last_day_month - first_day).days + 1)
-                if (first_day + timedelta(days=i)).weekday() < 5
-            )
-
             return {
                 "mes": mes_actual,
+                "pct_mes": pct_mes,
+                "dia_actual": today.day,
+                "dias_mes": days_in_month,
                 "tramites_total": tramites_total,
                 "analistas_count": analistas_count,
                 "ingresos_mes": ingresos_mes,
@@ -3942,8 +3945,6 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 "subs_abiertas": subs_abiertas,
                 "top_trata_nombre": top_trata_nombre,
                 "top_trata_stock": top_trata_stock,
-                "dias_habiles_transcurridos": dias_habiles,
-                "dias_habiles_mes": dias_habiles_mes,
             }
     except Exception as e:
         logger.error(f"Error en landing/stats: {e}")
