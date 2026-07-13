@@ -1535,9 +1535,12 @@ async def upload_rrhh_excel(
         import io
         df = pd.read_excel(io.BytesIO(contents))
         
+        # Log columnas para diagnóstico
+        logger.info(f"Excel subido: {len(df)} filas, columnas detectadas: {list(df.columns)}")
+        
         # Check minimum columns count
         if len(df.columns) < 10:
-            raise HTTPException(status_code=400, detail="El archivo Excel debe contener al menos 10 columnas correspondientes al formato requerido.")
+            raise HTTPException(status_code=400, detail=f"El archivo Excel debe contener al menos 10 columnas. Se detectaron {len(df.columns)} columnas: {list(df.columns)}")
 
         records_to_insert = []
         dates_present = set()
@@ -1593,8 +1596,16 @@ async def upload_rrhh_excel(
                         return val.time()
                     if isinstance(val, datetime_time):
                         return val
+                    
+                    # Convertir número 0 o 0.0 a time(0,0,0)
+                    if isinstance(val, (int, float)) and val == 0:
+                        return datetime_time(0, 0, 0)
+                        
                     # String parse
                     t_str = str(val).strip()
+                    if t_str in ['0', '00', '0.0', '00:00', '00:00:00']:
+                        return datetime_time(0, 0, 0)
+                        
                     # format H:M:S or H:M
                     parts = t_str.split(":")
                     if len(parts) >= 2:
