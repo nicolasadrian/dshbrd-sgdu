@@ -1756,7 +1756,9 @@ async def upload_rrhh_excel(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error uploading RRHH excel: {e}")
+        import traceback
+        tb_str = traceback.format_exc()
+        logger.error(f"Error uploading RRHH excel: {e}\nTraceback:\n{tb_str}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/admin/sade_users/search")
