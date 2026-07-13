@@ -1634,7 +1634,7 @@ async def upload_rrhh_excel(
                     else:
                         fecha = fecha_raw
                 else:
-                    fecha = pd.to_datetime(str(fecha_raw).strip()).to_pydatetime()
+                    fecha = pd.to_datetime(str(fecha_raw).strip(), dayfirst=True).to_pydatetime()
                 
                 # Doble validación de tipo y año coherente (evita que horas sueltas se auto-completen con el año actual)
                 res_type_str = str(type(fecha)).lower()
@@ -1649,7 +1649,7 @@ async def upload_rrhh_excel(
             # Parse times safely helper
             def parse_time(val):
                 from datetime import time as datetime_time
-                if pd.isna(val) or str(val).strip().lower() in ['nan', 'none', '']:
+                if pd.isna(val) or str(val).strip().lower() in ['nan', 'none', '', ':']:
                     return None
                 try:
                     if isinstance(val, datetime):
@@ -1666,12 +1666,21 @@ async def upload_rrhh_excel(
                     if t_str in ['0', '00', '0.0', '00:00', '00:00:00']:
                         return datetime_time(0, 0, 0)
                         
+                    # Ignorar strings que no tengan números o solo caracteres de separación
+                    if t_str == ':':
+                        return None
+
                     # format H:M:S or H:M
                     parts = t_str.split(":")
                     if len(parts) >= 2:
-                        h = int(parts[0])
-                        m = int(parts[1])
-                        s = int(parts[2]) if len(parts) > 2 else 0
+                        # Extraer solo si las partes no están vacías
+                        p0 = parts[0].strip()
+                        p1 = parts[1].strip()
+                        if not p0 or not p1:
+                            return None
+                        h = int(p0)
+                        m = int(p1)
+                        s = int(parts[2].strip()) if len(parts) > 2 and parts[2].strip() else 0
                         return datetime_time(h, m, s)
                 except Exception as e:
                     logger.debug(f"Error parsing time value '{val}': {e}")
