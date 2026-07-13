@@ -1272,6 +1272,17 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
         with engine.connect() as conn:
+            # Verificar que la tabla existe antes de consultarla
+            table_exists = conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'reportes_rrhh'
+                )
+            """)).scalar()
+
+            if not table_exists:
+                return {"month": month or datetime.now().strftime("%Y-%m"), "sectores": {}, "message": "La tabla reportes_rrhh aún no existe. Por favor suba un Excel desde la pestaña 'Carga de Excel'."}
+
             # If month is not provided, find the max date in the table
             if not month:
                 max_date = conn.execute(text("SELECT MAX(fecha) FROM public.reportes_rrhh")).scalar()
@@ -1349,7 +1360,6 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
                 ag_data = s_data["agentes"][agente_key]
 
                 # Registros con hora_ingreso = 00:00 son agentes no presentes
-                # En Python time(0,0) es falsy, pero is not None es True — hay que chequear explícitamente
                 from datetime import time as _time
                 ingreso_es_valido = h_ingreso is not None and h_ingreso != _time(0, 0)
 
@@ -1391,22 +1401,18 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
 
             # Finalize averages & percents
             for sec, s_data in sectores.items():
-                # Overall sector stats
-                total_agentes = len(s_data["agentes"])
                 for ag_key, ag_data in s_data["agentes"].items():
                     tot = ag_data["total_convocado"]
                     if tot > 0:
                         ag_data["asistencia_pct"] = round((ag_data["presentes"] / tot) * 100)
                     else:
                         ag_data["asistencia_pct"] = 100
-                    # Promedio de horas realizadas (excluye registros sin ingreso válido)
                     dias_h = ag_data["dias_con_horas"]
                     if dias_h > 0:
                         prom_min = ag_data["total_minutos_horas"] // dias_h
                         ag_data["promedio_horas"] = f"{prom_min // 60:02d}:{prom_min % 60:02d}"
                     else:
                         ag_data["promedio_horas"] = "--"
-                    # Limpiar campos intermedios
                     del ag_data["total_minutos_horas"]
                     del ag_data["dias_con_horas"]
 
@@ -1418,6 +1424,7 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
     except Exception as e:
         logger.error(f"Error fetching RRHH metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/rrhh/reporte/detalle-agente")
 async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(..., regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
