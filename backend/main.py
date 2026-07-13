@@ -4365,14 +4365,15 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                         is_prev = (r[2] == prev_mes)
                         is_yoy = (r[2] == yoy_mes)
                         
+                        val_num = int(r[3] or 0)
                         if cat == 'STOCK_PROPIO':
-                            if is_target: stock[t_code] = r[3]
-                            elif is_prev: stock_prev[t_code] = r[3]
-                            elif is_yoy: stock_yoy[t_code] = r[3]
+                            if is_target: stock[t_code] = val_num
+                            elif is_prev: stock_prev[t_code] = val_num
+                            elif is_yoy: stock_yoy[t_code] = val_num
                         elif cat == 'SUBSANACION':
-                            if is_target: subs[t_code] = r[3]
-                            elif is_prev: subs_prev[t_code] = r[3]
-                            elif is_yoy: subs_yoy[t_code] = r[3]
+                            if is_target: subs[t_code] = val_num
+                            elif is_prev: subs_prev[t_code] = val_num
+                            elif is_yoy: subs_yoy[t_code] = val_num
                 except Exception:
                     pass
 
