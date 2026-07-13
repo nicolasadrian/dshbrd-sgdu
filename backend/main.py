@@ -1542,11 +1542,36 @@ async def upload_rrhh_excel(
         if len(df.columns) < 10:
             raise HTTPException(status_code=400, detail=f"El archivo Excel debe contener al menos 10 columnas. Se detectaron {len(df.columns)} columnas: {list(df.columns)}")
 
+        # Normalizar nombres de columnas para matchear
+        cols_norm = {str(c).strip().lower(): c for c in df.columns}
+        
+        def find_col(aliases, required=True):
+            for a in aliases:
+                if a in cols_norm:
+                    return cols_norm[a]
+            if required:
+                raise HTTPException(status_code=400, detail=f"No se encontró la columna requerida. Buscado: {aliases}. Columnas detectadas: {list(df.columns)}")
+            return None
+
+        c_cuil = find_col(["cuil"])
+        c_nombre = find_col(["nombre y apellido", "nombreyapellido", "nombre"])
+        c_fecha = find_col(["fecha"])
+        c_feriado = find_col(["feriado"])
+        c_convocado = find_col(["convocado"])
+        c_ingreso = find_col(["hora ingreso (r)", "hora_ingreso", "hora ingreso", "ingreso"])
+        c_salida = find_col(["hora salida (r)", "hora_salida", "hora salida", "salida"])
+        c_horas = find_col(["cant horas (r)", "cant_horas", "cant horas", "cantidad horas", "horas"])
+        c_incidencia = find_col(["estado incidencia", "estado_incidencia", "incidencia"], required=False)
+        c_estado = find_col(["estado"])
+
         records_to_insert = []
         dates_present = set()
 
         for idx, row in df.iterrows():
-            cuil_raw = str(row.iloc[0]).strip()
+            cuil_val = row[c_cuil]
+            if pd.isna(cuil_val):
+                continue
+            cuil_raw = str(cuil_val).strip()
             if cuil_raw.endswith('.0'):
                 cuil_raw = cuil_raw[:-2]
                 
@@ -1554,17 +1579,17 @@ async def upload_rrhh_excel(
             if not cuil_raw or cuil_raw.lower() in ['cuil', 'nan', 'none', '']:
                 continue
 
-            nombre = str(row.iloc[1]).strip()
-            fecha_raw = row.iloc[2]
-            feriado = str(row.iloc[3]).strip()
-            convocado = str(row.iloc[4]).strip()
+            nombre = str(row[c_nombre]).strip()
+            fecha_raw = row[c_fecha]
+            feriado = str(row[c_feriado]).strip()
+            convocado = str(row[c_convocado]).strip()
             
-            h_ingreso_raw = row.iloc[5]
-            h_salida_raw = row.iloc[6]
-            c_horas_raw = row.iloc[7]
+            h_ingreso_raw = row[c_ingreso]
+            h_salida_raw = row[c_salida]
+            c_horas_raw = row[c_horas]
             
-            incidencia = str(row.iloc[8]).strip() if pd.notna(row.iloc[8]) else ""
-            estado = str(row.iloc[9]).strip() if pd.notna(row.iloc[9]) else ""
+            incidencia = str(row[c_incidencia]).strip() if c_incidencia and pd.notna(row[c_incidencia]) else ""
+            estado = str(row[c_estado]).strip() if pd.notna(row[c_estado]) else ""
 
             # Parse date safely
             try:
