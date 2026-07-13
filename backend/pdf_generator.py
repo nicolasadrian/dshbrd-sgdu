@@ -1,24 +1,50 @@
 import io
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
 from datetime import datetime, timedelta
-from reportlab.lib.pagesizes import letter
-from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.pdfgen import canvas
 from sqlalchemy import text
 
-# Palette DGROC / Modern
-C_PRIMARY = colors.HexColor("#1e3a8a")     # Deep blue
-C_SECONDARY = colors.HexColor("#0284c7")   # Sky blue
-C_SUCCESS = colors.HexColor("#10b981")     # Emerald green
-C_WARNING = colors.HexColor("#f59e0b")     # Amber orange
-C_DANGER = colors.HexColor("#ef4444")      # Rose red
-C_NEUTRAL = colors.HexColor("#475569")     # Slate gray
-C_BG_LIGHT = colors.HexColor("#f8fafc")    # Light slate
+# Lazy imports — se cargan la primera vez que se usa el módulo
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as np
+    _HAS_MATPLOTLIB = True
+except ImportError:
+    _HAS_MATPLOTLIB = False
+
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak, KeepTogether
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.pdfgen import canvas
+    _HAS_REPORTLAB = True
+except ImportError:
+    _HAS_REPORTLAB = False
+
+def _check_deps():
+    """Verifica dependencias PDF antes de generar. Lanza error claro si faltan."""
+    missing = []
+    if not _HAS_MATPLOTLIB:
+        missing.append("matplotlib")
+    if not _HAS_REPORTLAB:
+        missing.append("reportlab")
+    if missing:
+        raise ImportError(
+            f"Dependencias faltantes para generación de PDF: {', '.join(missing)}. "
+            f"Ejecutar en el servidor: pip install {' '.join(missing)}"
+        )
+
+
+# Palette DGROC / Modern (solo disponibles si reportlab está instalado)
+if _HAS_REPORTLAB:
+    C_PRIMARY = colors.HexColor("#1e3a8a")     # Deep blue
+    C_SECONDARY = colors.HexColor("#0284c7")   # Sky blue
+    C_SUCCESS = colors.HexColor("#10b981")     # Emerald green
+    C_WARNING = colors.HexColor("#f59e0b")     # Amber orange
+    C_DANGER = colors.HexColor("#ef4444")      # Rose red
+    C_NEUTRAL = colors.HexColor("#475569")     # Slate gray
+    C_BG_LIGHT = colors.HexColor("#f8fafc")    # Light slate
 
 # Task colors for matplotlib
 TASK_COLORS = {
@@ -30,36 +56,41 @@ TASK_COLORS = {
     "SUSPENSIÓN DE EXPEDIENTE": "#f59e0b"
 }
 
-class NumberedCanvas(canvas.Canvas):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pages = []
+if _HAS_REPORTLAB:
+    class NumberedCanvas(canvas.Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.pages = []
 
-    def showPage(self):
-        self.pages.append(dict(self.__dict__))
-        self._startPage()
+        def showPage(self):
+            self.pages.append(dict(self.__dict__))
+            self._startPage()
 
-    def save(self):
-        page_count = len(self.pages)
-        for page in self.pages:
-            self.__dict__.update(page)
-            self.draw_page_number(page_count)
-            super().showPage()
-        super().save()
+        def save(self):
+            page_count = len(self.pages)
+            for page in self.pages:
+                self.__dict__.update(page)
+                self.draw_page_number(page_count)
+                super().showPage()
+            super().save()
 
-    def draw_page_number(self, page_count):
-        self.saveState()
-        self.setFont("Helvetica", 9)
-        self.setFillColor(colors.HexColor("#64748b"))
-        self.drawRightString(612 - 54, 36, f"Pág. {self._pageNumber} de {page_count}")
-        self.drawString(54, 36, "Tablero SGDU - Reporte de Productividad (SADE)")
-        self.setStrokeColor(colors.HexColor("#cbd5e1"))
-        self.setLineWidth(0.5)
-        self.line(54, 48, 612 - 54, 48)
-        self.restoreState()
+        def draw_page_number(self, page_count):
+            self.saveState()
+            self.setFont("Helvetica", 9)
+            self.setFillColor(colors.HexColor("#64748b"))
+            self.drawRightString(612 - 54, 36, f"Pág. {self._pageNumber} de {page_count}")
+            self.drawString(54, 36, "Tablero SGDU - Reporte de Productividad (SADE)")
+            self.setStrokeColor(colors.HexColor("#cbd5e1"))
+            self.setLineWidth(0.5)
+            self.line(54, 48, 612 - 54, 48)
+            self.restoreState()
+else:
+    class NumberedCanvas:  # type: ignore
+        pass
 
 
 def generate_individual_pdf(conn, username, date_from=None, date_to=None):
+    _check_deps()
     from backend.productivity_engine import get_analyst_productivity_data
     data = get_analyst_productivity_data(conn, username, date_from, date_to)
     kpis = data["kpis"]
@@ -311,6 +342,7 @@ def generate_individual_pdf(conn, username, date_from=None, date_to=None):
 
 
 def generate_comparative_pdf(conn, sector, date_from=None, date_to=None):
+    _check_deps()
     from backend.productivity_engine import get_analyst_productivity_data
     if not date_from:
         date_from = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')

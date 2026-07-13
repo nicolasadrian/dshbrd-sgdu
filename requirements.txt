@@ -8,6 +8,7 @@ python-jose[cryptography]
 bcrypt
 python-multipart
 matplotlib
+reportlab
 geopandas
 shapely
 ezdxf
