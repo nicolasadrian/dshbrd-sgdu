@@ -4446,6 +4446,18 @@ async function loadCierreMesData(mes) {
     const fmt = n => n.toLocaleString('es-AR');
 
     try {
+        // Asegurar que las familias estén cargadas
+        if (!FAMILIAS_CONFIG || Object.keys(FAMILIAS_CONFIG).length === 0) {
+            const famRes = await def_fetch(`${API_BASE}/reporte/familias_overview`);
+            if (famRes && famRes.ok) {
+                const famData = await famRes.json();
+                FAMILIAS_CONFIG = {};
+                famData.forEach(f => {
+                    FAMILIAS_CONFIG[f.family_name] = f.tratas || [];
+                });
+            }
+        }
+
         const response = await def_fetch(`${API_BASE}/reporte/cierre_mes?mes=${mes}`);
         if (!response || !response.ok) {
             throw new Error("No se pudo cargar el reporte de cierre.");
