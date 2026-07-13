@@ -2580,24 +2580,177 @@ function showMetasList() {
     if (editC) editC.style.display = 'none';
 }
 
-async function loadAdminMetas() {
-    const tableBody = document.getElementById('metas-table-body');
-    if (!tableBody) return;
+// --- NAVIGATION STATE FOR METAS BACKLOG ---
+let currentSelectedDireccion = null;
+let currentSelectedGerencia = null;
 
-    tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Cargando configuración de metas...</p></td></tr>';
+async function loadAdminMetas() {
+    const dirGrid = document.getElementById('metas-direcciones-grid');
+    if (!dirGrid) return;
+
+    dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Cargando configuración de metas...</p></div>';
+
+    // Reset navigation view to Level 1
+    document.getElementById('metas-nav-direcciones').style.display = 'block';
+    document.getElementById('metas-nav-gerencias').style.display = 'none';
+    document.getElementById('metas-nav-tratas').style.display = 'none';
+    currentSelectedDireccion = null;
+    currentSelectedGerencia = null;
 
     try {
         const resp = await def_fetch(`${API_BASE}/admin/metas`);
         if (!resp || !resp.ok) {
-            tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ef4444; padding: 1.5rem;">Error al cargar configuraciones</td></tr>';
+            dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #ef4444; padding: 1.5rem;">Error al cargar configuraciones</div>';
             return;
         }
 
         allAdminMetas = await resp.json();
-        renderAdminMetasTable(allAdminMetas);
+        renderDireccionesCards();
     } catch (e) {
         console.error("Error loading metas:", e);
-        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #ef4444; padding: 1.5rem;">Error de conexión con el servidor</td></tr>';
+        dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #ef4444; padding: 1.5rem;">Error de conexión con el servidor</div>';
+    }
+}
+
+function renderDireccionesCards() {
+    const dirGrid = document.getElementById('metas-direcciones-grid');
+    if (!dirGrid) return;
+
+    // Group by Dirección and count unique gerencias
+    const groups = {};
+    allAdminMetas.forEach(m => {
+        const dir = (m.direccion || 'DGROC').toUpperCase();
+        if (!groups[dir]) {
+            groups[dir] = new Set();
+        }
+        groups[dir].add(m.gerencia.toLowerCase());
+    });
+
+    const dirs = Object.keys(groups).sort();
+    if (dirs.length === 0) {
+        dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 1.5rem;">No hay direcciones configuradas.</div>';
+        return;
+    }
+
+    let html = '';
+    dirs.forEach(dir => {
+        const count = groups[dir].size;
+        const iconColor = dir === 'DGROC' ? '#1d4ed8' : (dir === 'DGIUR' ? '#a855f7' : '#16a34a');
+        const bgLight = dir === 'DGROC' ? '#eff6ff' : (dir === 'DGIUR' ? '#f3e8ff' : '#f0fdf4');
+        
+        html += `
+            <div class="analyst-card-premium" onclick="selectDireccion('${dir}')"
+                style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <div style="width: 50px; height: 50px; border-radius: 12px; background: ${bgLight}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                    <i class="fa-solid fa-sitemap"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                        Dirección: ${dir}
+                    </h3>
+                    <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem;">
+                        Contiene <strong style="color: var(--primary-dark);">${count}</strong> ${count === 1 ? 'Área / Gerencia' : 'Áreas / Gerencias'} configuradas.
+                    </p>
+                </div>
+                <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                    Ver Áreas <i class="fa-solid fa-arrow-right"></i>
+                </div>
+            </div>
+        `;
+    });
+    dirGrid.innerHTML = html;
+}
+
+function selectDireccion(dirName) {
+    currentSelectedDireccion = dirName;
+    currentSelectedGerencia = null;
+
+    // Filter metas for this Dirección
+    const metasInDir = allAdminMetas.filter(m => (m.direccion || 'DGROC').toUpperCase() === dirName.toUpperCase());
+    
+    // Group by Gerencia and count tratas
+    const groups = {};
+    metasInDir.forEach(m => {
+        const ger = m.gerencia.toLowerCase();
+        if (!groups[ger]) {
+            groups[ger] = 0;
+        }
+        groups[ger]++;
+    });
+
+    const gerGrid = document.getElementById('metas-gerencias-grid');
+    if (gerGrid) {
+        const gers = Object.keys(groups).sort();
+        if (gers.length === 0) {
+            gerGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 1.5rem;">No hay áreas configuradas en esta dirección.</div>';
+        } else {
+            let html = '';
+            gers.forEach(ger => {
+                const count = groups[ger];
+                html += `
+                    <div class="analyst-card-premium" onclick="selectGerencia('${ger}')"
+                        style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                            <i class="fa-solid fa-folder-tree"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem; text-transform: uppercase;">
+                                ${ger}
+                            </h3>
+                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                Contiene <strong style="color: var(--primary-dark);">${count}</strong> ${count === 1 ? 'Trámite / Trata' : 'Trámites / Tratas'} bajo su control.
+                            </p>
+                        </div>
+                        <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                            Configurar Trámites <i class="fa-solid fa-arrow-right"></i>
+                        </div>
+                    </div>
+                `;
+            });
+            gerGrid.innerHTML = html;
+        }
+    }
+
+    const titleEl = document.getElementById('metas-gerencias-title');
+    if (titleEl) titleEl.innerText = `Áreas de la Dirección: ${dirName}`;
+
+    document.getElementById('metas-nav-direcciones').style.display = 'none';
+    document.getElementById('metas-nav-gerencias').style.display = 'block';
+    document.getElementById('metas-nav-tratas').style.display = 'none';
+}
+
+function selectGerencia(gerenciaName) {
+    currentSelectedGerencia = gerenciaName;
+
+    // Filter metas for this Gerencia & Dirección
+    const filtered = allAdminMetas.filter(m => 
+        (m.direccion || 'DGROC').toUpperCase() === currentSelectedDireccion.toUpperCase() &&
+        m.gerencia.toLowerCase() === gerenciaName.toLowerCase()
+    );
+
+    renderAdminMetasTable(filtered);
+
+    const titleEl = document.getElementById('metas-tratas-title');
+    if (titleEl) titleEl.innerText = `Trámites de ${gerenciaName.toUpperCase()} (${currentSelectedDireccion})`;
+
+    document.getElementById('metas-nav-direcciones').style.display = 'none';
+    document.getElementById('metas-nav-gerencias').style.display = 'none';
+    document.getElementById('metas-nav-tratas').style.display = 'block';
+}
+
+function goBackToDirecciones() {
+    document.getElementById('metas-nav-direcciones').style.display = 'block';
+    document.getElementById('metas-nav-gerencias').style.display = 'none';
+    document.getElementById('metas-nav-tratas').style.display = 'none';
+    currentSelectedDireccion = null;
+    currentSelectedGerencia = null;
+}
+
+function goBackToGerencias() {
+    if (currentSelectedDireccion) {
+        selectDireccion(currentSelectedDireccion);
+    } else {
+        goBackToDirecciones();
     }
 }
 
@@ -2606,21 +2759,22 @@ function renderAdminMetasTable(metas) {
     if (!tableBody) return;
 
     if (metas.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 1.5rem;">No se encontraron registros</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #64748b; padding: 1.5rem;">No se encontraron registros</td></tr>';
         return;
     }
 
     let html = '';
     metas.forEach(m => {
         const descText = m.descripcion_trata || '<span style="color: #94a3b8; font-style: italic;">Sin descripción disponible</span>';
-        const dir = (m.direccion || 'DGROC').toUpperCase();
+        const badge = m.activo 
+            ? '<span class="status-badge" style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.78rem;">Activo</span>'
+            : '<span class="status-badge" style="background: #fee2e2; color: #b91c1c; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.78rem;">Inactivo</span>';
 
         html += `
             <tr onclick="openEditMetaModal(${m.id})" style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit'; font-size: 0.95rem; cursor: pointer; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='transparent'">
-                <td style="padding: 14px 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">${dir}</td>
-                <td style="padding: 14px 10px; font-weight: 600; text-transform: uppercase; color: var(--primary-dark);">${m.gerencia}</td>
                 <td style="padding: 14px 10px; font-weight: 700; color: var(--primary);">${m.trata_reporte}</td>
                 <td style="padding: 14px 10px; color: #475569;">${descText}</td>
+                <td style="padding: 14px 10px; text-align: center;">${badge}</td>
             </tr>
         `;
     });
@@ -2631,9 +2785,23 @@ function renderAdminMetasTable(metas) {
 function filterAdminMetas() {
     const query = document.getElementById('search-metas-input').value.toLowerCase().trim();
     if (!query) {
-        renderAdminMetasTable(allAdminMetas);
+        if (currentSelectedGerencia) {
+            selectGerencia(currentSelectedGerencia);
+        } else if (currentSelectedDireccion) {
+            selectDireccion(currentSelectedDireccion);
+        } else {
+            loadAdminMetas();
+        }
         return;
     }
+
+    // Force show tratas table for global search results
+    document.getElementById('metas-nav-direcciones').style.display = 'none';
+    document.getElementById('metas-nav-gerencias').style.display = 'none';
+    document.getElementById('metas-nav-tratas').style.display = 'block';
+
+    const titleEl = document.getElementById('metas-tratas-title');
+    if (titleEl) titleEl.innerText = `Resultados de Búsqueda Global`;
 
     const filtered = allAdminMetas.filter(m =>
         (m.direccion || '').toLowerCase().includes(query) ||
@@ -2877,6 +3045,10 @@ window.removeSadeChip = removeSadeChip;
 window.openEditMetaModal = openEditMetaModal;
 window.setAdminMetaCreateMode = setAdminMetaCreateMode;
 window.deleteAdminMeta = deleteAdminMeta;
+window.selectDireccion = selectDireccion;
+window.selectGerencia = selectGerencia;
+window.goBackToDirecciones = goBackToDirecciones;
+window.goBackToGerencias = goBackToGerencias;
 
 // --- METAS & PROYECCIONES ---
 async function loadMetasData() {

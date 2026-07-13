@@ -1717,45 +1717,90 @@
             <div id="admin-tab-metas" class="admin-tab-content" style="display: none; margin-top: 1rem;">
 
                 <!-- Vista 1: Listado de Tratas -->
+                <!-- Vista 1: Navegación Jerárquica de Metas -->
                 <div id="metas-list-container">
-                    <button type="button" onclick="showBacklogMenu()"
-                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
-                        <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
-                    </button>
-                    <div class="admin-card" style="width: 100%;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                    
+                    <!-- Nivel 1: Direcciones -->
+                    <div id="metas-nav-direcciones">
+                        <button type="button" onclick="showBacklogMenu()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                        </button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                             <div>
-                                <h3 style="margin: 0;">Configuración por trata</h3>
-                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Administración de parámetros y asignación de analistas por cada tipo de trámite.</p>
+                                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">Configuración de Metas por Dirección</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona una dirección para gestionar sus áreas y trámites.</p>
                             </div>
-                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                                <div style="position: relative; width: 250px;">
-                                    <input type="text" id="search-metas-input" placeholder="Buscar por Gerencia o Trata..."
-                                        oninput="filterAdminMetas()"
-                                        style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
-                                </div>
-                                <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
-                                    <i class="fa-solid fa-plus"></i> Nueva Configuración
-                                </button>
-                            </div>
+                            <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Configuración
+                            </button>
                         </div>
-                        <div class="table-responsive">
-                            <table class="report-table" style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left;">
-                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Dirección</th>
-                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Gerencia / Área</th>
-                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Trata (Código)</th>
-                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Descripción de trata</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="metas-table-body">
-                                    <!-- Se llenará dinámicamente -->
-                                </tbody>
-                            </table>
+                        <div id="metas-direcciones-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Dinámico -->
                         </div>
                     </div>
+
+                    <!-- Nivel 2: Gerencias / Áreas -->
+                    <div id="metas-nav-gerencias" style="display: none;">
+                        <button type="button" onclick="goBackToDirecciones()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Direcciones
+                        </button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <div>
+                                <h3 id="metas-gerencias-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">Áreas de la Dirección</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona un área para configurar sus códigos de trámite.</p>
+                            </div>
+                            <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Configuración
+                            </button>
+                        </div>
+                        <div id="metas-gerencias-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+
+                    <!-- Nivel 3: Tratas / Trámites -->
+                    <div id="metas-nav-tratas" style="display: none;">
+                        <button type="button" onclick="goBackToGerencias()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Áreas
+                        </button>
+                        <div class="admin-card" style="width: 100%;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                                <div>
+                                    <h3 id="metas-tratas-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">Configuración de Trámites</h3>
+                                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Haz click en un trámite para configurar analistas, firmantes, acrónimos o descripciones válidas.</p>
+                                </div>
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <div style="position: relative; width: 250px;">
+                                        <input type="text" id="search-metas-input" placeholder="Buscar trámite..."
+                                            oninput="filterAdminMetas()"
+                                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    </div>
+                                    <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                        <i class="fa-solid fa-plus"></i> Nueva Configuración
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left;">
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Trata (Código)</th>
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Descripción de trata</th>
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569; text-align: center;">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="metas-table-body">
+                                        <!-- Se llenará dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Vista 2: Edición de Trata -->
