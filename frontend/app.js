@@ -10564,8 +10564,9 @@ function _getLFIToken() {
     return localStorage.getItem('sgdu_token') || '';
 }
 
-function _lfiWmsTileUrl(layerName) {
-    return `https://geo-epesege.com.ar/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=512&height=512&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
+function _lfiWmsTileUrl(layerName, tileSize) {
+    const sz = tileSize || 512;
+    return `https://geo-epesege.com.ar/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=${sz}&height=${sz}&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
 }
 
 function _updateWmsSources() {
@@ -10628,7 +10629,7 @@ async function initLFIMap() {
             banda_minima: { layer: 'GEO-MDR:mdr_banda_minima', minzoom: 14 },
             'troneras-si': { layer: 'GEO-MDR:mdr_troneras', minzoom: 14 },
             'troneras-no': { layer: 'GEO-MDR:mdr_troneras', minzoom: 14 },
-            tejido: { layer: 'GEO-MDR:tejido', minzoom: 14 }
+            tejido:        { layer: 'GEO-MDR:tejido',        minzoom: 12, tileSize: 512 }
         };
 
         Object.entries(wmsLayers).forEach(([key, cfg]) => {
@@ -10638,10 +10639,10 @@ async function initLFIMap() {
 
             _lfiMap.addSource(sourceId, {
                 type: 'raster',
-                tiles: [_lfiWmsTileUrl(cfg.layer)],
+                tiles: [_lfiWmsTileUrl(cfg.layer, cfg.tileSize)],
                 minzoom: srcMinzoom,
                 maxzoom: 20,
-                tileSize: 256,
+                tileSize: cfg.tileSize || 256,
             });
 
             _lfiMap.addLayer({
@@ -10741,6 +10742,15 @@ function toggleLFIMapLayer(layerKey, visible) {
             if (_lfiMap.getLayer(id)) _lfiMap.setLayoutProperty(id, 'visibility', v);
         });
         return;
+    }
+    if (layerKey === 'tejido' && visible) {
+        // Si el zoom es inferior al mínimo de la capa, acercar al encuadre conocido
+        if (_lfiMap.getZoom() < 12) {
+            _lfiMap.fitBounds(
+                [[-58.5311, -34.7018], [-58.3408, -34.5313]],
+                { padding: 20, duration: 800 }
+            );
+        }
     }
     const layerId = `lfi-lyr-${layerKey}`;
     if (_lfiMap.getLayer(layerId)) {
