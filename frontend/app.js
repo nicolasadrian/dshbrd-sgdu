@@ -12428,7 +12428,7 @@ async function loadRRHHReport() {
                     coverageBarsHtml += `
                         <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 35px; gap: 6px;">
                             <div style="width: 100%; height: 80px; background: #f1f5f9; border-radius: 4px; display: flex; align-items: flex-end;">
-                                <div style="width: 100%; height: ${pctHeight}%; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); border-radius: 4px; transition: height 0.5s ease;"></div>
+                                <div style="width: 100%; height: ${pctHeight}%; background: var(--primary); border-radius: 4px; transition: height 0.5s ease;"></div>
                             </div>
                             <span style="font-size: 0.7rem; color: #64748b; font-weight: 600;">${hr}</span>
                         </div>
