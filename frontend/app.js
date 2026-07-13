@@ -12878,15 +12878,19 @@ function _animateCount(el, target, duration = 900) {
     requestAnimationFrame(step);
 }
 
-function _kpiCard({ icon, iconBg, iconColor, label, value, sub, valueColor }) {
+function _kpiCard({ icon, iconBg, iconColor, label, value, sub, valueColor, gridStyle, tall }) {
+    const valFontSize = tall ? '2.8rem' : '1.75rem';
+    const iconSize    = tall ? '56px'  : '44px';
+    const iconFontSz  = tall ? '1.4rem': '1.15rem';
+    const justify     = tall ? 'center': 'flex-start';
     return `
-        <div class="landing-kpi-card">
-            <div class="landing-kpi-icon" style="background:${iconBg}; color:${iconColor};">
+        <div class="landing-kpi-card" style="${gridStyle || ''}; ${tall ? 'justify-content:center; align-items:center; text-align:center;' : ''}">
+            <div class="landing-kpi-icon" style="background:${iconBg}; color:${iconColor}; width:${iconSize}; height:${iconSize}; font-size:${iconFontSz}; ${tall ? 'margin: 0 auto 8px auto;' : ''}">
                 <i class="${icon}"></i>
             </div>
-            <span class="landing-kpi-label">${label}</span>
-            <span class="landing-kpi-value" style="color:${valueColor || '#1e293b'};" data-target="${value}">${value.toLocaleString('es-AR')}</span>
-            ${sub ? `<span class="landing-kpi-sub">${sub}</span>` : ''}
+            <span class="landing-kpi-label" style="${tall ? 'text-align:center; margin-bottom:8px; display:block;' : ''}">${label}</span>
+            <span class="landing-kpi-value" style="color:${valueColor || '#1e293b'}; font-size:${valFontSize};" data-target="${value}">${value.toLocaleString('es-AR')}</span>
+            ${sub ? `<span class="landing-kpi-sub" style="${tall ? 'text-align:center; font-size:0.9rem; margin-top:6px;' : ''}">${sub}</span>` : ''}
         </div>
     `;
 }
@@ -12942,7 +12946,15 @@ async function loadLandingStats() {
 
         const grid = document.getElementById('landing-kpi-grid');
         if (!grid) return;
-        grid.innerHTML = cards.map(_kpiCard).join('');
+
+        // Primeras 8 tarjetas: normales. Tarjeta 9 (top trámite): columna 5, span 2 filas
+        const first8 = cards.slice(0, 8).map(c => _kpiCard(c)).join('');
+        const lastCard = _kpiCard({
+            ...cards[8],
+            gridStyle: 'grid-column: 5; grid-row: 1 / span 2;',
+            tall: true
+        });
+        grid.innerHTML = first8 + lastCard;
 
         // Animate number counters
         grid.querySelectorAll('.landing-kpi-value[data-target]').forEach(el => {

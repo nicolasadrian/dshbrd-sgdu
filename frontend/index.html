@@ -284,13 +284,21 @@
             </div>
 
             <!-- KPI Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 32px;" id="landing-kpi-grid">
-                <!-- Skeleton cards while loading -->
+            <!-- KPI Grid: 4 cols × 2 rows + 1 tall card en col 5 -->
+            <div style="
+                display: grid;
+                grid-template-columns: repeat(4, 1fr) 1.2fr;
+                grid-template-rows: auto auto;
+                gap: 16px;
+                margin-bottom: 32px;
+                align-items: stretch;
+            " id="landing-kpi-grid">
+                <!-- Skeleton cards while loading: 8 normales + 1 tall -->
                 <div class="landing-kpi-skeleton"></div>
                 <div class="landing-kpi-skeleton"></div>
                 <div class="landing-kpi-skeleton"></div>
                 <div class="landing-kpi-skeleton"></div>
-                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton" style="grid-column: 5; grid-row: 1 / span 2;"></div>
                 <div class="landing-kpi-skeleton"></div>
                 <div class="landing-kpi-skeleton"></div>
                 <div class="landing-kpi-skeleton"></div>
