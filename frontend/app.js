@@ -12336,6 +12336,10 @@ async function loadRRHHReport() {
             const data = await res.json();
             currentRRHHReportData = data;
 
+            if (data.month) {
+                document.getElementById('rrhh-filter-month').value = data.month;
+            }
+
             if (!data.sectores || Object.keys(data.sectores).length === 0) {
                 container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #64748b; font-style: italic;">No hay registros importados para el mes seleccionado.</div>';
                 return;

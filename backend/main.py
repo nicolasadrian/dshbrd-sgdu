@@ -310,7 +310,7 @@ try:
         """))
         # reportes_rrhh DDL
         conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS public.reportes_rrhh (
+            CREATE TABLE IF NOT EXISTS public.reporte_rrhh (
                 cuil VARCHAR(255) NOT NULL,
                 nombreyapellido VARCHAR(255) NOT NULL,
                 fecha TIMESTAMP NOT NULL,
@@ -1208,22 +1208,31 @@ async def delete_meta(meta_id: int, current_user: User = Depends(get_current_use
 # --- Endpoints de RRHH (Protegidos por permisos) ---
 
 @app.get("/api/rrhh/reporte")
-async def get_rrhh_reporte(month: str = Query(..., regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
+async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
     if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
-        year_str, month_str = month.split("-")
-        y_val = int(year_str)
-        m_val = int(month_str)
-
         with engine.connect() as conn:
+            # If month is not provided, find the max date in the table
+            if not month:
+                max_date = conn.execute(text("SELECT MAX(fecha) FROM public.reporte_rrhh")).scalar()
+                if max_date:
+                    month = max_date.strftime("%Y-%m-%d")[:7]
+                else:
+                    d = datetime.now()
+                    month = f"{d.year}-{d.month:02d}"
+
+            year_str, month_str = month.split("-")
+            y_val = int(year_str)
+            m_val = int(month_str)
+
             # Query all records for this month with SADE user matching
             sql = text("""
                 SELECT r.cuil, r.nombreyapellido, r.fecha, r.feriado, r.convocado,
                        r.hora_ingreso, r.hora_salida, r.cant_horas, r.estado_incidencia, r.estado,
                        du.usuario, du.apellido, du.nombre,
                        COALESCE((SELECT MIN(c.gerencia) FROM cfg_gestion_metas c WHERE du.usuario = ANY(c.analistas_oficiales)), 'OTROS') as gerencia
-                FROM public.reportes_rrhh r
+                FROM public.reporte_rrhh r
                 LEFT JOIN public.datos_usuario du ON REPLACE(du.numero_cuit, '-', '') = REPLACE(r.cuil, '-', '')
                 WHERE EXTRACT(YEAR FROM r.fecha) = :year AND EXTRACT(MONTH FROM r.fecha) = :month
                 ORDER BY r.fecha, r.nombreyapellido
@@ -1231,7 +1240,7 @@ async def get_rrhh_reporte(month: str = Query(..., regex=r"^\d{4}-\d{2}$"), curr
             result = conn.execute(sql, {"year": y_val, "month": m_val}).fetchall()
 
             if not result:
-                return {"sectores": {}, "message": "No hay datos para este mes"}
+                return {"month": month, "sectores": {}, "message": "No hay datos para este mes"}
 
             # Process records
             sectores = {}
@@ -1352,7 +1361,7 @@ async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(...
         with engine.connect() as conn:
             sql = text("""
                 SELECT fecha, feriado, convocado, hora_ingreso, hora_salida, cant_horas, estado_incidencia, estado
-                FROM public.reportes_rrhh
+                FROM public.reporte_rrhh
                 WHERE REPLACE(cuil, '-', '') = REPLACE(:cuil, '-', '')
                   AND EXTRACT(YEAR FROM fecha) = :year
                   AND EXTRACT(MONTH FROM fecha) = :month
@@ -1470,14 +1479,14 @@ async def upload_rrhh_excel(file: UploadFile = File(...), current_user: User = D
             min_date = min(dates_present)
             max_date = max(dates_present)
             conn.execute(
-                text("DELETE FROM public.reportes_rrhh WHERE fecha >= :min_d AND fecha <= :max_d"),
+                text("DELETE FROM public.reporte_rrhh WHERE fecha >= :min_d AND fecha <= :max_d"),
                 {"min_d": min_date, "max_d": max_date}
             )
 
             # Insert batch
             conn.execute(
                 text("""
-                    INSERT INTO public.reportes_rrhh (
+                    INSERT INTO public.reporte_rrhh (
                         cuil, nombreyapellido, fecha, feriado, convocado,
                         hora_ingreso, hora_salida, cant_horas, estado_incidencia, estado
                     ) VALUES (
