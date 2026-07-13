@@ -87,6 +87,9 @@ class RoleUpdate(BaseModel):
     permissions: Dict[str, bool]
 
 class MetaUpdateRequest(BaseModel):
+    direccion: Optional[str] = None
+    gerencia: Optional[str] = None
+    trata_reporte: Optional[str] = None
     tratas_incluidas: List[str]
     buzones_ingreso: List[str]
     analistas_oficiales: List[str]
@@ -96,6 +99,20 @@ class MetaUpdateRequest(BaseModel):
     buzones_ingreso_intervenciones: Optional[List[str]] = None
     descripciones_validas: Optional[List[str]] = None
     descripcion_trata: Optional[str] = None
+
+class MetaCreateRequest(BaseModel):
+    direccion: str
+    gerencia: str
+    trata_reporte: str
+    tratas_incluidas: List[str] = []
+    buzones_ingreso: List[str] = []
+    analistas_oficiales: List[str] = []
+    acronimos_egreso: List[str] = []
+    activo: bool = True
+    firmantes_egreso: Optional[List[str]] = []
+    buzones_ingreso_intervenciones: Optional[List[str]] = []
+    descripciones_validas: Optional[List[str]] = []
+    descripcion_trata: Optional[str] = ""
 
 # Función para obtener el motor de DB de forma segura
 def get_engine():
@@ -196,6 +213,23 @@ try:
             CREATE INDEX IF NOT EXISTS idx_exp_ficha_int_notes_exp ON expediente_ficha_internal_notes (expediente)
         """))
         conn.execute(text("ALTER TABLE cfg_gestion_metas ADD COLUMN IF NOT EXISTS descripcion_trata text"))
+        conn.execute(text("ALTER TABLE cfg_gestion_metas ADD COLUMN IF NOT EXISTS direccion text"))
+        # Populate defaults for existing rows if they are null
+        conn.execute(text("""
+            UPDATE cfg_gestion_metas
+            SET direccion = 'DGROC'
+            WHERE direccion IS NULL AND TRIM(LOWER(gerencia)) IN ('catastro', 'instalaciones', 'conforme', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra')
+        """))
+        conn.execute(text("""
+            UPDATE cfg_gestion_metas
+            SET direccion = 'DGIUR'
+            WHERE direccion IS NULL AND TRIM(LOWER(gerencia)) IN ('morfologia', 'aph', 'usos')
+        """))
+        conn.execute(text("""
+            UPDATE cfg_gestion_metas
+            SET direccion = 'DGROC'
+            WHERE direccion IS NULL
+        """))
         
         # Manzanas Atípicas Workflow & Notas DDL
         conn.execute(text("""
@@ -1028,16 +1062,18 @@ async def list_metas(current_user: User = Depends(get_current_user)):
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
-                SELECT c.id, c.gerencia, c.trata_reporte, c.tratas_incluidas, c.buzones_ingreso, 
+                SELECT c.id, c.direccion, c.gerencia, c.trata_reporte, c.tratas_incluidas, c.buzones_ingreso, 
                        c.analistas_oficiales, c.acronimos_egreso, c.activo, c.firmantes_egreso, 
                        c.buzones_ingreso_intervenciones, c.descripciones_validas,
                        COALESCE(c.descripcion_trata, (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = c.trata_reporte LIMIT 1)) as descripcion_trata
                 FROM cfg_gestion_metas c
-                ORDER BY c.gerencia, c.trata_reporte
+                ORDER BY c.direccion, c.gerencia, c.trata_reporte
             """))
             metas = []
             for row in result:
                 d = dict(row._mapping)
+                if not d.get("direccion"):
+                    d["direccion"] = "DGROC" # fallback
                 for array_field in ['tratas_incluidas', 'buzones_ingreso', 'analistas_oficiales', 
                                     'acronimos_egreso', 'firmantes_egreso', 
                                     'buzones_ingreso_intervenciones', 'descripciones_validas']:
@@ -1049,6 +1085,51 @@ async def list_metas(current_user: User = Depends(get_current_user)):
         logger.error(f"Error listing metas: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/admin/metas")
+async def create_meta(data: MetaCreateRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.begin() as conn:
+            exists = conn.execute(text("SELECT 1 FROM cfg_gestion_metas WHERE TRIM(UPPER(gerencia)) = :g AND TRIM(UPPER(trata_reporte)) = :t"), 
+                                  {"g": data.gerencia.strip().upper(), "t": data.trata_reporte.strip().upper()}).fetchone()
+            if exists:
+                raise HTTPException(status_code=400, detail="Esta trata ya está configurada para esa gerencia.")
+                
+            conn.execute(
+                text("""
+                    INSERT INTO cfg_gestion_metas (
+                        direccion, gerencia, trata_reporte, tratas_incluidas, buzones_ingreso,
+                        analistas_oficiales, acronimos_egreso, activo, firmantes_egreso,
+                        buzones_ingreso_intervenciones, descripciones_validas, descripcion_trata
+                    ) VALUES (
+                        :direccion, :gerencia, :trata_reporte, :tratas_incluidas, :buzones_ingreso,
+                        :analistas_oficiales, :acronimos_egreso, :activo, :firmantes_egreso,
+                        :buzones_ingreso_intervenciones, :descripciones_validas, :descripcion_trata
+                    )
+                """),
+                {
+                    "direccion": data.direccion.strip().upper(),
+                    "gerencia": data.gerencia.strip().lower(),
+                    "trata_reporte": data.trata_reporte.strip().upper(),
+                    "tratas_incluidas": data.tratas_incluidas,
+                    "buzones_ingreso": data.buzones_ingreso,
+                    "analistas_oficiales": data.analistas_oficiales,
+                    "acronimos_egreso": data.acronimos_egreso,
+                    "activo": data.activo,
+                    "firmantes_egreso": data.firmantes_egreso if data.firmantes_egreso else None,
+                    "buzones_ingreso_intervenciones": data.buzones_ingreso_intervenciones if data.buzones_ingreso_intervenciones else None,
+                    "descripciones_validas": data.descripciones_validas if data.descripciones_validas else None,
+                    "descripcion_trata": data.descripcion_trata
+                }
+            )
+            return {"status": "ok", "message": "Configuración de meta creada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.put("/api/admin/metas/{meta_id}")
 async def update_meta(meta_id: int, data: MetaUpdateRequest, current_user: User = Depends(get_current_user)):
     if current_user.role.lower() not in ['admin', 'administrador']:
@@ -1058,7 +1139,10 @@ async def update_meta(meta_id: int, data: MetaUpdateRequest, current_user: User 
             conn.execute(
                 text("""
                     UPDATE cfg_gestion_metas 
-                    SET tratas_incluidas = :tratas_incluidas,
+                    SET direccion = :direccion,
+                        gerencia = :gerencia,
+                        trata_reporte = :trata_reporte,
+                        tratas_incluidas = :tratas_incluidas,
                         buzones_ingreso = :buzones_ingreso,
                         analistas_oficiales = :analistas_oficiales,
                         acronimos_egreso = :acronimos_egreso,
@@ -1070,6 +1154,9 @@ async def update_meta(meta_id: int, data: MetaUpdateRequest, current_user: User 
                     WHERE id = :meta_id
                 """),
                 {
+                    "direccion": data.direccion.strip().upper() if data.direccion else "DGROC",
+                    "gerencia": data.gerencia.strip().lower() if data.gerencia else "catastro",
+                    "trata_reporte": data.trata_reporte.strip().upper() if data.trata_reporte else "",
                     "tratas_incluidas": data.tratas_incluidas,
                     "buzones_ingreso": data.buzones_ingreso,
                     "analistas_oficiales": data.analistas_oficiales,
@@ -1085,6 +1172,18 @@ async def update_meta(meta_id: int, data: MetaUpdateRequest, current_user: User 
             return {"status": "ok", "message": "Configuración de meta actualizada"}
     except Exception as e:
         logger.error(f"Error updating meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/admin/metas/{meta_id}")
+async def delete_meta(meta_id: int, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM cfg_gestion_metas WHERE id = :id"), {"id": meta_id})
+            return {"status": "ok", "message": "Configuración de meta eliminada"}
+    except Exception as e:
+        logger.error(f"Error deleting meta: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/admin/sade_users/search")

@@ -921,13 +921,22 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Event listener para editar metas (configuración de metas)
+    // Event listener para editar/crear metas (configuración de metas)
     const editMetaForm = document.getElementById('edit-meta-form');
     if (editMetaForm) {
         editMetaForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const metaId = document.getElementById('edit-meta-id-hidden').value;
             const activo = document.getElementById('edit-meta-activo').checked;
+
+            const direccion = document.getElementById('edit-meta-direccion').value.trim().toUpperCase();
+            const gerencia = document.getElementById('edit-meta-gerencia').value.trim().toLowerCase();
+            const trata_reporte = document.getElementById('edit-meta-trata-reporte').value.trim().toUpperCase();
+
+            if (!direccion || !gerencia || !trata_reporte) {
+                alert("Por favor, complete los campos Dirección, Gerencia/Área y Trata.");
+                return;
+            }
 
             const parseCommaList = (id) => {
                 const val = document.getElementById(id).value;
@@ -948,6 +957,9 @@ window.addEventListener('DOMContentLoaded', () => {
             const firmantes_egreso = currentSadeChips.firmantes.map(item => item.usuario);
 
             const data = {
+                direccion,
+                gerencia,
+                trata_reporte,
                 tratas_incluidas,
                 buzones_ingreso,
                 analistas_oficiales,
@@ -960,23 +972,27 @@ window.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const resp = await def_fetch(`${API_BASE}/admin/metas/${metaId}`, {
-                    method: 'PUT',
+                const isNew = !metaId;
+                const url = isNew ? `${API_BASE}/admin/metas` : `${API_BASE}/admin/metas/${metaId}`;
+                const method = isNew ? 'POST' : 'PUT';
+
+                const resp = await def_fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
 
                 if (resp && resp.ok) {
-                    alert('Configuración de meta actualizada correctamente');
+                    alert(isNew ? 'Configuración de meta creada correctamente' : 'Configuración de meta actualizada correctamente');
                     showMetasList();
                     loadAdminMetas();
                 } else {
                     const err = await resp.json();
-                    alert('Error: ' + err.detail);
+                    alert('Error: ' + (err.detail || 'Ocurrió un error al procesar.'));
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error al actualizar la configuración");
+                alert("Error al guardar la configuración");
             }
         });
     }
@@ -2590,16 +2606,18 @@ function renderAdminMetasTable(metas) {
     if (!tableBody) return;
 
     if (metas.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #64748b; padding: 1.5rem;">No se encontraron registros</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #64748b; padding: 1.5rem;">No se encontraron registros</td></tr>';
         return;
     }
 
     let html = '';
     metas.forEach(m => {
         const descText = m.descripcion_trata || '<span style="color: #94a3b8; font-style: italic;">Sin descripción disponible</span>';
+        const dir = (m.direccion || 'DGROC').toUpperCase();
 
         html += `
             <tr onclick="openEditMetaModal(${m.id})" style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit'; font-size: 0.95rem; cursor: pointer; transition: background-color 0.15s;" onmouseover="this.style.backgroundColor='#f8fafc'" onmouseout="this.style.backgroundColor='transparent'">
+                <td style="padding: 14px 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">${dir}</td>
                 <td style="padding: 14px 10px; font-weight: 600; text-transform: uppercase; color: var(--primary-dark);">${m.gerencia}</td>
                 <td style="padding: 14px 10px; font-weight: 700; color: var(--primary);">${m.trata_reporte}</td>
                 <td style="padding: 14px 10px; color: #475569;">${descText}</td>
@@ -2618,6 +2636,7 @@ function filterAdminMetas() {
     }
 
     const filtered = allAdminMetas.filter(m =>
+        (m.direccion || '').toLowerCase().includes(query) ||
         m.gerencia.toLowerCase().includes(query) ||
         m.trata_reporte.toLowerCase().includes(query) ||
         (m.descripcion_trata || '').toLowerCase().includes(query)
@@ -2637,7 +2656,21 @@ function openEditMetaModal(metaId) {
     document.getElementById('firmantes-suggestions').style.display = 'none';
 
     document.getElementById('edit-meta-id-hidden').value = meta.id;
-    document.getElementById('edit-meta-subtitle').innerText = `${meta.gerencia.toUpperCase()} • Trata: ${meta.trata_reporte}`;
+    
+    // Set form fields
+    document.getElementById('edit-meta-direccion').value = (meta.direccion || 'DGROC').toUpperCase();
+    document.getElementById('edit-meta-gerencia').value = meta.gerencia.toLowerCase();
+    document.getElementById('edit-meta-trata-reporte').value = meta.trata_reporte.toUpperCase();
+
+    // Enable key fields for editing, but let them change it if they want
+    document.getElementById('edit-meta-direccion').removeAttribute('readonly');
+    document.getElementById('edit-meta-gerencia').removeAttribute('readonly');
+    document.getElementById('edit-meta-trata-reporte').removeAttribute('readonly');
+
+    const titleEl = document.querySelector('#metas-edit-container h2');
+    if (titleEl) titleEl.innerText = "Editar Configuración de Trata";
+
+    document.getElementById('edit-meta-subtitle').innerText = `${meta.direccion || 'DGROC'} • ${meta.gerencia.toUpperCase()} • Trata: ${meta.trata_reporte}`;
     document.getElementById('edit-meta-activo').checked = !!meta.activo;
 
     document.getElementById('edit-meta-tratas-incluidas').value = (meta.tratas_incluidas || []).join(', ');
@@ -2653,9 +2686,85 @@ function openEditMetaModal(metaId) {
     renderSadeChips('analistas');
     renderSadeChips('firmantes');
 
+    // Show delete button
+    const deleteBtn = document.getElementById('edit-meta-delete-btn');
+    if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+
     // Switch inline views
     document.getElementById('metas-list-container').style.display = 'none';
     document.getElementById('metas-edit-container').style.display = 'block';
+}
+
+function setAdminMetaCreateMode() {
+    currentMetaId = null;
+
+    document.getElementById('analistas-search-input').value = '';
+    document.getElementById('firmantes-search-input').value = '';
+    document.getElementById('analistas-suggestions').style.display = 'none';
+    document.getElementById('firmantes-suggestions').style.display = 'none';
+
+    document.getElementById('edit-meta-id-hidden').value = '';
+    
+    // Clear and set defaults
+    document.getElementById('edit-meta-direccion').value = 'DGROC';
+    document.getElementById('edit-meta-gerencia').value = '';
+    document.getElementById('edit-meta-trata-reporte').value = '';
+
+    document.getElementById('edit-meta-direccion').removeAttribute('readonly');
+    document.getElementById('edit-meta-gerencia').removeAttribute('readonly');
+    document.getElementById('edit-meta-trata-reporte').removeAttribute('readonly');
+
+    const titleEl = document.querySelector('#metas-edit-container h2');
+    if (titleEl) titleEl.innerText = "Nueva Configuración de Trata";
+
+    document.getElementById('edit-meta-subtitle').innerText = "Creación de una nueva regla de trámites por área/gerencia";
+    document.getElementById('edit-meta-activo').checked = true;
+
+    document.getElementById('edit-meta-tratas-incluidas').value = '';
+    document.getElementById('edit-meta-buzones-ingreso').value = '';
+    document.getElementById('edit-meta-acronimos-egreso').value = '';
+    document.getElementById('edit-meta-buzones-intervenciones').value = '';
+    document.getElementById('edit-meta-descripciones').value = '';
+    document.getElementById('edit-meta-descripcion-trata').value = '';
+
+    currentSadeChips.analistas = [];
+    currentSadeChips.firmantes = [];
+
+    renderSadeChips('analistas');
+    renderSadeChips('firmantes');
+
+    // Hide delete button
+    const deleteBtn = document.getElementById('edit-meta-delete-btn');
+    if (deleteBtn) deleteBtn.style.display = 'none';
+
+    // Switch inline views
+    document.getElementById('metas-list-container').style.display = 'none';
+    document.getElementById('metas-edit-container').style.display = 'block';
+}
+
+async function deleteAdminMeta() {
+    const metaId = document.getElementById('edit-meta-id-hidden').value;
+    if (!metaId) return;
+
+    if (!confirm('¿Está seguro de que desea eliminar permanentemente esta configuración de trata? Esta acción no se puede deshacer.')) return;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/metas/${metaId}`, {
+            method: 'DELETE'
+        });
+
+        if (resp && resp.ok) {
+            alert('Configuración de meta eliminada correctamente');
+            showMetasList();
+            loadAdminMetas();
+        } else {
+            const err = await resp.json();
+            alert('Error: ' + (err.detail || 'No se pudo eliminar la configuración.'));
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error al intentar eliminar la configuración");
+    }
 }
 
 function renderSadeChips(type) {
@@ -2766,6 +2875,8 @@ window.handleSadeSearch = handleSadeSearch;
 window.selectSadeUser = selectSadeUser;
 window.removeSadeChip = removeSadeChip;
 window.openEditMetaModal = openEditMetaModal;
+window.setAdminMetaCreateMode = setAdminMetaCreateMode;
+window.deleteAdminMeta = deleteAdminMeta;
 
 // --- METAS & PROYECCIONES ---
 async function loadMetasData() {

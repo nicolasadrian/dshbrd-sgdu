@@ -1727,22 +1727,27 @@
                             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
                             <div>
                                 <h3 style="margin: 0;">Configuración por trata</h3>
-                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Administración de
-                                    parámetros y asignación de analistas por cada tipo de trámite.</p>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Administración de parámetros y asignación de analistas por cada tipo de trámite.</p>
                             </div>
-                            <div style="position: relative; width: 300px;">
-                                <input type="text" id="search-metas-input" placeholder="Buscar por Gerencia o Trata..."
-                                    oninput="filterAdminMetas()"
-                                    style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <div style="position: relative; width: 250px;">
+                                    <input type="text" id="search-metas-input" placeholder="Buscar por Gerencia o Trata..."
+                                        oninput="filterAdminMetas()"
+                                        style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                    <i class="fa-solid fa-plus"></i> Nueva Configuración
+                                </button>
                             </div>
                         </div>
                         <div class="table-responsive">
                             <table class="report-table" style="width: 100%; border-collapse: collapse;">
                                 <thead>
-                                    <tr style="border-bottom: 2px solid #cbd5e1;">
-                                        <th style="text-align: left; padding: 12px 8px;">Gerencia</th>
-                                        <th style="text-align: left; padding: 12px 8px;">Trata</th>
-                                        <th style="text-align: left; padding: 12px 8px;">Descripción de trata</th>
+                                    <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left;">
+                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Dirección</th>
+                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Gerencia / Área</th>
+                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Trata (Código)</th>
+                                        <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Descripción de trata</th>
                                     </tr>
                                 </thead>
                                 <tbody id="metas-table-body">
@@ -1789,6 +1794,22 @@
                                         style="opacity: 0; width: 0; height: 0;">
                                     <span class="slider-premium"></span>
                                 </label>
+                            </div>
+
+                            <!-- Dirección, Gerencia, y Trata Reporte -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Dirección</label>
+                                    <input type="text" id="edit-meta-direccion" placeholder="Ej: DGROC o DGIUR" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: uppercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Gerencia / Área</label>
+                                    <input type="text" id="edit-meta-gerencia" placeholder="Ej: catastro" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: lowercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Trata (Código Acrónimo)</label>
+                                    <input type="text" id="edit-meta-trata-reporte" placeholder="Ej: CATASTRO" style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: uppercase;">
+                                </div>
                             </div>
 
                             <!-- Descripción de Trata -->
@@ -1898,12 +1919,17 @@
                             </div>
 
                             <div
-                                style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-                                <button type="button" class="btn-primary" onclick="showMetasList()"
-                                    style="background: #e2e8f0; color: #475569; padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Cancelar</button>
-                                <button type="submit" class="btn-primary"
-                                    style="padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Guardar
-                                    Cambios</button>
+                                style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                                <button type="button" id="edit-meta-delete-btn" class="btn-primary" onclick="deleteAdminMeta()"
+                                    style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 0.7rem 1.4rem; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-trash"></i> Eliminar Configuración
+                                </button>
+                                <div style="display: flex; gap: 12px;">
+                                    <button type="button" class="btn-primary" onclick="showMetasList()"
+                                        style="background: #e2e8f0; color: #475569; padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Cancelar</button>
+                                    <button type="submit" class="btn-primary" id="edit-meta-save-btn"
+                                        style="padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Guardar Cambios</button>
+                                </div>
                             </div>
                         </form>
                     </div>
