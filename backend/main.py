@@ -3898,35 +3898,41 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 except Exception:
                     pass
 
-                # Stock actual (mv_{g}_stock_propio, columna trata)
+                # Stock actual (mv_{g}_stock_propio)
                 try:
                     r = conn.execute(text(f"""
                         SELECT COUNT(*) FROM mv_{g_clean}_stock_propio
                         WHERE TRIM(trata) = ANY(:tratas)
                     """), {"tratas": tratas_oficiales}).scalar()
-                    g_stock = int(r or 0)
-                    stock_total += g_stock
-                    # Top trámite por stock dentro de esta gerencia — con descripción
+                    stock_total += int(r or 0)
+                except Exception:
+                    pass
+
+                # Top trámite por stock en esta gerencia (query simple sin subquery)
+                try:
                     top_res = conn.execute(text(f"""
-                        SELECT
-                            TRIM(sp.trata) as trata,
-                            COUNT(*) as cnt,
-                            COALESCE(
-                                (SELECT TRIM(c.descripcion_trata) FROM cfg_gestion_metas c
-                                 WHERE TRIM(sp.trata) = ANY(c.tratas_incluidas)
-                                    OR TRIM(c.trata_reporte) = TRIM(sp.trata)
-                                 LIMIT 1),
-                                TRIM(sp.trata)
-                            ) as descripcion
-                        FROM mv_{g_clean}_stock_propio sp
-                        WHERE TRIM(sp.trata) = ANY(:tratas)
+                        SELECT TRIM(trata), COUNT(*) as cnt
+                        FROM mv_{g_clean}_stock_propio
+                        WHERE TRIM(trata) = ANY(:tratas)
                         GROUP BY 1
                         ORDER BY cnt DESC
                         LIMIT 1
                     """), {"tratas": tratas_oficiales}).fetchone()
                     if top_res and (top_res[1] or 0) > top_trata_stock:
-                        top_trata_stock  = int(top_res[1])
-                        top_trata_nombre = top_res[2] or top_res[0]  # descripcion o fallback al código
+                        top_trata_stock = int(top_res[1])
+                        trata_code = top_res[0]
+                        # Resolver descripción por separado
+                        try:
+                            desc_res = conn.execute(text("""
+                                SELECT TRIM(descripcion_trata)
+                                FROM cfg_gestion_metas
+                                WHERE TRIM(trata_reporte) = :trata
+                                   OR :trata = ANY(tratas_incluidas)
+                                LIMIT 1
+                            """), {"trata": trata_code}).scalar()
+                            top_trata_nombre = desc_res if desc_res else trata_code
+                        except Exception:
+                            top_trata_nombre = trata_code
                 except Exception:
                     pass
 
