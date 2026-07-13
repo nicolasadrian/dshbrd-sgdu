@@ -10629,7 +10629,6 @@ async function initLFIMap() {
             banda_minima: { layer: 'GEO-MDR:mdr_banda_minima', minzoom: 14 },
             'troneras-si': { layer: 'GEO-MDR:mdr_troneras', minzoom: 14 },
             'troneras-no': { layer: 'GEO-MDR:mdr_troneras', minzoom: 14 },
-            tejido:        { layer: 'GEO-MDR:tejido',        minzoom: 12, tileSize: 512 }
         };
 
         Object.entries(wmsLayers).forEach(([key, cfg]) => {
@@ -10742,15 +10741,6 @@ function toggleLFIMapLayer(layerKey, visible) {
             if (_lfiMap.getLayer(id)) _lfiMap.setLayoutProperty(id, 'visibility', v);
         });
         return;
-    }
-    if (layerKey === 'tejido' && visible) {
-        // Si el zoom es inferior al mínimo de la capa, acercar al encuadre conocido
-        if (_lfiMap.getZoom() < 12) {
-            _lfiMap.fitBounds(
-                [[-58.5311, -34.7018], [-58.3408, -34.5313]],
-                { padding: 20, duration: 800 }
-            );
-        }
     }
     const layerId = `lfi-lyr-${layerKey}`;
     if (_lfiMap.getLayer(layerId)) {
