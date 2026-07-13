@@ -19,6 +19,74 @@
     <!-- MapLibre GL JS -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <style>
+        /* ── Landing KPI Cards ── */
+        .landing-kpi-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: default;
+        }
+        .landing-kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.09);
+        }
+        .landing-kpi-icon {
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.15rem;
+            margin-bottom: 4px;
+        }
+        .landing-kpi-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+        .landing-kpi-value {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 1.75rem;
+            color: #1e293b;
+            line-height: 1;
+        }
+        .landing-kpi-sub {
+            font-size: 0.78rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        /* Skeleton shimmer */
+        .landing-kpi-skeleton {
+            background: #f1f5f9;
+            border-radius: 16px;
+            min-height: 110px;
+            position: relative;
+            overflow: hidden;
+        }
+        .landing-kpi-skeleton::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+            animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer {
+            0%   { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        /* Counter animation */
+        .kpi-count-anim {
+            transition: opacity 0.3s;
+        }
+    </style>
 </head>
 
 <body>
@@ -175,27 +243,68 @@
     <main id="app-content">
         <!-- Vista 1: Landing -->
         <section id="landing" class="view-container active">
-            <div class="landing-container">
-                <h1 class="landing-title">Tablero Integral de Gestión</h1>
-                <p>Seleccione una Dirección General para monitorear trámites</p>
 
-                <div class="button-grid">
-                    <article class="nav-card" id="card-dgroc" onclick="showView('dgroc')">
-                        <h2>DGROC</h2>
-                        <p>Dirección General Registros de Obra y Catastro</p>
-                    </article>
-                    <article class="nav-card" id="card-dgiur" onclick="showView('dgiur')">
-                        <h2>DGIUR</h2>
-                        <p>Dirección General de Interpretación Urbanística</p>
-                    </article>
-                    <article class="nav-card highlight-card" id="card-family" onclick="showView('family')"
-                        style="border: 2px solid var(--primary); background: linear-gradient(135deg, #ffffff, #f0f9ff); box-shadow: 0 4px 20px rgba(0, 159, 227, 0.08);">
-                        <h2 style="color: var(--primary-dark);">Familia de Trámites</h2>
-                        <p>Agrupamientos unificados y metas de gestión por categorías</p>
-                    </article>
+            <!-- Hero Banner -->
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0c4a6e 100%); border-radius: 20px; padding: 36px 40px; margin-bottom: 28px; position: relative; overflow: hidden;">
+                <!-- Decorative blobs -->
+                <div style="position: absolute; top: -40px; right: -40px; width: 220px; height: 220px; border-radius: 50%; background: rgba(56,189,248,0.08);"></div>
+                <div style="position: absolute; bottom: -60px; right: 120px; width: 160px; height: 160px; border-radius: 50%; background: rgba(99,102,241,0.10);"></div>
+
+                <div style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+                    <div>
+                        <p style="margin: 0 0 6px 0; font-size: 0.82rem; color: #7dd3fc; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Tablero Integral de Gestión</p>
+                        <h1 style="margin: 0 0 8px 0; font-family: 'Outfit'; font-weight: 800; font-size: 2rem; color: white; line-height: 1.2;" id="landing-greeting">Bienvenido al Tablero SGDU</h1>
+                        <p style="margin: 0; font-size: 0.92rem; color: #94a3b8;" id="landing-date-str">Cargando...</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 14px 20px; min-width: 180px;">
+                            <p style="margin: 0 0 4px 0; font-size: 0.75rem; color: #7dd3fc; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Avance del mes</p>
+                            <p style="margin: 0 0 8px 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.4rem; color: white;" id="landing-workdays-label">— / — días háb.</p>
+                            <div style="height: 6px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden;">
+                                <div id="landing-progress-bar" style="height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 99px; width: 0%; transition: width 1s ease;"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
+            <!-- KPI Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 32px;" id="landing-kpi-grid">
+                <!-- Skeleton cards while loading -->
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+                <div class="landing-kpi-skeleton"></div>
+            </div>
+
+            <!-- Section header -->
+            <div style="margin-bottom: 16px;">
+                <h2 style="margin: 0 0 4px 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: var(--primary-dark);">Acceso Rápido</h2>
+                <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Seleccione una Dirección General para monitorear trámites</p>
+            </div>
+
+            <div class="button-grid">
+                <article class="nav-card" id="card-dgroc" onclick="showView('dgroc')">
+                    <h2>DGROC</h2>
+                    <p>Dirección General Registros de Obra y Catastro</p>
+                </article>
+                <article class="nav-card" id="card-dgiur" onclick="showView('dgiur')">
+                    <h2>DGIUR</h2>
+                    <p>Dirección General de Interpretación Urbanística</p>
+                </article>
+                <article class="nav-card highlight-card" id="card-family" onclick="showView('family')"
+                    style="border: 2px solid var(--primary); background: linear-gradient(135deg, #ffffff, #f0f9ff); box-shadow: 0 4px 20px rgba(0, 159, 227, 0.08);">
+                    <h2 style="color: var(--primary-dark);">Familia de Trámites</h2>
+                    <p>Agrupamientos unificados y metas de gestión por categorías</p>
+                </article>
+            </div>
         </section>
+
 
         <!-- Vista 2: DGROC -->
         <section id="dgroc" class="view-container">

@@ -382,6 +382,10 @@ function showView(viewId, updateHash = true) {
         initRRHHReportView();
     }
 
+    if (viewId === 'landing') {
+        loadLandingStats();
+    }
+
     if (viewId === 'family') {
         backToFamilySelector();
     }
@@ -12856,6 +12860,113 @@ window.handleRRHHDrop       = handleRRHHDrop;
 window.handleRRHHFileSelect  = handleRRHHFileSelect;
 window.clearRRHHFile        = clearRRHHFile;
 window.uploadRRHHExcel      = uploadRRHHExcel;
+
+// ─── LANDING DASHBOARD ───────────────────────────────────────────────────────
+
+function _animateCount(el, target, duration = 900) {
+    const start = performance.now();
+    const from  = 0;
+    function step(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        el.textContent = Math.round(from + (target - from) * ease).toLocaleString('es-AR');
+        if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+}
+
+function _kpiCard({ icon, iconBg, iconColor, label, value, sub, valueColor }) {
+    return `
+        <div class="landing-kpi-card">
+            <div class="landing-kpi-icon" style="background:${iconBg}; color:${iconColor};">
+                <i class="${icon}"></i>
+            </div>
+            <span class="landing-kpi-label">${label}</span>
+            <span class="landing-kpi-value" style="color:${valueColor || '#1e293b'};" data-target="${value}">${value.toLocaleString('es-AR')}</span>
+            ${sub ? `<span class="landing-kpi-sub">${sub}</span>` : ''}
+        </div>
+    `;
+}
+
+async function loadLandingStats() {
+    // ── Header: greeting & date ──
+    const now    = new Date();
+    const hour   = now.getHours();
+    const greet  = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
+    const user   = (window.currentUser?.nombre || window.currentUser?.username || '');
+    const gEl    = document.getElementById('landing-greeting');
+    const dEl    = document.getElementById('landing-date-str');
+    if (gEl) gEl.textContent = user ? `${greet}, ${user}` : 'Bienvenido al Tablero SGDU';
+    if (dEl) {
+        const dias  = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+        const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        dEl.textContent = `${dias[now.getDay()]} ${now.getDate()} de ${meses[now.getMonth()]} de ${now.getFullYear()}`;
+    }
+
+    // ── Fetch stats ──
+    try {
+        const res = await def_fetch(`${API_BASE}/landing/stats`);
+        if (!res || !res.ok) throw new Error('fetch');
+        const d   = await res.json();
+
+        // Progress bar
+        const pctBar   = document.getElementById('landing-progress-bar');
+        const wdLabel  = document.getElementById('landing-workdays-label');
+        if (wdLabel) wdLabel.textContent = `${d.dias_habiles_transcurridos} / ${d.dias_habiles_mes} días háb.`;
+        if (pctBar) {
+            const pct = d.dias_habiles_mes > 0 ? Math.round((d.dias_habiles_transcurridos / d.dias_habiles_mes) * 100) : 0;
+            setTimeout(() => { pctBar.style.width = pct + '%'; }, 200);
+        }
+
+        // ── KPI cards ──
+        const cards = [
+            { icon: 'fa-solid fa-file-lines',       iconBg: '#eff6ff', iconColor: '#3b82f6',
+              label: 'Trámites configurados',        value: d.tramites_total,            sub: 'tipos de trámite activos' },
+            { icon: 'fa-solid fa-users',             iconBg: '#f0fdf4', iconColor: '#10b981',
+              label: 'Analistas activos',            value: d.analistas_count,           sub: 'en el sistema' },
+            { icon: 'fa-solid fa-arrow-down-to-line', iconBg: '#eff6ff', iconColor: '#6366f1',
+              label: `Ingresados ${_mesLabel(d.mes)}`, value: d.ingresos_mes,            sub: 'expedientes en el mes' },
+            { icon: 'fa-solid fa-circle-check',      iconBg: '#f0fdf4', iconColor: '#10b981',
+              label: `Egresados efectivos ${_mesLabel(d.mes)}`, value: d.egresos_efectivos_mes, sub: 'resoluciones definitivas', valueColor: '#10b981' },
+            { icon: 'fa-solid fa-circle-xmark',      iconBg: '#fff7ed', iconColor: '#f97316',
+              label: `Egresados no efectivos ${_mesLabel(d.mes)}`, value: d.egresos_no_efectivos_mes, sub: 'desistimientos / rechazos', valueColor: '#f97316' },
+            { icon: 'fa-solid fa-right-from-bracket', iconBg: '#f8fafc', iconColor: '#64748b',
+              label: `Total egresados ${_mesLabel(d.mes)}`, value: d.egresos_total_mes, sub: 'ef. + no ef.' },
+            { icon: 'fa-solid fa-layer-group',       iconBg: '#faf5ff', iconColor: '#8b5cf6',
+              label: 'Stock en trámite',             value: d.stock_total,               sub: 'expedientes activos hoy', valueColor: '#8b5cf6' },
+            { icon: 'fa-solid fa-triangle-exclamation', iconBg: '#fef2f2', iconColor: '#ef4444',
+              label: 'Subsanaciones abiertas',       value: d.subs_abiertas,            sub: 'pendientes de respuesta', valueColor: '#ef4444' },
+            { icon: 'fa-solid fa-trophy',            iconBg: '#fffbeb', iconColor: '#f59e0b',
+              label: 'Trámite con mayor stock',      value: d.top_trata_stock,          sub: d.top_trata_nombre, valueColor: '#f59e0b' },
+        ];
+
+        const grid = document.getElementById('landing-kpi-grid');
+        if (!grid) return;
+        grid.innerHTML = cards.map(_kpiCard).join('');
+
+        // Animate number counters
+        grid.querySelectorAll('.landing-kpi-value[data-target]').forEach(el => {
+            const target = parseInt(el.dataset.target, 10);
+            if (!isNaN(target)) _animateCount(el, target);
+        });
+
+    } catch (e) {
+        console.warn('Landing stats error:', e);
+        const grid = document.getElementById('landing-kpi-grid');
+        if (grid) grid.innerHTML = '';
+    }
+}
+
+function _mesLabel(mesStr) {
+    if (!mesStr) return '';
+    const [y, m] = mesStr.split('-').map(Number);
+    const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `(${meses[m - 1]} ${y})`;
+}
+
+window.loadLandingStats = loadLandingStats;
+
 
 
 
