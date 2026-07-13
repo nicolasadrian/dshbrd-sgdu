@@ -12412,13 +12412,9 @@ async function loadRRHHReport() {
                 hours.forEach(hr => {
                     const count = s.hourly_coverage[hr];
                     const pctHeight = Math.round((count / maxAgentsCount) * 100);
-                    const barColor = count > 0 ? 'var(--primary)' : '#e2e8f0';
-                    const fontColor = count > 0 ? '#1e293b' : '#94a3b8';
-                    const fontW = count > 0 ? '700' : 'normal';
 
                     coverageBarsHtml += `
                         <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 35px; gap: 6px;">
-                            <span style="font-size: 0.75rem; color: ${fontColor}; font-weight: ${fontW};">${count}</span>
                             <div style="width: 100%; height: 80px; background: #f1f5f9; border-radius: 4px; display: flex; align-items: flex-end;">
                                 <div style="width: 100%; height: ${pctHeight}%; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); border-radius: 4px; transition: height 0.5s ease;"></div>
                             </div>

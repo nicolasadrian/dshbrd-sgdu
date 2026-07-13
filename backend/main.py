@@ -1288,8 +1288,13 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
                     }
                 ag_data = s_data["agentes"][agente_key]
 
+                # Registros con hora_ingreso = 00:00 son agentes no presentes
+                # En Python time(0,0) es falsy, pero is not None es True — hay que chequear explícitamente
+                from datetime import time as _time
+                ingreso_es_valido = h_ingreso is not None and h_ingreso != _time(0, 0)
+
                 # Presence / attendance check
-                is_present = "PRESENTE" in est.upper() or h_ingreso is not None
+                is_present = ("PRESENTE" in est.upper()) or ingreso_es_valido
                 if convocado:
                     ag_data["total_convocado"] += 1
                     if is_present:
@@ -1298,22 +1303,21 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
                     else:
                         ag_data["ausentes"] += 1
 
-                # Daily check-in / check-out bounds
-                if h_ingreso:
+                # Daily check-in / check-out bounds — sólo para registros con ingreso válido (no 00:00)
+                if ingreso_es_valido:
                     h_str = h_ingreso.strftime("%H:%M")
                     if not s_data["earliest_ingreso"] or h_str < s_data["earliest_ingreso"]:
                         s_data["earliest_ingreso"] = h_str
-                    
+
                     # Hourly coverage matrix (determinar turnos)
-                    # Check which hours this agent was present
                     start_h = h_ingreso.hour
-                    end_h = h_salida.hour if h_salida else 18
+                    end_h = h_salida.hour if (h_salida and h_salida != _time(0, 0)) else 18
                     for hour in range(start_h, min(end_h + 1, 20)):
                         h_key = f"{hour:02d}:00"
                         if h_key in s_data["hourly_coverage"]:
                             s_data["hourly_coverage"][h_key] += 1
-                            
-                    # Check punctual check-in (e.g. before 09:30 AM)
+
+                    # Check punctual check-in (antes de las 09:30)
                     if h_ingreso.hour < 9 or (h_ingreso.hour == 9 and h_ingreso.minute <= 30):
                         s_data["dias_a_tiempo"] += 1
                         if convocado:
