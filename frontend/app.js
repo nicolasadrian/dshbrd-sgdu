@@ -302,6 +302,8 @@ function showView(viewId, updateHash = true) {
             hasPermission = !!currentUser.permissions['ciudad_3d'];
         } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle') {
             hasPermission = !!(currentUser.permissions['dgroc'] || currentUser.permissions['dgiur'] || currentUser.permissions['buzones_analisis'] || currentUser.permissions['secgdu']);
+        } else if (viewId === 'reportes_rrhh') {
+            hasPermission = !!(currentUser.permissions['reportes_rrhh'] || currentUser.permissions['carga_reportes_rrhh']);
         }
 
         // Si no tiene permiso para la vista solicitada, redirigir a 'landing'
@@ -374,6 +376,10 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'productividad_analistas') {
         loadProductividadAnalistasView();
+    }
+
+    if (viewId === 'reportes_rrhh') {
+        initRRHHReportView();
     }
 
     if (viewId === 'family') {
@@ -1973,6 +1979,8 @@ const PERMISSION_KEYS = {
     buzones_analisis: "Buzones para Análisis",
     secgdu: "Buzones SECGDU (Total Universo)",
     ciudad_3d: "Ciudad 3D",
+    reportes_rrhh: "Reporte RRHH (Visualizar)",
+    carga_reportes_rrhh: "Reporte RRHH (Cargar Excel)",
     admin: "Backlog (Administración)"
 };
 
@@ -1985,7 +1993,9 @@ const PERMISSION_GROUPS = {
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
         pendientes_asociacion: { label: "Pendientes Asociación", desc: "Expedientes pendientes de asociar a analistas." },
-        productividad_analistas: { label: "Productividad Analistas", desc: "Ver rankings, bitácoras y metas de analistas." }
+        productividad_analistas: { label: "Productividad Analistas", desc: "Ver rankings, bitácoras y metas de analistas." },
+        reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Ver estadísticas de asistencia, cobertura horaria y cumplimiento del personal." },
+        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar la base de datos de RRHH." }
     },
     "Buzones & Gestión": {
         buscador: { label: "Buscador de Expedientes", desc: "Búsqueda universal de expedientes en el universo SADE." },
@@ -12249,6 +12259,389 @@ window.searchSadeUsersForAnalistas = searchSadeUsersForAnalistas;
 window.clearAdminAnalistasUserSearch = clearAdminAnalistasUserSearch;
 window.addAnalistaToGerencia = addAnalistaToGerencia;
 window.deleteAnalistaFromGerencia = deleteAnalistaFromGerencia;
+
+
+// --- REPORTES RRHH ---
+let selectedRRHHFile = null;
+let currentRRHHReportData = null;
+
+function initRRHHReportView() {
+    const monthInput = document.getElementById('rrhh-filter-month');
+    if (monthInput && !monthInput.value) {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        monthInput.value = `${y}-${m}`;
+    }
+
+    // Toggle tab header visibility by permissions
+    const tabCargaBtn = document.getElementById('tab-btn-rrhh-carga');
+    if (tabCargaBtn) {
+        const canUpload = !!(currentUser && (currentUser.permissions['carga_reportes_rrhh'] || currentUser.role.lower() in ['admin', 'administrador']));
+        tabCargaBtn.style.display = canUpload ? 'inline-block' : 'none';
+    }
+
+    switchRRHHTab('reporte');
+    loadRRHHReport();
+}
+
+function switchRRHHTab(tab) {
+    const reportTab = document.getElementById('rrhh-solapa-reporte');
+    const uploadTab = document.getElementById('rrhh-solapa-carga');
+    const btnReport = document.getElementById('tab-btn-rrhh-reporte');
+    const btnCarga = document.getElementById('tab-btn-rrhh-carga');
+
+    if (tab === 'reporte') {
+        if (reportTab) reportTab.style.display = 'block';
+        if (uploadTab) uploadTab.style.display = 'none';
+        if (btnReport) {
+            btnReport.className = 'tab-btn-premium active';
+            btnReport.style.background = 'white';
+            btnReport.style.color = 'var(--primary-dark)';
+        }
+        if (btnCarga) {
+            btnCarga.className = 'tab-btn-premium';
+            btnCarga.style.background = 'transparent';
+            btnCarga.style.color = '#64748b';
+        }
+    } else {
+        if (reportTab) reportTab.style.display = 'none';
+        if (uploadTab) uploadTab.style.display = 'block';
+        if (btnReport) {
+            btnReport.className = 'tab-btn-premium';
+            btnReport.style.background = 'transparent';
+            btnReport.style.color = '#64748b';
+        }
+        if (btnCarga) {
+            btnCarga.className = 'tab-btn-premium active';
+            btnCarga.style.background = 'white';
+            btnCarga.style.color = 'var(--primary-dark)';
+        }
+    }
+}
+
+async function loadRRHHReport() {
+    const container = document.getElementById('rrhh-sectores-container');
+    const cardsContainer = document.getElementById('rrhh-global-cards');
+    const monthVal = document.getElementById('rrhh-filter-month').value;
+
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; padding: 3rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Analizando control de asistencia del sector...</p></div>';
+    if (cardsContainer) cardsContainer.innerHTML = '';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/rrhh/reporte?month=${monthVal}`);
+        if (res && res.ok) {
+            const data = await res.json();
+            currentRRHHReportData = data;
+
+            if (!data.sectores || Object.keys(data.sectores).length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #64748b; font-style: italic;">No hay registros importados para el mes seleccionado.</div>';
+                return;
+            }
+
+            // Calculate global statistics
+            let totalPresentes = 0;
+            let totalAusentes = 0;
+            let totalTardes = 0;
+            let totalAgentes = 0;
+            let sumAsistencia = 0;
+            let sumPuntualidad = 0;
+
+            const sectorKeys = Object.keys(data.sectores);
+            sectorKeys.forEach(sec => {
+                const s = data.sectores[sec];
+                s.agentes_list.forEach(a => {
+                    totalAgentes++;
+                    sumAsistencia += a.asistencia_pct;
+                    sumPuntualidad += a.puntualidad_pct;
+                    if (a.ausentes > 0) totalAusentes += a.ausentes;
+                    totalPresentes += a.presentes;
+                });
+            });
+
+            const avgAsistencia = totalAgentes > 0 ? Math.round(sumAsistencia / totalAgentes) : 100;
+            const avgPuntualidad = totalAgentes > 0 ? Math.round(sumPuntualidad / totalAgentes) : 100;
+
+            // Render Global KPI Cards
+            if (cardsContainer) {
+                cardsContainer.innerHTML = `
+                    <div class="metric-card-premium" style="background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="width: 50px; height: 50px; border-radius: 50%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Agentes Analizados</span>
+                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem; color: var(--primary-dark);">${totalAgentes}</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card-premium" style="background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="width: 50px; height: 50px; border-radius: 50%; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-calendar-check"></i></div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Asistencia Promedio</span>
+                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem; color: #10b981;">${avgAsistencia}%</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card-premium" style="background: white; border: 1px solid #e2e8f0; padding: 20px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="width: 50px; height: 50px; border-radius: 50%; background: #fff7ed; color: #f97316; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-clock"></i></div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Puntualidad Global</span>
+                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem; color: #f97316;">${avgPuntualidad}%</h3>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Render Sectores Accordions
+            let sectorHtml = '';
+            sectorKeys.forEach(secName => {
+                const s = data.sectores[secName];
+                const cleanStart = s.earliest_ingreso || "08:00";
+                const cleanEnd = s.latest_salida || "18:00";
+
+                // Generate Hourly Coverage distribution map HTML
+                let coverageBarsHtml = '';
+                const hours = Object.keys(s.hourly_coverage).sort();
+                
+                // Get max value in hour coverage to scale the bars nicely
+                const maxAgentsCount = Math.max(...Object.values(s.hourly_coverage), 1);
+                
+                hours.forEach(hr => {
+                    const count = s.hourly_coverage[hr];
+                    const pctHeight = Math.round((count / maxAgentsCount) * 100);
+                    const barColor = count > 0 ? 'var(--primary)' : '#e2e8f0';
+                    const fontColor = count > 0 ? '#1e293b' : '#94a3b8';
+                    const fontW = count > 0 ? '700' : 'normal';
+
+                    coverageBarsHtml += `
+                        <div style="display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 35px; gap: 6px;">
+                            <span style="font-size: 0.75rem; color: ${fontColor}; font-weight: ${fontW};">${count}</span>
+                            <div style="width: 100%; height: 80px; background: #f1f5f9; border-radius: 4px; display: flex; align-items: flex-end;">
+                                <div style="width: 100%; height: ${pctHeight}%; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); border-radius: 4px; transition: height 0.5s ease;"></div>
+                            </div>
+                            <span style="font-size: 0.7rem; color: #64748b; font-weight: 600;">${hr}</span>
+                        </div>
+                    `;
+                });
+
+                // Generate agents table rows
+                let agentsRows = '';
+                s.agentes_list.forEach(a => {
+                    agentsRows += `
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 10px 12px; font-weight: 700; color: var(--primary-dark);">${a.usuario.toUpperCase()}</td>
+                            <td style="padding: 10px 12px; color: #334155;">${a.nombre}</td>
+                            <td style="padding: 10px 12px; text-align: center; font-weight: 600; color: #10b981;">${a.asistencia_pct}%</td>
+                            <td style="padding: 10px 12px; text-align: center; font-weight: 600; color: #f97316;">${a.puntualidad_pct}%</td>
+                            <td style="padding: 10px 12px; text-align: center;">
+                                <button type="button" onclick="openRRHHAgentModal('${a.cuil}', '${a.nombre}')" class="btn-action-view" style="padding: 6px 12px; background: #eff6ff; color: #2563eb; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s;">
+                                    <i class="fa-solid fa-calendar-days"></i> Ver Bitácora
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                sectorHtml += `
+                    <div class="admin-card" style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.3rem; text-transform: uppercase;">
+                                    Sector: ${secName}
+                                </h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #64748b;">Análisis de jornada, puntualidad y distribución de turnos por horario.</p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px; font-family: 'Outfit'; font-size: 0.85rem;">
+                                <i class="fa-solid fa-business-time" style="color: var(--primary);"></i>
+                                <span style="font-weight: 600; color: #334155;">Franja Horaria Cubierta:</span>
+                                <strong style="color: var(--primary-dark);">${cleanStart} - ${cleanEnd}</strong>
+                            </div>
+                        </div>
+
+                        <!-- 1. Mapa de Cobertura Horaria -->
+                        <div style="margin-bottom: 2rem;">
+                            <h4 style="margin: 0 0 1rem 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem;">Mapa de Cobertura Horaria (Agentes activos por hora)</h4>
+                            <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 10px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px;">
+                                ${coverageBarsHtml}
+                            </div>
+                        </div>
+
+                        <!-- 2. Tabla de Analistas -->
+                        <div>
+                            <h4 style="margin: 0 0 1rem 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem;">Personal Asignado y Desempeño</h4>
+                            <div class="table-responsive">
+                                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left; font-size: 0.82rem;">
+                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569;">Usuario</th>
+                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569;">Nombre y Apellido</th>
+                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Asistencia</th>
+                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Puntualidad</th>
+                                            <th style="padding: 10px 12px; font-weight: 700; color: #475569; text-align: center;">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody style="font-size: 0.85rem;">
+                                        ${agentsRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = sectorHtml;
+        } else {
+            container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #ef4444;">Error al cargar datos del reporte.</div>';
+        }
+    } catch (err) {
+        console.error("Error loading RRHH report:", err);
+        container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #ef4444;">Error de red al conectar con el servidor.</div>';
+    }
+}
+
+async function openRRHHAgentModal(cuil, name) {
+    const modal = document.getElementById('rrhh-detalle-agente-modal');
+    const tableBody = document.getElementById('rrhh-agent-detail-table-body');
+    const titleEl = document.getElementById('rrhh-modal-agent-name');
+    const cuilEl = document.getElementById('rrhh-modal-agent-cuil');
+    const monthVal = document.getElementById('rrhh-filter-month').value;
+
+    if (!modal || !tableBody) return;
+
+    if (titleEl) titleEl.innerText = name;
+    if (cuilEl) cuilEl.innerText = `CUIL: ${cuil}`;
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span> Cargando bitácora diaria...</td></tr>';
+    
+    modal.style.display = 'flex';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/rrhh/reporte/detalle-agente?cuil=${cuil}&month=${monthVal}`);
+        if (res && res.ok) {
+            const logs = await res.json();
+            if (logs.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay registros cargados para este analista en el mes.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            logs.forEach(l => {
+                const ferBadge = l.feriado.toUpperCase() === 'SI' ? '<span style="color: #ef4444; font-weight: 700;">Sí</span>' : 'No';
+                const convBadge = l.convocado.toUpperCase() === 'SI' ? '<span style="color: #2563eb; font-weight: 700;">Sí</span>' : 'No';
+                const estStyle = l.estado.toUpperCase().includes('PRESENTE') ? 'color: #10b981; font-weight: 700;' : 'color: #ef4444; font-weight: 700;';
+
+                html += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 10px 12px; font-weight: 600; color: #334155;">${l.fecha}</td>
+                        <td style="padding: 10px 12px; text-align: center;">${ferBadge}</td>
+                        <td style="padding: 10px 12px; text-align: center;">${convBadge}</td>
+                        <td style="padding: 10px 12px;">${l.hora_ingreso || "-"}</td>
+                        <td style="padding: 10px 12px;">${l.hora_salida || "-"}</td>
+                        <td style="padding: 10px 12px;">${l.cant_horas || "-"}</td>
+                        <td style="padding: 10px 12px; color: #dc2626;">${l.estado_incidencia || "-"}</td>
+                        <td style="padding: 10px 12px; ${estStyle}">${l.estado}</td>
+                    </tr>
+                `;
+            });
+            tableBody.innerHTML = html;
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar bitácora.</td></tr>';
+        }
+    } catch (err) {
+        console.error("Error loading agent logs:", err);
+        tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #ef4444;">Error de red.</td></tr>';
+    }
+}
+
+function closeRRHHAgentModal() {
+    const modal = document.getElementById('rrhh-detalle-agente-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function handleRRHHDrop(e) {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        setRRHHFile(file);
+    }
+}
+
+function handleRRHHFileSelect(e) {
+    if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        setRRHHFile(file);
+    }
+}
+
+function setRRHHFile(file) {
+    selectedRRHHFile = file;
+    const infoPanel = document.getElementById('rrhh-file-info');
+    const nameSpan = document.getElementById('rrhh-filename');
+    if (infoPanel && nameSpan) {
+        nameSpan.innerText = file.name;
+        infoPanel.style.display = 'flex';
+    }
+}
+
+function clearRRHHFile() {
+    selectedRRHHFile = null;
+    const input = document.getElementById('rrhh-file-input');
+    if (input) input.value = '';
+    const infoPanel = document.getElementById('rrhh-file-info');
+    if (infoPanel) infoPanel.style.display = 'none';
+}
+
+async function uploadRRHHExcel(e) {
+    if (e) e.preventDefault();
+
+    if (!selectedRRHHFile) {
+        alert("Por favor, seleccione un archivo Excel antes de continuar.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", selectedRRHHFile);
+
+    const submitBtn = document.querySelector('#rrhh-upload-form button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="loader" style="width: 16px; height: 16px; border-width: 2px;"></span> Procesando planilla...';
+    submitBtn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/rrhh/upload`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        });
+
+        if (res.ok) {
+            const ans = await res.json();
+            alert(ans.message || "Excel cargado con éxito.");
+            clearRRHHFile();
+            switchRRHHTab('reporte');
+            await loadRRHHReport();
+        } else {
+            const err = await res.json();
+            alert(`Error de carga: ${err.detail || "No se pudo procesar la planilla"}`);
+        }
+    } catch (err) {
+        console.error("Error uploading excel:", err);
+        alert("Ocurrió un error de red al intentar subir el archivo.");
+    } finally {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+}
+
+window.initRRHHReportView = initRRHHReportView;
+window.switchRRHHTab = switchRRHHTab;
+window.loadRRHHReport = loadRRHHReport;
+window.openRRHHAgentModal = openRRHHAgentModal;
+window.closeRRHHAgentModal = closeRRHHAgentModal;
+window.handleRRHHDrop = handleRRHHDrop;
+window.handleRRHHFileSelect = handleRRHHFileSelect;
+window.clearRRHHFile = clearRRHHFile;
+window.uploadRRHHExcel = uploadRRHHExcel;
 
 
 
