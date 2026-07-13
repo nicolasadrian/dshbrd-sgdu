@@ -1905,7 +1905,7 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                                    (SELECT descripcion_trata FROM cfg_gestion_metas WHERE v.trata_code = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
                                    v.trata_code
                                ) as descripcion_trata
-                        FROM (VALUES {", ".join([f"('{c}')" for c in trata_codes])}) as v(trata_code)
+                        FROM (VALUES {", ".join([f"('{c}')" for c in trata_codes if c != 'INTERVENCIONES'])}) as v(trata_code)
                         UNION ALL
                         SELECT 'INTERVENCIONES', 'Intervenciones'
                     ) et
@@ -1919,7 +1919,7 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                     GROUP BY p.mes_label, 1, 2, 3, 4, o.ord, i.cant, ef.cant, ne.cant
                     ORDER BY o.ord, anio DESC, mes DESC
                 """
-                params = {"tratas_oficiales": trata_codes, "g": gerencia_clean}
+                params = {"tratas_oficiales": [t for t in trata_codes if t != 'INTERVENCIONES'], "g": gerencia_clean}
             else:
                 sql = f"""
                     WITH config_order AS (
