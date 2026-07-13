@@ -652,7 +652,10 @@ async def get_current_user_from_param_or_header(token: Optional[str] = Query(Non
     if authorization and authorization.startswith("Bearer "):
         actual_token = authorization.split(" ")[1]
     elif token:
-        actual_token = token
+        if token.startswith("Bearer "):
+            actual_token = token.split(" ")[1]
+        else:
+            actual_token = token
         
     if not actual_token:
         raise HTTPException(
