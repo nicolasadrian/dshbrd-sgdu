@@ -3831,10 +3831,13 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 for cfg in TRAMITES_CONFIG.values()
             )
 
-            # 2. Analistas activos (tabla datos_usuario)
-            analistas_count = conn.execute(text(
-                "SELECT COUNT(*) FROM public.datos_usuario WHERE activo = TRUE OR activo IS NULL"
-            )).scalar() or 0
+            # 2. Analistas (tabla datos_usuario) — sin filtro de columna activo que puede no existir
+            try:
+                analistas_count = conn.execute(text(
+                    "SELECT COUNT(*) FROM public.datos_usuario"
+                )).scalar() or 0
+            except Exception:
+                analistas_count = 0
 
             # 3. Ingresos del mes en curso (todas las gerencias)
             ingresos_mes = 0

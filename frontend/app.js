@@ -79,6 +79,8 @@ function initAuth() {
         loginOverlay.style.display = 'none';
         authControls.style.display = 'flex';
         loadUserFavorites();
+        // Cargar stats del landing una vez autenticado
+        if (typeof loadLandingStats === 'function') loadLandingStats();
         displayFullName.innerText = currentUser.full_name || currentUser.username;
         displaySector.innerText = currentUser.sector || "General";
 
@@ -382,7 +384,7 @@ function showView(viewId, updateHash = true) {
         initRRHHReportView();
     }
 
-    if (viewId === 'landing') {
+    if (viewId === 'landing' && currentUser && authToken) {
         loadLandingStats();
     }
 
