@@ -1457,7 +1457,11 @@ async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(...
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/rrhh/upload")
-async def upload_rrhh_excel(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+async def upload_rrhh_excel(
+    file: UploadFile = File(...),
+    token: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_from_param_or_header)
+):
     if not (current_user.permissions.get("carga_reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:

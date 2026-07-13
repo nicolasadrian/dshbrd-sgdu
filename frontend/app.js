@@ -12283,7 +12283,7 @@ function initRRHHReportView() {
     // Toggle tab header visibility by permissions
     const tabCargaBtn = document.getElementById('tab-btn-rrhh-carga');
     if (tabCargaBtn) {
-        const canUpload = !!(currentUser && (currentUser.permissions['carga_reportes_rrhh'] || currentUser.role.lower() in ['admin', 'administrador']));
+        const canUpload = !!(currentUser && (currentUser.permissions['carga_reportes_rrhh'] || ['admin', 'administrador'].includes((currentUser.role || '').toLowerCase())));
         tabCargaBtn.style.display = canUpload ? 'inline-block' : 'none';
     }
 
@@ -12825,10 +12825,11 @@ async function uploadRRHHExcel(e) {
     submitBtn.disabled = true;
 
     try {
-        const res = await fetch(`${API_BASE}/rrhh/upload`, {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE}/rrhh/upload?token=${encodeURIComponent(token)}`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`
             },
             body: formData
         });
