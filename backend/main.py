@@ -1617,15 +1617,10 @@ async def upload_rrhh_excel(
 
         # Clean and insert in database
         with engine.begin() as conn:
-            # Delete existing data for the dates loaded in the file to avoid duplication
-            min_date = min(dates_present)
-            max_date = max(dates_present)
-            conn.execute(
-                text("DELETE FROM public.reportes_rrhh WHERE fecha >= :min_d AND fecha <= :max_d"),
-                {"min_d": min_date, "max_d": max_date}
-            )
+            # Asegurar índice único en (cuil, fecha) para poder hacer ON CONFLICT
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_reportes_rrhh_cuil_fecha ON public.reportes_rrhh (cuil, fecha)"))
 
-            # Insert batch
+            # Insert batch con Upsert (ON CONFLICT) para hacer append actualizando lo existente
             conn.execute(
                 text("""
                     INSERT INTO public.reportes_rrhh (
@@ -1635,6 +1630,15 @@ async def upload_rrhh_excel(
                         :cuil, :nombreyapellido, :fecha, :feriado, :convocado,
                         :hora_ingreso, :hora_salida, :cant_horas, :estado_incidencia, :estado
                     )
+                    ON CONFLICT (cuil, fecha) DO UPDATE SET
+                        nombreyapellido = EXCLUDED.nombreyapellido,
+                        feriado = EXCLUDED.feriado,
+                        convocado = EXCLUDED.convocado,
+                        hora_ingreso = EXCLUDED.hora_ingreso,
+                        hora_salida = EXCLUDED.hora_salida,
+                        cant_horas = EXCLUDED.cant_horas,
+                        estado_incidencia = EXCLUDED.estado_incidencia,
+                        estado = EXCLUDED.estado
                 """),
                 records_to_insert
             )
