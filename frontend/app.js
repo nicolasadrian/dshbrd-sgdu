@@ -12838,11 +12838,11 @@ async function uploadRRHHExcel(e) {
     submitBtn.disabled = true;
 
     try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE}/rrhh/upload?token=${encodeURIComponent(token)}`, {
+        const token = authToken || localStorage.getItem('sgdu_token');
+        const res = await fetch(`${API_BASE}/rrhh/upload?token=${encodeURIComponent(token || '')}`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token || ''}`
             },
             body: formData
         });
