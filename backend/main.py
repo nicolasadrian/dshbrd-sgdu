@@ -47,13 +47,30 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="SGDU Analytics API")
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
+
+_CORS_ORIGINS = [
+    "https://dshbrd-sgdu.vercel.app",
+    "https://api.geo-epesege.com.ar",
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1",
+    "http://127.0.0.1:5500",
+    "null",  # file:// origins during local dev
+]
+# Orígenes adicionales configurables desde .env (ej: CORS_ORIGINS=https://midominio.com,https://otro.com)
+_extra = os.getenv("CORS_ORIGINS", "")
+if _extra:
+    _CORS_ORIGINS += [o.strip() for o in _extra.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ─── Performance: Caché TTL en memoria ─────────────────────────────────────
 _response_cache: Dict[str, Any] = {}
