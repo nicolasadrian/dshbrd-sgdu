@@ -308,6 +308,21 @@ try:
                 tratas JSONB NOT NULL DEFAULT '[]'::jsonb
             )
         """))
+        # reportes_rrhh DDL
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.reportes_rrhh (
+                cuil VARCHAR(255) NOT NULL,
+                nombreyapellido VARCHAR(255) NOT NULL,
+                fecha TIMESTAMP NOT NULL,
+                feriado VARCHAR(255),
+                convocado VARCHAR(255),
+                hora_ingreso TIME,
+                hora_salida TIME,
+                cant_horas TIME,
+                estado_incidencia VARCHAR(255),
+                estado VARCHAR(255)
+            )
+        """))
         fam_count = conn.execute(text("SELECT COUNT(*) FROM public.cfg_tramites_familias")).scalar()
         if fam_count == 0:
             import json
@@ -496,11 +511,11 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     if resolved is None:
         # 3. Hardcoded Fallbacks
         if r_lower in ['admin', 'administrador']:
-            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": True}
+            resolved = {"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": True, "reportes_rrhh": True, "carga_reportes_rrhh": True}
         elif r_lower == 'seguimiento':
-            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": False}
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "pendientes_asociacion": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": False, "reportes_rrhh": False, "carga_reportes_rrhh": False}
         else:
-            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": False}
+            resolved = {"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "pendientes_asociacion": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "productividad_analistas": False, "reportes_rrhh": False, "carga_reportes_rrhh": False}
             
     # Add fallback defaults if not present
     if "analytics_estadistica" not in resolved:
@@ -511,12 +526,16 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
         resolved["asignados-mi"] = True
     if "productividad_analistas" not in resolved:
         resolved["productividad_analistas"] = False
+    if "reportes_rrhh" not in resolved:
+        resolved["reportes_rrhh"] = False
+    if "carga_reportes_rrhh" not in resolved:
+        resolved["carga_reportes_rrhh"] = False
 
     # Force full admin permissions if they have the admin role
     if r_lower in ['admin', 'administrador']:
         resolved["admin"] = True
         resolved["pendientes_asociacion"] = True
-        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "asignados-mi", "productividad_analistas"]:
+        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "asignados-mi", "productividad_analistas", "reportes_rrhh", "carga_reportes_rrhh"]:
             resolved[k] = True
             
     return resolved
@@ -1184,6 +1203,299 @@ async def delete_meta(meta_id: int, current_user: User = Depends(get_current_use
             return {"status": "ok", "message": "Configuración de meta eliminada"}
     except Exception as e:
         logger.error(f"Error deleting meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints de RRHH (Protegidos por permisos) ---
+
+@app.get("/api/rrhh/reporte")
+async def get_rrhh_reporte(month: str = Query(..., regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
+    if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        year_str, month_str = month.split("-")
+        y_val = int(year_str)
+        m_val = int(month_str)
+
+        with engine.connect() as conn:
+            # Query all records for this month with SADE user matching
+            sql = text("""
+                SELECT r.cuil, r.nombreyapellido, r.fecha, r.feriado, r.convocado,
+                       r.hora_ingreso, r.hora_salida, r.cant_horas, r.estado_incidencia, r.estado,
+                       du.usuario, du.apellido, du.nombre,
+                       COALESCE((SELECT MIN(c.gerencia) FROM cfg_gestion_metas c WHERE du.usuario = ANY(c.analistas_oficiales)), 'OTROS') as gerencia
+                FROM public.reportes_rrhh r
+                LEFT JOIN public.datos_usuario du ON REPLACE(du.numero_cuit, '-', '') = REPLACE(r.cuil, '-', '')
+                WHERE EXTRACT(YEAR FROM r.fecha) = :year AND EXTRACT(MONTH FROM r.fecha) = :month
+                ORDER BY r.fecha, r.nombreyapellido
+            """)
+            result = conn.execute(sql, {"year": y_val, "month": m_val}).fetchall()
+
+            if not result:
+                return {"sectores": {}, "message": "No hay datos para este mes"}
+
+            # Process records
+            sectores = {}
+            for r in result:
+                sec = r[13].upper() # gerencia
+                cuil = r[0]
+                nombre_comp = r[1]
+                fecha = r[2].strftime("%Y-%m-%d") if r[2] else None
+                feriado = (r[3] or "").strip().upper() == "SI"
+                convocado = (r[4] or "").strip().upper() == "SI"
+                
+                h_ingreso = r[5] # time object
+                h_salida = r[6] # time object
+                c_horas = r[7] # time object
+                incidencia = r[8] or ""
+                est = r[9] or ""
+
+                if sec not in sectores:
+                    sectores[sec] = {
+                        "gerencia": sec,
+                        "earliest_ingreso": None,
+                        "latest_salida": None,
+                        "dias_laborados": 0,
+                        "dias_presentes_total": 0,
+                        "dias_a_tiempo": 0,
+                        "agentes": {},
+                        "hourly_coverage": {f"{h:02d}:00": 0 for h in range(7, 20)}
+                    }
+
+                s_data = sectores[sec]
+
+                # Analista key
+                agente_key = cuil
+                if agente_key not in s_data["agentes"]:
+                    s_data["agentes"][agente_key] = {
+                        "cuil": cuil,
+                        "nombre": nombre_comp,
+                        "usuario": r[10] or "N/A",
+                        "presentes": 0,
+                        "ausentes": 0,
+                        "tardes": 0,
+                        "total_convocado": 0,
+                        "asistencia_pct": 0,
+                        "puntualidad_pct": 0
+                    }
+                ag_data = s_data["agentes"][agente_key]
+
+                # Presence / attendance check
+                is_present = "PRESENTE" in est.upper() or h_ingreso is not None
+                if convocado:
+                    ag_data["total_convocado"] += 1
+                    if is_present:
+                        ag_data["presentes"] += 1
+                        s_data["dias_presentes_total"] += 1
+                    else:
+                        ag_data["ausentes"] += 1
+
+                # Daily check-in / check-out bounds
+                if h_ingreso:
+                    h_str = h_ingreso.strftime("%H:%M")
+                    if not s_data["earliest_ingreso"] or h_str < s_data["earliest_ingreso"]:
+                        s_data["earliest_ingreso"] = h_str
+                    
+                    # Hourly coverage matrix (determinar turnos)
+                    # Check which hours this agent was present
+                    start_h = h_ingreso.hour
+                    end_h = h_salida.hour if h_salida else 18
+                    for hour in range(start_h, min(end_h + 1, 20)):
+                        h_key = f"{hour:02d}:00"
+                        if h_key in s_data["hourly_coverage"]:
+                            s_data["hourly_coverage"][h_key] += 1
+                            
+                    # Check punctual check-in (e.g. before 09:30 AM)
+                    if h_ingreso.hour < 9 or (h_ingreso.hour == 9 and h_ingreso.minute <= 30):
+                        s_data["dias_a_tiempo"] += 1
+                        if convocado:
+                            ag_data["tardes"] = ag_data.get("tardes", 0)
+                    else:
+                        if convocado:
+                            ag_data["tardes"] = ag_data.get("tardes", 0) + 1
+
+                if h_salida:
+                    s_str = h_salida.strftime("%H:%M")
+                    if not s_data["latest_salida"] or s_str > s_data["latest_salida"]:
+                        s_data["latest_salida"] = s_str
+
+            # Finalize averages & percents
+            for sec, s_data in sectores.items():
+                # Overall sector stats
+                total_agentes = len(s_data["agentes"])
+                for ag_key, ag_data in s_data["agentes"].items():
+                    tot = ag_data["total_convocado"]
+                    if tot > 0:
+                        ag_data["asistencia_pct"] = round((ag_data["presentes"] / tot) * 100)
+                        ag_data["puntualidad_pct"] = round(((ag_data["presentes"] - ag_data["tardes"]) / ag_data["presentes"]) * 100) if ag_data["presentes"] > 0 else 0
+                    else:
+                        ag_data["asistencia_pct"] = 100
+                        ag_data["puntualidad_pct"] = 100
+
+                # Convert agents dict to list
+                s_data["agentes_list"] = list(s_data["agentes"].values())
+                del s_data["agentes"]
+
+            return {"sectores": sectores}
+    except Exception as e:
+        logger.error(f"Error fetching RRHH metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/rrhh/reporte/detalle-agente")
+async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(..., regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
+    if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        year_str, month_str = month.split("-")
+        y_val = int(year_str)
+        m_val = int(month_str)
+
+        with engine.connect() as conn:
+            sql = text("""
+                SELECT fecha, feriado, convocado, hora_ingreso, hora_salida, cant_horas, estado_incidencia, estado
+                FROM public.reportes_rrhh
+                WHERE REPLACE(cuil, '-', '') = REPLACE(:cuil, '-', '')
+                  AND EXTRACT(YEAR FROM fecha) = :year
+                  AND EXTRACT(MONTH FROM fecha) = :month
+                ORDER BY fecha
+            """)
+            result = conn.execute(sql, {"cuil": cuil, "year": y_val, "month": m_val}).fetchall()
+            
+            rows = []
+            for r in result:
+                rows.append({
+                    "fecha": r[0].strftime("%Y-%m-%d") if r[0] else "",
+                    "feriado": r[1],
+                    "convocado": r[2],
+                    "hora_ingreso": r[3].strftime("%H:%M:%S") if r[3] else "",
+                    "hora_salida": r[4].strftime("%H:%M:%S") if r[4] else "",
+                    "cant_horas": r[5].strftime("%H:%M:%S") if r[5] else "",
+                    "estado_incidencia": r[6] or "",
+                    "estado": r[7] or ""
+                })
+            return rows
+    except Exception as e:
+        logger.error(f"Error fetching agent RRHH detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rrhh/upload")
+async def upload_rrhh_excel(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+    if not (current_user.permissions.get("carga_reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+    try:
+        # Read Excel using pandas
+        df = pd.read_excel(file.file)
+        
+        # Check minimum columns count
+        if len(df.columns) < 10:
+            raise HTTPException(status_code=400, detail="El archivo Excel debe contener al menos 10 columnas correspondientes al formato requerido.")
+
+        records_to_insert = []
+        dates_present = set()
+
+        for idx, row in df.iterrows():
+            cuil_raw = str(row.iloc[0]).strip()
+            # Skip header lookalikes or empty rows
+            if not cuil_raw or cuil_raw.lower() in ['cuil', 'nan', 'none']:
+                continue
+
+            nombre = str(row.iloc[1]).strip()
+            fecha_raw = row.iloc[2]
+            feriado = str(row.iloc[3]).strip()
+            convocado = str(row.iloc[4]).strip()
+            
+            h_ingreso_raw = row.iloc[5]
+            h_salida_raw = row.iloc[6]
+            c_horas_raw = row.iloc[7]
+            
+            incidencia = str(row.iloc[8]).strip() if pd.notna(row.iloc[8]) else ""
+            estado = str(row.iloc[9]).strip() if pd.notna(row.iloc[9]) else ""
+
+            # Parse date safely
+            try:
+                if isinstance(fecha_raw, str):
+                    fecha = pd.to_datetime(fecha_raw).to_pydatetime()
+                else:
+                    fecha = pd.to_datetime(fecha_raw).to_pydatetime()
+            except Exception:
+                # Skip invalid date rows
+                continue
+
+            dates_present.add(fecha.date())
+
+            # Parse times safely helper
+            def parse_time(val):
+                if pd.isna(val) or str(val).strip().lower() in ['nan', 'none', '']:
+                    return None
+                try:
+                    if isinstance(val, datetime):
+                        return val.time()
+                    if isinstance(val, time):
+                        return val
+                    # String parse
+                    t_str = str(val).strip()
+                    # format H:M:S or H:M
+                    parts = t_str.split(":")
+                    if len(parts) >= 2:
+                        h = int(parts[0])
+                        m = int(parts[1])
+                        s = int(parts[2]) if len(parts) > 2 else 0
+                        return time(h, m, s)
+                except Exception:
+                    pass
+                return None
+
+            h_ingreso = parse_time(h_ingreso_raw)
+            h_salida = parse_time(h_salida_raw)
+            c_horas = parse_time(c_horas_raw)
+
+            records_to_insert.append({
+                "cuil": cuil_raw,
+                "nombreyapellido": nombre,
+                "fecha": fecha,
+                "feriado": feriado,
+                "convocado": convocado,
+                "hora_ingreso": h_ingreso,
+                "hora_salida": h_salida,
+                "cant_horas": c_horas,
+                "estado_incidencia": incidencia,
+                "estado": estado
+            })
+
+        if not records_to_insert:
+            raise HTTPException(status_code=400, detail="No se encontraron registros válidos para insertar.")
+
+        # Clean and insert in database
+        with engine.begin() as conn:
+            # Delete existing data for the dates loaded in the file to avoid duplication
+            min_date = min(dates_present)
+            max_date = max(dates_present)
+            conn.execute(
+                text("DELETE FROM public.reportes_rrhh WHERE fecha >= :min_d AND fecha <= :max_d"),
+                {"min_d": min_date, "max_d": max_date}
+            )
+
+            # Insert batch
+            conn.execute(
+                text("""
+                    INSERT INTO public.reportes_rrhh (
+                        cuil, nombreyapellido, fecha, feriado, convocado,
+                        hora_ingreso, hora_salida, cant_horas, estado_incidencia, estado
+                    ) VALUES (
+                        :cuil, :nombreyapellido, :fecha, :feriado, :convocado,
+                        :hora_ingreso, :hora_salida, :cant_horas, :estado_incidencia, :estado
+                    )
+                """),
+                records_to_insert
+            )
+
+        return {
+            "status": "ok", 
+            "message": f"Se procesaron e ingresaron correctamente {len(records_to_insert)} registros correspondientes a las fechas {min_date} hasta {max_date}."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading RRHH excel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/admin/sade_users/search")
