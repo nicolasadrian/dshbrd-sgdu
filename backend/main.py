@@ -3898,35 +3898,36 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 except Exception:
                     pass
 
-                # Stock (STOCK_PROPIO) y subsanaciones abiertas (vw_expedientes_maestro)
+                # Stock actual (mv_{g}_stock_propio, columna trata)
                 try:
-                    st_res = conn.execute(text(f"""
-                        SELECT
-                            SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END),
-                            SUM(CASE WHEN categoria = 'SUBSANACION'  THEN cant_expedientes ELSE 0 END)
-                        FROM vw_expedientes_maestro
-                        WHERE gerencia = :g AND TRIM(trata) = ANY(:tratas)
-                    """), {"g": g, "tratas": tratas_oficiales}).fetchone()
-                    if st_res:
-                        stock_total   += int(st_res[0] or 0)
-                        subs_abiertas += int(st_res[1] or 0)
-                except Exception:
-                    pass
-
-                # Top trámite por stock (considerando solo trámites configurados)
-                try:
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_stock_propio
+                        WHERE TRIM(trata) = ANY(:tratas)
+                    """), {"tratas": tratas_oficiales}).scalar()
+                    g_stock = int(r or 0)
+                    stock_total += g_stock
+                    # Top trámite por stock dentro de esta gerencia
                     top_res = conn.execute(text(f"""
-                        SELECT TRIM(trata), SUM(cant_expedientes) as tot
-                        FROM vw_expedientes_maestro
-                        WHERE gerencia = :g AND categoria = 'STOCK_PROPIO'
-                          AND TRIM(trata) = ANY(:tratas)
+                        SELECT TRIM(trata), COUNT(*) as cnt
+                        FROM mv_{g_clean}_stock_propio
+                        WHERE TRIM(trata) = ANY(:tratas)
                         GROUP BY 1
-                        ORDER BY tot DESC
+                        ORDER BY cnt DESC
                         LIMIT 1
-                    """), {"g": g, "tratas": tratas_oficiales}).fetchone()
+                    """), {"tratas": tratas_oficiales}).fetchone()
                     if top_res and (top_res[1] or 0) > top_trata_stock:
                         top_trata_stock  = int(top_res[1])
                         top_trata_nombre = top_res[0]
+                except Exception:
+                    pass
+
+                # Subsanaciones abiertas (mv_{g}_subsanaciones, columna trata)
+                try:
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_subsanaciones
+                        WHERE TRIM(trata) = ANY(:tratas)
+                    """), {"tratas": tratas_oficiales}).scalar()
+                    subs_abiertas += int(r or 0)
                 except Exception:
                     pass
 
