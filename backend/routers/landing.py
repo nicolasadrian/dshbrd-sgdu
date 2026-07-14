@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Landing Stats"])
 
 @router.get("/api/landing/stats")
-async def get_landing_stats(current_user: User = Depends(get_current_user)):
+async def get_landing_stats():
     """Endpoint de métricas globales para el landing del tablero."""
     _ck = "landing_stats"
     hit, data = cached_response(_ck, ttl_seconds=120)
