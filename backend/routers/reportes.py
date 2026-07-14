@@ -2009,22 +2009,63 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
             if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
                 trata_codes = list(TRAMITES_CONFIG[gerencia_clean].keys())
                 is_official = trata in [t for t in trata_codes if t != 'INTERVENCIONES']
-                view_name = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
+                
+                view_stock = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
+                view_subs = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
                 
                 sql = f"""
-                    SELECT {view_name}.id_expediente, {view_name}.expediente, {view_name}.fecha_primer_ingreso_gerencia as fecha_ing, 
-                           {view_name}.fecha_recepcion_analista as fecha_ultimo_pase, 
-                           {view_name}.dias_en_poder_actual as dias, {view_name}.analista, du.apellido_nombre as analista_nombre, {view_name}.trata, 
-                           ext.fecha_creacion as caratula,
-                           ext.descripcion_trata, ext.descripcion, ext.estado as estado_expediente,
-                           (CURRENT_DATE - {view_name}.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
-                    FROM {view_name}
-                    LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = {view_name}.id_expediente
-                    LEFT JOIN datos_usuario du ON {view_name}.analista = du.usuario
-                    WHERE {f"{view_name}.trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
+                    SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, dias, analista, analista_nombre, trata,
+                           caratula, descripcion_trata, descripcion, estado_expediente, dias_en_gerencia, 0 AS is_subs
+                    FROM (
+                        SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
+                               fecha_recepcion_analista as fecha_ultimo_pase, 
+                               dias_en_poder_actual as dias, analista, NULL as analista_nombre, trata,
+                               NULL as caratula, NULL as descripcion_trata, NULL as descripcion, NULL as estado_expediente,
+                               (CURRENT_DATE - fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
+                        FROM {view_stock}
+                        WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
+                    ) s
+                    
+                    UNION ALL
+                    
+                    SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, dias, analista, analista_nombre, trata,
+                           caratula, descripcion_trata, descripcion, estado_expediente, dias_en_gerencia, 1 AS is_subs
+                    FROM (
+                        SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
+                               fecha_recepcion_analista as fecha_ultimo_pase, 
+                               dias_en_poder_actual as dias, analista, NULL as analista_nombre, trata,
+                               NULL as caratula, NULL as descripcion_trata, NULL as descripcion, NULL as estado_expediente,
+                               (CURRENT_DATE - fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
+                        FROM {view_subs}
+                        WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
+                    ) sb
                 """
                 result = conn.execute(text(sql))
-                rows = [dict(r._mapping) for r in result.fetchall()]
+                rows = []
+                for r in result.fetchall():
+                    rows.append(dict(r._mapping))
+                
+                # Fetch extra details to enrich
+                if rows:
+                    ids = [r['id_expediente'] for r in rows]
+                    enrich_sql = text("SELECT id_expediente, fecha_creacion, descripcion_trata, descripcion, estado_en_pase FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = ANY(:ids)")
+                    enrich_map = {e[0]: e for e in conn.execute(enrich_sql, {"ids": ids}).fetchall()}
+                    
+                    user_sql = text("SELECT usuario, apellido_nombre FROM datos_usuario WHERE usuario = ANY(:users)")
+                    users = list(set([r['analista'] for r in rows if r['analista']]))
+                    user_map = {u[0]: u[1] for u in conn.execute(user_sql, {"users": users}).fetchall()} if users else {}
+                    
+                    for r in rows:
+                        eid = r['id_expediente']
+                        if eid in enrich_map:
+                            r['caratula'] = enrich_map[eid][1]
+                            r['descripcion_trata'] = enrich_map[eid][2]
+                            r['descripcion'] = enrich_map[eid][3]
+                            r['estado_expediente'] = enrich_map[eid][4]
+                        if r['analista'] in user_map:
+                            r['analista_nombre'] = user_map[r['analista']]
+                        else:
+                            r['analista_nombre'] = r['analista']
 
                 analyst_data = {}
                 propio_month_counts = {}
@@ -2034,6 +2075,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                     analista = row.get('analista') or 'SIN ASIGNAR'
                     analista_nombre = row.get('analista_nombre') or analista
                     dias = row.get('dias') or 0
+                    is_sub = row.get('is_subs') == 1
                     f_pase = row.get('fecha_ultimo_pase')
                     
                     if f_pase and hasattr(f_pase, 'strftime'):
@@ -2041,10 +2083,18 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
 
                     if analista not in analyst_data:
-                        analyst_data[analista] = {"analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0}
+                        analyst_data[analista] = {
+                            "analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0,
+                            "STOCK_PROPIO": 0, "STOCK_SUBS": 0
+                        }
                         for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
                     
                     analyst_data[analista]["TOTAL"] += 1
+                    if is_sub:
+                        analyst_data[analista]["STOCK_SUBS"] += 1
+                    else:
+                        analyst_data[analista]["STOCK_PROPIO"] += 1
+                        
                     for r_min, r_max, r_name in ranges:
                         if r_min <= dias < r_max:
                             analyst_data[analista][r_name] += 1
@@ -2074,12 +2124,12 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                            descripcion_trata,
                            descripcion,
                            estado as estado_expediente,
-                           dias_stock as dias_en_gerencia
+                           dias_stock as dias_en_gerencia,
+                           is_subs
                     FROM mvw_stock_actual_detalle
                     LEFT JOIN datos_usuario du ON mvw_stock_actual_detalle.analista_actual = du.usuario
                     WHERE trata_reporte = :t 
                       AND gerencia = :g
-                      AND is_subs = 0
                       AND analista_actual = ANY(:whitelist)
                 """
                 result = conn.execute(text(sql), {"t": trata, "g": gerencia_clean, "whitelist": sector_whitelist})
@@ -2096,12 +2146,21 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                     analista = row.get('analista') or 'SIN ASIGNAR'
                     analista_nombre = row.get('analista_nombre') or analista
                     dias = row.get('dias') or 0
+                    is_sub = row.get('is_subs') == 1
                     
                     if analista not in analyst_data:
-                        analyst_data[analista] = {"analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0}
+                        analyst_data[analista] = {
+                            "analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0,
+                            "STOCK_PROPIO": 0, "STOCK_SUBS": 0
+                        }
                         for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
                     
                     analyst_data[analista]["TOTAL"] += 1
+                    if is_sub:
+                        analyst_data[analista]["STOCK_SUBS"] += 1
+                    else:
+                        analyst_data[analista]["STOCK_PROPIO"] += 1
+                        
                     for r_min, r_max, r_name in ranges:
                         if r_min <= dias < r_max:
                             analyst_data[analista][r_name] += 1
@@ -2126,7 +2185,8 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         "descripcion_trata": r.get("descripcion_trata"),
                         "descripcion": r.get("descripcion"),
                         "estado_expediente": r.get("estado_expediente"),
-                        "dias_en_gerencia": r.get("dias_en_gerencia") if r.get("dias_en_gerencia") is not None else 0
+                        "dias_en_gerencia": r.get("dias_en_gerencia") if r.get("dias_en_gerencia") is not None else 0,
+                        "categoria": "STOCK_SUBS" if r.get("is_subs") == 1 else "STOCK_PROPIO"
                     } 
                     for r in rows[:1000]
                 ]
@@ -2412,6 +2472,9 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     UNION ALL
                     SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'INTERVENCION' as ubicacion
                     FROM mv_{gerencia_clean}_intervenciones_stock
+                    UNION ALL
+                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'SUBSANACION' as ubicacion
+                    FROM mv_{gerencia_clean}_subsanaciones
                 ) s
                 LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = s.id_expediente
                 LEFT JOIN datos_usuario du ON s.analista = du.usuario
@@ -2423,6 +2486,7 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             for r in rows:
                 username = r["analista"] or "SIN_ASIGNAR"
                 name = r["analista_nombre"] or "Sin Asignar"
+                ubicacion = r["ubicacion"]
                 
                 fecha_ing = r["fecha_primer_ingreso_gerencia"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_primer_ingreso_gerencia"] and hasattr(r["fecha_primer_ingreso_gerencia"], "strftime") else (str(r["fecha_primer_ingreso_gerencia"])[:19] if r["fecha_primer_ingreso_gerencia"] else None)
                 fecha_pase = r["fecha_recepcion_analista"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_recepcion_analista"] and hasattr(r["fecha_recepcion_analista"], "strftime") else (str(r["fecha_recepcion_analista"])[:19] if r["fecha_recepcion_analista"] else None)
@@ -2439,7 +2503,7 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     "descripcion_trata": r["descripcion_trata"] or r["descripcion"] or "S/D",
                     "estado_expediente": r["estado_expediente"] or "S/D",
                     "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0,
-                    "estado_tablero": r["ubicacion"]
+                    "estado_tablero": ubicacion
                 }
                 
                 if username not in by_analyst:
@@ -2447,10 +2511,16 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                         "username": username,
                         "name": name,
                         "count": 0,
+                        "stock_propio": 0,
+                        "stock_subs": 0,
                         "expedientes": []
                     }
                 by_analyst[username]["expedientes"].append(exp_item)
                 by_analyst[username]["count"] += 1
+                if ubicacion == "SUBSANACION":
+                    by_analyst[username]["stock_subs"] += 1
+                else:
+                    by_analyst[username]["stock_propio"] += 1
                 
             return sorted(list(by_analyst.values()), key=lambda x: x["count"], reverse=True)
     except Exception as e:

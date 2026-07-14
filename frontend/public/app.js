@@ -1399,7 +1399,18 @@ function renderStockAgeChart(monthDist) {
 function renderAnalystTable(analystDist) {
     const container = document.getElementById('analyst-table-container');
     const ranges = ["Menos de 15 dias", "15 a 30 dias", "30 a 45 dias", "45 a 60 dias", "60 a 75 dias", "75 a 90 dias", "Mas de 90 dias"];
-    let html = `<table class="matrix-table analyst-table"><thead><tr><th>ANALISTA</th>${ranges.map(r => `<th>${r.replace(' dias', 'd')}</th>`).join('')}<th>TOTAL</th></tr></thead><tbody>`;
+    
+    let html = `<table class="matrix-table analyst-table">
+        <thead>
+            <tr>
+                <th>ANALISTA</th>
+                <th>STOCK PROPIO</th>
+                <th>SUBS. ABIERTA</th>
+                ${ranges.map(r => `<th>${r.replace(' dias', 'd')}</th>`).join('')}
+                <th>TOTAL</th>
+            </tr>
+        </thead>
+        <tbody>`;
 
     analystDist.forEach(row => {
         const displayName = row.analista_nombre || row.analista;
@@ -1409,6 +1420,8 @@ function renderAnalystTable(analystDist) {
                     ${displayName}
                 </a>
             </td>
+            <td>${row.STOCK_PROPIO ?? row.TOTAL ?? 0}</td>
+            <td>${row.STOCK_SUBS ?? 0}</td>
             ${ranges.map(r => `<td>${row[r] || '-'}</td>`).join('')}
             <td style="font-weight:700;">${row.TOTAL}</td>
         </tr>`;
@@ -1467,9 +1480,34 @@ function openDrillDown(analista, displayName) {
     document.getElementById('modal-analyst-name').innerText = titleText;
     const currentTrataNameResolved = document.getElementById('trata_detail_title')?.innerText || currentTrataCode;
     document.getElementById('modal-trata-info').innerText = `Gestión de Stock: ${currentTrataNameResolved} (${currentTrataCode})`;
+    
     const filtered = currentStockData.expedientes.filter(e => e.analista === analista);
-    let html = `<table class="matrix-table"><thead><tr><th>Expediente</th><th>ID</th><th>Fecha Ingreso</th><th>Días</th></tr></thead><tbody>`;
-    filtered.forEach(e => { html += `<tr><td class="code-cell">${e.expediente}</td><td class="code-cell">${e.id_expediente}</td><td>${e.fecha_ing ? new Date(e.fecha_ing).toLocaleDateString('es-AR') : '-'}</td><td>${e.dias}</td></tr>`; });
+    
+    let html = `<table class="matrix-table">
+        <thead>
+            <tr>
+                <th>Expediente</th>
+                <th>ID</th>
+                <th>Categoría</th>
+                <th>Fecha Ingreso</th>
+                <th>Días</th>
+            </tr>
+        </thead>
+        <tbody>`;
+        
+    filtered.forEach(e => { 
+        const catLabel = e.categoria === 'STOCK_SUBS' 
+            ? '<span style="color:#d97706; font-weight:600;">SUBSANACIÓN</span>' 
+            : '<span style="color:#2563eb; font-weight:600;">STOCK PROPIO</span>';
+        html += `<tr>
+            <td class="code-cell">${e.expediente}</td>
+            <td class="code-cell">${e.id_expediente}</td>
+            <td>${catLabel}</td>
+            <td>${e.fecha_ing ? new Date(e.fecha_ing).toLocaleDateString('es-AR') : '-'}</td>
+            <td>${e.dias}</td>
+        </tr>`; 
+    });
+    
     document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
     modal.style.display = 'flex';
 }
@@ -8104,8 +8142,9 @@ function renderBuzonesAnalysts(analysts, gerencia) {
             tableHeader.innerHTML = `
                 <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Analista Asignado</th>
                 <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Usuario SADE</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Mediana Días Stock</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">Cantidad de Expedientes</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #2563eb; width: 160px;">Stock Propio</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #d97706; width: 160px;">Subs. Abierta</th>
+                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 160px;">Total</th>
             `;
         }
     }
@@ -8131,18 +8170,8 @@ function renderBuzonesAnalysts(analysts, gerencia) {
                 <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
             `;
         } else {
-            // Calculate median of days in stock
-            const dias = (an.expedientes || []).map(e => e.dias || 0);
-            let median = 0;
-            if (dias.length > 0) {
-                const sorted = [...dias].sort((a, b) => a - b);
-                const half = Math.floor(sorted.length / 2);
-                if (sorted.length % 2 !== 0) {
-                    median = sorted[half];
-                } else {
-                    median = Math.round((sorted[half - 1] + sorted[half]) / 2);
-                }
-            }
+            const stockPropio = an.stock_propio ?? (an.count - (an.stock_subs ?? 0));
+            const stockSubs = an.stock_subs ?? 0;
             tr.innerHTML = `
                 <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
                     <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
@@ -8150,7 +8179,8 @@ function renderBuzonesAnalysts(analysts, gerencia) {
                     </span>
                 </td>
                 <td style="padding: 18px 20px; color: #64748b; font-family: 'Outfit'; line-height: 1.5;">@${an.username}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #475569; font-family: 'Outfit'; font-size: 1.02rem; line-height: 1.5;">${median}d</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #2563eb; font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${stockPropio}</td>
+                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #d97706; font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${stockSubs}</td>
                 <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
             `;
         }
@@ -8272,12 +8302,18 @@ function filterAndRenderBuzonDetalle() {
         const isFav = userFavorites.has(exp.expediente);
         const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.1rem; transition: transform 0.15s ease; display: inline-block; user-select: none;">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
         
-        const expLink = `<a href="#" style="font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onclick="event.preventDefault(); openDetalleExpedienteModal('${exp.expediente}')">${exp.expediente}</a>`;
+        const expLink = `<a href="#" style="font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onclick="event.preventDefault(); openDetalleExpedienteModal('${exp.expediente}')"> ${exp.expediente}</a>`;
         const copySpan = `<span onclick="copyToClipboard('${exp.expediente}', this)" style="cursor: pointer; margin-left: 6px; font-size: 0.85rem; color: #94a3b8; transition: color 0.2s; display: inline-block; vertical-align: middle;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#94a3b8'" title="Copiar Expediente"><i class="fa-regular fa-copy"></i></span>`;
+        
+        const catStyle = exp.estado_tablero === 'SUBSANACION'
+            ? 'color:#d97706; font-weight:700; background:#fffbeb; border-radius:4px; padding:2px 8px; font-size:0.82rem;'
+            : 'color:#2563eb; font-weight:700; background:#eff6ff; border-radius:4px; padding:2px 8px; font-size:0.82rem;';
+        const catLabel = exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO');
         
         tr.innerHTML = `
             <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">${starSpan}</td>
             <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5; white-space: nowrap;">${expLink}${copySpan}</td>
+            <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5;"><span style="${catStyle}">${catLabel}</span></td>
             <td style="padding: 16px 20px; font-weight: 600; color: #475569; vertical-align: middle; line-height: 1.5;">${exp.trata}</td>
             <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.9rem; line-height: 1.5;">${exp.descripcion_trata}</td>
             <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias}d</td>
