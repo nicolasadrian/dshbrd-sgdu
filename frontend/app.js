@@ -12970,10 +12970,37 @@ async function loadLandingStats() {
         });
         grid.innerHTML = first8 + lastCard;
 
-        // Animate number counters
-        grid.querySelectorAll('.landing-kpi-value[data-target]').forEach(el => {
-            const target = parseInt(el.dataset.target, 10);
-            if (!isNaN(target)) _animateCount(el, target);
+        // ── Render DGROC and DGIUR grids ──
+        const dgrocGrid = document.getElementById('landing-dgroc-grid');
+        const dgiurGrid = document.getElementById('landing-dgiur-grid');
+        
+        if (dgrocGrid && d.dgroc) {
+            dgrocGrid.innerHTML = [
+                _directionCard({ icon: 'fa-solid fa-file-import', iconBg: '#eff6ff', iconColor: '#3b82f6', label: 'Ingresos', mesVal: d.dgroc.ingresos_mes, acumVal: d.dgroc.ingresos_acum }),
+                _directionCard({ icon: 'fa-solid fa-right-from-bracket', iconBg: '#f0fdf4', iconColor: '#10b981', label: 'Egresos', mesVal: d.dgroc.egresos_mes, acumVal: d.dgroc.egresos_acum }),
+                _directionCard({ icon: 'fa-solid fa-layer-group', iconBg: '#faf5ff', iconColor: '#8b5cf6', label: 'Stock', mesVal: d.dgroc.stock, showAcum: false }),
+                _directionCard({ icon: 'fa-solid fa-triangle-exclamation', iconBg: '#fef2f2', iconColor: '#ef4444', label: 'Subsanaciones', mesVal: d.dgroc.subsanaciones, showAcum: false })
+            ].join('');
+        }
+
+        if (dgiurGrid && d.dgiur) {
+            dgiurGrid.innerHTML = [
+                _directionCard({ icon: 'fa-solid fa-file-import', iconBg: '#eff6ff', iconColor: '#3b82f6', label: 'Ingresos', mesVal: d.dgiur.ingresos_mes, acumVal: d.dgiur.ingresos_acum }),
+                _directionCard({ icon: 'fa-solid fa-right-from-bracket', iconBg: '#f0fdf4', iconColor: '#10b981', label: 'Egresos', mesVal: d.dgiur.egresos_mes, acumVal: d.dgiur.egresos_acum }),
+                _directionCard({ icon: 'fa-solid fa-layer-group', iconBg: '#faf5ff', iconColor: '#8b5cf6', label: 'Stock', mesVal: d.dgiur.stock, showAcum: false }),
+                _directionCard({ icon: 'fa-solid fa-triangle-exclamation', iconBg: '#fef2f2', iconColor: '#ef4444', label: 'Subsanaciones', mesVal: d.dgiur.subsanaciones, showAcum: false })
+            ].join('');
+        }
+
+        // Animate number counters for all grids
+        const allGrids = [grid, dgrocGrid, dgiurGrid];
+        allGrids.forEach(g => {
+            if (g) {
+                g.querySelectorAll('.landing-kpi-value[data-target]').forEach(el => {
+                    const target = parseInt(el.dataset.target, 10);
+                    if (!isNaN(target)) _animateCount(el, target);
+                });
+            }
         });
 
     } catch (e) {
@@ -12981,6 +13008,36 @@ async function loadLandingStats() {
         const grid = document.getElementById('landing-kpi-grid');
         if (grid) grid.innerHTML = '';
     }
+}
+
+function _directionCard({ icon, iconBg, iconColor, label, mesVal, acumVal, showAcum = true }) {
+    return `
+        <div class="landing-kpi-card" style="padding: 16px; display: flex; flex-direction: column; gap: 12px; transition: transform 0.2s, box-shadow 0.2s;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="background:${iconBg}; color:${iconColor}; width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
+                    <i class="${icon}"></i>
+                </div>
+                <span style="font-size: 0.8rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">${label}</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; border-top: 1px solid #f1f5f9; padding-top: 10px; margin-top: 4px;">
+                <div>
+                    <span style="font-size: 1.45rem; font-weight: 800; color: #1e293b; display: block;" class="landing-kpi-value" data-target="${mesVal}">${mesVal.toLocaleString('es-AR')}</span>
+                    <span style="font-size: 0.65rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">Mes</span>
+                </div>
+                ${showAcum ? `
+                <div style="border-left: 1px dashed #e2e8f0; padding-left: 12px;">
+                    <span style="font-size: 1.45rem; font-weight: 800; color: var(--primary); display: block;" class="landing-kpi-value" data-target="${acumVal}">${acumVal.toLocaleString('es-AR')}</span>
+                    <span style="font-size: 0.65rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;">Feb-Hoy</span>
+                </div>
+                ` : `
+                <div style="border-left: 1px dashed #e2e8f0; padding-left: 12px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 0.68rem; font-weight: 600; color: #94a3b8; font-style: italic; text-transform: uppercase;">Stock vivo</span>
+                </div>
+                `}
+            </div>
+        </div>
+    `;
 }
 
 function _mesLabel(mesStr) {

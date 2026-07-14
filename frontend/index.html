@@ -305,6 +305,50 @@
                 <div class="landing-kpi-skeleton"></div>
             </div>
 
+            <!-- Separador visual -->
+            <div style="display: flex; align-items: center; margin: 40px 0 24px 0; gap: 16px;">
+                <div style="flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #e2e8f0, #cbd5e1);"></div>
+                <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.85rem; color: #475569; letter-spacing: 2px; text-transform: uppercase; background: #f1f5f9; padding: 4px 16px; border-radius: 99px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Desglose por Dirección General (Tratas Propias)
+                </span>
+                <div style="flex: 1; height: 1px; background: linear-gradient(90deg, #cbd5e1, #e2e8f0, transparent);"></div>
+            </div>
+
+            <!-- Grilla DGROC vs DGIUR -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-bottom: 40px;">
+                <!-- DGROC Column -->
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #eff6ff; padding-bottom: 12px;">
+                        <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.35rem; color: #1e3a8a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-building" style="color: #3b82f6;"></i> DGROC
+                        </h2>
+                        <span style="font-size: 0.72rem; font-weight: 700; color: #3b82f6; background: #eff6ff; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px;">6 Gerencias</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" id="landing-dgroc-grid">
+                        <div style="grid-column: span 2; text-align: center; padding: 2rem; color: #94a3b8;">
+                            <span class="loader" style="width: 24px; height: 24px; border-width: 2.5px;"></span>
+                            <p style="margin-top: 8px; font-size: 0.85rem;">Cargando métricas de DGROC...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DGIUR Column -->
+                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #f0fdf4; padding-bottom: 12px;">
+                        <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.35rem; color: #065f46; margin: 0; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-compass-drafting" style="color: #10b981;"></i> DGIUR
+                        </h2>
+                        <span style="font-size: 0.72rem; font-weight: 700; color: #10b981; background: #f0fdf4; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px;">3 Gerencias</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" id="landing-dgiur-grid">
+                        <div style="grid-column: span 2; text-align: center; padding: 2rem; color: #94a3b8;">
+                            <span class="loader" style="width: 24px; height: 24px; border-width: 2.5px;"></span>
+                            <p style="margin-top: 8px; font-size: 0.85rem;">Cargando métricas de DGIUR...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
 

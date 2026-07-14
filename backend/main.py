@@ -4270,13 +4270,101 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 except Exception:
                     pass
 
-                # Subsanaciones abiertas (mv_{g}_subsanaciones, columna trata)
+            # 4. Desglose DGROC vs DGIUR (excluyendo INTERVENCIONES, acumulado desde febrero 2026)
+            dgroc_stats = {
+                "ingresos_mes": 0, "ingresos_acum": 0,
+                "egresos_mes": 0, "egresos_acum": 0,
+                "stock": 0, "subsanaciones": 0
+            }
+            dgiur_stats = {
+                "ingresos_mes": 0, "ingresos_acum": 0,
+                "egresos_mes": 0, "egresos_acum": 0,
+                "stock": 0, "subsanaciones": 0
+            }
+
+            dgroc_list = ["catastro", "instalaciones", "regularizacion", "contable", "etapa_proyecto", "aviso_obra"]
+            dgiur_list = ["morfologia", "aph", "usos"]
+
+            for g, cfg in TRAMITES_CONFIG.items():
+                g_clean = g.lower()
+                tratas_oficiales = [t for t in cfg.keys() if t != 'INTERVENCIONES']
+                if not tratas_oficiales:
+                    continue
+
+                is_dgroc = (g_clean in dgroc_list)
+                stats_ref = dgroc_stats if is_dgroc else dgiur_stats
+
+                # A. Ingresos
+                # Mes
+                try:
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_ingresos_eventos
+                        WHERE to_char(fecha_ingreso, 'YYYY-MM') = :m
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"m": mes_actual, "tratas": tratas_oficiales}).scalar() or 0
+                    stats_ref["ingresos_mes"] += r
+                except Exception:
+                    pass
+                # Acumulado desde Febrero
+                try:
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_ingresos_eventos
+                        WHERE fecha_ingreso >= '2026-02-01'::date
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"tratas": tratas_oficiales}).scalar() or 0
+                    stats_ref["ingresos_acum"] += r
+                except Exception:
+                    pass
+
+                # B. Egresos (Efectivos + No Efectivos)
+                # Mes
+                try:
+                    ef = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_gedos_egreso
+                        WHERE to_char(fecha_egreso, 'YYYY-MM') = :m
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"m": mes_actual, "tratas": tratas_oficiales}).scalar() or 0
+                    ne = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_egresos_no_efectivos
+                        WHERE to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"m": mes_actual, "tratas": tratas_oficiales}).scalar() or 0
+                    stats_ref["egresos_mes"] += (ef + ne)
+                except Exception:
+                    pass
+                # Acumulado desde Febrero
+                try:
+                    ef_ac = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_gedos_egreso
+                        WHERE fecha_egreso >= '2026-02-01'::date
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"tratas": tratas_oficiales}).scalar() or 0
+                    ne_ac = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_egresos_no_efectivos
+                        WHERE fecha_ultimo_movimiento >= '2026-02-01'::date
+                          AND TRIM(trata) = ANY(:tratas)
+                    """), {"tratas": tratas_oficiales}).scalar() or 0
+                    stats_ref["egresos_acum"] += (ef_ac + ne_ac)
+                except Exception:
+                    pass
+
+                # C. Stock
+                try:
+                    r = conn.execute(text(f"""
+                        SELECT COUNT(*) FROM mv_{g_clean}_stock_propio
+                        WHERE TRIM(trata) = ANY(:tratas)
+                    """), {"tratas": tratas_oficiales}).scalar() or 0
+                    stats_ref["stock"] += int(r)
+                except Exception:
+                    pass
+
+                # D. Subsanaciones
                 try:
                     r = conn.execute(text(f"""
                         SELECT COUNT(*) FROM mv_{g_clean}_subsanaciones
                         WHERE TRIM(trata) = ANY(:tratas)
-                    """), {"tratas": tratas_oficiales}).scalar()
-                    subs_abiertas += int(r or 0)
+                    """), {"tratas": tratas_oficiales}).scalar() or 0
+                    stats_ref["subsanaciones"] += int(r)
                 except Exception:
                     pass
 
@@ -4295,6 +4383,8 @@ async def get_landing_stats(current_user: User = Depends(get_current_user)):
                 "subs_abiertas": subs_abiertas,
                 "top_trata_nombre": top_trata_nombre,
                 "top_trata_stock": top_trata_stock,
+                "dgroc": dgroc_stats,
+                "dgiur": dgiur_stats
             }
             set_cache(_ck, result)
             return result
