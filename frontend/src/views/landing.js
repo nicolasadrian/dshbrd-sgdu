@@ -96,6 +96,7 @@ function _animateCount(el, target) {
 }
 
 export async function loadLandingStats() {
+    if (!localStorage.getItem('sgdu_token')) return;
     // Greeting & date
     const now    = new Date();
     const hour   = now.getHours();

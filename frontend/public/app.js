@@ -12919,6 +12919,7 @@ function _kpiCard({ icon, iconBg, iconColor, label, value, sub, valueColor, grid
 }
 
 async function loadLandingStats() {
+    if (!localStorage.getItem('sgdu_token')) return;
     // ── Header: greeting & date ──
     const now    = new Date();
     const hour   = now.getHours();
