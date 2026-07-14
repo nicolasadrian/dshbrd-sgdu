@@ -1111,6 +1111,485 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
         logger.error(f"Error in families overview: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- Specific endpoints for Público Privado and COPUA to handle row clicks and cell clicks ---
+
+def get_analyst_history_data(analyst: str, cache_key: str) -> List[Dict[str, Any]]:
+    now = datetime.now()
+    months_list = []
+    curr_y, curr_m = now.year, now.month
+    for _ in range(12):
+        months_list.append(f"{curr_y}-{str(curr_m).zfill(2)}")
+        curr_m -= 1
+        if curr_m == 0:
+            curr_m = 12
+            curr_y -= 1
+
+    grid = {}
+    for m_label in months_list:
+        parts = m_label.split('-')
+        grid[m_label] = {
+            "anio": int(parts[0]),
+            "mes": int(parts[1]),
+            "DETALLE TRATA": analyst,
+            "ING": 0,
+            "EGR_EF": 0,
+            "EGR_NE": 0,
+            "STOCK_PROPIO": 0,
+            "STOCK_SUBS": 0
+        }
+
+    try:
+        with engine.connect() as conn:
+            sql_ing = """
+                WITH primer_ingreso AS (
+                    SELECT id_expediente, destinatario, min(fecha) as min_fecha
+                    FROM mvw_ee_pases_secgdu
+                    WHERE destinatario = :analyst
+                    GROUP BY id_expediente, destinatario
+                )
+                SELECT 
+                    to_char(min_fecha, 'YYYY-MM') AS mes_label,
+                    COUNT(*) as cant
+                FROM primer_ingreso
+                GROUP BY 1
+            """
+            res_ing = conn.execute(text(sql_ing), {"analyst": analyst}).fetchall()
+            for r in res_ing:
+                if r[0] in grid:
+                    grid[r[0]]["ING"] = r[1]
+
+            sql_egr = """
+                SELECT 
+                    to_char(fecha, 'YYYY-MM') AS mes_label,
+                    COUNT(DISTINCT id_expediente) as cant
+                FROM mvw_ee_pases_secgdu
+                WHERE usuario = :analyst AND NOT (destinatario = :analyst)
+                GROUP BY 1
+            """
+            res_egr = conn.execute(text(sql_egr), {"analyst": analyst}).fetchall()
+            for r in res_egr:
+                if r[0] in grid:
+                    grid[r[0]]["EGR_NE"] = r[1]
+
+            sql_stock_hist = """
+                WITH fechas_corte AS (
+                    SELECT (date_trunc('month', mes.mes) + '1 mon -1 days'::interval)::date AS fecha_corte
+                    FROM generate_series(
+                        date_trunc('month', CURRENT_DATE) - '11 mons'::interval,
+                        date_trunc('month', CURRENT_DATE),
+                        '1 mon'::interval
+                    ) mes(mes)
+                ),
+                destinatario_por_corte AS (
+                    SELECT DISTINCT ON (p.id_expediente, fc.fecha_corte)
+                        p.id_expediente,
+                        fc.fecha_corte,
+                        p.destinatario AS destinatario_cierre
+                    FROM fechas_corte fc
+                    JOIN mvw_ee_pases_secgdu p ON p.fecha::date <= fc.fecha_corte
+                    WHERE p.id_expediente IN (
+                        SELECT DISTINCT id_expediente FROM mvw_ee_pases_secgdu WHERE destinatario = :analyst
+                    )
+                    ORDER BY p.id_expediente, fc.fecha_corte, p.fecha DESC
+                ),
+                subsanacion_abierta_al_cierre AS (
+                    SELECT DISTINCT ON (dpc.id_expediente, dpc.fecha_corte)
+                        dpc.id_expediente,
+                        dpc.fecha_corte,
+                        true AS tiene_subsanacion_abierta
+                    FROM destinatario_por_corte dpc
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = dpc.id_expediente 
+                        AND a.usuario_alta = dpc.destinatario_cierre 
+                        AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD' 
+                        AND a.fecha_alta::date <= dpc.fecha_corte 
+                        AND (a.fecha_cierre IS NULL OR a.fecha_cierre::date > dpc.fecha_corte)
+                    ORDER BY dpc.id_expediente, dpc.fecha_corte, a.fecha_alta DESC
+                )
+                SELECT 
+                    to_char(dpc.fecha_corte, 'YYYY-MM') AS mes_label,
+                    SUM(CASE WHEN COALESCE(sac.tiene_subsanacion_abierta, false) THEN 0 ELSE 1 END) AS stock_propio,
+                    SUM(CASE WHEN COALESCE(sac.tiene_subsanacion_abierta, false) THEN 1 ELSE 0 END) AS stock_subs
+                FROM destinatario_por_corte dpc
+                LEFT JOIN subsanacion_abierta_al_cierre sac ON sac.id_expediente = dpc.id_expediente AND sac.fecha_corte = dpc.fecha_corte
+                WHERE dpc.destinatario_cierre = :analyst
+                GROUP BY 1
+            """
+            res_stock = conn.execute(text(sql_stock_hist), {"analyst": analyst}).fetchall()
+            for r in res_stock:
+                if r[0] in grid:
+                    grid[r[0]]["STOCK_PROPIO"] = int(r[1] or 0)
+                    grid[r[0]]["STOCK_SUBS"] = int(r[2] or 0)
+
+            curr_mes_label = now.strftime('%Y-%m')
+            
+            sql_stock_live = """
+                SELECT COUNT(*) AS cant
+                FROM mv_ultimo_pase up
+                WHERE up.destinatario_actual = :analyst
+                  AND NOT EXISTS (
+                      SELECT 1 FROM mvw_ee_actividades_secgdu a
+                      WHERE a.id_expediente = up.id_expediente
+                        AND a.usuario_alta = up.destinatario_actual
+                        AND a.estado = 'PENDIENTE'
+                        AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                  )
+            """
+            res_stock_live = conn.execute(text(sql_stock_live), {"analyst": analyst}).fetchone()
+            if res_stock_live and curr_mes_label in grid:
+                grid[curr_mes_label]["STOCK_PROPIO"] = res_stock_live[0]
+
+            sql_subs_live = """
+                SELECT COUNT(*) AS cant
+                FROM mv_ultimo_pase up
+                JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = up.id_expediente AND a.usuario_alta = up.destinatario_actual
+                WHERE up.destinatario_actual = :analyst
+                  AND a.estado = 'PENDIENTE'
+                  AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+            """
+            res_subs_live = conn.execute(text(sql_subs_live), {"analyst": analyst}).fetchone()
+            if res_subs_live and curr_mes_label in grid:
+                grid[curr_mes_label]["STOCK_SUBS"] = res_subs_live[0]
+
+    except Exception as e:
+        logger.error(f"Error querying analyst history data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    result = []
+    for m_label in months_list:
+        result.append(grid[m_label])
+    return result
+
+def get_analyst_stock_detail_data(analyst: str) -> Dict[str, Any]:
+    try:
+        with engine.connect() as conn:
+            sql = """
+                SELECT 
+                    up.id_expediente, 
+                    ext.expediente as expediente,
+                    ext.fecha_creacion_ee as fecha_ing,
+                    up.fecha_ultimo_pase as fecha_ultimo_pase,
+                    (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias,
+                    up.destinatario_actual as analista,
+                    du.apellido_nombre as analista_nombre,
+                    ext.trata,
+                    ext.fecha_creacion_ee as caratula,
+                    ext.descripcion_trata,
+                    ext.descripcion,
+                    up.estado_en_pase as estado_expediente,
+                    (CURRENT_DATE - ext.fecha_creacion_ee::date) as dias_en_gerencia
+                FROM mv_ultimo_pase up
+                LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
+                LEFT JOIN datos_usuario du ON up.destinatario_actual = du.usuario
+                WHERE up.destinatario_actual = :analyst
+                  AND NOT EXISTS (
+                      SELECT 1 FROM mvw_ee_actividades_secgdu a
+                      WHERE a.id_expediente = up.id_expediente
+                        AND a.usuario_alta = up.destinatario_actual
+                        AND a.estado = 'PENDIENTE'
+                        AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                  )
+            """
+            result = conn.execute(text(sql), {"analyst": analyst})
+            rows = [dict(r._mapping) for r in result.fetchall()]
+
+            analyst_data = {}
+            propio_month_counts = {}
+            ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
+            
+            for row in rows:
+                analista = row.get('analista') or 'SIN ASIGNAR'
+                analista_nombre = row.get('analista_nombre') or analista
+                dias = row.get('dias') or 0
+                f_pase = row.get('fecha_ultimo_pase')
+                
+                if f_pase and hasattr(f_pase, 'strftime'):
+                    m_key = f_pase.strftime("%Y-%m")
+                    propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
+
+                if analista not in analyst_data:
+                    analyst_data[analista] = {"analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0}
+                    for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
+                
+                analyst_data[analista]["TOTAL"] += 1
+                for r_min, r_max, r_name in ranges:
+                    if r_min <= dias < r_max:
+                        analyst_data[analista][r_name] += 1
+                        break
+            
+            month_dist = [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())]
+            
+            expedientes = []
+            for r in rows[:1000]:
+                expedientes.append({
+                    "id_expediente": r.get("id_expediente"),
+                    "expediente": r.get("expediente"),
+                    "fecha_ing": r.get("fecha_ing").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ing") and hasattr(r.get("fecha_ing"), "strftime") else None,
+                    "fecha_ultimo_pase": r.get("fecha_ultimo_pase").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ultimo_pase") and hasattr(r.get("fecha_ultimo_pase"), "strftime") else None,
+                    "dias": r.get("dias") if r.get("dias") is not None else 0,
+                    "analista": r.get("analista"),
+                    "analista_nombre": r.get("analista_nombre") or r.get("analista"),
+                    "trata": r.get("trata"),
+                    "caratula": r.get("caratula").strftime("%Y-%m-%d %H:%M:%S") if r.get("caratula") and hasattr(r.get("caratula"), "strftime") else (str(r.get("caratula"))[:19] if r.get("caratula") else None),
+                    "descripcion_trata": r.get("descripcion_trata"),
+                    "descripcion": r.get("descripcion"),
+                    "estado_expediente": r.get("estado_expediente"),
+                    "dias_en_gerencia": r.get("dias_en_gerencia") if r.get("dias_en_gerencia") is not None else 0
+                })
+
+            return {
+                "nombre_trata": analyst,
+                "stock_propio_count": len(rows),
+                "month_distribution": month_dist,
+                "analyst_distribution": list(analyst_data.values()),
+                "expedientes": expedientes
+            }
+    except Exception as e:
+        logger.error(f"Error in analyst stock_detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def get_analyst_detalle_periodo_data(analyst: str, targets: List[str], period: str, metric: str) -> List[Dict[str, Any]]:
+    periodo_norm = period
+    if '-' in period:
+        parts = period.split('-')
+        if len(parts) == 2:
+            try:
+                year = int(parts[0])
+                month = int(parts[1])
+                periodo_norm = f"{year:04d}-{month:02d}"
+            except ValueError:
+                pass
+
+    current_month_str = datetime.now().strftime('%Y-%m')
+    is_current_month = (periodo_norm == current_month_str)
+
+    import calendar
+    try:
+        p_parts = periodo_norm.split('-')
+        p_year = int(p_parts[0])
+        p_month = int(p_parts[1])
+        p_last_day = calendar.monthrange(p_year, p_month)[1]
+        cut_off_date = f"{p_year:04d}-{p_month:02d}-{p_last_day:02d}"
+    except Exception:
+        cut_off_date = datetime.now().strftime('%Y-%m-%d')
+
+    sql = ""
+    params = {
+        "analyst": analyst,
+        "periodo": periodo_norm,
+        "cut_off_date": cut_off_date,
+        "targets": targets
+    }
+
+    if metric in ['STOCK_PROPIO', 'STOCK_SUBS', 'STOCK_TOTAL'] and not is_current_month:
+        if metric == 'STOCK_PROPIO':
+            sql = """
+                WITH destinatario_por_corte AS (
+                    SELECT DISTINCT ON (p.id_expediente) 
+                        p.id_expediente,
+                        p.destinatario AS analista,
+                        p.fecha AS fecha_recepcion_analista
+                    FROM mvw_ee_pases_secgdu p
+                    WHERE p.id_expediente IN (
+                        SELECT DISTINCT id_expediente FROM mvw_ee_pases_secgdu WHERE destinatario = :analyst
+                    ) AND CAST(p.fecha AS date) <= CAST(:cut_off_date AS date)
+                    ORDER BY p.id_expediente, p.fecha DESC
+                ),
+                subsanacion_abierta AS (
+                    SELECT DISTINCT ON (d.id_expediente) d.id_expediente, true AS tiene_subsanacion
+                    FROM destinatario_por_corte d
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = d.id_expediente 
+                                                   AND a.usuario_alta = d.analista 
+                                                   AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'::text 
+                                                   AND CAST(a.fecha_alta AS date) <= CAST(:cut_off_date AS date) 
+                                                   AND (a.fecha_cierre IS NULL OR CAST(a.fecha_cierre AS date) > CAST(:cut_off_date AS date))
+                    ORDER BY d.id_expediente, a.fecha_alta DESC
+                )
+                SELECT 
+                    'OFICIAL' AS "TIPO TRAMITE",
+                    ext.expediente AS "EXPEDIENTE",
+                    ext.trata AS "TRAMITE",
+                    to_char(ext.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO",
+                    to_char(d.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA",
+                    (CAST(:cut_off_date AS date) - CAST(d.fecha_recepcion_analista AS date)) AS "DIAS EN PODER",
+                    (CAST(:cut_off_date AS date) - CAST(ext.fecha_creacion_ee AS date)) AS "DIAS EN GERENCIA",
+                    d.analista AS "ANALISTA",
+                    du.apellido_nombre AS "ANALISTA NOMBRE",
+                    ext.descripcion_trata AS "DESCRIPCION TRATA",
+                    ext.descripcion AS "DESCRIPCION",
+                    ext.estado_en_pase AS "ESTADO EXPEDIENTE"
+                FROM destinatario_por_corte d
+                JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = d.id_expediente
+                LEFT JOIN datos_usuario du ON d.analista = du.usuario
+                LEFT JOIN subsanacion_abierta sa ON sa.id_expediente = d.id_expediente
+                WHERE d.analista = :analyst AND sa.tiene_subsanacion IS NOT TRUE
+            """
+        elif metric == 'STOCK_SUBS':
+            sql = """
+                WITH destinatario_por_corte AS (
+                    SELECT DISTINCT ON (p.id_expediente) 
+                        p.id_expediente,
+                        p.destinatario AS analista,
+                        p.fecha AS fecha_recepcion_analista
+                    FROM mvw_ee_pases_secgdu p
+                    WHERE p.id_expediente IN (
+                        SELECT DISTINCT id_expediente FROM mvw_ee_pases_secgdu WHERE destinatario = :analyst
+                    ) AND CAST(p.fecha AS date) <= CAST(:cut_off_date AS date)
+                    ORDER BY p.id_expediente, p.fecha DESC
+                ),
+                subsanacion_abierta AS (
+                    SELECT DISTINCT ON (d.id_expediente) d.id_expediente, true AS tiene_subsanacion
+                    FROM destinatario_por_corte d
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = d.id_expediente 
+                                                   AND a.usuario_alta = d.analista 
+                                                   AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'::text 
+                                                   AND CAST(a.fecha_alta AS date) <= CAST(:cut_off_date AS date) 
+                                                   AND (a.fecha_cierre IS NULL OR CAST(a.fecha_cierre AS date) > CAST(:cut_off_date AS date))
+                    ORDER BY d.id_expediente, a.fecha_alta DESC
+                )
+                SELECT 
+                    'OFICIAL' AS "TIPO TRAMITE",
+                    ext.expediente AS "EXPEDIENTE",
+                    ext.trata AS "TRAMITE",
+                    to_char(ext.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO",
+                    to_char(d.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA",
+                    (CAST(:cut_off_date AS date) - CAST(d.fecha_recepcion_analista AS date)) AS "DIAS EN PODER",
+                    (CAST(:cut_off_date AS date) - CAST(ext.fecha_creacion_ee AS date)) AS "DIAS EN GERENCIA",
+                    d.analista AS "ANALISTA",
+                    du.apellido_nombre AS "ANALISTA NOMBRE",
+                    ext.descripcion_trata AS "DESCRIPCION TRATA",
+                    ext.descripcion AS "DESCRIPCION",
+                    ext.estado_en_pase AS "ESTADO EXPEDIENTE"
+                FROM destinatario_por_corte d
+                JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = d.id_expediente
+                LEFT JOIN datos_usuario du ON d.analista = du.usuario
+                JOIN subsanacion_abierta sa ON sa.id_expediente = d.id_expediente
+                WHERE d.analista = :analyst AND sa.tiene_subsanacion IS TRUE
+            """
+    elif metric == 'ING':
+        sql = """
+            WITH primer_ingreso AS (
+                SELECT id_expediente, destinatario, min(fecha) as min_fecha
+                FROM mvw_ee_pases_secgdu
+                WHERE destinatario = :analyst
+                GROUP BY id_expediente, destinatario
+            )
+            SELECT 
+                'OFICIAL' AS "TIPO TRAMITE",
+                ext.expediente AS "EXPEDIENTE",
+                ext.trata AS "TRAMITE",
+                to_char(pi.min_fecha, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO",
+                to_char(up.fecha_ultimo_pase, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA",
+                (CURRENT_DATE - up.fecha_ultimo_pase::date) AS "DIAS EN PODER",
+                (CURRENT_DATE - ext.fecha_creacion_ee::date) AS "DIAS EN GERENCIA",
+                up.destinatario_actual AS "ANALISTA",
+                du.apellido_nombre AS "ANALISTA NOMBRE",
+                ext.descripcion_trata AS "DESCRIPCION TRATA",
+                ext.descripcion AS "DESCRIPCION",
+                up.estado_en_pase AS "ESTADO EXPEDIENTE"
+            FROM primer_ingreso pi
+            JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = pi.id_expediente
+            LEFT JOIN mv_ultimo_pase up ON up.id_expediente = pi.id_expediente
+            LEFT JOIN datos_usuario du ON up.destinatario_actual = du.usuario
+            WHERE to_char(pi.min_fecha, 'YYYY-MM') = :periodo
+        """
+    elif metric == 'EGR_NE':
+        sql = """
+            WITH egr_pases AS (
+                SELECT DISTINCT ON (id_expediente) id_expediente, fecha, destinatario
+                FROM mvw_ee_pases_secgdu
+                WHERE usuario = :analyst AND NOT (destinatario = ANY(:targets))
+                  AND to_char(fecha, 'YYYY-MM') = :periodo
+                ORDER BY id_expediente, fecha DESC
+            )
+            SELECT 
+                'OFICIAL' AS "TIPO TRAMITE",
+                ext.expediente AS "EXPEDIENTE",
+                ext.trata AS "TRAMITE",
+                to_char(ext.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO",
+                to_char(ep.fecha, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA",
+                (CURRENT_DATE - ep.fecha::date) AS "DIAS EN PODER",
+                (CURRENT_DATE - ext.fecha_creacion_ee::date) AS "DIAS EN GERENCIA",
+                ep.destinatario AS "ANALISTA",
+                du.apellido_nombre AS "ANALISTA NOMBRE",
+                ext.descripcion_trata AS "DESCRIPCION TRATA",
+                ext.descripcion AS "DESCRIPCION",
+                ext.estado_en_pase AS "ESTADO EXPEDIENTE"
+            FROM egr_pases ep
+            JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = ep.id_expediente
+            LEFT JOIN datos_usuario du ON ep.destinatario = du.usuario
+        """
+    elif metric == 'STOCK_PROPIO' and is_current_month:
+        sql = """
+            SELECT 
+                'OFICIAL' AS "TIPO TRAMITE",
+                ext.expediente AS "EXPEDIENTE",
+                ext.trata AS "TRAMITE",
+                to_char(ext.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO",
+                to_char(up.fecha_ultimo_pase, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA",
+                (CURRENT_DATE - up.fecha_ultimo_pase::date) AS "DIAS EN PODER",
+                (CURRENT_DATE - ext.fecha_creacion_ee::date) AS "DIAS EN GERENCIA",
+                up.destinatario_actual AS "ANALISTA",
+                du.apellido_nombre AS "ANALISTA NOMBRE",
+                ext.descripcion_trata AS "DESCRIPCION TRATA",
+                ext.descripcion AS "DESCRIPCION",
+                up.estado_en_pase AS "ESTADO EXPEDIENTE"
+            FROM mv_ultimo_pase up
+            JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
+            LEFT JOIN datos_usuario du ON up.destinatario_actual = du.usuario
+            WHERE up.destinatario_actual = :analyst
+              AND NOT EXISTS (
+                  SELECT 1 FROM mvw_ee_actividades_secgdu a
+                  WHERE a.id_expediente = up.id_expediente
+                    AND a.usuario_alta = up.destinatario_actual
+                    AND a.estado = 'PENDIENTE'
+                    AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+              )
+        """
+    elif metric == 'STOCK_SUBS' and is_current_month:
+        sql = """
+            SELECT 
+                'OFICIAL' AS "TIPO TRAMITE",
+                ext.expediente AS "EXPEDIENTE",
+                ext.trata AS "TRAMITE",
+                to_char(ext.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO",
+                to_char(up.fecha_ultimo_pase, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA",
+                (CURRENT_DATE - up.fecha_ultimo_pase::date) AS "DIAS EN PODER",
+                (CURRENT_DATE - ext.fecha_creacion_ee::date) AS "DIAS EN GERENCIA",
+                up.destinatario_actual AS "ANALISTA",
+                du.apellido_nombre AS "ANALISTA NOMBRE",
+                ext.descripcion_trata AS "DESCRIPCION TRATA",
+                ext.descripcion AS "DESCRIPCION",
+                up.estado_en_pase AS "ESTADO EXPEDIENTE"
+            FROM mv_ultimo_pase up
+            JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
+            LEFT JOIN datos_usuario du ON up.destinatario_actual = du.usuario
+            JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = up.id_expediente AND a.usuario_alta = up.destinatario_actual
+            WHERE up.destinatario_actual = :analyst
+              AND a.estado = 'PENDIENTE'
+              AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+        """
+
+    if not sql:
+        return []
+
+    try:
+        with engine.connect() as conn:
+            res = conn.execute(text(sql), params)
+            return [dict(r._mapping) for r in res.fetchall()]
+    except Exception as e:
+        logger.error(f"Error querying analyst detail period data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/reporte/publico_privado/tramite/{trata}/detalle_periodo")
+def get_publico_privado_detalle_periodo(trata: str, periodo: str, metrica: str, current_user: User = Depends(get_current_user)):
+    targets = ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"]
+    return get_analyst_detalle_periodo_data(trata, targets, periodo, metrica)
+
+@router.get("/api/reporte/copua/tramite/{trata}/detalle_periodo")
+def get_copua_detalle_periodo(trata: str, periodo: str, metrica: str, current_user: User = Depends(get_current_user)):
+    targets = ["CAPUAM-02"]
+    return get_analyst_detalle_periodo_data(trata, targets, periodo, metrica)
+
 @router.get("/api/reporte/{gerencia}/tramite/{trata}")
 async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
