@@ -1,6 +1,7 @@
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
     ? 'http://127.0.0.1:8000/api' 
     : 'https://api.geo-epesege.com.ar/api';
+window.API_BASE = API_BASE; // Expose globally so Vite modules use the absolute URL (prevents Vercel from stripping Authorization headers on rewrites)
 
 // --- ESTADO DE AUTENTICACIÓN ---
 let authToken = localStorage.getItem('sgdu_token');
