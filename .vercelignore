@@ -1,0 +1,12 @@
+backend/
+deploy/
+mv_produccion/
+*.sql
+*.bat
+*.sh
+requirements.txt
+pyproject.toml
+docs/
+prompts/
+test/
+vistas/
