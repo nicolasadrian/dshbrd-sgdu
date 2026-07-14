@@ -170,6 +170,200 @@ def calculate_all_trata_expected_egresos_batch(conn, gerencia_clean: str, trata_
 
 # --- Endpoints de Reportes ---
 
+def get_analyst_consolidado_data(analysts: List[str], cache_key: str) -> List[Dict[str, Any]]:
+    hit, cached_val = cached_response(cache_key, ttl_seconds=120)
+    if hit:
+        return cached_val
+
+    now = datetime.now()
+    months_list = []
+    curr_y, curr_m = now.year, now.month
+    for _ in range(5):
+        months_list.append(f"{curr_y}-{str(curr_m).zfill(2)}")
+        curr_m -= 1
+        if curr_m == 0:
+            curr_m = 12
+            curr_y -= 1
+
+    grid = {}
+    for analyst in analysts:
+        for m_label in months_list:
+            parts = m_label.split('-')
+            grid[(analyst, m_label)] = {
+                "COD TRATA": analyst,
+                "DETALLE TRATA": analyst,
+                "mes_label": m_label,
+                "anio": int(parts[0]),
+                "mes": int(parts[1]),
+                "ING": 0,
+                "EGR_EF": 0,
+                "EGR_NE": 0,
+                "STOCK_PROPIO": 0,
+                "STOCK_SUBS": 0,
+                "acronimos": "",
+                "meta_egr_prom": 0
+            }
+
+    try:
+        with engine.connect() as conn:
+            sql_ing = """
+                WITH primer_ingreso AS (
+                    SELECT id_expediente, destinatario, min(fecha) as min_fecha
+                    FROM mvw_ee_pases_secgdu
+                    WHERE destinatario = ANY(:targets)
+                    GROUP BY id_expediente, destinatario
+                )
+                SELECT 
+                    destinatario AS analyst,
+                    to_char(min_fecha, 'YYYY-MM') AS mes_label,
+                    COUNT(*) as cant
+                FROM primer_ingreso
+                GROUP BY 1, 2
+            """
+            res_ing = conn.execute(text(sql_ing), {"targets": analysts}).fetchall()
+            for r in res_ing:
+                k = (r[0], r[1])
+                if k in grid:
+                    grid[k]["ING"] = r[2]
+
+            sql_egr = """
+                SELECT 
+                    usuario AS analyst,
+                    to_char(fecha, 'YYYY-MM') AS mes_label,
+                    COUNT(DISTINCT id_expediente) as cant
+                FROM mvw_ee_pases_secgdu
+                WHERE usuario = ANY(:targets) AND NOT (destinatario = ANY(:targets))
+                GROUP BY 1, 2
+            """
+            res_egr = conn.execute(text(sql_egr), {"targets": analysts}).fetchall()
+            for r in res_egr:
+                k = (r[0], r[1])
+                if k in grid:
+                    grid[k]["EGR_NE"] = r[2]
+
+            sql_stock_hist = """
+                WITH fechas_corte AS (
+                    SELECT (date_trunc('month', mes.mes) + '1 mon -1 days'::interval)::date AS fecha_corte
+                    FROM generate_series(
+                        date_trunc('month', CURRENT_DATE) - '5 mons'::interval,
+                        date_trunc('month', CURRENT_DATE),
+                        '1 mon'::interval
+                    ) mes(mes)
+                ),
+                destinatario_por_corte AS (
+                    SELECT DISTINCT ON (p.id_expediente, fc.fecha_corte)
+                        p.id_expediente,
+                        fc.fecha_corte,
+                        p.destinatario AS destinatario_cierre
+                    FROM fechas_corte fc
+                    JOIN mvw_ee_pases_secgdu p ON p.fecha::date <= fc.fecha_corte
+                    WHERE p.id_expediente IN (
+                        SELECT DISTINCT id_expediente FROM mvw_ee_pases_secgdu WHERE destinatario = ANY(:targets)
+                    )
+                    ORDER BY p.id_expediente, fc.fecha_corte, p.fecha DESC
+                ),
+                subsanacion_abierta_al_cierre AS (
+                    SELECT DISTINCT ON (dpc.id_expediente, dpc.fecha_corte)
+                        dpc.id_expediente,
+                        dpc.fecha_corte,
+                        true AS tiene_subsanacion_abierta
+                    FROM destinatario_por_corte dpc
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = dpc.id_expediente 
+                        AND a.usuario_alta = dpc.destinatario_cierre 
+                        AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD' 
+                        AND a.fecha_alta::date <= dpc.fecha_corte 
+                        AND (a.fecha_cierre IS NULL OR a.fecha_cierre::date > dpc.fecha_corte)
+                    ORDER BY dpc.id_expediente, dpc.fecha_corte, a.fecha_alta DESC
+                )
+                SELECT 
+                    to_char(dpc.fecha_corte, 'YYYY-MM') AS mes_label,
+                    dpc.destinatario_cierre AS analyst,
+                    SUM(CASE WHEN COALESCE(sac.tiene_subsanacion_abierta, false) THEN 0 ELSE 1 END) AS stock_propio,
+                    SUM(CASE WHEN COALESCE(sac.tiene_subsanacion_abierta, false) THEN 1 ELSE 0 END) AS stock_subs
+                FROM destinatario_por_corte dpc
+                LEFT JOIN subsanacion_abierta_al_cierre sac ON sac.id_expediente = dpc.id_expediente AND sac.fecha_corte = dpc.fecha_corte
+                WHERE dpc.destinatario_cierre = ANY(:targets)
+                GROUP BY 1, 2
+            """
+            res_stock = conn.execute(text(sql_stock_hist), {"targets": analysts}).fetchall()
+            for r in res_stock:
+                k = (r[1], r[0])
+                if k in grid:
+                    grid[k]["STOCK_PROPIO"] = int(r[2] or 0)
+                    grid[k]["STOCK_SUBS"] = int(r[3] or 0)
+
+            curr_mes_label = now.strftime('%Y-%m')
+            
+            sql_stock_live = """
+                SELECT 
+                    up.destinatario_actual AS analyst,
+                    COUNT(*) AS cant
+                FROM mv_ultimo_pase up
+                WHERE up.destinatario_actual = ANY(:targets)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM mvw_ee_actividades_secgdu a
+                      WHERE a.id_expediente = up.id_expediente
+                        AND a.usuario_alta = up.destinatario_actual
+                        AND a.estado = 'PENDIENTE'
+                        AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                  )
+                GROUP BY 1
+            """
+            res_stock_live = conn.execute(text(sql_stock_live), {"targets": analysts}).fetchall()
+            for r in res_stock_live:
+                k = (r[0], curr_mes_label)
+                if k in grid:
+                    grid[k]["STOCK_PROPIO"] = r[1]
+
+            sql_subs_live = """
+                SELECT 
+                    up.destinatario_actual AS analyst,
+                    COUNT(*) AS cant
+                FROM mv_ultimo_pase up
+                JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = up.id_expediente AND a.usuario_alta = up.destinatario_actual
+                WHERE up.destinatario_actual = ANY(:targets)
+                  AND a.estado = 'PENDIENTE'
+                  AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                GROUP BY 1
+            """
+            res_subs_live = conn.execute(text(sql_subs_live), {"targets": analysts}).fetchall()
+            for r in res_subs_live:
+                k = (r[0], curr_mes_label)
+                if k in grid:
+                    grid[k]["STOCK_SUBS"] = r[1]
+
+    except Exception as e:
+        logger.error(f"Error querying analyst consolidado data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    result = []
+    for analyst in analysts:
+        for m_label in months_list:
+            result.append(grid[(analyst, m_label)])
+
+    set_cache(cache_key, result)
+    return result
+
+@router.get("/api/reporte/publico_privado/consolidado")
+def get_publico_privado_consolidado(current_user: User = Depends(get_current_user)):
+    analysts = ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"]
+    return get_analyst_consolidado_data(analysts, "consolidado_publico_privado")
+
+@router.get("/api/reporte/copua/consolidado")
+def get_copua_consolidado(current_user: User = Depends(get_current_user)):
+    analysts = ["CAPUAM-02"]
+    return get_analyst_consolidado_data(analysts, "consolidado_copua")
+
+@router.get("/api/reporte/publico_privado/config/all")
+def get_publico_privado_config(current_user: User = Depends(get_current_user)):
+    analysts = ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"]
+    return {a: {"buzones_ingreso": [], "analistas_oficiales": [], "acronimos_egreso": [], "buzones_ingreso_intervenciones": []} for a in analysts}
+
+@router.get("/api/reporte/copua/config/all")
+def get_copua_config(current_user: User = Depends(get_current_user)):
+    analysts = ["CAPUAM-02"]
+    return {a: {"buzones_ingreso": [], "analistas_oficiales": [], "acronimos_egreso": [], "buzones_ingreso_intervenciones": []} for a in analysts}
+
 @router.get("/api/reporte/{gerencia}/config/all")
 async def get_gerencia_config(gerencia: str, current_user: User = Depends(get_current_user)):
     gerencia_clean = gerencia.lower()
@@ -373,6 +567,9 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
     except Exception as e:
         logger.error(f"Error en consolidado: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @router.get("/api/reporte/{gerencia}/metas")
 async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, current_user: User = Depends(get_current_user)):

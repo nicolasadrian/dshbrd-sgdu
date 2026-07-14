@@ -156,6 +156,8 @@
                     <div class="dropdown-content">
                         <a href="#" onclick="event.preventDefault(); showView('dgroc')">DGROC</a>
                         <a href="#" onclick="event.preventDefault(); showView('dgiur')">DGIUR</a>
+                        <a href="#" onclick="event.preventDefault(); showView('publico_privado')">Público Privado</a>
+                        <a href="#" onclick="event.preventDefault(); showView('copua')">COPUA</a>
                         <a href="#" onclick="event.preventDefault(); showView('family')">Familia de Trámites</a>
                     </div>
                 </div>
@@ -326,6 +328,32 @@
                     <h2>Usos</h2>
                     <p>Gerencia de Usos del Suelo</p>
                 </article>
+            </div>
+        </section>
+
+        <!-- Vista: Público Privado (Consolidado) -->
+        <section id="publico_privado" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Público Privado
+            </div>
+            <h1 class="landing-title">Público Privado</h1>
+            <p>Monitoreo Consolidado de Trámites por Analista/Buzón</p>
+
+            <div id="consolidated-table-container-publico_privado" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
+            </div>
+        </section>
+
+        <!-- Vista: COPUA (Consolidado) -->
+        <section id="copua" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / COPUA
+            </div>
+            <h1 class="landing-title">COPUA</h1>
+            <p>Monitoreo Consolidado de Trámites por Analista/Buzón</p>
+
+            <div id="consolidated-table-container-copua" class="table-container-dynamic">
+                <!-- Se llenará vía JS -->
             </div>
         </section>
 
