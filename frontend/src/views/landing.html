@@ -1,0 +1,103 @@
+<!-- Hero Banner -->
+<div style="
+    background: url('landing_banner_bg.png') center center / cover no-repeat;
+    border-radius: 20px;
+    padding: 36px 40px;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+    min-height: 160px;
+">
+    <!-- Dark overlay for readability -->
+    <div style="position: absolute; inset: 0; border-radius: 20px;
+        background: linear-gradient(120deg, rgba(10,17,34,0.82) 0%, rgba(15,30,60,0.70) 55%, rgba(8,25,50,0.78) 100%);
+        backdrop-filter: blur(1px);
+    "></div>
+    <!-- Subtle city-grid line overlay -->
+    <div style="position: absolute; inset: 0; border-radius: 20px; opacity: 0.07;
+        background-image: repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(125,209,252,0.8) 40px),
+                          repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(125,209,252,0.8) 60px);
+    "></div>
+
+    <div style="position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <p style="margin: 0 0 6px 0; font-size: 0.82rem; color: #7dd3fc; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">Tablero Integral de Gestión</p>
+            <h1 style="margin: 0 0 8px 0; font-family: 'Outfit'; font-weight: 800; font-size: 2rem; color: white; line-height: 1.2;" id="landing-greeting">Bienvenido al Tablero SGDU</h1>
+            <p style="margin: 0; font-size: 0.92rem; color: #94a3b8;" id="landing-date-str">Cargando...</p>
+        </div>
+        <div style="text-align: right;">
+            <div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 14px 20px; min-width: 200px;">
+                <p style="margin: 0 0 4px 0; font-size: 0.75rem; color: #7dd3fc; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Avance del mes</p>
+                <p style="margin: 0 0 8px 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.3rem; color: white;" id="landing-workdays-label">Cargando...</p>
+                <div style="height: 6px; background: rgba(255,255,255,0.12); border-radius: 99px; overflow: hidden;">
+                    <div id="landing-progress-bar" style="height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 99px; width: 0%; transition: width 1s ease;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Grid -->
+<div style="
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) 1.2fr;
+    grid-template-rows: auto auto;
+    gap: 16px;
+    margin-bottom: 32px;
+    align-items: stretch;
+" id="landing-kpi-grid">
+    <!-- Skeleton cards while loading: 8 normales + 1 tall -->
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton" style="grid-column: 5; grid-row: 1 / span 2;"></div>
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton"></div>
+    <div class="landing-kpi-skeleton"></div>
+</div>
+
+<!-- Separador visual -->
+<div style="display: flex; align-items: center; margin: 40px 0 24px 0; gap: 16px;">
+    <div style="flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #e2e8f0, #cbd5e1);"></div>
+    <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.85rem; color: #475569; letter-spacing: 2px; text-transform: uppercase; background: #f1f5f9; padding: 4px 16px; border-radius: 99px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-chart-pie" style="color: var(--primary);"></i> Desglose por Dirección General
+    </span>
+    <div style="flex: 1; height: 1px; background: linear-gradient(90deg, #cbd5e1, #e2e8f0, transparent);"></div>
+</div>
+
+<!-- Grilla DGROC vs DGIUR -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-bottom: 40px;">
+    <!-- DGROC Column -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #eff6ff; padding-bottom: 12px;">
+            <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.35rem; color: #1e3a8a; margin: 0; display: flex; align-items: center; gap: 8px;">
+                DGROC
+            </h2>
+            <span style="font-size: 0.72rem; font-weight: 700; color: #3b82f6; background: #eff6ff; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px;">6 Gerencias</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" id="landing-dgroc-grid">
+            <div style="grid-column: span 2; text-align: center; padding: 2rem; color: #94a3b8;">
+                <span class="loader" style="width: 24px; height: 24px; border-width: 2.5px;"></span>
+                <p style="margin-top: 8px; font-size: 0.85rem;">Cargando métricas de DGROC...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- DGIUR Column -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #f0fdf4; padding-bottom: 12px;">
+            <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.35rem; color: #065f46; margin: 0; display: flex; align-items: center; gap: 8px;">
+                DGIUR
+            </h2>
+            <span style="font-size: 0.72rem; font-weight: 700; color: #10b981; background: #f0fdf4; padding: 3px 10px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.5px;">3 Gerencias</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;" id="landing-dgiur-grid">
+            <div style="grid-column: span 2; text-align: center; padding: 2rem; color: #94a3b8;">
+                <span class="loader" style="width: 24px; height: 24px; border-width: 2.5px;"></span>
+                <p style="margin-top: 8px; font-size: 0.85rem;">Cargando métricas de DGIUR...</p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -789,6 +789,7 @@ main {
 }
 
 /* Estilos consolidados */
+.matrix-table-container th {
     font-size: 0.7rem;
     letter-spacing: 0.05em;
     border-bottom: 2px solid #cbd5e1;

@@ -13,7 +13,7 @@ echo [3/4] Iniciando Backend...
 start "SGDU BACKEND" cmd /k "python backend\main.py"
 
 echo [4/4] Iniciando Frontend...
-start "SGDU FRONTEND" cmd /k "python -m http.server 3000 --directory frontend"
+start "SGDU FRONTEND" cmd /k "cd frontend && npm run dev"
 
 echo ==========================================
 echo REINICIO COMPLETADO. Abra http://localhost:3000 en su navegador.
