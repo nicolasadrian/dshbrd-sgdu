@@ -185,6 +185,100 @@ def get_analyst_consolidado_data(analysts: List[str], cache_key: str) -> List[Di
             curr_m = 12
             curr_y -= 1
 
+    # --- Fast path: use materialized views if available ---
+    is_pp = set(analysts) == {"NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"}
+    is_copua = set(analysts) == {"CAPUAM-02"}
+    mv_table = None
+    if is_pp:
+        mv_table = "mv_publico_privado_reporte_historico"
+    elif is_copua:
+        mv_table = "mv_copua_reporte_historico"
+
+    if mv_table:
+        try:
+            months_filter_tuples = ", ".join([f"(split_part('{m}', '-', 1)::int, split_part('{m}', '-', 2)::int)" for m in months_list])
+            # Build a simpler months IN filter
+            month_conditions = " OR ".join([f"(anio = {m.split('-')[0]} AND mes = {int(m.split('-')[1])})" for m in months_list])
+            curr_mes = now.strftime('%Y-%m')
+            with engine.connect() as conn:
+                sql_mv = text(f"""
+                    SELECT anio, mes, "COD TRATA", "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
+                    FROM {mv_table}
+                    WHERE ({month_conditions})
+                    ORDER BY anio DESC, mes DESC, "COD TRATA"
+                """)
+                rows = conn.execute(sql_mv).fetchall()
+
+                # For current month, replace STOCK with live values (MV may be stale)
+                grid = {}
+                for r in rows:
+                    m_label = f"{r[0]:04d}-{r[1]:02d}"
+                    k = (r[2], m_label)
+                    grid[k] = {
+                        "COD TRATA": r[2],
+                        "DETALLE TRATA": r[3],
+                        "mes_label": m_label,
+                        "anio": r[0],
+                        "mes": r[1],
+                        "ING": r[4],
+                        "EGR_EF": r[5],
+                        "EGR_NE": r[6],
+                        "STOCK_PROPIO": r[7],
+                        "STOCK_SUBS": r[8],
+                        "acronimos": "",
+                        "meta_egr_prom": 0
+                    }
+
+                # Override current month stock with live counts
+                sql_stock_live = text("""
+                    SELECT up.destinatario_actual AS analyst, COUNT(*) AS cant
+                    FROM mv_ultimo_pase up
+                    WHERE up.destinatario_actual = ANY(:targets)
+                      AND NOT EXISTS (
+                          SELECT 1 FROM mvw_ee_actividades_secgdu a
+                          WHERE a.id_expediente = up.id_expediente
+                            AND a.usuario_alta = up.destinatario_actual
+                            AND a.estado = 'PENDIENTE'
+                            AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                      )
+                    GROUP BY 1
+                """)
+                for r in conn.execute(sql_stock_live, {"targets": analysts}).fetchall():
+                    k = (r[0], curr_mes)
+                    if k in grid:
+                        grid[k]["STOCK_PROPIO"] = r[1]
+
+                sql_subs_live = text("""
+                    SELECT up.destinatario_actual AS analyst, COUNT(*) AS cant
+                    FROM mv_ultimo_pase up
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = up.id_expediente AND a.usuario_alta = up.destinatario_actual
+                    WHERE up.destinatario_actual = ANY(:targets)
+                      AND a.estado = 'PENDIENTE'
+                      AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    GROUP BY 1
+                """)
+                for r in conn.execute(sql_subs_live, {"targets": analysts}).fetchall():
+                    k = (r[0], curr_mes)
+                    if k in grid:
+                        grid[k]["STOCK_SUBS"] = r[1]
+
+            # Fill missing slots with zeros
+            result = []
+            for analyst in analysts:
+                for m_label in months_list:
+                    k = (analyst, m_label)
+                    if k in grid:
+                        result.append(grid[k])
+                    else:
+                        parts = m_label.split('-')
+                        result.append({"COD TRATA": analyst, "DETALLE TRATA": analyst, "mes_label": m_label, "anio": int(parts[0]), "mes": int(parts[1]), "ING": 0, "EGR_EF": 0, "EGR_NE": 0, "STOCK_PROPIO": 0, "STOCK_SUBS": 0, "acronimos": "", "meta_egr_prom": 0})
+            set_cache(cache_key, result)
+            return result
+        except Exception as e:
+            logger.warning(f"MV lookup failed for {mv_table}, falling back to live query: {e}")
+            # Fall through to live query below
+
+    # --- Slow path: live query (used when MV is not available yet) ---
     grid = {}
     for analyst in analysts:
         for m_label in months_list:
@@ -343,6 +437,8 @@ def get_analyst_consolidado_data(analysts: List[str], cache_key: str) -> List[Di
 
     set_cache(cache_key, result)
     return result
+
+
 
 @router.get("/api/reporte/publico_privado/consolidado")
 def get_publico_privado_consolidado(current_user: User = Depends(get_current_user)):
@@ -1114,6 +1210,75 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
 # --- Specific endpoints for Público Privado and COPUA to handle row clicks and cell clicks ---
 
 def get_analyst_history_data(analyst: str, cache_key: str) -> List[Dict[str, Any]]:
+    """Returns 12-month history for a given analyst.
+    Uses materialized views if available (fast path), otherwise falls back to live queries.
+    """
+    # Determine if this analyst belongs to a known MV-backed area
+    PP_ANALYSTS = {"NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"}
+    COPUA_ANALYSTS = {"CAPUAM-02"}
+    mv_table = None
+    if analyst in PP_ANALYSTS:
+        mv_table = "mv_publico_privado_reporte_historico"
+    elif analyst in COPUA_ANALYSTS:
+        mv_table = "mv_copua_reporte_historico"
+
+    if mv_table:
+        try:
+            with engine.connect() as conn:
+                sql = text(f"""
+                    SELECT anio, mes, "DETALLE TRATA", "ING", "EGR_EF", "EGR_NE", "STOCK_PROPIO", "STOCK_SUBS"
+                    FROM {mv_table}
+                    WHERE "COD TRATA" = :analyst
+                    ORDER BY anio DESC, mes DESC
+                    LIMIT 12
+                """)
+                rows = conn.execute(sql, {"analyst": analyst}).fetchall()
+
+            # Override current month stock with live values
+            now = datetime.now()
+            curr_mes_label = now.strftime('%Y-%m')
+            result = []
+            for r in rows:
+                m_label = f"{r[0]:04d}-{r[1]:02d}"
+                result.append({
+                    "anio": r[0], "mes": r[1], "DETALLE TRATA": r[2],
+                    "ING": r[3], "EGR_EF": r[4], "EGR_NE": r[5],
+                    "STOCK_PROPIO": r[6], "STOCK_SUBS": r[7]
+                })
+
+            # Override current month stock/subs with live counts
+            with engine.connect() as conn:
+                r_sp = conn.execute(text("""
+                    SELECT COUNT(*) FROM mv_ultimo_pase up
+                    WHERE up.destinatario_actual = :analyst
+                      AND NOT EXISTS (
+                          SELECT 1 FROM mvw_ee_actividades_secgdu a
+                          WHERE a.id_expediente = up.id_expediente
+                            AND a.usuario_alta = up.destinatario_actual
+                            AND a.estado = 'PENDIENTE'
+                            AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                      )
+                """), {"analyst": analyst}).scalar()
+                r_ss = conn.execute(text("""
+                    SELECT COUNT(*) FROM mv_ultimo_pase up
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = up.id_expediente AND a.usuario_alta = up.destinatario_actual
+                    WHERE up.destinatario_actual = :analyst
+                      AND a.estado = 'PENDIENTE'
+                      AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                """), {"analyst": analyst}).scalar()
+
+            for item in result:
+                m_label_item = f"{item['anio']:04d}-{item['mes']:02d}"
+                if m_label_item == curr_mes_label:
+                    item["STOCK_PROPIO"] = int(r_sp or 0)
+                    item["STOCK_SUBS"] = int(r_ss or 0)
+
+            return result
+        except Exception as e:
+            logger.warning(f"MV lookup failed for {mv_table} analyst={analyst}, falling back: {e}")
+
+    # --- Live query fallback ---
+
     now = datetime.now()
     months_list = []
     curr_y, curr_m = now.year, now.month
@@ -1260,6 +1425,92 @@ def get_analyst_history_data(analyst: str, cache_key: str) -> List[Dict[str, Any
     return result
 
 def get_analyst_stock_detail_data(analyst: str) -> Dict[str, Any]:
+    # Fast path: use materialized views if this analyst is PP or COPUA
+    PP_ANALYSTS = {"NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"}
+    COPUA_ANALYSTS = {"CAPUAM-02"}
+    mv_stock_table = None
+    if analyst in PP_ANALYSTS:
+        mv_stock_table = "mv_publico_privado_stock_propio"
+    elif analyst in COPUA_ANALYSTS:
+        mv_stock_table = "mv_copua_stock_propio"
+
+    if mv_stock_table:
+        try:
+            with engine.connect() as conn:
+                sql = text(f"""
+                    SELECT 
+                        id_expediente,
+                        expediente,
+                        caratula as fecha_ing,
+                        fecha_recepcion_analista as fecha_ultimo_pase,
+                        dias_en_poder_actual as dias,
+                        analista,
+                        analista_nombre,
+                        trata,
+                        caratula,
+                        descripcion_trata,
+                        descripcion,
+                        estado_expediente,
+                        CURRENT_DATE - caratula::date as dias_en_gerencia
+                    FROM {mv_stock_table}
+                    WHERE analista = :analyst
+                """)
+                rows = [dict(r._mapping) for r in conn.execute(sql, {"analyst": analyst}).fetchall()]
+        except Exception as e:
+            logger.warning(f"MV stock detail failed for {mv_stock_table}, falling back: {e}")
+            rows = None
+
+        if rows is not None:
+            # Build response from MV rows
+            analyst_data = {}
+            propio_month_counts = {}
+            ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
+
+            for row in rows:
+                analista_key = row.get('analista') or 'SIN ASIGNAR'
+                analista_nombre = row.get('analista_nombre') or analista_key
+                dias = row.get('dias') or 0
+                f_pase = row.get('fecha_ultimo_pase')
+
+                if f_pase and hasattr(f_pase, 'strftime'):
+                    mes_key = f_pase.strftime('%Y-%m')
+                elif isinstance(f_pase, str):
+                    mes_key = f_pase[:7]
+                else:
+                    mes_key = 'SIN FECHA'
+
+                if analista_key not in analyst_data:
+                    analyst_data[analista_key] = {"analista": analista_key, "analista_nombre": analista_nombre, "rangos": {r[2]: 0 for r in ranges}, "expedientes": []}
+                if analista_key not in propio_month_counts:
+                    propio_month_counts[analista_key] = {}
+
+                propio_month_counts[analista_key][mes_key] = propio_month_counts[analista_key].get(mes_key, 0) + 1
+                for lo, hi, label in ranges:
+                    if lo <= (dias or 0) < hi:
+                        analyst_data[analista_key]["rangos"][label] += 1
+                        break
+
+                analyst_data[analista_key]["expedientes"].append({
+                    "id_expediente": row.get('id_expediente'),
+                    "expediente": row.get('expediente'),
+                    "fecha_ing": str(row.get('fecha_ing') or ''),
+                    "fecha_ultimo_pase": str(f_pase or ''),
+                    "dias": int(dias or 0),
+                    "trata": row.get('trata'),
+                    "descripcion_trata": row.get('descripcion_trata'),
+                    "descripcion": row.get('descripcion'),
+                    "estado_expediente": row.get('estado_expediente'),
+                    "dias_en_gerencia": int(row.get('dias_en_gerencia') or 0),
+                })
+
+            for a_key in analyst_data:
+                months = sorted(propio_month_counts[a_key].items())
+                analyst_data[a_key]["meses_labels"] = [m for m, _ in months]
+                analyst_data[a_key]["meses_counts"] = [c for _, c in months]
+
+            return {"tipo": "STOCK_PROPIO", "analistas": list(analyst_data.values())}
+
+    # --- Live query fallback ---
     try:
         with engine.connect() as conn:
             sql = """
@@ -1291,6 +1542,7 @@ def get_analyst_stock_detail_data(analyst: str) -> Dict[str, Any]:
             """
             result = conn.execute(text(sql), {"analyst": analyst})
             rows = [dict(r._mapping) for r in result.fetchall()]
+
 
             analyst_data = {}
             propio_month_counts = {}
