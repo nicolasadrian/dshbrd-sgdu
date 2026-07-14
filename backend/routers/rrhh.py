@@ -28,7 +28,7 @@ def format_capital(val):
 # --- Endpoints de RRHH ---
 
 @router.get("/api/rrhh/reporte")
-async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
+async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
     if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
@@ -188,7 +188,7 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, regex=r"^\d{4}-\d{
 
 
 @router.get("/api/rrhh/reporte/detalle-agente")
-async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(..., regex=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
+async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(..., pattern=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
     if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:

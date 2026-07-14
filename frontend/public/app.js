@@ -25,13 +25,16 @@ let currentFavoritosSeguimientoData = [];
 // Helper para fetch con autenticación
 async function def_fetch(url, options = {}) {
     if (!options.headers) options.headers = {};
-    if (authToken) {
-        options.headers['Authorization'] = `Bearer ${authToken}`;
+    const token = authToken || localStorage.getItem('sgdu_token') || localStorage.getItem('authToken');
+    if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
     }
+    console.log(`[def_fetch] Requesting: ${url}`, "Headers:", options.headers);
 
     try {
         const response = await fetch(url, options);
         if (response.status === 401) {
+            console.warn(`[def_fetch] 401 Unauthorized for URL: ${url}`);
             logout();
             return null;
         }
