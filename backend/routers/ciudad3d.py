@@ -770,38 +770,8 @@ async def get_favoritos(current_user: User = Depends(get_current_user)):
                     sad.gerencia,
                     sad.is_subs,
                     sad.fecha_ultimo_pase,
-                    COALESCE((
-                        SELECT 
-                            CASE 
-                                WHEN COUNT(*) > 20 THEN 0
-                                ELSE SUM(
-                                    CASE 
-                                        WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
-                                        WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
-                                        ELSE (CURRENT_DATE - fecha_alta::date)
-                                    END
-                                )
-                            END
-                        FROM (
-                            SELECT DISTINCT fecha_alta, fecha_cierre
-                            FROM mvw_ee_actividades_secgdu
-                            WHERE id_expediente = et.id_expediente
-                              AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                        ) t
-                    ), 0) AS dias_subsanacion,
-                    COALESCE((
-                        SELECT 
-                            CASE 
-                                WHEN COUNT(*) > 20 THEN 0
-                                ELSE COUNT(*)
-                              END
-                        FROM (
-                            SELECT DISTINCT fecha_alta, fecha_cierre
-                            FROM mvw_ee_actividades_secgdu
-                            WHERE id_expediente = et.id_expediente
-                              AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                        ) t
-                    ), 0) AS cant_subsanaciones,
+                    0 AS dias_subsanacion,
+                    0 AS cant_subsanaciones,
                     (SELECT COUNT(*) FROM user_favorite_notes WHERE username = f.username AND expediente = f.expediente) AS cant_notes,
                     (SELECT note_text FROM user_favorite_notes WHERE username = f.username AND expediente = f.expediente ORDER BY created_at DESC LIMIT 1) AS ultima_nota_favorito,
                     ef.direccion AS ficha_direccion,

@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 import bcrypt
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -15,6 +16,8 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
+logger = logging.getLogger(__name__)
 
 _auth_cache: Dict[str, Any] = {}
 _AUTH_CACHE_TTL = 60  # segundos
@@ -100,7 +103,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
                 for k in expired:
                     _auth_cache.pop(k, None)
             return user
-    except JWTError:
+    except JWTError as e:
+        logger.warning(f"[auth] JWTError validating token: {type(e).__name__}: {e}")
         raise credentials_exception
 
 async def get_current_user_from_param_or_header(token: Optional[str] = Query(None), authorization: Optional[str] = Header(None, alias="Authorization")):

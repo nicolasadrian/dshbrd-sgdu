@@ -25,11 +25,13 @@ let currentFavoritosSeguimientoData = [];
 // Helper para fetch con autenticación
 async function def_fetch(url, options = {}) {
     if (!options.headers) options.headers = {};
-    const token = authToken || localStorage.getItem('sgdu_token') || localStorage.getItem('authToken');
+    // Always read from localStorage as source of truth to handle Vite module contexts
+    const token = localStorage.getItem('sgdu_token') || localStorage.getItem('authToken') || authToken;
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
+        // Keep in-memory token in sync
+        if (!authToken) authToken = token;
     }
-    console.log(`[def_fetch] Requesting: ${url}`, "Headers:", options.headers);
 
     try {
         const response = await fetch(url, options);
