@@ -12,8 +12,11 @@
       "dest": "http://api.geo-epesege.com.ar/api/$1"
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
-      "dest": "frontend/dist/$1"
+      "dest": "/index.html"
     }
   ]
 }
