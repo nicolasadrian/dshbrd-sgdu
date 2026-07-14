@@ -1580,6 +1580,22 @@ def get_analyst_detalle_periodo_data(analyst: str, targets: List[str], period: s
         logger.error(f"Error querying analyst detail period data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/api/reporte/publico_privado/tramite/{trata}")
+def get_publico_privado_tramite(trata: str, current_user: User = Depends(get_current_user)):
+    return get_analyst_history_data(trata, f"history_publico_privado_{trata}")
+
+@router.get("/api/reporte/copua/tramite/{trata}")
+def get_copua_tramite(trata: str, current_user: User = Depends(get_current_user)):
+    return get_analyst_history_data(trata, f"history_copua_{trata}")
+
+@router.get("/api/reporte/publico_privado/tramite/{trata}/stock_detail")
+def get_publico_privado_stock_detail(trata: str, current_user: User = Depends(get_current_user)):
+    return get_analyst_stock_detail_data(trata)
+
+@router.get("/api/reporte/copua/tramite/{trata}/stock_detail")
+def get_copua_stock_detail(trata: str, current_user: User = Depends(get_current_user)):
+    return get_analyst_stock_detail_data(trata)
+
 @router.get("/api/reporte/publico_privado/tramite/{trata}/detalle_periodo")
 def get_publico_privado_detalle_periodo(trata: str, periodo: str, metrica: str, current_user: User = Depends(get_current_user)):
     targets = ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"]
