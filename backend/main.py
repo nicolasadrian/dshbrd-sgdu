@@ -386,8 +386,61 @@ try:
                         text("UPDATE auth_users SET permissions = :p WHERE username = :u"),
                         {"p": json.dumps(u_perms), "u": u_name}
                     )
+            # Migración: agregar permiso universo_tratas a roles que no lo tienen aún
+            # Por defecto: false para todos (el admin lo configura vía backlog)
+            conn.execute(text("""
+                UPDATE auth_roles
+                SET permissions = permissions || '{"universo_tratas": false}'::jsonb
+                WHERE NOT (permissions ? 'universo_tratas')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users
+                SET permissions = permissions || '{"universo_tratas": false}'::jsonb
+                WHERE permissions IS NOT NULL
+                  AND NOT (permissions ? 'universo_tratas')
+            """))
+
+        # Crear vista materializada mvw_universo_tratas si no existe
+        try:
+            conn.execute(text("""
+                CREATE MATERIALIZED VIEW IF NOT EXISTS mvw_universo_tratas AS
+                SELECT
+                    TRIM(e.trata) AS trata,
+                    MAX(e.descripcion_trata) AS descripcion_trata,
+                    COUNT(DISTINCT e.id_expediente) AS cant_expedientes,
+                    COUNT(DISTINCT CASE
+                        WHEN UPPER(e.estado) NOT LIKE '%ARCHIVO%'
+                         AND UPPER(e.estado) NOT LIKE '%GUARDA%'
+                        THEN e.id_expediente END) AS cant_en_stock,
+                    COUNT(DISTINCT CASE
+                        WHEN UPPER(e.estado) LIKE '%ARCHIVO%'
+                        THEN e.id_expediente END) AS cant_archivo,
+                    COUNT(DISTINCT CASE
+                        WHEN UPPER(e.estado) LIKE '%GUARDA%'
+                        THEN e.id_expediente END) AS cant_guarda_temporal,
+                    EXISTS(
+                        SELECT 1 FROM cfg_gestion_metas cfg
+                        WHERE TRIM(UPPER(cfg.trata_reporte)) = TRIM(UPPER(e.trata))
+                           OR TRIM(UPPER(e.trata)) = ANY(
+                                SELECT TRIM(UPPER(t)) FROM unnest(cfg.tratas_incluidas) t
+                           )
+                    ) AS alta_en_tablero
+                FROM mvw_expedientes_tratas_secgdu e
+                WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
+                GROUP BY TRIM(e.trata)
+                WITH DATA
+            """))
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_mvw_universo_tratas_trata
+                ON mvw_universo_tratas (trata)
+            """))
+            logger.info("Vista materializada mvw_universo_tratas creada correctamente")
+        except Exception as e_mv:
+            logger.warning(f"mvw_universo_tratas ya existe o error al crear: {e_mv}")
+
 except Exception as e:
     logger.error(f"Error executing database migrations/initialization DDLs: {e}")
+
 
 
 # --- Core Global Endpoints ---

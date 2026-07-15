@@ -137,7 +137,7 @@ function initAuth() {
         if (linkBuzonesAnalisis) linkBuzonesAnalisis.style.display = perms.buzones_analisis ? 'block' : 'none';
 
         // Toggles for Reportes dropdown and its contents
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas;
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas || perms.universo_tratas;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
@@ -158,6 +158,9 @@ function initAuth() {
 
         const prodLink = document.getElementById('productividad-link');
         if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
+
+        const linkUniversoTratas = document.getElementById('universo-tratas-link');
+        if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
 
         // Toggles for Analytics dropdown and its contents
         const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo;
@@ -452,6 +455,10 @@ function showView(viewId, updateHash = true) {
         if (rulesContainer && rulesContainer.children.length === 0) {
             addSearchRuleRow();
         }
+    }
+
+    if (viewId === 'universo_tratas') {
+        loadUniversoTratas();
     }
 
     // Carga de reportes si es una vista de gerencia
@@ -2054,6 +2061,7 @@ const PERMISSION_KEYS = {
     ciudad_3d: "Ciudad 3D",
     reportes_rrhh: "Reporte RRHH (Visualizar)",
     carga_reportes_rrhh: "Reporte RRHH (Cargar Excel)",
+    universo_tratas: "Universo Tratas",
     admin: "Backlog (Administración)"
 };
 
@@ -2090,7 +2098,8 @@ const PERMISSION_GROUPS = {
         family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites de un mismo expediente." }
     },
     "Administración": {
-        admin: { label: "Backlog (Administración)", desc: "Acceso completo a la configuración del sistema, roles y usuarios." }
+        admin: { label: "Backlog (Administración)", desc: "Acceso completo a la configuración del sistema, roles y usuarios." },
+        universo_tratas: { label: "Universo Tratas", desc: "Acceder al listado completo de tratas del universo SGDU con métricas de stock, archivo, guarda temporal y egresados." }
     }
 };
 
@@ -2637,6 +2646,8 @@ function enterBacklogSection(sectionName) {
             subBread.innerText = ' / Familias de Trámites';
         } else if (sectionName === 'analistas') {
             subBread.innerText = ' / Analistas por Área';
+        } else if (sectionName === 'universo_tratas') {
+            subBread.innerText = ' / Universo Tratas';
         }
         subBread.style.display = 'inline';
     }
@@ -2655,6 +2666,8 @@ function enterBacklogSection(sectionName) {
         loadAdminFamilias();
     } else if (sectionName === 'analistas') {
         loadAdminAnalistas();
+    } else if (sectionName === 'universo_tratas') {
+        loadBacklogUniversoTratas();
     }
 }
 
@@ -13133,6 +13146,238 @@ function _mesLabel(mesStr) {
 }
 
 window.loadLandingStats = loadLandingStats;
+
+// ══════════════════════════════════════════════════════════════════
+// UNIVERSO DE TRATAS
+// ══════════════════════════════════════════════════════════════════
+
+let _universoTratasData = [];
+let _universoTratasSortField = null;
+let _universoTratasSortAsc = true;
+
+let _backlogUniversoTratasData = [];
+let _backlogUniversoTratasSortField = null;
+let _backlogUniversoTratasSortAsc = true;
+
+async function loadUniversoTratas() {
+    const container = document.getElementById('universo-tratas-table-container');
+    const kpisEl = document.getElementById('universo-tratas-kpis');
+    if (!container) return;
+
+    container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando universo de tratas...</p></div>`;
+    if (kpisEl) kpisEl.innerHTML = '';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-tratas`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de conexión'}`);
+        _universoTratasData = await res.json();
+
+        // Reset sort
+        _universoTratasSortField = null;
+        _universoTratasSortAsc = true;
+
+        renderUniversoTratasKPIs(_universoTratasData, kpisEl);
+        filterUniversoTratas();
+    } catch (e) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #ef4444;"><i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i><p style="margin-top: 8px;">Error al cargar datos: ${e.message}</p><button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="loadUniversoTratas()">Reintentar</button></div>`;
+    }
+}
+
+function renderUniversoTratasKPIs(data, el) {
+    if (!el) return;
+    const totalTratas = data.length;
+    const enTablero = data.filter(d => d.alta_en_tablero).length;
+    const totalExp = data.reduce((s, d) => s + (d.cant_expedientes || 0), 0);
+    const totalStock = data.reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalArchivo = data.reduce((s, d) => s + (d.cant_archivo || 0), 0);
+    const totalGuarda = data.reduce((s, d) => s + (d.cant_guarda_temporal || 0), 0);
+
+    const kpis = [
+        { label: 'Tratas Totales', value: totalTratas.toLocaleString('es-AR'), color: '#6366f1', bg: '#eef2ff', icon: 'fa-tags' },
+        { label: 'Alta en Tablero', value: enTablero.toLocaleString('es-AR'), color: '#10b981', bg: '#ecfdf5', icon: 'fa-circle-check' },
+        { label: 'Total Expedientes', value: totalExp.toLocaleString('es-AR'), color: '#0ea5e9', bg: '#f0f9ff', icon: 'fa-folder-open' },
+        { label: 'En Stock', value: totalStock.toLocaleString('es-AR'), color: '#f59e0b', bg: '#fffbeb', icon: 'fa-inbox' },
+        { label: 'En Archivo', value: totalArchivo.toLocaleString('es-AR'), color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+        { label: 'Guarda Temporal', value: totalGuarda.toLocaleString('es-AR'), color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+    ];
+
+    el.innerHTML = kpis.map(k => `
+        <div style="background: ${k.bg}; border: 1px solid ${k.color}22; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 150px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid ${k.icon}"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
+                <div style="font-size: 1.2rem; font-weight: 800; color: #1e293b; font-family: 'Outfit';">${k.value}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterUniversoTratas() {
+    const searchVal = (document.getElementById('universo-tratas-search')?.value || '').trim().toLowerCase();
+    const altaFilter = document.getElementById('universo-tratas-filter-alta')?.value || '';
+
+    let filtered = _universoTratasData.filter(d => {
+        const matchSearch = !searchVal ||
+            (d.trata || '').toLowerCase().includes(searchVal) ||
+            (d.descripcion_trata || '').toLowerCase().includes(searchVal);
+        const matchAlta = !altaFilter ||
+            (altaFilter === 'true' && d.alta_en_tablero) ||
+            (altaFilter === 'false' && !d.alta_en_tablero);
+        return matchSearch && matchAlta;
+    });
+
+    if (_universoTratasSortField) {
+        filtered = _sortUniversoTratas(filtered, _universoTratasSortField, _universoTratasSortAsc);
+    }
+
+    renderUniversoTratasTable(filtered, 'universo-tratas-table-container', false);
+}
+
+function _sortUniversoTratas(arr, field, asc) {
+    return [...arr].sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (va === null || va === undefined) va = -1;
+        if (vb === null || vb === undefined) vb = -1;
+        if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return asc ? va - vb : vb - va;
+    });
+}
+
+function _sortUniversoTratasBy(field, isBacklog = false) {
+    if (isBacklog) {
+        if (_backlogUniversoTratasSortField === field) {
+            _backlogUniversoTratasSortAsc = !_backlogUniversoTratasSortAsc;
+        } else {
+            _backlogUniversoTratasSortField = field;
+            _backlogUniversoTratasSortAsc = field === 'trata'; // alfa asc para trata, desc para números
+        }
+        filterBacklogUniversoTratas();
+    } else {
+        if (_universoTratasSortField === field) {
+            _universoTratasSortAsc = !_universoTratasSortAsc;
+        } else {
+            _universoTratasSortField = field;
+            _universoTratasSortAsc = field === 'trata';
+        }
+        filterUniversoTratas();
+    }
+}
+
+function _sortIcon(field, currentField, asc) {
+    if (field !== currentField) return '<i class="fa-solid fa-sort" style="color: #cbd5e1; margin-left: 4px; font-size: 0.75rem;"></i>';
+    return asc
+        ? '<i class="fa-solid fa-sort-up" style="color: var(--primary); margin-left: 4px; font-size: 0.75rem;"></i>'
+        : '<i class="fa-solid fa-sort-down" style="color: var(--primary); margin-left: 4px; font-size: 0.75rem;"></i>';
+}
+
+function renderUniversoTratasTable(data, containerId, isBacklog) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const sf = isBacklog ? _backlogUniversoTratasSortField : _universoTratasSortField;
+    const sa = isBacklog ? _backlogUniversoTratasSortAsc : _universoTratasSortAsc;
+    const sortFn = `_sortUniversoTratasBy`;
+
+    if (!data || data.length === 0) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8;"><i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i><p style="margin-top: 8px;">No se encontraron tratas con los filtros actuales.</p></div>`;
+        return;
+    }
+
+    const cols = [
+        { key: 'trata', label: 'TRATA' },
+        { key: 'descripcion_trata', label: 'DESCRIPCIÓN' },
+        { key: 'alta_en_tablero', label: 'ALTA EN TABLERO', noSort: false },
+        { key: 'cant_expedientes', label: 'CANT. EXP.' },
+        { key: 'egresados', label: 'EGRESADOS' },
+        { key: 'cant_en_stock', label: 'EN STOCK' },
+        { key: 'cant_archivo', label: 'ARCHIVO' },
+        { key: 'cant_guarda_temporal', label: 'GUARDA TEMP.' },
+    ];
+
+    const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc;`;
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; white-space: nowrap;`;
+    const isB = isBacklog ? 'true' : 'false';
+
+    const thead = `<thead><tr style="border-bottom: 2px solid #e2e8f0;">
+        ${cols.map(c => `<th style="${thStyle}" onclick="${sortFn}('${c.key}', ${isB})">
+            ${c.label} ${_sortIcon(c.key, sf, sa)}
+        </th>`).join('')}
+    </tr></thead>`;
+
+    const tbody = data.map((d, i) => {
+        const altaBadge = d.alta_en_tablero
+            ? `<span style="background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">✅ Sí</span>`
+            : `<span style="background: #fef2f2; color: #dc2626; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">❌ No</span>`;
+
+        const egresadosCell = d.egresados !== null && d.egresados !== undefined
+            ? `<span style="font-weight: 600;">${Number(d.egresados).toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8; font-style: italic;">—</span>`;
+
+        const numCell = (val) => `<span style="font-variant-numeric: tabular-nums; font-weight: 600;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
+
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
+        return `<tr style="background: ${rowBg}; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+            <td style="${tdStyle} font-family: 'Courier New', monospace; font-weight: 700; color: var(--primary-dark);">${d.trata || ''}</td>
+            <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.35;">${d.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}</td>
+            <td style="${tdStyle} text-align: center;">${altaBadge}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_expedientes)}</td>
+            <td style="${tdStyle} text-align: right;">${egresadosCell}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_en_stock)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_guarda_temporal)}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center;">
+            <span><strong style="color: #334155;">${data.length.toLocaleString('es-AR')}</strong> tratas encontradas</span>
+            <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>`;
+}
+
+// --- Backlog version (admin-tab-universo_tratas) ---
+
+async function loadBacklogUniversoTratas() {
+    const container = document.getElementById('backlog-universo-tratas-container');
+    if (!container) return;
+
+    container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando datos...</p></div>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-tratas`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de conexión'}`);
+        _backlogUniversoTratasData = await res.json();
+        _backlogUniversoTratasSortField = null;
+        _backlogUniversoTratasSortAsc = true;
+        filterBacklogUniversoTratas();
+    } catch (e) {
+        container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #ef4444;"><p>Error: ${e.message}</p></div>`;
+    }
+}
+
+function filterBacklogUniversoTratas() {
+    const searchVal = (document.getElementById('backlog-universo-tratas-search')?.value || '').trim().toLowerCase();
+    let filtered = _backlogUniversoTratasData.filter(d =>
+        !searchVal ||
+        (d.trata || '').toLowerCase().includes(searchVal) ||
+        (d.descripcion_trata || '').toLowerCase().includes(searchVal)
+    );
+
+    if (_backlogUniversoTratasSortField) {
+        filtered = _sortUniversoTratas(filtered, _backlogUniversoTratasSortField, _backlogUniversoTratasSortAsc);
+    }
+
+    renderUniversoTratasTable(filtered, 'backlog-universo-tratas-container', true);
+}
+
 
 
 

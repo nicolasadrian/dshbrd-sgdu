@@ -197,6 +197,7 @@
                             Analistas</a>
                         <a href="#" id="rrhh-link" onclick="event.preventDefault(); showView('reportes_rrhh')">Reporte
                             RRHH</a>
+                        <a href="#" id="universo-tratas-link" onclick="event.preventDefault(); showView('universo_tratas')">Universo Tratas</a>
                     </div>
                 </div>
 
@@ -1517,6 +1518,51 @@
             </div>
         </section>
 
+        <!-- Vista: Universo de Tratas -->
+        <section id="universo_tratas" class="view-container">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Reportes / Universo Tratas
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Universo de Tratas</h1>
+                    <p style="color: #64748b; margin: 0; font-size: 0.9rem;">Listado de todas las tratas con expedientes en el universo SGDU</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+                        <input type="text" id="universo-tratas-search"
+                            placeholder="Buscar por trata o descripción..."
+                            oninput="filterUniversoTratas()"
+                            style="padding: 9px 12px 9px 35px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; width: 280px; transition: border-color 0.2s;"
+                            onfocus="this.style.borderColor='var(--primary)'"
+                            onblur="this.style.borderColor='#cbd5e1'">
+                    </div>
+                    <select id="universo-tratas-filter-alta" onchange="filterUniversoTratas()"
+                        style="padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; background: white; outline: none; cursor: pointer;">
+                        <option value="">Todas las tratas</option>
+                        <option value="true">Alta en Tablero ✅</option>
+                        <option value="false">Sin configurar ❌</option>
+                    </select>
+                    <button id="universo-tratas-refresh-btn" onclick="loadUniversoTratas()"
+                        style="padding: 9px 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-rotate-right"></i> Actualizar
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPI summary strip -->
+            <div id="universo-tratas-kpis" style="display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap;"></div>
+
+            <!-- Table container -->
+            <div id="universo-tratas-table-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+                    <span class="loader"></span>
+                    <p style="margin-top: 8px;">Cargando universo de tratas...</p>
+                </div>
+            </div>
+        </section>
+
         <!-- Vista Admin: Backlog de Configuración -->
         <section id="admin" class="view-container">
             <div class="breadcrumbs">
@@ -1644,6 +1690,26 @@
                             Analistas por Área</h3>
                         <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Definir y
                             listar los analistas oficiales que pertenecen a cada área y gerencia del tablero.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 7: Universo Tratas -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('universo_tratas')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Universo Tratas</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Ver el listado
+                            completo de todas las tratas con expedientes en el universo SGDU y sus métricas.</p>
                     </div>
                     <div
                         style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
@@ -2470,7 +2536,42 @@
 
                 </div>
             </div>
+
+            <!-- Contenido Pestaña 7: Universo Tratas -->
+            <div id="admin-tab-universo_tratas" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">Universo de Tratas</h2>
+                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Vista informativa del universo de tratas y sus métricas en el tablero.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem;"></i>
+                            <input type="text" id="backlog-universo-tratas-search"
+                                placeholder="Buscar trata..."
+                                oninput="filterBacklogUniversoTratas()"
+                                style="padding: 8px 10px 8px 30px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.85rem; outline: none; width: 220px;">
+                        </div>
+                        <button onclick="loadBacklogUniversoTratas()"
+                            style="padding: 8px 14px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-rotate-right"></i> Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div id="backlog-universo-tratas-container" class="admin-card"
+                    style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow-x: auto;">
+                    <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+                        <span class="loader"></span>
+                        <p style="margin-top: 8px;">Cargando datos...</p>
+                    </div>
+                </div>
+            </div>
         </section>
+
 
         <!-- Vista 13: Familia de Trámites -->
         <section id="family" class="view-container">

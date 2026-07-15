@@ -56,8 +56,9 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
         
     # Admins get ALL permissions automatically
     if r_lower in ["admin", "administrador"]:
-        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "asignados-mi", "productividad_analistas", "reportes_rrhh", "carga_reportes_rrhh"]:
+        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "asignados-mi", "productividad_analistas", "reportes_rrhh", "carga_reportes_rrhh", "universo_tratas"]:
             resolved[k] = True
+
             
     return resolved
 

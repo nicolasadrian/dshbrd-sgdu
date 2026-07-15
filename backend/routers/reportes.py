@@ -3890,3 +3890,191 @@ async def get_sla_expedientes(
     except Exception as e:
         logger.error(f"Error en reporte/sla/expedientes: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ──────────────────────────────────────────────────────────────
+# UNIVERSO DE TRATAS
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/api/reporte/universo-tratas")
+async def get_universo_tratas(current_user: User = Depends(get_current_user)):
+    """
+    Retorna el universo completo de tratas del tablero SGDU con métricas:
+    - cant_expedientes: total de expedientes por trata
+    - cant_en_stock: expedientes cuyo estado NO es archivo ni guarda temporal
+    - cant_archivo: expedientes en estado de ARCHIVO
+    - cant_guarda_temporal: expedientes en estado de GUARDA TEMPORAL
+    - alta_en_tablero: si la trata está configurada en cfg_gestion_metas
+    - egresados: suma histórica de egresados efectivos para esa trata (solo si está dada de alta)
+    """
+    try:
+        with engine.connect() as conn:
+            # 1. Leer el universo base desde la vista materializada mvw_universo_tratas
+            #    Si no existe, calcular en tiempo real desde mvw_expedientes_tratas_secgdu
+            try:
+                base_sql = text("""
+                    SELECT
+                        trata,
+                        descripcion_trata,
+                        cant_expedientes,
+                        cant_en_stock,
+                        cant_archivo,
+                        cant_guarda_temporal,
+                        alta_en_tablero
+                    FROM mvw_universo_tratas
+                    ORDER BY trata
+                """)
+                rows = conn.execute(base_sql).fetchall()
+            except Exception:
+                # Fallback: calcular desde la vista fuente si mvw_universo_tratas no existe
+                logger.warning("mvw_universo_tratas no existe, calculando desde fuente...")
+                base_sql = text("""
+                    SELECT
+                        TRIM(e.trata) AS trata,
+                        MAX(e.descripcion_trata) AS descripcion_trata,
+                        COUNT(DISTINCT e.id_expediente) AS cant_expedientes,
+                        COUNT(DISTINCT CASE
+                            WHEN UPPER(e.estado) NOT LIKE '%ARCHIVO%'
+                             AND UPPER(e.estado) NOT LIKE '%GUARDA%'
+                            THEN e.id_expediente END) AS cant_en_stock,
+                        COUNT(DISTINCT CASE
+                            WHEN UPPER(e.estado) LIKE '%ARCHIVO%'
+                            THEN e.id_expediente END) AS cant_archivo,
+                        COUNT(DISTINCT CASE
+                            WHEN UPPER(e.estado) LIKE '%GUARDA%'
+                            THEN e.id_expediente END) AS cant_guarda_temporal,
+                        EXISTS(
+                            SELECT 1 FROM cfg_gestion_metas cfg
+                            WHERE TRIM(UPPER(cfg.trata_reporte)) = TRIM(UPPER(e.trata))
+                               OR TRIM(UPPER(e.trata)) = ANY(
+                                    SELECT TRIM(UPPER(t)) FROM unnest(cfg.tratas_incluidas) t
+                               )
+                        ) AS alta_en_tablero
+                    FROM mvw_expedientes_tratas_secgdu e
+                    WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
+                    GROUP BY TRIM(e.trata)
+                    ORDER BY TRIM(e.trata)
+                """)
+                rows = conn.execute(base_sql).fetchall()
+
+            # 2. Obtener la configuración de gerencias para calcular egresados
+            #    Solo para tratas que están "dadas de alta" en cfg_gestion_metas
+            cfg_sql = text("""
+                SELECT
+                    TRIM(UPPER(trata_reporte)) AS trata_reporte,
+                    COALESCE(
+                        ARRAY(SELECT TRIM(UPPER(t)) FROM unnest(tratas_incluidas) t),
+                        ARRAY[]::text[]
+                    ) AS tratas_incluidas,
+                    TRIM(LOWER(gerencia)) AS gerencia,
+                    TRIM(LOWER(direccion)) AS direccion
+                FROM cfg_gestion_metas
+                ORDER BY gerencia, trata_reporte
+            """)
+            cfg_rows = conn.execute(cfg_sql).fetchall()
+
+            # Mapear trata → gerencias configuradas
+            trata_to_gerencias: dict = {}
+            for cfg in cfg_rows:
+                trata_rep = cfg[0] or ""
+                tratas_inc = cfg[1] or []
+                gerencia = cfg[2] or ""
+                direccion = cfg[3] or "dgroc"
+
+                # trata_reporte es la trata principal de la configuración
+                if trata_rep:
+                    if trata_rep not in trata_to_gerencias:
+                        trata_to_gerencias[trata_rep] = []
+                    trata_to_gerencias[trata_rep].append({
+                        "gerencia": gerencia,
+                        "direccion": direccion,
+                        "type": "trata_reporte"
+                    })
+
+                # tratas_incluidas son tratas "hijas" que pertenecen a esta configuración
+                for inc in tratas_inc:
+                    inc_clean = inc.strip().upper()
+                    if inc_clean and inc_clean != trata_rep:
+                        if inc_clean not in trata_to_gerencias:
+                            trata_to_gerencias[inc_clean] = []
+                        trata_to_gerencias[inc_clean].append({
+                            "gerencia": gerencia,
+                            "direccion": direccion,
+                            "type": "incluida"
+                        })
+
+            # 3. Calcular egresados para cada trata con configuración
+            #    Agrupamos por (trata, gerencia) para evitar duplicados
+            egresados_por_trata: dict = {}
+
+            # Recolectar pares únicos (trata, gerencia) que necesitamos calcular
+            needed: dict = {}  # gerencia → set of tratas
+            for trata_key, gerencias in trata_to_gerencias.items():
+                for g_info in gerencias:
+                    ger = g_info["gerencia"]
+                    if ger not in needed:
+                        needed[ger] = set()
+                    needed[ger].add(trata_key)
+
+            # Para cada gerencia configurada, consultar sus vistas de egresos
+            GERENCIAS_CON_EGRESOS = [
+                "catastro", "instalaciones", "conforme", "regularizacion",
+                "contable", "etapa_proyecto", "aviso_obra",
+                "morfologia", "aph", "usos"
+            ]
+
+            for ger, tratas_set in needed.items():
+                # Normalizar alias de gerencia
+                ger_clean = ger.lower()
+                if ger_clean == "conforme":
+                    ger_clean = "regularizacion"
+
+                if ger_clean not in GERENCIAS_CON_EGRESOS:
+                    continue
+
+                try:
+                    # Consultar mv_{gerencia}_gedos_egreso para egresos efectivos
+                    egr_sql = text(f"""
+                        SELECT TRIM(UPPER(trata)) as trata, COUNT(*) as total
+                        FROM mv_{ger_clean}_gedos_egreso
+                        GROUP BY TRIM(UPPER(trata))
+                    """)
+                    egr_rows = conn.execute(egr_sql).fetchall()
+                    for row in egr_rows:
+                        t = (row[0] or "").strip().upper()
+                        cnt = int(row[1] or 0)
+                        if t in tratas_set:
+                            egresados_por_trata[t] = egresados_por_trata.get(t, 0) + cnt
+                except Exception as e:
+                    logger.warning(f"Error leyendo egresos de {ger_clean}: {e}")
+
+            # 4. Ensamblar respuesta final
+            resultado = []
+            for row in rows:
+                r = row._mapping
+                trata = (r["trata"] or "").strip().upper()
+                alta = bool(r["alta_en_tablero"])
+
+                egresados = None
+                if alta and trata in egresados_por_trata:
+                    egresados = egresados_por_trata[trata]
+                elif alta and trata in trata_to_gerencias:
+                    # Está configurada pero sin egresos aún → mostrar 0
+                    egresados = 0
+
+                resultado.append({
+                    "trata": trata,
+                    "descripcion_trata": r["descripcion_trata"] or "",
+                    "alta_en_tablero": alta,
+                    "cant_expedientes": int(r["cant_expedientes"] or 0),
+                    "egresados": egresados,
+                    "cant_en_stock": int(r["cant_en_stock"] or 0),
+                    "cant_archivo": int(r["cant_archivo"] or 0),
+                    "cant_guarda_temporal": int(r["cant_guarda_temporal"] or 0),
+                })
+
+            return resultado
+
+    except Exception as e:
+        logger.error(f"Error en universo-tratas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
