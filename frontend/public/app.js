@@ -4611,9 +4611,9 @@ async function loadCierreMesData(mes) {
         const manualEgr = Math.max(0, data.totales.egresos - autoEgr);
         const manualEgrPrev = Math.max(0, data.totales.egresos_prev - autoEgrPrev);
 
-        // Renderizar Manuales
-        renderKpiAndDelta('cierre-val-ingresos', 'cierre-delta-ingresos', manualIng, manualIngPrev);
-        renderKpiAndDelta('cierre-val-egresos', 'cierre-delta-egresos', manualEgr, manualEgrPrev);
+        // Renderizar KPI principal: TOTAL (manual + automatizados)
+        renderKpiAndDelta('cierre-val-ingresos', 'cierre-delta-ingresos', data.totales.ingresos, data.totales.ingresos_prev);
+        renderKpiAndDelta('cierre-val-egresos', 'cierre-delta-egresos', data.totales.egresos, data.totales.egresos_prev);
 
         // Renderizar Automatizados
         function renderAutoKpiAndDelta(valId, deltaId, val, valPrev) {
