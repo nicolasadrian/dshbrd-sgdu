@@ -2593,7 +2593,7 @@ async function deleteRole(roleName) {
     }
 }
 
-// --- GESTIÓN DE CONFIGURACIÓN DE METAS (ADMIN) ---
+// --- GESTIÓN DE CONFIGURACIÓN DE TRATAS (ADMIN) ---
 let currentMetaId = null;
 let currentSadeChips = {
     analistas: [],
@@ -2628,7 +2628,7 @@ function enterBacklogSection(sectionName) {
         if (sectionName === 'users') {
             subBread.innerText = ' / Usuarios del Sistema';
         } else if (sectionName === 'metas') {
-            subBread.innerText = ' / Configuración de Metas';
+            subBread.innerText = ' / Configuración de Tratas';
         } else if (sectionName === 'roles') {
             subBread.innerText = ' / Configuración de Roles';
         } else if (sectionName === 'buzones_acceso') {
