@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tablero de Gestión SGDU | Buenos Aires Ciudad</title>
     <meta name="description" content="Tablero Integral de Gestión para la Secretaría de Gestión y Desarrollo Urbano.">
-    <link rel="shortcut icon" href="/assets/favicon-Dfjs5S3Q.ico" type="image/x-icon">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -103,8 +104,6 @@
             transition: opacity 0.3s;
         }
     </style>
-  <script type="module" crossorigin src="/assets/index-_eAixSZD.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BKHQRtp7.css">
 </head>
 
 <body>
@@ -112,7 +111,7 @@
     <div id="login-overlay" class="login-overlay">
         <div class="login-card">
             <div class="login-header">
-                <img src="data:image/svg+xml,%3csvg%20width='76'%20height='45'%20viewBox='0%200%2076%2045'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cg%20clip-path='url(%23clip0_11_15121)'%3e%3cg%20clip-path='url(%23clip1_11_15121)'%3e%3cg%20clip-path='url(%23clip2_11_15121)'%3e%3cmask%20id='mask0_11_15121'%20style='mask-type:luminance'%20maskUnits='userSpaceOnUse'%20x='0'%20y='4'%20width='76'%20height='40'%3e%3cpath%20d='M75.0953%204.04651H0.904785V43.9536H75.0953V4.04651Z'%20fill='white'/%3e%3c/mask%3e%3cg%20mask='url(%23mask0_11_15121)'%3e%3cpath%20d='M74.3742%2035.6535L60.1446%208.15784C58.9172%205.71706%2056.4026%204.04651%2053.4835%204.04651H53.4764C50.5609%204.04651%2048.0427%205.71706%2046.8153%208.15784L36.799%2027.5117C35.6806%2025.5211%2033.8975%2023.9596%2031.7451%2023.1155C34.1472%2021.3781%2035.7122%2018.5469%2035.7122%2015.3535C35.7122%2011.6502%2033.6091%208.44624%2030.5353%206.85657C27.8271%205.43219%2024.7357%204.62681%2021.458%204.62681H6.47567C3.3948%204.62681%200.904785%207.11682%200.904785%2010.1907V38.0732C0.904785%2041.147%203.3948%2043.637%206.47567%2043.637H22.6783C25.8014%2043.637%2028.7733%2042.9899%2031.4708%2041.8363L32.4977%2041.3405C32.554%2041.3123%2032.6103%2041.2842%2032.6665%2041.2561C33.6407%2042.8704%2035.4028%2043.9571%2037.4321%2043.9571C39.6864%2043.9571%2041.6277%2042.6207%2042.5035%2040.6898C42.9396%2039.6698%2043.9243%2038.9489%2045.0849%2038.8926H61.8715C63.0356%2038.9489%2064.0168%2039.6698%2064.4529%2040.6898C65.3252%2042.6207%2067.27%2043.9571%2069.5243%2043.9571C72.6017%2043.9571%2075.0917%2041.46%2075.0917%2038.3968C75.0917%2037.398%2074.835%2036.4624%2074.3707%2035.657'%20fill='%23101E37'/%3e%3c/g%3e%3c/g%3e%3c/g%3e%3c/g%3e%3cdefs%3e%3cclipPath%20id='clip0_11_15121'%3e%3crect%20width='76'%20height='41'%20fill='white'%20transform='translate(0%203.5)'/%3e%3c/clipPath%3e%3cclipPath%20id='clip1_11_15121'%3e%3crect%20width='76'%20height='41'%20fill='white'%20transform='translate(0%203.5)'/%3e%3c/clipPath%3e%3cclipPath%20id='clip2_11_15121'%3e%3crect%20width='74.1905'%20height='41'%20fill='white'%20transform='translate(0.904785%203.5)'/%3e%3c/clipPath%3e%3c/defs%3e%3c/svg%3e" alt="Logo BA" class="login-logo"
+                <img src="assets/logo-ba.svg" alt="Logo BA" class="login-logo"
                     style="height: 60px; margin-bottom: 2rem;">
                 <h1>Tablero SGDU</h1>
                 <p>Secretaría de Gestión y Desarrollo Urbano</p>
@@ -135,7 +134,7 @@
     <header>
         <div class="logo-container" onclick="showView('landing')"
             style="cursor: pointer; display: flex; align-items: center; gap: 15px;">
-            <img src="data:image/svg+xml,%3csvg%20width='76'%20height='45'%20viewBox='0%200%2076%2045'%20fill='none'%20xmlns='http://www.w3.org/2000/svg'%3e%3cg%20clip-path='url(%23clip0_11_15121)'%3e%3cg%20clip-path='url(%23clip1_11_15121)'%3e%3cg%20clip-path='url(%23clip2_11_15121)'%3e%3cmask%20id='mask0_11_15121'%20style='mask-type:luminance'%20maskUnits='userSpaceOnUse'%20x='0'%20y='4'%20width='76'%20height='40'%3e%3cpath%20d='M75.0953%204.04651H0.904785V43.9536H75.0953V4.04651Z'%20fill='white'/%3e%3c/mask%3e%3cg%20mask='url(%23mask0_11_15121)'%3e%3cpath%20d='M74.3742%2035.6535L60.1446%208.15784C58.9172%205.71706%2056.4026%204.04651%2053.4835%204.04651H53.4764C50.5609%204.04651%2048.0427%205.71706%2046.8153%208.15784L36.799%2027.5117C35.6806%2025.5211%2033.8975%2023.9596%2031.7451%2023.1155C34.1472%2021.3781%2035.7122%2018.5469%2035.7122%2015.3535C35.7122%2011.6502%2033.6091%208.44624%2030.5353%206.85657C27.8271%205.43219%2024.7357%204.62681%2021.458%204.62681H6.47567C3.3948%204.62681%200.904785%207.11682%200.904785%2010.1907V38.0732C0.904785%2041.147%203.3948%2043.637%206.47567%2043.637H22.6783C25.8014%2043.637%2028.7733%2042.9899%2031.4708%2041.8363L32.4977%2041.3405C32.554%2041.3123%2032.6103%2041.2842%2032.6665%2041.2561C33.6407%2042.8704%2035.4028%2043.9571%2037.4321%2043.9571C39.6864%2043.9571%2041.6277%2042.6207%2042.5035%2040.6898C42.9396%2039.6698%2043.9243%2038.9489%2045.0849%2038.8926H61.8715C63.0356%2038.9489%2064.0168%2039.6698%2064.4529%2040.6898C65.3252%2042.6207%2067.27%2043.9571%2069.5243%2043.9571C72.6017%2043.9571%2075.0917%2041.46%2075.0917%2038.3968C75.0917%2037.398%2074.835%2036.4624%2074.3707%2035.657'%20fill='%23101E37'/%3e%3c/g%3e%3c/g%3e%3c/g%3e%3c/g%3e%3cdefs%3e%3cclipPath%20id='clip0_11_15121'%3e%3crect%20width='76'%20height='41'%20fill='white'%20transform='translate(0%203.5)'/%3e%3c/clipPath%3e%3cclipPath%20id='clip1_11_15121'%3e%3crect%20width='76'%20height='41'%20fill='white'%20transform='translate(0%203.5)'/%3e%3c/clipPath%3e%3cclipPath%20id='clip2_11_15121'%3e%3crect%20width='74.1905'%20height='41'%20fill='white'%20transform='translate(0.904785%203.5)'/%3e%3c/clipPath%3e%3c/defs%3e%3c/svg%3e" alt="BA" style="height: 38px;">
+            <img src="assets/logo-ba.svg" alt="BA" style="height: 38px;">
             <div
                 style="border-left: 1px solid #cbd5e1; padding-left: 15px; display: flex; flex-direction: column; justify-content: center; gap: 2px;">
                 <div class="logo-text"
@@ -171,6 +170,8 @@
                     <div class="dropdown-content">
                         <a href="#/buzones/dgroc" id="link-buzones-dgroc">DGROC</a>
                         <a href="#/buzones/dgiur" id="link-buzones-dgiur">DGIUR</a>
+                        <a href="#/buzones/publico_privado" id="link-buzones-publico-privado">Público Privado</a>
+                        <a href="#/buzones/copua" id="link-buzones-copua">COPUA</a>
                         <a href="#/buzones/secgdu" id="link-buzones-secgdu">SECGDU</a>
                         <a href="#/buzones/analisis" id="link-buzones-analisis">Análisis</a>
                     </div>
@@ -5028,7 +5029,8 @@
         </div>
     </div>
 
-    <script src="/app.js?v=4"></script>
+    <script src="/app.js?v=4"></script>
+    <script type="module" src="/src/main.js"></script>
 </body>
 
 

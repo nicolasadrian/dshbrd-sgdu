@@ -114,7 +114,7 @@ function initAuth() {
         if (linkFamily) linkFamily.style.display = perms.family ? 'block' : 'none';
 
         // Toggles for Buzones dropdown and its contents
-        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu;
+        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || perms.publico_privado || perms.copua || perms.seguimiento;
         const navBuzones = document.getElementById('nav-dropdown-buzones');
         if (navBuzones) navBuzones.style.display = hasBuzonesAccess ? 'inline-block' : 'none';
 
@@ -123,6 +123,12 @@ function initAuth() {
 
         const linkBuzonesDgiur = document.getElementById('link-buzones-dgiur');
         if (linkBuzonesDgiur) linkBuzonesDgiur.style.display = perms.dgiur ? 'block' : 'none';
+
+        const linkBuzonesPublicoPrivado = document.getElementById('link-buzones-publico-privado');
+        if (linkBuzonesPublicoPrivado) linkBuzonesPublicoPrivado.style.display = (perms.publico_privado || perms.seguimiento) ? 'block' : 'none';
+
+        const linkBuzonesCopua = document.getElementById('link-buzones-copua');
+        if (linkBuzonesCopua) linkBuzonesCopua.style.display = (perms.copua || perms.seguimiento) ? 'block' : 'none';
 
         const linkBuzonesSecgdu = document.getElementById('link-buzones-secgdu');
         if (linkBuzonesSecgdu) linkBuzonesSecgdu.style.display = perms.secgdu ? 'block' : 'none';
@@ -2043,6 +2049,8 @@ const PERMISSION_KEYS = {
     analytics_datasets: "Analytics (Datasets)",
     buzones_analisis: "Buzones para Análisis",
     secgdu: "Buzones SECGDU (Total Universo)",
+    publico_privado: "Seguimiento Público Privado",
+    copua: "Seguimiento COPUA",
     ciudad_3d: "Ciudad 3D",
     reportes_rrhh: "Reporte RRHH (Visualizar)",
     carga_reportes_rrhh: "Reporte RRHH (Cargar Excel)",
@@ -2053,6 +2061,8 @@ const PERMISSION_GROUPS = {
     "Monitoreo & Reportes": {
         dgroc: { label: "Seguimiento DGROC", desc: "Ver indicadores clave y pases de la gerencia DGROC." },
         dgiur: { label: "Seguimiento DGIUR", desc: "Ver indicadores clave y pases de la gerencia DGIUR." },
+        publico_privado: { label: "Seguimiento Público Privado", desc: "Acceder al panel de seguimiento de trámites Público Privado (DGPROPPU)." },
+        copua: { label: "Seguimiento COPUA", desc: "Acceder al panel de seguimiento de trámites de la COPUA." },
         seguimiento: { label: "Reporte Metas", desc: "Acceder al informe consolidado de cumplimiento de metas." },
         cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
@@ -7933,6 +7943,12 @@ const BUZONES_GERENCIAS = {
         { id: 'aph', label: 'APH' },
         { id: 'usos', label: 'Usos' }
     ],
+    publico_privado: [
+        { id: 'publico_privado', label: 'Público Privado' }
+    ],
+    copua: [
+        { id: 'copua', label: 'COPUA' }
+    ],
     analisis: [
         { id: 'analisis_archivo', label: 'Buzones de Archivo' }
     ],
@@ -7959,7 +7975,15 @@ async function showBuzonesView(area, updateHash = true) {
     if (metricsContainer) metricsContainer.style.display = 'none';
 
     // Set title and breadcrumbs based on area
-    const uppercaseArea = area === 'analisis' ? 'Análisis' : area.toUpperCase();
+    const areaLabels = {
+        analisis: 'Análisis',
+        publico_privado: 'Público Privado',
+        copua: 'COPUA',
+        secgdu: 'SECGDU',
+        dgroc: 'DGROC',
+        dgiur: 'DGIUR'
+    };
+    const uppercaseArea = areaLabels[area] || area.toUpperCase();
     titleEl.innerText = `Buzones ${uppercaseArea}`;
     breadcrumbArea.innerText = uppercaseArea;
 
