@@ -1,19 +1,13 @@
 {
-  "version": 2,
-  "builds": [
+  "outputDirectory": "dist",
+  "rewrites": [
     {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "http://api.geo-epesege.com.ar/api/$1"
+      "source": "/api/:match*",
+      "destination": "http://api.geo-epesege.com.ar/api/:match*"
     },
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
