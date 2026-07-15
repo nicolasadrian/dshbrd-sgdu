@@ -13188,15 +13188,19 @@ function renderUniversoTratasKPIs(data, el) {
     const totalTratas = data.length;
     const enTablero = data.filter(d => d.alta_en_tablero).length;
     const totalExp = data.reduce((s, d) => s + (d.cant_expedientes || 0), 0);
-    const totalStock = data.reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalStockTablero = data.filter(d => d.alta_en_tablero).reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalStockFuera = data.filter(d => !d.alta_en_tablero).reduce((s, d) => s + (d.cant_en_stock || 0), 0);
     const totalArchivo = data.reduce((s, d) => s + (d.cant_archivo || 0), 0);
     const totalGuarda = data.reduce((s, d) => s + (d.cant_guarda_temporal || 0), 0);
+    const totalSubs = data.reduce((s, d) => s + (d.cant_subsanacion_abierta || 0), 0);
 
     const kpis = [
         { label: 'Tratas Totales', value: totalTratas.toLocaleString('es-AR'), color: '#6366f1', bg: '#eef2ff', icon: 'fa-tags' },
         { label: 'Alta en Tablero', value: enTablero.toLocaleString('es-AR'), color: '#10b981', bg: '#ecfdf5', icon: 'fa-circle-check' },
         { label: 'Total Expedientes', value: totalExp.toLocaleString('es-AR'), color: '#0ea5e9', bg: '#f0f9ff', icon: 'fa-folder-open' },
-        { label: 'En Stock', value: totalStock.toLocaleString('es-AR'), color: '#f59e0b', bg: '#fffbeb', icon: 'fa-inbox' },
+        { label: 'Stock (Tablero)', value: totalStockTablero.toLocaleString('es-AR'), color: '#f59e0b', bg: '#fffbeb', icon: 'fa-inbox' },
+        { label: 'Stock (Fuera de Tablero)', value: totalStockFuera.toLocaleString('es-AR'), color: '#fb923c', bg: '#fff7ed', icon: 'fa-box-open' },
+        { label: 'Subsanación Abierta', value: totalSubs.toLocaleString('es-AR'), color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
         { label: 'En Archivo', value: totalArchivo.toLocaleString('es-AR'), color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
         { label: 'Guarda Temporal', value: totalGuarda.toLocaleString('es-AR'), color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
     ];
@@ -13288,12 +13292,13 @@ function renderUniversoTratasTable(data, containerId, isBacklog) {
     const cols = [
         { key: 'trata', label: 'TRATA' },
         { key: 'descripcion_trata', label: 'DESCRIPCIÓN' },
-        { key: 'alta_en_tablero', label: 'ALTA EN TABLERO', noSort: false },
-        { key: 'cant_expedientes', label: 'CANT. EXP.' },
+        { key: 'alta_en_tablero', label: 'ALTA EN TABLERO' },
         { key: 'egresados', label: 'EGRESADOS' },
-        { key: 'cant_en_stock', label: 'EN STOCK' },
+        { key: 'cant_subsanacion_abierta', label: 'SUBSANACIÓN' },
+        { key: 'cant_guarda_temporal', label: 'GUARDA TEMPORAL' },
         { key: 'cant_archivo', label: 'ARCHIVO' },
-        { key: 'cant_guarda_temporal', label: 'GUARDA TEMP.' },
+        { key: 'cant_en_stock', label: 'EN STOCK' },
+        { key: 'cant_expedientes', label: 'CANT. EXP.' },
     ];
 
     const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc;`;
@@ -13315,6 +13320,12 @@ function renderUniversoTratasTable(data, containerId, isBacklog) {
             ? `<span style="font-weight: 600;">${Number(d.egresados).toLocaleString('es-AR')}</span>`
             : `<span style="color: #94a3b8; font-style: italic;">—</span>`;
 
+        const subsCell = d.cant_subsanacion_abierta !== null && d.cant_subsanacion_abierta !== undefined
+            ? (d.cant_subsanacion_abierta > 0
+                ? `<span style="background: #fff1f2; color: #e11d48; padding: 2px 8px; border-radius: 6px; font-weight: 700;">${Number(d.cant_subsanacion_abierta).toLocaleString('es-AR')}</span>`
+                : `<span style="font-weight: 600; color: #64748b;">0</span>`)
+            : `<span style="color: #94a3b8; font-style: italic;">—</span>`;
+
         const numCell = (val) => `<span style="font-variant-numeric: tabular-nums; font-weight: 600;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
 
         const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
@@ -13322,11 +13333,12 @@ function renderUniversoTratasTable(data, containerId, isBacklog) {
             <td style="${tdStyle} font-family: 'Courier New', monospace; font-weight: 700; color: var(--primary-dark);">${d.trata || ''}</td>
             <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.35;">${d.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}</td>
             <td style="${tdStyle} text-align: center;">${altaBadge}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_expedientes)}</td>
             <td style="${tdStyle} text-align: right;">${egresadosCell}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_en_stock)}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right;">${subsCell}</td>
             <td style="${tdStyle} text-align: right;">${numCell(d.cant_guarda_temporal)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_en_stock)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_expedientes)}</td>
         </tr>`;
     }).join('');
 

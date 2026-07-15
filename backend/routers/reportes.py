@@ -3929,33 +3929,44 @@ async def get_universo_tratas(current_user: User = Depends(get_current_user)):
                 # Fallback: calcular desde la vista fuente si mvw_universo_tratas no existe
                 logger.warning("mvw_universo_tratas no existe, calculando desde fuente...")
                 base_sql = text("""
+                    WITH base AS (
+                        SELECT
+                            TRIM(e.trata) AS trata,
+                            MAX(e.descripcion_trata) AS descripcion_trata,
+                            COUNT(DISTINCT e.id_expediente) AS cant_expedientes,
+                            COUNT(DISTINCT CASE
+                                WHEN UPPER(e.estado) NOT LIKE '%ARCHIVO%'
+                                 AND UPPER(e.estado) NOT LIKE '%GUARDA%'
+                                THEN e.id_expediente END) AS cant_en_stock,
+                            COUNT(DISTINCT CASE
+                                WHEN UPPER(e.estado) LIKE '%ARCHIVO%'
+                                THEN e.id_expediente END) AS cant_archivo,
+                            COUNT(DISTINCT CASE
+                                WHEN UPPER(e.estado) LIKE '%GUARDA%'
+                                THEN e.id_expediente END) AS cant_guarda_temporal
+                        FROM mvw_expedientes_tratas_secgdu e
+                        WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
+                        GROUP BY TRIM(e.trata)
+                    )
                     SELECT
-                        TRIM(e.trata) AS trata,
-                        MAX(e.descripcion_trata) AS descripcion_trata,
-                        COUNT(DISTINCT e.id_expediente) AS cant_expedientes,
-                        COUNT(DISTINCT CASE
-                            WHEN UPPER(e.estado) NOT LIKE '%ARCHIVO%'
-                             AND UPPER(e.estado) NOT LIKE '%GUARDA%'
-                            THEN e.id_expediente END) AS cant_en_stock,
-                        COUNT(DISTINCT CASE
-                            WHEN UPPER(e.estado) LIKE '%ARCHIVO%'
-                            THEN e.id_expediente END) AS cant_archivo,
-                        COUNT(DISTINCT CASE
-                            WHEN UPPER(e.estado) LIKE '%GUARDA%'
-                            THEN e.id_expediente END) AS cant_guarda_temporal,
+                        b.trata,
+                        b.descripcion_trata,
+                        b.cant_expedientes,
+                        b.cant_en_stock,
+                        b.cant_archivo,
+                        b.cant_guarda_temporal,
                         EXISTS(
                             SELECT 1 FROM cfg_gestion_metas cfg
-                            WHERE TRIM(UPPER(cfg.trata_reporte)) = TRIM(UPPER(e.trata))
-                               OR TRIM(UPPER(e.trata)) = ANY(
+                            WHERE TRIM(UPPER(cfg.trata_reporte)) = b.trata
+                               OR b.trata = ANY(
                                     SELECT TRIM(UPPER(t)) FROM unnest(cfg.tratas_incluidas) t
                                )
                         ) AS alta_en_tablero
-                    FROM mvw_expedientes_tratas_secgdu e
-                    WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
-                    GROUP BY TRIM(e.trata)
-                    ORDER BY TRIM(e.trata)
+                    FROM base b
+                    ORDER BY b.trata
                 """)
                 rows = conn.execute(base_sql).fetchall()
+
 
             # 2. Obtener la configuración de gerencias para calcular egresados
             #    Solo para tratas que están "dadas de alta" en cfg_gestion_metas
@@ -4003,50 +4014,93 @@ async def get_universo_tratas(current_user: User = Depends(get_current_user)):
                             "type": "incluida"
                         })
 
-            # 3. Calcular egresados para cada trata con configuración
-            #    Agrupamos por (trata, gerencia) para evitar duplicados
+            # 3. Calcular stock, subsanaciones y egresados usando el mismo approach que landing.py
+            #    Iteramos TRAMITES_CONFIG (mismas gerencias, mismas tratas_oficiales) para
+            #    garantizar que los totales coincidan exactamente con el landing.
+            from config import TRAMITES_CONFIG
+
             egresados_por_trata: dict = {}
+            subsanaciones_por_trata: dict = {}
+            stock_tablero_por_trata: dict = {}
+            # stock y subs globales de la gerencia (para el KPI total del landing)
+            _stock_global = 0
+            _subs_global  = 0
 
-            # Recolectar pares únicos (trata, gerencia) que necesitamos calcular
-            needed: dict = {}  # gerencia → set of tratas
-            for trata_key, gerencias in trata_to_gerencias.items():
-                for g_info in gerencias:
-                    ger = g_info["gerencia"]
-                    if ger not in needed:
-                        needed[ger] = set()
-                    needed[ger].add(trata_key)
-
-            # Para cada gerencia configurada, consultar sus vistas de egresos
-            GERENCIAS_CON_EGRESOS = [
-                "catastro", "instalaciones", "conforme", "regularizacion",
-                "contable", "etapa_proyecto", "aviso_obra",
-                "morfologia", "aph", "usos"
-            ]
-
-            for ger, tratas_set in needed.items():
-                # Normalizar alias de gerencia
-                ger_clean = ger.lower()
-                if ger_clean == "conforme":
-                    ger_clean = "regularizacion"
-
-                if ger_clean not in GERENCIAS_CON_EGRESOS:
+            for g, g_cfg in TRAMITES_CONFIG.items():
+                g_clean = g.lower()
+                tratas_oficiales = [t for t in g_cfg.keys() if t != 'INTERVENCIONES']
+                if not tratas_oficiales:
                     continue
 
+                # Egresos efectivos (por trata, para la columna Egresados)
                 try:
-                    # Consultar mv_{gerencia}_gedos_egreso para egresos efectivos
-                    egr_sql = text(f"""
+                    egr_rows = conn.execute(text(f"""
                         SELECT TRIM(UPPER(trata)) as trata, COUNT(*) as total
-                        FROM mv_{ger_clean}_gedos_egreso
+                        FROM mv_{g_clean}_gedos_egreso
+                        WHERE TRIM(UPPER(trata)) = ANY(:tratas)
                         GROUP BY TRIM(UPPER(trata))
-                    """)
-                    egr_rows = conn.execute(egr_sql).fetchall()
+                    """), {"tratas": [t.upper() for t in tratas_oficiales]}).fetchall()
                     for row in egr_rows:
                         t = (row[0] or "").strip().upper()
-                        cnt = int(row[1] or 0)
-                        if t in tratas_set:
-                            egresados_por_trata[t] = egresados_por_trata.get(t, 0) + cnt
+                        egresados_por_trata[t] = egresados_por_trata.get(t, 0) + int(row[1] or 0)
                 except Exception as e:
-                    logger.warning(f"Error leyendo egresos de {ger_clean}: {e}")
+                    logger.warning(f"Error leyendo egresos de {g_clean}: {e}")
+
+                # Stock propio por trata (igual que landing: WHERE trata = ANY(:tratas))
+                try:
+                    stock_rows = conn.execute(text(f"""
+                        SELECT TRIM(UPPER(trata)) as trata, COUNT(*) as total
+                        FROM mv_{g_clean}_stock_propio
+                        WHERE TRIM(UPPER(trata)) = ANY(:tratas)
+                        GROUP BY TRIM(UPPER(trata))
+                    """), {"tratas": [t.upper() for t in tratas_oficiales]}).fetchall()
+                    for row in stock_rows:
+                        t = (row[0] or "").strip().upper()
+                        cnt = int(row[1] or 0)
+                        stock_tablero_por_trata[t] = stock_tablero_por_trata.get(t, 0) + cnt
+                        _stock_global += cnt
+                except Exception as e:
+                    logger.warning(f"Error leyendo stock_propio de {g_clean}: {e}")
+
+                # Intervenciones en stock (igual que landing: sin filtro de trata)
+                try:
+                    r_int = int(conn.execute(text(f"SELECT COUNT(*) FROM mv_{g_clean}_intervenciones_stock")).scalar() or 0)
+                    # Las intervenciones se acumulan en el primer trata_reporte de esta gerencia
+                    primer_trata = next(iter([t for t in tratas_oficiales]), None)
+                    if primer_trata:
+                        t_key = primer_trata.strip().upper()
+                        stock_tablero_por_trata[t_key] = stock_tablero_por_trata.get(t_key, 0) + r_int
+                        _stock_global += r_int
+                except Exception as e:
+                    logger.warning(f"Error leyendo intervenciones_stock de {g_clean}: {e}")
+
+                # Subsanaciones por trata
+                try:
+                    subs_rows = conn.execute(text(f"""
+                        SELECT TRIM(UPPER(trata)) as trata, COUNT(*) as total
+                        FROM mv_{g_clean}_subsanaciones
+                        WHERE TRIM(UPPER(trata)) = ANY(:tratas)
+                        GROUP BY TRIM(UPPER(trata))
+                    """), {"tratas": [t.upper() for t in tratas_oficiales]}).fetchall()
+                    for row in subs_rows:
+                        t = (row[0] or "").strip().upper()
+                        cnt = int(row[1] or 0)
+                        subsanaciones_por_trata[t] = subsanaciones_por_trata.get(t, 0) + cnt
+                        _subs_global += cnt
+                except Exception as e:
+                    logger.warning(f"Error leyendo subsanaciones de {g_clean}: {e}")
+
+                # Intervenciones en subsanación
+                try:
+                    r_int = int(conn.execute(text(f"SELECT COUNT(*) FROM mv_{g_clean}_intervenciones_subs")).scalar() or 0)
+                    primer_trata = next(iter([t for t in tratas_oficiales]), None)
+                    if primer_trata:
+                        t_key = primer_trata.strip().upper()
+                        subsanaciones_por_trata[t_key] = subsanaciones_por_trata.get(t_key, 0) + r_int
+                        _subs_global += r_int
+                except Exception as e:
+                    logger.warning(f"Error leyendo intervenciones_subs de {g_clean}: {e}")
+
 
             # 4. Ensamblar respuesta final
             resultado = []
@@ -4054,23 +4108,37 @@ async def get_universo_tratas(current_user: User = Depends(get_current_user)):
                 r = row._mapping
                 trata = (r["trata"] or "").strip().upper()
                 alta = bool(r["alta_en_tablero"])
+                en_tablero = alta and trata in trata_to_gerencias
 
+                # cant_expedientes siempre desde SADE (fuente de verdad del universo)
+                cant_exp  = int(r["cant_expedientes"] or 0)
+                cant_arch = int(r["cant_archivo"] or 0)
+                cant_grd  = int(r["cant_guarda_temporal"] or 0)
+
+                # Egresados históricos (solo para tratas en tablero)
                 egresados = None
-                if alta and trata in egresados_por_trata:
-                    egresados = egresados_por_trata[trata]
-                elif alta and trata in trata_to_gerencias:
-                    # Está configurada pero sin egresos aún → mostrar 0
-                    egresados = 0
+                if en_tablero:
+                    egresados = egresados_por_trata.get(trata, 0)
+
+                if en_tablero:
+                    # Tratas EN TABLERO: stock y subs desde vistas de gerencia
+                    cant_stock = stock_tablero_por_trata.get(trata, 0)
+                    cant_subs  = subsanaciones_por_trata.get(trata, 0)
+                else:
+                    # Tratas FUERA DE TABLERO: todo desde SADE
+                    cant_stock = int(r["cant_en_stock"] or 0)
+                    cant_subs  = None
 
                 resultado.append({
                     "trata": trata,
                     "descripcion_trata": r["descripcion_trata"] or "",
                     "alta_en_tablero": alta,
-                    "cant_expedientes": int(r["cant_expedientes"] or 0),
+                    "cant_expedientes": cant_exp,
                     "egresados": egresados,
-                    "cant_en_stock": int(r["cant_en_stock"] or 0),
-                    "cant_archivo": int(r["cant_archivo"] or 0),
-                    "cant_guarda_temporal": int(r["cant_guarda_temporal"] or 0),
+                    "cant_en_stock": cant_stock,
+                    "cant_archivo": cant_arch,
+                    "cant_guarda_temporal": cant_grd,
+                    "cant_subsanacion_abierta": cant_subs,
                 })
 
             return resultado

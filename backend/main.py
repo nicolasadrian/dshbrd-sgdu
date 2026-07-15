@@ -400,43 +400,57 @@ try:
                   AND NOT (permissions ? 'universo_tratas')
             """))
 
-        # Crear vista materializada mvw_universo_tratas si no existe
+        # Vista materializada mvw_universo_tratas: se dropea y recrea en cada startup
+        # para garantizar que siempre usa la definición actualizada.
         try:
+            conn.execute(text("DROP MATERIALIZED VIEW IF EXISTS mvw_universo_tratas CASCADE"))
             conn.execute(text("""
-                CREATE MATERIALIZED VIEW IF NOT EXISTS mvw_universo_tratas AS
+                CREATE MATERIALIZED VIEW mvw_universo_tratas AS
+                WITH base AS (
+                    SELECT
+                        TRIM(e.trata) AS trata,
+                        MAX(e.descripcion_trata) AS descripcion_trata,
+                        COUNT(DISTINCT e.id_expediente) AS cant_expedientes,
+                        COUNT(DISTINCT CASE
+                            WHEN UPPER(e.estado) NOT LIKE '%ARCHIVO%'
+                             AND UPPER(e.estado) NOT LIKE '%GUARDA%'
+                            THEN e.id_expediente END) AS cant_en_stock,
+                        COUNT(DISTINCT CASE
+                            WHEN UPPER(e.estado) LIKE '%ARCHIVO%'
+                            THEN e.id_expediente END) AS cant_archivo,
+                        COUNT(DISTINCT CASE
+                            WHEN UPPER(e.estado) LIKE '%GUARDA%'
+                            THEN e.id_expediente END) AS cant_guarda_temporal
+                    FROM mvw_expedientes_tratas_secgdu e
+                    WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
+                    GROUP BY TRIM(e.trata)
+                )
                 SELECT
-                    TRIM(e.trata) AS trata,
-                    MAX(e.descripcion_trata) AS descripcion_trata,
-                    COUNT(DISTINCT e.id_expediente) AS cant_expedientes,
-                    COUNT(DISTINCT CASE
-                        WHEN UPPER(e.estado) NOT LIKE '%ARCHIVO%'
-                         AND UPPER(e.estado) NOT LIKE '%GUARDA%'
-                        THEN e.id_expediente END) AS cant_en_stock,
-                    COUNT(DISTINCT CASE
-                        WHEN UPPER(e.estado) LIKE '%ARCHIVO%'
-                        THEN e.id_expediente END) AS cant_archivo,
-                    COUNT(DISTINCT CASE
-                        WHEN UPPER(e.estado) LIKE '%GUARDA%'
-                        THEN e.id_expediente END) AS cant_guarda_temporal,
+                    b.trata,
+                    b.descripcion_trata,
+                    b.cant_expedientes,
+                    b.cant_en_stock,
+                    b.cant_archivo,
+                    b.cant_guarda_temporal,
                     EXISTS(
                         SELECT 1 FROM cfg_gestion_metas cfg
-                        WHERE TRIM(UPPER(cfg.trata_reporte)) = TRIM(UPPER(e.trata))
-                           OR TRIM(UPPER(e.trata)) = ANY(
+                        WHERE TRIM(UPPER(cfg.trata_reporte)) = b.trata
+                           OR b.trata = ANY(
                                 SELECT TRIM(UPPER(t)) FROM unnest(cfg.tratas_incluidas) t
                            )
                     ) AS alta_en_tablero
-                FROM mvw_expedientes_tratas_secgdu e
-                WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
-                GROUP BY TRIM(e.trata)
+                FROM base b
                 WITH DATA
             """))
             conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_mvw_universo_tratas_trata
+                CREATE INDEX idx_mvw_universo_tratas_trata
                 ON mvw_universo_tratas (trata)
             """))
-            logger.info("Vista materializada mvw_universo_tratas creada correctamente")
+            logger.info("Vista materializada mvw_universo_tratas creada/actualizada correctamente")
         except Exception as e_mv:
-            logger.warning(f"mvw_universo_tratas ya existe o error al crear: {e_mv}")
+            logger.warning(f"Error al recrear mvw_universo_tratas: {e_mv}")
+
+
 
 except Exception as e:
     logger.error(f"Error executing database migrations/initialization DDLs: {e}")

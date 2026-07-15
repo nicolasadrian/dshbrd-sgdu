@@ -1,21 +1,25 @@
 @echo off
 echo ==========================================
-echo REINICIANDO TODO EL SISTEMA SGDU
+echo INICIANDO TABLERO SGDU - AMBIENTE LOCAL
 echo ==========================================
 
-echo [1/3] Finalizando procesos de Python (Backend)...
-taskkill /F /IM python* /T 2>nul
+echo [1/3] Deteniendo procesos previos...
+taskkill /F /IM python.exe /T 2>nul
+taskkill /F /IM node.exe /T 2>nul
+timeout /t 2 /nobreak >nul
 
-echo [2/3] Liberando bloqueos en la base de datos...
-python scratch\kill_db_sessions.py
+echo [2/3] Iniciando Backend (puerto 8000)...
+start "SGDU BACKEND" cmd /k "cd /d %~dp0 && python backend\main.py"
 
-echo [3/4] Iniciando Backend...
-start "SGDU BACKEND" cmd /k "python backend\main.py"
+timeout /t 3 /nobreak >nul
 
-echo [4/4] Iniciando Frontend...
-start "SGDU FRONTEND" cmd /k "cd frontend && npm run dev"
+echo [3/3] Iniciando Frontend (puerto 3000)...
+start "SGDU FRONTEND" cmd /k "cd /d %~dp0frontend && npm run dev"
 
+echo.
 echo ==========================================
-echo REINICIO COMPLETADO. Abra http://localhost:3000 en su navegador.
+echo Servicios iniciados:
+echo   Backend  -^> http://localhost:8000/api/health
+echo   Frontend -^> http://localhost:3000
 echo ==========================================
 pause
