@@ -1,11 +1,5 @@
 {
-  "cleanUrls": true,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build"
-    }
-  ],
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/:match*",
