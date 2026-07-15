@@ -3644,6 +3644,9 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                     t_egr_p = egr_ef_prev.get(t_upper, 0) + egr_ne_prev.get(t_upper, 0)
                     t_egr_y = egr_ef_yoy.get(t_upper, 0) + egr_ne_yoy.get(t_upper, 0)
                     if t_upper == 'INTERVENCIONES':
+                        t_ing = 0
+                        t_ing_p = 0
+                        t_ing_y = 0
                         t_egr = 0
                         t_egr_p = 0
                         t_egr_y = 0
