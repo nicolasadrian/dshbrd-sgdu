@@ -2966,7 +2966,7 @@
 
             <!-- Cards Grid -->
             <div class="summary-cards-container"
-                style="grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+                style="grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 2rem;">
                 <!-- Ingresos -->
                 <div class="summary-card" id="cierre-card-ingresos"
                     style="align-items: flex-start; padding: 1.25rem 1.5rem; justify-content: space-between; min-height: 185px;">
@@ -3008,19 +3008,28 @@
                     </div>
                 </div>
                 <!-- Stock -->
-                <div class="summary-card" id="cierre-card-stock" style="align-items: flex-start; padding: 1.5rem;">
+                <div class="summary-card" id="cierre-card-stock" style="align-items: flex-start; padding: 1.25rem;">
                     <span class="summary-label">Stock al Cierre</span>
                     <span id="cierre-val-stock" class="summary-value"
-                        style="color: #f59e0b; font-size: 2.2rem; font-weight: 800;">0</span>
+                        style="color: #f59e0b; font-size: 1.9rem; font-weight: 800;">0</span>
                     <span id="cierre-delta-stock" class="cierre-delta-indicator">--</span>
                 </div>
                 <!-- Subsanaciones -->
                 <div class="summary-card" id="cierre-card-subsanaciones"
-                    style="align-items: flex-start; padding: 1.5rem;">
+                    style="align-items: flex-start; padding: 1.25rem;">
                     <span class="summary-label">Subsanaciones</span>
                     <span id="cierre-val-subsanaciones" class="summary-value"
-                        style="color: #6366f1; font-size: 2.2rem; font-weight: 800;">0</span>
+                        style="color: #6366f1; font-size: 1.9rem; font-weight: 800;">0</span>
                     <span id="cierre-delta-subsanaciones" class="cierre-delta-indicator">--</span>
+                </div>
+                <!-- Stock Total = Stock + Subsanaciones -->
+                <div class="summary-card" id="cierre-card-stock-total"
+                    style="align-items: flex-start; padding: 1.25rem; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 1.5px solid #c4b5fd;">
+                    <span class="summary-label" style="color: #7c3aed; font-weight: 700;">Stock Total</span>
+                    <span id="cierre-val-stock-total" class="summary-value"
+                        style="color: #7c3aed; font-size: 1.9rem; font-weight: 800;">0</span>
+                    <span id="cierre-delta-stock-total" class="cierre-delta-indicator">--</span>
+                    <span style="font-size: 0.7rem; color: #8b5cf6; margin-top: 0.35rem;">Stock + Subsanaciones</span>
                 </div>
             </div>
 

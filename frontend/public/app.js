@@ -4654,6 +4654,11 @@ async function loadCierreMesData(mes) {
         renderKpiAndDelta('cierre-val-stock', 'cierre-delta-stock', data.totales.stock, data.totales.stock_prev, true);
         renderKpiAndDelta('cierre-val-subsanaciones', 'cierre-delta-subsanaciones', data.totales.subsanaciones, data.totales.subsanaciones_prev, true);
 
+        // Stock Total = Stock al Cierre + Subsanaciones
+        const stockTotal     = (data.totales.stock || 0) + (data.totales.subsanaciones || 0);
+        const stockTotalPrev = (data.totales.stock_prev || 0) + (data.totales.subsanaciones_prev || 0);
+        renderKpiAndDelta('cierre-val-stock-total', 'cierre-delta-stock-total', stockTotal, stockTotalPrev, true);
+
         // Helper para resolver la clase CSS del semáforo por nivel de cumplimiento
         function getSemaforoClass(pctVal) {
             if (pctVal < 25) return 'meta-badge-critico';      // 0 - 24%
