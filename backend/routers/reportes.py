@@ -966,6 +966,15 @@ async def get_reporte_familia(
             "MDUG4003A": "etapa_proyecto"
         }
 
+        # Calcular último mes completo dinámicamente
+        _now = datetime.now()
+        _y, _m = _now.year, _now.month
+        _m -= 1
+        if _m == 0:
+            _m = 12
+            _y -= 1
+        last_complete_month_date = f"{_y}-{str(_m).zfill(2)}-01"
+
         aggregated_history = {}
         total_ingresos_promedio = 0
         total_egresos_totales_plan = 0
@@ -981,13 +990,23 @@ async def get_reporte_familia(
                     meta_res = conn.execute(text(f"""
                         SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_promedio, 0) 
                         FROM mv_plan_metas_{gerencia_clean} 
-                        WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
-                    """), {"t": t_upper}).fetchone()
-                    if meta_res:
+                        WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
+                    """), {"t": t_upper, "mes": last_complete_month_date}).fetchone()
+
+                    if meta_res and float(meta_res[0]) > 0:
                         total_egresos_totales_plan += float(meta_res[0])
                         total_ingresos_promedio += float(meta_res[1])
+                    else:
+                        # Fallback: mediana de últimos 6 meses reales
+                        fallback = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, [t_upper])
+                        total_egresos_totales_plan += fallback.get(t_upper, 0)
                 except Exception as meta_err:
                     logger.warning(f"Error fetching plan metas for {t_upper} in {gerencia_clean}: {meta_err}")
+                    try:
+                        fallback = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, [t_upper])
+                        total_egresos_totales_plan += fallback.get(t_upper, 0)
+                    except Exception:
+                        pass
 
                 try:
                     sql_hist = f"""
