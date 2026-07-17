@@ -1242,6 +1242,12 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         const chartCanvas = document.getElementById('trata-chart');
         if (!chartCanvas) return;
 
+        // Destruir cualquier instancia previa registrada en este canvas (race condition)
+        const existingChart = Chart.getChart(chartCanvas);
+        if (existingChart) existingChart.destroy();
+        if (currentChart && currentChart !== existingChart) { currentChart.destroy(); }
+        currentChart = null;
+
         const ctx = chartCanvas.getContext('2d');
         currentChart = new Chart(ctx, {
             type: 'bar',

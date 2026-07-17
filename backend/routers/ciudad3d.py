@@ -2526,15 +2526,17 @@ async def download_manzana_dxf(
                 if not m_irregular.empty:
                     m_irregular['geometry'] = m_irregular.geometry.apply(polygon_to_boundary)
                     m_layers['Irregular'] = m_irregular
-                    
             m_smps = []
             if not gdf_parcelas.empty:
                 m_smps = gdf_parcelas['smp'].dropna().unique().tolist()
                 
             if m_smps:
-                smps_str = ",".join([f"'{s}'" for s in m_smps])
-                
-                query_bm = f"SELECT geom, smp FROM mdr_banda_minima WHERE smp IN ({smps_str}) AND geom IS NOT NULL"
+                query_bm = f"""
+                    SELECT bm.geom, bm.smp 
+                    FROM mdr_banda_minima bm 
+                    INNER JOIN cur_parcelas_ok p ON bm.smp = p.smp 
+                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND bm.geom IS NOT NULL
+                """
                 try:
                     gdf_bm = gpd.read_postgis(query_bm, con=conn, geom_col="geom", crs="EPSG:22186")
                     if not gdf_bm.empty:
@@ -2543,7 +2545,12 @@ async def download_manzana_dxf(
                 except Exception:
                     pass
                     
-                query_ldf = f"SELECT geom, smp FROM mdr_ldf_parc WHERE smp IN ({smps_str}) AND geom IS NOT NULL"
+                query_ldf = f"""
+                    SELECT ldf.geom, ldf.smp 
+                    FROM mdr_ldf_parc ldf 
+                    INNER JOIN cur_parcelas_ok p ON ldf.smp = p.smp 
+                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND ldf.geom IS NOT NULL
+                """
                 try:
                     gdf_ldf = gpd.read_postgis(query_ldf, con=conn, geom_col="geom", crs="EPSG:22186")
                     if not gdf_ldf.empty:
@@ -2551,7 +2558,12 @@ async def download_manzana_dxf(
                 except Exception:
                     pass
                     
-                query_tc = f"SELECT geometry AS geom, smp FROM mdr_tejidoconsolidado WHERE smp IN ({smps_str}) AND geometry IS NOT NULL"
+                query_tc = f"""
+                    SELECT tc.geometry AS geom, tc.smp 
+                    FROM mdr_tejidoconsolidado tc 
+                    INNER JOIN cur_parcelas_ok p ON tc.smp = p.smp 
+                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND tc.geometry IS NOT NULL
+                """
                 try:
                     gdf_consolidado = gpd.read_postgis(query_tc, con=conn, geom_col="geom", crs="EPSG:22186")
                     if not gdf_consolidado.empty:
@@ -2559,7 +2571,12 @@ async def download_manzana_dxf(
                 except Exception:
                     pass
                     
-                query_tpi = f"SELECT geometry AS geom, smp FROM mdr_tejidoparairregular WHERE smp IN ({smps_str}) AND geometry IS NOT NULL"
+                query_tpi = f"""
+                    SELECT tpi.geometry AS geom, tpi.smp 
+                    FROM mdr_tejidoparairregular tpi 
+                    INNER JOIN cur_parcelas_ok p ON tpi.smp = p.smp 
+                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND tpi.geometry IS NOT NULL
+                """
                 try:
                     gdf_tejido_irreg = gpd.read_postgis(query_tpi, con=conn, geom_col="geom", crs="EPSG:22186")
                     if not gdf_tejido_irreg.empty:

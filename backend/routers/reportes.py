@@ -1590,7 +1590,7 @@ def get_analyst_stock_detail_data(analyst: str) -> Dict[str, Any]:
             month_dist = [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())]
             
             expedientes = []
-            for r in rows[:1000]:
+            for r in rows:
                 expedientes.append({
                     "id_expediente": r.get("id_expediente"),
                     "expediente": r.get("expediente"),
@@ -2014,16 +2014,18 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
     try:
         with engine.connect() as conn:
             if trata == 'INTERVENCIONES':
-                nombre_trata = "Intervenciones"
-            else:
-                trata_info = conn.execute(text("""
-                    SELECT COALESCE(
-                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
-                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
-                        (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = :t LIMIT 1)
-                    )
-                """), {"t": trata, "g": gerencia_clean}).fetchone()
-                nombre_trata = trata_info[0] if trata_info else trata
+                return {"trata": "INTERVENCIONES", "nombre_trata": "Intervenciones",
+                        "expedientes": [], "analyst_data": {}, "propio_month_counts": {},
+                        "subs_month_counts": {}, "totales": {"propio": 0, "subs": 0}}
+            
+            trata_info = conn.execute(text("""
+                SELECT COALESCE(
+                    (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
+                    (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                    (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = :t LIMIT 1)
+                )
+            """), {"t": trata, "g": gerencia_clean}).fetchone()
+            nombre_trata = trata_info[0] if trata_info else trata
 
             if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
                 trata_codes = list(TRAMITES_CONFIG[gerencia_clean].keys())
@@ -2207,7 +2209,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         "dias_en_gerencia": r.get("dias_en_gerencia") if r.get("dias_en_gerencia") is not None else 0,
                         "categoria": "STOCK_SUBS" if r.get("is_subs") == 1 else "STOCK_PROPIO"
                     } 
-                    for r in rows[:1000]
+                    for r in rows
                 ]
             }
     except Exception as e:
@@ -3146,7 +3148,7 @@ async def get_tramite_detalle_periodo(
                                 WHERE to_char(t.fecha_ultimo_movimiento, 'YYYY-MM') = :periodo
                                 ORDER BY 5 DESC
                             """
-                        params["tratas_oficiales"] = trata_codes
+                        params["tratas_oficiales"] = tratas_oficiales
                     elif metrica == 'STOCK_PROPIO':
                         sql = f"""
                             SELECT 
@@ -3210,11 +3212,10 @@ async def get_tramite_detalle_periodo(
                             ORDER BY "DIAS EN PODER" DESC
                         """
                     elif metrica == 'STOCK_TOTAL':
-                        stock_table = f"mv_{gerencia_clean}_stock_propio"
-                        subs_table = f"mv_{gerencia_clean}_subsanaciones"
                         sql = f"""
                             SELECT 
                                 'STOCK PROPIO' AS "TIPO STOCK",
+                                'OFICIAL' AS "TIPO TRAMITE",
                                 t.expediente AS "EXPEDIENTE", 
                                 t.trata AS "TRAMITE", 
                                 to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
@@ -3223,11 +3224,12 @@ async def get_tramite_detalle_periodo(
                                 t.analista AS "ANALISTA",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM {stock_table} t
+                            FROM mv_{gerencia_clean}_stock_propio t
                             LEFT JOIN vw_expedientes_maestro e ON e.id_expediente = t.id_expediente
                             UNION ALL
                             SELECT 
                                 'SUBSANACION' AS "TIPO STOCK",
+                                'OFICIAL' AS "TIPO TRAMITE",
                                 t.expediente AS "EXPEDIENTE", 
                                 t.trata AS "TRAMITE", 
                                 to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
@@ -3236,9 +3238,37 @@ async def get_tramite_detalle_periodo(
                                 t.analista AS "ANALISTA",
                                 e.descripcion_trata AS "DETALLE TRATA", 
                                 e.estado AS "ESTADO"
-                            FROM {subs_table} t
+                            FROM mv_{gerencia_clean}_subsanaciones t
                             LEFT JOIN vw_expedientes_maestro e ON e.id_expediente = t.id_expediente
-                            ORDER BY 6 DESC
+                            UNION ALL
+                            SELECT 
+                                'STOCK PROPIO' AS "TIPO STOCK",
+                                'INTERVENCION' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                                to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                                t.dias_en_poder_actual AS "DIAS EN PODER", 
+                                t.analista AS "ANALISTA",
+                                t.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_intervenciones_stock t
+                            LEFT JOIN vw_expedientes_maestro e ON e.id_expediente = t.id_expediente
+                            UNION ALL
+                            SELECT 
+                                'SUBSANACION' AS "TIPO STOCK",
+                                'INTERVENCION' AS "TIPO TRAMITE",
+                                t.expediente AS "EXPEDIENTE", 
+                                t.trata AS "TRAMITE", 
+                                to_char(t.fecha_primer_ingreso_gerencia, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA INGRESO", 
+                                to_char(t.fecha_recepcion_analista, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA RECEPCION ANALISTA", 
+                                t.dias_en_poder_actual AS "DIAS EN PODER", 
+                                t.analista AS "ANALISTA",
+                                t.descripcion_trata AS "DETALLE TRATA", 
+                                e.estado AS "ESTADO"
+                            FROM mv_{gerencia_clean}_intervenciones_subs t
+                            LEFT JOIN vw_expedientes_maestro e ON e.id_expediente = t.id_expediente
+                            ORDER BY 7 DESC
                         """
                 else:
                     if metrica == 'ING':
@@ -3427,8 +3457,8 @@ async def get_tramite_detalle_periodo(
                             ORDER BY t.dias_en_poder_actual DESC
                         """
                     elif metrica == 'STOCK_TOTAL':
-                        stock_table = f"mv_{gerencia_clean}_stock_propio"
-                        subs_table = f"mv_{gerencia_clean}_subsanaciones"
+                        stock_table = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
+                        subs_table = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
                         sql = f"""
                             SELECT 
                                 'STOCK PROPIO' AS "TIPO STOCK",
