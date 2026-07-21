@@ -316,6 +316,8 @@ function showView(viewId, updateHash = true) {
             hasPermission = !!(currentUser.permissions[viewId] || currentUser.permissions['seguimiento']);
         } else if (viewId === 'analytics_estadistica') {
             hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo']);
+        } else if (viewId === 'analytics_m2_permisados') {
+            hasPermission = !!(currentUser.permissions['analytics_datasets'] || currentUser.permissions['analytics_estadistica']);
         } else if (viewId === 'asignados-mi') {
             hasPermission = !!currentUser.permissions['asignados-mi'];
         } else if (dgrocViews.includes(viewId)) {
@@ -376,6 +378,10 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'analytics_datasets') {
         loadAnalyticsDatasets();
+    }
+
+    if (viewId === 'analytics_m2_permisados') {
+        loadM2Permisados(true);
     }
 
     if (viewId === 'seguimiento') {
@@ -9839,6 +9845,569 @@ async function downloadLeyBlanqueoExcel() {
     }
 }
 
+// --- M2 PERMISADOS ---
+let m2CurrentPage = 1;
+let m2SearchDebounceTimer = null;
+let m2BarrioChart = null;
+let m2ComunaChart = null;
+let m2EvolucionChart = null;
+let m2Map = null;
+let m2Markers = [];
+let m2MapPoints = [];
+
+async function loadM2Permisados(resetPage = false) {
+    if (resetPage) m2CurrentPage = 1;
+
+    const tableBody = document.getElementById('m2-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b;">Cargando registros...</p></td></tr>';
+
+    const searchVal = document.getElementById('m2-filter-search').value.trim();
+    const anioVal = document.getElementById('m2-filter-anio').value;
+    const comunaVal = document.getElementById('m2-filter-comuna').value;
+    const barrioVal = document.getElementById('m2-filter-barrio').value;
+    const obraVal = document.getElementById('m2-filter-obra').value;
+    const tareaVal = document.getElementById('m2-filter-tarea').value;
+    const limitVal = document.getElementById('m2-table-limit').value;
+
+    const queryParams = new URLSearchParams({
+        page: m2CurrentPage,
+        limit: limitVal
+    });
+
+    if (searchVal) queryParams.append('search', searchVal);
+    if (anioVal) queryParams.append('anio', anioVal);
+    if (comunaVal) queryParams.append('comuna', comunaVal);
+    if (barrioVal) queryParams.append('barrio', barrioVal);
+    if (obraVal) queryParams.append('tipo_obra', obraVal);
+    if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+
+    try {
+        const res = await def_fetch(`${API_BASE}/analytics/m2-permisados?${queryParams}`);
+        if (!res || !res.ok) throw new Error("Error fetching M2 Permisados");
+        const data = await res.json();
+
+        // 1. KPI Cards
+        document.getElementById('m2-kpi-expedientes').innerText = data.total_records.toLocaleString('es-AR');
+        document.getElementById('m2-kpi-construir').innerText = `${Math.round(data.summary.total_construir).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-kpi-demoler').innerText = `${Math.round(data.summary.total_demoler).toLocaleString('es-AR')} m²`;
+
+        // 2. Populate filters
+        populateM2YearDropdown('m2-filter-anio', data.filters.anios, anioVal);
+        populateM2FilterDropdown('m2-filter-comuna', data.filters.comunas, comunaVal, 'Comuna');
+        populateM2FilterDropdown('m2-filter-barrio', data.filters.barrios, barrioVal, 'Barrio');
+        populateM2FilterDropdown('m2-filter-obra', data.filters.tipos_obra, obraVal, 'Tipo Obra');
+        populateM2FilterDropdown('m2-filter-tarea', data.filters.tipos_tarea, tareaVal, 'Tipo Tarea');
+
+        // 3. Render Table
+        if (data.records.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron registros.</td></tr>';
+        } else {
+            tableBody.innerHTML = data.records.map(row => {
+                const docPlano = row.plano || '-';
+                const docEncomienda = row.encomienda_profesional || '-';
+                const docPago = row.comprobante_pagos_derechos || '-';
+                const docDominio = row.informe_dominio || '-';
+                
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 12px 16px; font-weight:700; color:#1e293b; font-family:'Outfit';">
+                            ${row.expediente}<br>
+                            <span style="font-size:0.75rem; color:#94a3b8; font-weight:500;">ID: ${row.id_expediente}</span>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight:600; color:#475569;">${row.direccion || 'Sin dirección'}</div>
+                            <span style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600;">SMP: ${row.smp}</span>
+                            ${row.es_uf ? '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:4px;">UF</span>' : ''}
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            ${row.comuna || '-'}<br>
+                            <span style="font-size:0.78rem; color:#64748b; font-weight:600;">${row.barrio || 'Sin barrio'}</span>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight:600; color:#475569; font-size:0.82rem;">Uso: ${row.uso_particularizado || '-'}</div>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:500;">Obra: ${row.tipo_obra || '-'}</span><br>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:500;">Tarea: ${row.tipo_tarea || '-'}</span>
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:700; color:#16a34a;">
+                            ${row.sup_construir ? Math.round(row.sup_construir).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:700; color:#dc2626;">
+                            ${row.sup_demoler ? Math.round(row.sup_demoler).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <strong>${row.apellido_profesional || ''}, ${row.nombre_profesional || ''}</strong><br>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Matrícula: ${row.matricula_profesional || '-'}</span>
+                        </td>
+                        <td style="padding: 12px 16px; font-size:0.75rem; color:#475569; line-height:1.4;">
+                            <div><strong>Plano:</strong> ${docPlano}</div>
+                            <div><strong>Encomienda:</strong> ${docEncomienda}</div>
+                            <div><strong>Pago:</strong> ${docPago}</div>
+                            <div><strong>Dominio:</strong> ${docDominio}</div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 4. Pagination footer update
+        const fromRow = data.records.length > 0 ? (data.page - 1) * data.limit + 1 : 0;
+        const toRow = (data.page - 1) * data.limit + data.records.length;
+        document.getElementById('m2-pagination-info').innerText = `Mostrando ${fromRow} - ${toRow} de ${data.total_records.toLocaleString('es-AR')} registros`;
+        document.getElementById('m2-pg-current').innerText = data.page;
+
+        document.getElementById('m2-pg-prev').disabled = (data.page === 1);
+        document.getElementById('m2-pg-next').disabled = (toRow >= data.total_records);
+
+        // 5. Render Charts
+        renderM2Charts(data.charts);
+
+        // 6. Guardar puntos y renderizar mapa solo si el panel está visible
+        m2MapPoints = data.map_points || data.records || [];
+        const mapPanel = document.getElementById('m2-panel-map');
+        if (mapPanel && mapPanel.style.display !== 'none') {
+            renderM2Map(m2MapPoints);
+        }
+
+    } catch (err) {
+        console.error("Error loading M2 Permisados:", err);
+        tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef4444; padding: 2rem;">Error al conectar con el servidor.</td></tr>';
+    }
+}
+
+function renderM2Map(records) {
+    const mapContainer = document.getElementById('m2-map');
+    if (!mapContainer) return;
+
+    // Filtrar puntos válidos dentro de los límites de CABA
+    const validPoints = records.filter(row => 
+        row.x && row.y && !isNaN(row.x) && !isNaN(row.y) &&
+        row.x > -59.0 && row.x < -58.0 && row.y > -35.0 && row.y < -34.0
+    );
+
+    // Actualizar etiqueta del total de puntos georreferenciados
+    const labelEl = document.getElementById('m2-map-total-points');
+    if (labelEl) {
+        labelEl.innerText = `${validPoints.length.toLocaleString('es-AR')} puntos georreferenciados`;
+    }
+
+    // Crear el objeto GeoJSON
+    const geojson = {
+        type: 'FeatureCollection',
+        features: validPoints.map(row => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [row.x, row.y]
+            },
+            properties: {
+                expediente: row.expediente,
+                direccion: row.direccion,
+                smp: row.smp,
+                sup_construir: row.sup_construir || 0,
+                tipo_obra: row.tipo_obra,
+                tipo_tarea: row.tipo_tarea,
+                apellido_profesional: row.apellido_profesional || '',
+                nombre_profesional: row.nombre_profesional || ''
+            }
+        }))
+    };
+
+    const fitToData = () => {
+        if (validPoints.length > 0) {
+            const bounds = new maplibregl.LngLatBounds();
+            validPoints.forEach(p => bounds.extend([p.x, p.y]));
+            m2Map.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+        } else {
+            m2Map.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
+        }
+    };
+
+    if (!m2Map) {
+        m2Map = new maplibregl.Map({
+            container: 'm2-map',
+            style: {
+                version: 8,
+                sources: {
+                    'carto-tiles': {
+                        type: 'raster',
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                            'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                            'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                        ],
+                        tileSize: 256,
+                        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                        maxzoom: 19
+                    }
+                },
+                layers: [{
+                    id: 'carto-basemap',
+                    type: 'raster',
+                    source: 'carto-tiles',
+                    minzoom: 0,
+                    maxzoom: 22
+                }]
+            },
+            center: [-58.4173, -34.6118],
+            zoom: 11.5,
+            attributionControl: false
+        });
+
+        m2Map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+
+        m2Map.on('load', () => {
+            m2Map.addSource('m2-points', {
+                type: 'geojson',
+                data: geojson
+            });
+
+            m2Map.addLayer({
+                id: 'm2-points-layer',
+                type: 'circle',
+                source: 'm2-points',
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': '#009fe3',
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.85
+                }
+            });
+
+            // Evento click para popups
+            m2Map.on('click', 'm2-points-layer', (e) => {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const props = e.features[0].properties;
+
+                const popupContent = `
+                    <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
+                        <h4 style="margin:0 0 5px 0; color:var(--primary); font-weight:700; font-size:0.9rem;">${props.expediente}</h4>
+                        <div style="margin-bottom:3px;"><strong>Dirección:</strong> ${props.direccion || ''}</div>
+                        <div style="margin-bottom:3px;"><strong>SMP:</strong> ${props.smp || ''}</div>
+                        <div style="margin-bottom:3px;"><strong>Superficie Construir:</strong> ${Math.round(props.sup_construir).toLocaleString('es-AR')} m²</div>
+                        <div style="margin-bottom:3px;"><strong>Obra:</strong> ${props.tipo_obra || ''} (${props.tipo_tarea || ''})</div>
+                        <div><strong>Profesional:</strong> ${props.apellido_profesional || ''}, ${props.nombre_profesional || ''}</div>
+                    </div>
+                `;
+
+                new maplibregl.Popup({ offset: 10 })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(m2Map);
+            });
+
+            // Cambiar cursor en hover
+            m2Map.on('mouseenter', 'm2-points-layer', () => {
+                m2Map.getCanvas().style.cursor = 'pointer';
+            });
+            m2Map.on('mouseleave', 'm2-points-layer', () => {
+                m2Map.getCanvas().style.cursor = '';
+            });
+
+            fitToData();
+        });
+    } else {
+        // Si ya existe, actualizamos la fuente GeoJSON directamente
+        if (m2Map.getSource('m2-points')) {
+            m2Map.getSource('m2-points').setData(geojson);
+            fitToData();
+        } else {
+            // Esperar a que el mapa termine de cargar si está en progreso
+            m2Map.once('idle', () => {
+                if (m2Map.getSource('m2-points')) {
+                    m2Map.getSource('m2-points').setData(geojson);
+                    fitToData();
+                }
+            });
+        }
+    }
+}
+
+function switchM2SubTab(tabName) {
+    document.querySelectorAll('.m2-subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottom = 'none';
+        btn.style.fontWeight = '600';
+        btn.style.color = '#64748b';
+    });
+
+    const activeBtn = Array.from(document.querySelectorAll('.m2-subtab-btn')).find(btn => 
+        btn.getAttribute('onclick').includes(tabName)
+    );
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.borderBottom = '3px solid var(--primary)';
+        activeBtn.style.fontWeight = '700';
+        activeBtn.style.color = 'var(--primary-dark)';
+    }
+
+    document.querySelectorAll('.m2-subview-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    const activePanel = document.getElementById(`m2-panel-${tabName}`);
+    if (activePanel) {
+        activePanel.style.display = 'block';
+    }
+
+    // Redimensionar e inicializar el mapa si se activa la pestaña del mapa
+    if (tabName === 'map') {
+        setTimeout(() => {
+            renderM2Map(m2MapPoints);
+            if (m2Map) {
+                m2Map.resize();
+            }
+        }, 150);
+    }
+}
+
+function populateM2YearDropdown(elementId, items, currentVal) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 2) return; // Only populate once
+    
+    let html = '';
+    items.forEach(item => {
+        if (!item) return;
+        const selectedAttr = String(item) === String(currentVal) ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    html += `<option value="" ${!currentVal ? 'selected' : ''}>[Todos los Años]</option>`;
+    select.innerHTML = html;
+}
+
+function populateM2FilterDropdown(elementId, items, currentVal, placeholder) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 1) return; // Only populate once
+    
+    let html = `<option value="">[${placeholder}]</option>`;
+    items.forEach(item => {
+        if (!item) return;
+        const selectedAttr = item === currentVal ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    select.innerHTML = html;
+}
+
+function changeM2Page(delta) {
+    m2CurrentPage += delta;
+    if (m2CurrentPage < 1) m2CurrentPage = 1;
+    loadM2Permisados();
+}
+
+function debounceM2Search() {
+    clearTimeout(m2SearchDebounceTimer);
+    m2SearchDebounceTimer = setTimeout(() => {
+        loadM2Permisados(true);
+    }, 350);
+}
+
+function clearM2Filters() {
+    document.getElementById('m2-filter-search').value = '';
+    document.getElementById('m2-filter-anio').value = '2026';
+    document.getElementById('m2-filter-comuna').value = '';
+    document.getElementById('m2-filter-barrio').value = '';
+    document.getElementById('m2-filter-obra').value = '';
+    document.getElementById('m2-filter-tarea').value = '';
+    loadM2Permisados(true);
+}
+
+function downloadM2PermisadosDataset() {
+    const searchVal = document.getElementById('m2-filter-search').value.trim();
+    const anioVal = document.getElementById('m2-filter-anio').value;
+    const comunaVal = document.getElementById('m2-filter-comuna').value;
+    const barrioVal = document.getElementById('m2-filter-barrio').value;
+    const obraVal = document.getElementById('m2-filter-obra').value;
+    const tareaVal = document.getElementById('m2-filter-tarea').value;
+
+    const queryParams = new URLSearchParams();
+    if (searchVal) queryParams.append('search', searchVal);
+    if (anioVal) queryParams.append('anio', anioVal);
+    if (comunaVal) queryParams.append('comuna', comunaVal);
+    if (barrioVal) queryParams.append('barrio', barrioVal);
+    if (obraVal) queryParams.append('tipo_obra', obraVal);
+    if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+
+    window.open(`${API_BASE}/analytics/m2-permisados/download?${queryParams.toString()}`, '_blank');
+}
+
+function renderM2Charts(chartsData) {
+    const ctxBarrio = document.getElementById('m2-chart-barrio')?.getContext('2d');
+    const ctxComuna = document.getElementById('m2-chart-comuna')?.getContext('2d');
+    const ctxEvolucion = document.getElementById('m2-chart-evolucion')?.getContext('2d');
+
+    const wrapperBarrio = document.getElementById('m2-chart-barrio-wrapper');
+    if (wrapperBarrio && chartsData.barrio) {
+        wrapperBarrio.style.height = `${Math.max(600, chartsData.barrio.length * 36)}px`;
+    }
+
+    if (m2BarrioChart) m2BarrioChart.destroy();
+    if (m2ComunaChart) m2ComunaChart.destroy();
+    if (m2EvolucionChart) m2EvolucionChart.destroy();
+
+    // Plugin personalizado para dibujar los valores a la derecha de las barras horizontales
+    const m2DatalabelsPlugin = {
+        id: 'm2Datalabels',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = 'bold 10px Outfit, sans-serif';
+            ctx.fillStyle = '#475569';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+
+            chart.data.datasets.forEach((dataset, i) => {
+                const meta = chart.getDatasetMeta(i);
+                meta.data.forEach((bar, index) => {
+                    const dataVal = dataset.data[index];
+                    if (dataVal > 0) {
+                        const formatted = ' ' + Math.round(dataVal).toLocaleString('es-AR') + ' m²';
+                        ctx.fillText(formatted, bar.x + 2, bar.y);
+                    }
+                });
+            });
+            ctx.restore();
+        }
+    };
+
+    if (ctxBarrio && chartsData.barrio) {
+        m2BarrioChart = new Chart(ctxBarrio, {
+            type: 'bar',
+            data: {
+                labels: chartsData.barrio.map(x => x.barrio),
+                datasets: [{
+                    label: 'm² Construir',
+                    data: chartsData.barrio.map(x => x.total_m2),
+                    backgroundColor: 'rgba(0, 159, 227, 0.75)',
+                    borderColor: 'rgb(0, 159, 227)',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    barThickness: 18 // Barras más grandes y gruesas
+                }]
+            },
+            plugins: [m2DatalabelsPlugin],
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' },
+                        grace: '10%' // Añade espacio a la derecha para las etiquetas
+                    },
+                    y: {
+                        ticks: { font: { family: 'Outfit', size: 9, weight: '600' } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    if (ctxComuna && chartsData.comuna) {
+        m2ComunaChart = new Chart(ctxComuna, {
+            type: 'bar',
+            data: {
+                labels: chartsData.comuna.map(x => x.comuna),
+                datasets: [{
+                    label: 'm² Construir',
+                    data: chartsData.comuna.map(x => x.total_m2),
+                    backgroundColor: 'rgba(34, 197, 94, 0.75)',
+                    borderColor: 'rgb(34, 197, 94)',
+                    borderWidth: 1.5,
+                    borderRadius: 4,
+                    barThickness: 16 // Grosor equilibrado para Comunas
+                }]
+            },
+            plugins: [m2DatalabelsPlugin],
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' },
+                        grace: '10%'
+                    },
+                    y: {
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '600' } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    if (ctxEvolucion && chartsData.evolucion_mensual) {
+        const labels = chartsData.evolucion_mensual.map(x => {
+            if (x.anio) {
+                return `${x.mes}/${x.anio}`;
+            }
+            return MESES[x.mes - 1] || `Mes ${x.mes}`;
+        });
+        const datasetData = chartsData.evolucion_mensual.map(x => x.total_m2);
+
+        m2EvolucionChart = new Chart(ctxEvolucion, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'm² Permisados',
+                    data: datasetData,
+                    borderColor: 'rgb(249, 115, 22)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: 'rgb(249, 115, 22)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '600' } },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    y: {
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' }
+                    }
+                }
+            }
+        });
+    }
+}
+
 // Exponer funciones globales
 window.loadAnalyticsEstadistica = loadAnalyticsEstadistica;
 window.loadAnalyticsLeyBlanqueo = loadAnalyticsLeyBlanqueo;
@@ -9847,6 +10416,12 @@ window.loadAnalyticsDatasets = loadAnalyticsDatasets;
 window.downloadDataset = downloadDataset;
 window.exportChartToPNG = exportChartToPNG;
 window.downloadLeyBlanqueoExcel = downloadLeyBlanqueoExcel;
+window.loadM2Permisados = loadM2Permisados;
+window.changeM2Page = changeM2Page;
+window.debounceM2Search = debounceM2Search;
+window.clearM2Filters = clearM2Filters;
+window.downloadM2PermisadosDataset = downloadM2PermisadosDataset;
+window.switchM2SubTab = switchM2SubTab;
 
 // --- ACCESO A BUZONES (ADMIN BACKLOG) ---
 let allBuzonesCatalogo = [];

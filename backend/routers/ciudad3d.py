@@ -1497,6 +1497,262 @@ async def get_analytics_permisos_obra(current_user: User = Depends(get_current_u
         logger.error(f"Error fetching permisos obra analytics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/api/analytics/m2-permisados")
+async def get_analytics_m2_permisados(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    comuna: Optional[str] = Query(None),
+    barrio: Optional[str] = Query(None),
+    tipo_obra: Optional[str] = Query(None),
+    tipo_tarea: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if search:
+            search_clean = f"%{search.strip()}%"
+            where_clauses.append("(expediente ILIKE :search OR direccion ILIKE :search OR smp ILIKE :search OR matricula_profesional ILIKE :search OR apellido_profesional ILIKE :search)")
+            params["search"] = search_clean
+            
+        if comuna:
+            where_clauses.append("comuna = :comuna")
+            params["comuna"] = comuna.strip()
+            
+        if barrio:
+            where_clauses.append("barrio = :barrio")
+            params["barrio"] = barrio.strip()
+            
+        if tipo_obra:
+            where_clauses.append("tipo_obra = :tipo_obra")
+            params["tipo_obra"] = tipo_obra.strip()
+            
+        if tipo_tarea:
+            where_clauses.append("tipo_tarea = :tipo_tarea")
+            params["tipo_tarea"] = tipo_tarea.strip()
+            
+        if anio is not None and anio > 0:
+            where_clauses.append("EXTRACT(YEAR FROM fecha_creacion_pdo)::int = :anio")
+            params["anio"] = anio
+            
+        where_str = " AND ".join(where_clauses)
+        offset = (page - 1) * limit
+        
+        with engine.connect() as conn:
+            # 1. Total records count
+            total_count = conn.execute(text(f"SELECT COUNT(*) FROM public.mvw_m2_permisados WHERE {where_str}"), params).scalar() or 0
+            
+            # 2. Summary stats
+            stats = conn.execute(text(f"""
+                SELECT 
+                    COALESCE(SUM(sup_construir), 0) as total_construir,
+                    COALESCE(SUM(sup_demoler), 0) as total_demoler,
+                    COALESCE(SUM(sup_terreno), 0) as total_terreno
+                FROM public.mvw_m2_permisados
+                WHERE {where_str}
+            """), params).mappings().fetchone()
+            
+            # 3. Paginated records
+            records_res = conn.execute(text(f"""
+                SELECT * FROM public.mvw_m2_permisados
+                WHERE {where_str}
+                ORDER BY fecha_creacion_pdo DESC, id_expediente DESC
+                LIMIT :limit OFFSET :offset
+            """), {**params, "limit": limit, "offset": offset})
+            records = [dict(r._mapping) for r in records_res]
+            
+            # 4. Barrio chart data (Todos los barrios, ordenados por m2 desc)
+            barrio_res = conn.execute(text(f"""
+                SELECT 
+                    COALESCE(barrio, 'SIN ESPECIFICAR') as barrio,
+                    ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                FROM public.mvw_m2_permisados
+                WHERE {where_str} AND sup_construir > 0
+                GROUP BY 1
+                ORDER BY total_m2 DESC
+            """), params)
+            barrio_data = [dict(r._mapping) for r in barrio_res]
+            
+            # 5. Comuna chart data
+            comuna_res = conn.execute(text(f"""
+                SELECT 
+                    COALESCE(comuna, 'SIN ESPECIFICAR') as comuna,
+                    ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                FROM public.mvw_m2_permisados
+                WHERE {where_str} AND sup_construir > 0
+                GROUP BY 1
+                ORDER BY total_m2 DESC
+            """), params)
+            comuna_data = [dict(r._mapping) for r in comuna_res]
+            
+            # 5b. Evolución mensual de m2 construidos
+            if anio is not None and anio > 0:
+                monthly_res = conn.execute(text(f"""
+                    SELECT 
+                        EXTRACT(MONTH FROM fecha_creacion_pdo)::int as mes,
+                        ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                    FROM public.mvw_m2_permisados
+                    WHERE {where_str} AND sup_construir > 0 AND fecha_creacion_pdo IS NOT NULL
+                    GROUP BY 1
+                    ORDER BY 1
+                """), params)
+                monthly_data = [dict(r._mapping) for r in monthly_res]
+            else:
+                monthly_res = conn.execute(text(f"""
+                    SELECT 
+                        EXTRACT(YEAR FROM fecha_creacion_pdo)::int as anio,
+                        EXTRACT(MONTH FROM fecha_creacion_pdo)::int as mes,
+                        ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                    FROM public.mvw_m2_permisados
+                    WHERE {where_str} AND sup_construir > 0 AND fecha_creacion_pdo IS NOT NULL
+                    GROUP BY 1, 2
+                    ORDER BY 1, 2
+                """), params)
+                monthly_data = [dict(r._mapping) for r in monthly_res]
+            
+            # 5c. Map points (Todos los puntos que cumplan los filtros para mostrarlos en el mapa)
+            map_points_res = conn.execute(text(f"""
+                SELECT x, y, expediente, direccion, smp, sup_construir, tipo_obra, tipo_tarea, apellido_profesional, nombre_profesional
+                FROM public.mvw_m2_permisados
+                WHERE {where_str} AND x IS NOT NULL AND y IS NOT NULL
+            """), params)
+            map_points = [dict(r._mapping) for r in map_points_res]
+            
+            # 6. Filters
+            filter_comunas = [r[0] for r in conn.execute(text("SELECT DISTINCT comuna FROM public.mvw_m2_permisados WHERE comuna IS NOT NULL AND comuna <> '' ORDER BY 1")).fetchall()]
+            filter_barrios = [r[0] for r in conn.execute(text("SELECT DISTINCT barrio FROM public.mvw_m2_permisados WHERE barrio IS NOT NULL AND barrio <> '' ORDER BY 1")).fetchall()]
+            filter_obras = [r[0] for r in conn.execute(text("SELECT DISTINCT tipo_obra FROM public.mvw_m2_permisados WHERE tipo_obra IS NOT NULL AND tipo_obra <> '' ORDER BY 1")).fetchall()]
+            filter_tareas = [r[0] for r in conn.execute(text("SELECT DISTINCT tipo_tarea FROM public.mvw_m2_permisados WHERE tipo_tarea IS NOT NULL AND tipo_tarea <> '' ORDER BY 1")).fetchall()]
+            filter_anios = [int(r[0]) for r in conn.execute(text("SELECT DISTINCT EXTRACT(YEAR FROM fecha_creacion_pdo)::int as anio FROM public.mvw_m2_permisados WHERE fecha_creacion_pdo IS NOT NULL ORDER BY 1 DESC")).fetchall()]
+            
+            return {
+                "total_records": total_count,
+                "page": page,
+                "limit": limit,
+                "summary": {
+                    "total_construir": stats["total_construir"],
+                    "total_demoler": stats["total_demoler"],
+                    "total_terreno": stats["total_terreno"]
+                },
+                "records": records,
+                "map_points": map_points,
+                "charts": {
+                    "barrio": barrio_data,
+                    "comuna": comuna_data,
+                    "evolucion_mensual": monthly_data
+                },
+                "filters": {
+                    "comunas": filter_comunas,
+                    "barrios": filter_barrios,
+                    "tipos_obra": filter_obras,
+                    "tipos_tarea": filter_tareas,
+                    "anios": filter_anios
+                }
+            }
+    except Exception as e:
+        logger.error(f"Error in m2-permisados analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/analytics/m2-permisados/download")
+async def download_analytics_m2_permisados(
+    search: Optional[str] = Query(None),
+    comuna: Optional[str] = Query(None),
+    barrio: Optional[str] = Query(None),
+    tipo_obra: Optional[str] = Query(None),
+    tipo_tarea: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if search:
+            search_clean = f"%{search.strip()}%"
+            where_clauses.append("(expediente ILIKE :search OR direccion ILIKE :search OR smp ILIKE :search OR matricula_profesional ILIKE :search OR apellido_profesional ILIKE :search)")
+            params["search"] = search_clean
+            
+        if comuna:
+            where_clauses.append("comuna = :comuna")
+            params["comuna"] = comuna.strip()
+            
+        if barrio:
+            where_clauses.append("barrio = :barrio")
+            params["barrio"] = barrio.strip()
+            
+        if tipo_obra:
+            where_clauses.append("tipo_obra = :tipo_obra")
+            params["tipo_obra"] = tipo_obra.strip()
+            
+        if tipo_tarea:
+            where_clauses.append("tipo_tarea = :tipo_tarea")
+            params["tipo_tarea"] = tipo_tarea.strip()
+            
+        if anio is not None and anio > 0:
+            where_clauses.append("EXTRACT(YEAR FROM fecha_creacion_pdo)::int = :anio")
+            params["anio"] = anio
+            
+        where_str = " AND ".join(where_clauses)
+        
+        from fastapi.responses import StreamingResponse
+        import csv
+        import io
+        
+        def generate_csv():
+            output = io.StringIO()
+            # Agregar UTF-8 BOM para Excel
+            output.write('\ufeff')
+            writer = csv.writer(output, delimiter=';')
+            # Escribir cabeceras
+            writer.writerow([
+                "Expediente", "Direccion", "Seccion", "Manzana", "Parcela", "Comuna", "Barrio", "Es UF", "SMP",
+                "Uso Particularizado", "Tipo Tarea", "Tipo Obra", "Superficie Terreno", "Superficie Libre",
+                "Superficie Existente", "Superficie Demoler", "Superficie Construir", "Profundidad Subsuelos",
+                "Cantidad Subsuelos", "Cantidad Pisos", "Altura Metros", "Uso CUR", "Apellido Profesional",
+                "Nombre Profesional", "Matricula Profesional", "Plano", "Encomienda Profesional",
+                "Comprobante Pagos Derechos", "Informe Dominio", "Fecha Creacion OCD", "Fecha Creacion PDO"
+            ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+            
+            with engine.connect() as conn:
+                res = conn.execute(text(f"""
+                    SELECT * FROM public.mvw_m2_permisados
+                    WHERE {where_str}
+                    ORDER BY fecha_creacion_pdo DESC, id_expediente DESC
+                """), params)
+                
+                for row in res:
+                    r = row._mapping
+                    writer.writerow([
+                        r["expediente"], r["direccion"], r["seccion"], r["manzana"], r["parcela"], r["comuna"], r["barrio"],
+                        "SI" if r["es_uf"] else "NO", r["smp"], r["uso_particularizado"], r["tipo_tarea"], r["tipo_obra"],
+                        r["sup_terreno"], r["sup_libre"], r["sup_existente"], r["sup_demoler"], r["sup_construir"],
+                        r["profundidad_subsuelos"], r["cantidad_subsuelos"], r["cantidad_pisos"], r["altura_metros"],
+                        r["uso_cur"], r["apellido_profesional"], r["nombre_profesional"], r["matricula_profesional"],
+                        r["plano"], r["encomienda_profesional"], r["comprobante_pagos_derechos"], r["informe_dominio"],
+                        r["fecha_creacion_ocd"], r["fecha_creacion_pdo"]
+                    ])
+                    yield output.getvalue()
+                    output.seek(0)
+                    output.truncate(0)
+                    
+        return StreamingResponse(
+            generate_csv(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=m2_permisados.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Error in download m2-permisados: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/api/analytics/ley-blanqueo")
 async def get_analytics_ley_blanqueo(current_user: User = Depends(get_current_user)):
     try:

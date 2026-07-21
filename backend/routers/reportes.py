@@ -2180,7 +2180,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 # Fetch extra details to enrich
                 if rows:
                     ids = [r['id_expediente'] for r in rows]
-                    enrich_sql = text("SELECT id_expediente, fecha_creacion, descripcion_trata, descripcion, estado_en_pase FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = ANY(:ids)")
+                    enrich_sql = text("SELECT id_expediente, fecha_creacion, descripcion_trata, descripcion, estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = ANY(:ids)")
                     enrich_map = {e[0]: e for e in conn.execute(enrich_sql, {"ids": ids}).fetchall()}
                     
                     user_sql = text("SELECT usuario, apellido_nombre FROM datos_usuario WHERE usuario = ANY(:users)")

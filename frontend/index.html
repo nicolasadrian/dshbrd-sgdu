@@ -209,6 +209,7 @@
                     <div class="dropdown-content">
                         <a href="#" onclick="event.preventDefault(); showView('analytics_estadistica')">Estadística</a>
                         <a href="#" onclick="event.preventDefault(); showView('analytics_datasets')">Datasets</a>
+                        <a href="#" onclick="event.preventDefault(); showView('analytics_m2_permisados')">M2 Permisados</a>
                     </div>
                 </div>
 
@@ -3993,6 +3994,174 @@
                             <i class="fa-solid fa-download"></i> Descargar
                         </button>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: M2 Permisados -->
+        <section id="analytics_m2_permisados" class="view-container" style="display: none;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Analytics / M2 Permisados
+            </div>
+
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">M2 Permisados</h1>
+                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Análisis y descarga de metros cuadrados permisados para obras registradas (IFPDO).</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #475569; font-family: 'Outfit';">Año:</span>
+                        <select id="m2-filter-anio" style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.88rem; font-weight: 700; background: white; color: var(--primary-dark);" onchange="loadM2Permisados(true)">
+                            <option value="2026" selected>2026</option>
+                            <option value="">[Todos los Años]</option>
+                        </select>
+                    </div>
+                    <button onclick="downloadM2PermisadosDataset()" class="btn-primary" style="padding: 10px 20px; font-size: 0.88rem; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; background: #10b981; color: white;">
+                        <i class="fa-solid fa-file-excel"></i> Descargar Dataset Completo (.csv)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub-tabs navigation -->
+            <div style="display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; padding-bottom: 0px;">
+                <button class="m2-subtab-btn active" onclick="switchM2SubTab('stats')" style="padding: 10px 20px; border: none; background: none; font-weight: 700; cursor: pointer; border-bottom: 3px solid var(--primary); font-family: 'Outfit'; color: var(--primary-dark); font-size: 0.95rem; transition: all 0.2s;">Estadísticas y Datos</button>
+                <button class="m2-subtab-btn" onclick="switchM2SubTab('map')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Mapa de Permisos</button>
+            </div>
+
+            <!-- Tab 1: Estadísticas y Datos -->
+            <div id="m2-panel-stats" class="m2-subview-panel">
+                <!-- KPI Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <!-- Total Expedientes -->
+                <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                    <div style="background: rgba(0, 159, 227, 0.08); color: var(--primary); width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.85rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">Total Expedientes</span>
+                        <span id="m2-kpi-expedientes" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0</span>
+                    </div>
+                </div>
+                <!-- Total m2 Construir -->
+                <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                    <div style="background: rgba(34, 197, 94, 0.08); color: #22c55e; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                        <i class="fa-solid fa-building"></i>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.85rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">M² a Construir</span>
+                        <span id="m2-kpi-construir" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0 m²</span>
+                    </div>
+                </div>
+                <!-- Total m2 Demoler -->
+                <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                    <div style="background: rgba(239, 68, 68, 0.08); color: #ef4444; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                        <i class="fa-solid fa-trowel-bricks"></i>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.85rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">M² a Demoler</span>
+                        <span id="m2-kpi-demoler" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0 m²</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Stacked -->
+            <div style="display: flex; flex-direction: column; gap: 2rem; margin-bottom: 2.5rem;">
+                <!-- Chart 1: Barrio -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">M² Construidos por Barrio</h3>
+                    <div style="height: 650px; width: 100%; overflow-y: auto;">
+                        <div id="m2-chart-barrio-wrapper" style="position: relative; height: 1200px; width: 100%;">
+                            <canvas id="m2-chart-barrio"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <!-- Chart 2: Comuna -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">M² Construidos por Comuna</h3>
+                    <div style="position: relative; height: 450px; width: 100%;">
+                        <canvas id="m2-chart-comuna"></canvas>
+                    </div>
+                </div>
+                <!-- Chart 3: Evolución Mensual -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">Evolución Mensual de M² Permisados</h3>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="m2-chart-evolucion"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters & Table Panel -->
+            <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); margin-bottom: 3rem;">
+                <!-- Filter bar -->
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex: 1; min-width: 300px;">
+                        <input type="text" id="m2-filter-search" placeholder="Buscar por exp, SMP, dirección..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; width: 220px;" oninput="debounceM2Search()">
+                        <select id="m2-filter-comuna" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadM2Permisados()">
+                            <option value="">[Comuna]</option>
+                        </select>
+                        <select id="m2-filter-barrio" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadM2Permisados()">
+                            <option value="">[Barrio]</option>
+                        </select>
+                        <select id="m2-filter-obra" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadM2Permisados()">
+                            <option value="">[Tipo Obra]</option>
+                        </select>
+                        <select id="m2-filter-tarea" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadM2Permisados()">
+                            <option value="">[Tipo Tarea]</option>
+                        </select>
+                        <button onclick="clearM2Filters()" style="padding: 8px 14px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #475569;">Limpiar</button>
+                    </div>
+                    <div>
+                        <select id="m2-table-limit" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.82rem; background: white;" onchange="loadM2Permisados()">
+                            <option value="25">25 filas</option>
+                            <option value="50" selected>50 filas</option>
+                            <option value="100">100 filas</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Table wrapper -->
+                <div style="overflow-x: auto; width: 100%; border: 1px solid #f1f5f9; border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; font-family: inherit;">
+                        <thead>
+                            <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                <th style="padding: 12px 16px; min-width: 150px;">Expediente</th>
+                                <th style="padding: 12px 16px; min-width: 180px;">Dirección / SMP</th>
+                                <th style="padding: 12px 16px; min-width: 100px;">Comuna / Barrio</th>
+                                <th style="padding: 12px 16px;">Uso / Obra / Tarea</th>
+                                <th style="padding: 12px 16px; text-align: right;">Sup. Construir</th>
+                                <th style="padding: 12px 16px; text-align: right;">Sup. Demoler</th>
+                                <th style="padding: 12px 16px; min-width: 150px;">Profesional</th>
+                                <th style="padding: 12px 16px; min-width: 250px;">Documentación (Act-Anio-Nro-Rep)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="m2-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination footer -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                    <span id="m2-pagination-info" style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Mostrando 0 - 0 de 0 registros</span>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <button id="m2-pg-prev" onclick="changeM2Page(-1)" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.82rem;">Anterior</button>
+                        <span id="m2-pg-current" style="font-weight: 700; font-size: 0.85rem; padding: 4px 10px; background: var(--primary); color: white; border-radius: 6px;">1</span>
+                        <button id="m2-pg-next" onclick="changeM2Page(1)" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.82rem;">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+            </div> <!-- Cerrar #m2-panel-stats -->
+
+            <!-- Tab 2: Mapa de Permisos (Ancho completo y mayor tamaño) -->
+            <div id="m2-panel-map" class="m2-subview-panel" style="display: none;">
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); margin-bottom: 3rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span>Mapa de Distribución de Permisos de Obra</span>
+                        <span id="m2-map-total-points" style="font-size: 0.85rem; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-weight: 700;">0 puntos georreferenciados</span>
+                    </h3>
+                    <div id="m2-map" style="height: 600px; width: 100%; border-radius: 12px; border: 1px solid #cbd5e1;"></div>
                 </div>
             </div>
         </section>
