@@ -3984,56 +3984,66 @@ async function exportSlaCardDetail(event, gerencia, trataCode) {
 let FAMILIAS_CONFIG = {};
 
 const TRATA_NAMES_LOOKUP = {
-    "MDUG0134N": "Constitución De Estado Parcelario",
-    "MDUG3001A": "P. Obra E. Proy. / Conforme / R. Obras En Contra",
-    "MDUG0146A": "Solicitud De Copia De Plano",
-    "MDUG2101A": "Registro De Proyecto De Prevención Contra Incendios",
-    "MDUG0141A": "Registro De Plano Conforme A Obra Civil",
-    "MDUG2901A": "Registro De Proyecto De Elementos Guiados De Transporte",
-    "MDUG2301A": "Registro De Proyecto De Instalación Térmica",
-    "MDUG0104A": "Regularización De Obra En Contravención Ley 6478",
-    "MDUG0131B": "Plano De Propiedad Horizontal Nuevo",
-    "MDUG2201A": "Registro De Proyecto De Instalación Ventilación Mecánica",
-    "MDUG0901A": "Inscripción Al Registro De Profesionales De DGROC",
-    "MDUG4001A": "Consulta De Usos",
-    "MDUG0115B": "Plano De Mensura Particular",
-    "MDUG0120A": "Examen De Foguista",
-    "MDUG1501J": "Permiso De Ejecución De Obra Civil",
-    "MDUG3601A": "Interpretación Urbanística",
-    "MDUG1501H": "Certificado Catastral",
-    "MDUG0135A": "Solicitud De Consideración A La Dirección De Catastro",
-    "MDUG4102A": "Solicitud De Consulta De Usos",
-    "MDUG0102B": "Trámite Aviso De Obra",
-    "MDUG3301A": "Registro De Proyecto De Salas De Máquinas",
-    "MDUG0107A": "Fijación Línea De Frente Interno",
-    "MDUG2601A": "Registro De Proyecto De Instalación Sanitaria",
-    "MDUG2401A": "Registro De Proyecto De Instalación Electromecánica",
-    "MDUG3701A": "Consulta Obligatoria Para Inmuebles En APH O Catal",
-    "MDUG1501K": "Permiso De Demolición",
-    "MDUG0131A": "Plano De Propiedad Horizontal Modificatorio",
+    "MDUG0115C": "Anulación de Propiedad Horizontal",
+    "MDUG1501L": "Certificado de cota de parcela nivel cero",
+    "MDUG0115G": "Certificado de Determinación de Cinturón Digital",
+    "MDUG1501H": "Certificado de información catastral",
+    "MDUG0134C": "Certificado de numeración domiciliaria",
+    "MDUG0134N": "Constitución de Estado Parcelario",
+    "MDUG0146A": "Copia de plano",
+    "GENE0702C": "Mensura Regularización Urbana Dominial",
+    "MDUG0115F": "Plano de mensura de objeto territorial",
+    "MDUG0115B": "Plano de Mensura Particular",
+    "MDUG0132A": "Plano de prehorizontalidad nuevo",
+    "MDUG0131A": "Plano de Propiedad Horizontal modificatorio/complementario",
+    "MDUG0131B": "Plano de propiedad horizontal nuevo",
+    "MDUG0115E": "Rectificación de Plano de Mensura",
+    "MDUG0134E": "Solicitud de Certificado de fijación de línea",
+    "MDUG0135A": "Solicitud de consideración a la Dirección General Registros de Obra y Catastro",
+    "MDUG2101A": "Registro de Plano de Prevención contra Incendios",
+    "MDUG2901A": "Registro de Plano de Elementos Guiados de Transporte",
+    "MDUG2501A": "Registro de Plano de Instalación de Inflamables",
+    "MDUG2201A": "Registro de Plano de Instalación de Ventilación Mecánica",
+    "MDUG2701A": "Registro de Plano de Instalación Eléctrica",
+    "MDUG2401A": "Registro de Plano de Instalación Electromecánica",
+    "MDUG2601A": "Registro de Plano de Instalación Sanitaria",
+    "MDUG2301A": "Registro de Plano de Instalación Térmica / Técnica",
+    "MDUG3301A": "Registro de Plano de Sala de Máquinas",
+    "MDUG0904A": "Ascenso de Categoría de Foguistas",
+    "MDUG0120A": "Solicitud Examen de Foguista",
+    "MJGG1601A": "Registro de planos de prototipo de equipos",
+    "MDUG0101D": "Ajuste De Instalacion Elementos Guiados De Transporte",
+    "MDUG0101G": "Ajuste De Instalacion Termica",
+    "MJGG1701A": "Transferencia de Titularidad de Instalación",
+    "MDUG0104A": "Regularización de Plano de Obra Civil",
+    "MDUG0141A": "Registro de plano Conforme",
+    "MDUG3001A": "Registro de Plano de Obra Civil: Registro en Etapa Proyecto",
+    "MDUG1501K": "Permiso de Demolición",
+    "MDUG0901A": "Registro de Profesionales de Obras y Catastro",
+    "MDUG1501J": "Permiso de Ejecución de Obra Civil",
+    "MDUG3402A": "Permiso Temprano de Ejecución de Obra Civil",
+    "MDUG1502A": "Inicio de Micro Obra bajo Responsabilidad Profesional",
+    "MDUG4003A": "MODEL BA / Registro Etapa Proyecto",
+    "MDUG0142A": "Modificación de obra en curso bajo responsabilidad profesional",
+    "MDUG1801A": "Informe urbanístico",
+    "MDUG0107A": "Fijación de Línea de Frente Interno",
     "MDUG3501A": "Consulta Obligatoria General",
-    "MDUG2501A": "Registro De Proyecto De Instalaciones Inflamables",
-    "MDUG2701A": "Registro De Proyecto De Instalación Eléctrica",
-    "MDUG3402A": "Permiso Temprano De Ejecución De Obra Civil",
-    "MJGG0302A": "Consulta De Uso No Conforme",
-    "MDUG0115F": "Plano De Mensura De Objeto Territorial",
-    "MDUG1502A": "Inicio De Obra Bajo Responsabilidad Profesional",
-    "MDUG0136B": "Consulta De Emplazamiento De Estructuras Soportes De Antenas",
-    "MJGG1601A": "Registro De Plano De Homologación De Equipos",
-    "MJGG0303A": "Consulta De Usos Con Intervención Del Consejo",
-    "MDUG0904A": "Ascenso De Categoría De Foguistas",
-    "MDUG0134C": "Solicitud De Certificado De Numeración Domiciliaria",
-    "MDUG0134E": "Solicitud De Certificado De Fijación De Línea",
-    "MDUG3801A": "Solicitudes Especiales Para Inmuebles En APH O Cat",
-    "MDUG0142A": "Modificación De Obra En Curso Bajo Responsabilidad Profesional",
-    "MDUG1501L": "Certificado De Cota De Parcela Nivel Cero",
-    "MDUG0115E": "Corrección Plano De Mensura",
-    "MDUG1801A": "Informe Urbanístico",
-    "MDUG0115G": "Determinación Del Límite En Altura En Zona Afectada Al Cinturón",
-    "MDUG0115C": "Anulación Plano De Mensura",
-    "MJGG1701A": "Transferencia De Titularidad De Instalación",
-    "MDUG4003A": "Registro Etapa Proyecto - Model BA",
-    "MDUG1802A": "Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor"
+    "MDUG3601A": "Interpretación Urbanística",
+    "MDUG3901A": "Solicitud De Certificado Urbanístico",
+    "MDUG1802A": "Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor",
+    "MDUG1804A": "Permiso De Ejecución De Obra Civil - Proyecto Emisor Zona Sur",
+    "MDUG1803A": "Registro Etapa Proyecto - Emisor Zona Sur",
+    "MDUG1805A": "Evaluación Vinculante De Capacidad Constructiva Adicional - Proyecto Emisor Zona Sur",
+    "MDUG1806A": "Certificado De Capacidad Constructiva Adicional",
+    "MDUG3701A": "Consulta Obligatoria para Inmuebles en APH o Catalogados",
+    "MDUG3801A": "Solicitudes Especiales para Inmuebles en APH o Catalogados",
+    "MDUG0136B": "Consulta de emplazamiento de estructuras soportes de antenas",
+    "MDUG4102A": "Consulta de usos - visado de anuncio publicitario / publico-privado",
+    "MDUG4001A": "Consulta de usos",
+    "MDUG4002A": "Consulta de usos B",
+    "MJGG0302A": "Consulta de Usos No conforme",
+    "MJGG0303A": "Consulta de Usos con Intervención del consejo",
+    "MDUG0102B": "Aviso de obra"
 };
 
 let familyChart = null;
@@ -11136,9 +11146,6 @@ function renderLFIRevision() {
                         <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
                             <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
                         </button>
-                        <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha PDF A3">
-                            <i class="fa-solid fa-file-pdf"></i> PDF A3
-                        </button>
                     </div>
                 </td>
             </tr>
@@ -11364,12 +11371,17 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                     </button>
                                 `;
                                 
-                                // Ficha PDF A3
-                                actionButtonsHtml += `
-                                    <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha Técnica PDF A3">
-                                        <i class="fa-solid fa-file-pdf"></i> PDF A3
-                                    </button>
-                                `;
+                                // Ficha PDF A3 (solo en etapa de Revisión y Aprobado/Subir a Ciudad 3D)
+                                const estClean = (row.estado || '').toLowerCase();
+                                const canDownloadPdf = ['para revisión', 'para revision', 'subir a ciudad 3d', 'aprobado', 'aprobada', 'finalizado', 'finalizada'].includes(estClean) || !!(row.archivo_trazado || row.archivo_finalizado);
+                                
+                                if (canDownloadPdf) {
+                                    actionButtonsHtml += `
+                                        <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha Técnica PDF A3">
+                                            <i class="fa-solid fa-file-pdf"></i> PDF A3
+                                        </button>
+                                    `;
+                                }
                                 
                                 actionButtonsHtml += `</div>`;
                                 
@@ -11710,10 +11722,16 @@ async function openLFIFicha(seccion, manzana) {
         <button onclick="downloadManzanaDXF('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
             <i class="fa-solid fa-download"></i> DXF Base original
         </button>
-        <button onclick="downloadLFIPdf('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;" title="Descargar Ficha Técnica en PDF A3">
-            <i class="fa-solid fa-file-pdf"></i> Descargar Ficha PDF (A3)
-        </button>
     `;
+    const estCleanFicha = (row.estado || '').toLowerCase();
+    const canDownloadPdfFicha = ['para revisión', 'para revision', 'subir a ciudad 3d', 'aprobado', 'aprobada', 'finalizado', 'finalizada'].includes(estCleanFicha) || !!(row.archivo_trazado || row.archivo_finalizado);
+    if (canDownloadPdfFicha) {
+        downloadsContainer.innerHTML += `
+            <button onclick="downloadLFIPdf('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;" title="Descargar Ficha Técnica en PDF A3">
+                <i class="fa-solid fa-file-pdf"></i> Descargar Ficha PDF (A3)
+            </button>
+        `;
+    }
     if (row.archivo_trazado) {
         downloadsContainer.innerHTML += `
             <button onclick="downloadUploadedLFITrazado('draft')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #64748b; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
