@@ -75,6 +75,9 @@ class LFIAssignRequest(BaseModel):
     seccion: str
     manzana: str
 
+class LFIAssignSeccionRequest(BaseModel):
+    seccion: str
+
 class LFINoteRequest(BaseModel):
     seccion: str
     manzana: str
@@ -1854,6 +1857,51 @@ def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_c
         
     return {"status": "ok", "estado": "En curso", "analista_asignado": current_user.username}
 
+@router.post("/api/ciudad3d/manzanas_lfi/assign_seccion")
+def assign_seccion_lfi(req: LFIAssignSeccionRequest, current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("lfi_dibujar"):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para asignarse manzanas.")
+    
+    seccion_clean = req.seccion.strip()
+    
+    # Obtener todas las manzanas de esa sección desde mdr_troneras
+    with geo_engine.connect() as geo_conn:
+        m_rows = geo_conn.execute(text("""
+            SELECT DISTINCT TRIM(manzana) 
+            FROM public.mdr_troneras 
+            WHERE TRIM(seccion) = :s AND manzana IS NOT NULL AND TRIM(manzana) <> ''
+        """), {"s": seccion_clean}).fetchall()
+        manzanas = [r[0] for r in m_rows]
+        
+    if not manzanas:
+        raise HTTPException(status_code=404, detail=f"No se encontraron manzanas para la Sección {seccion_clean}.")
+        
+    assigned_count = 0
+    with engine.begin() as conn:
+        for m in manzanas:
+            existing = conn.execute(text("""
+                SELECT estado FROM public.manzanas_lfi_workflow
+                WHERE seccion = :s AND manzana = :m
+            """), {"s": seccion_clean, "m": m}).fetchone()
+            
+            # Asignar solo las manzanas que están pendientes o no asignadas previamente
+            if not existing or existing[0] == 'Pendiente':
+                conn.execute(text("""
+                    INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, estado, analista_asignado, updated_at)
+                    VALUES (:s, :m, 'En curso', :a, CURRENT_TIMESTAMP)
+                    ON CONFLICT (seccion, manzana) 
+                    DO UPDATE SET estado = 'En curso', analista_asignado = :a, updated_at = CURRENT_TIMESTAMP
+                """), {"s": seccion_clean, "m": m, "a": current_user.username})
+                assigned_count += 1
+                
+    return {
+        "status": "ok", 
+        "seccion": seccion_clean, 
+        "assigned_count": assigned_count, 
+        "total_manzanas": len(manzanas),
+        "analista_asignado": current_user.username
+    }
+
 @router.post("/api/ciudad3d/manzanas_lfi/unassign")
 def unassign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
     if current_user.role.lower() not in ['admin', 'administrador']:
@@ -2183,6 +2231,71 @@ def download_trazado_lfi_file(
             
         return FileResponse(file_path, filename=row[0])
 
+@router.get("/api/ciudad3d/manzanas_lfi/download_pdf")
+def download_lfi_pdf(
+    seccion: str,
+    manzana: str,
+    token: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_from_param_or_header)
+):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a esta sección")
+        
+    s_clean = seccion.strip()
+    m_clean = manzana.strip()
+    
+    barrio = "CABA"
+    comuna = ""
+    disposicion = ""
+    estado = "Pendiente"
+    analista = "Sin asignar"
+    file_path = None
+    
+    with engine.connect() as conn:
+        wf_row = conn.execute(text("""
+            SELECT estado, analista_asignado, disposicion, archivo_trazado, archivo_finalizado
+            FROM public.manzanas_lfi_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": s_clean, "m": m_clean}).fetchone()
+        
+        if wf_row:
+            estado = wf_row[0] or "Pendiente"
+            analista = wf_row[1] or "Sin asignar"
+            disposicion = wf_row[2] or ""
+            
+            fname = wf_row[4] or wf_row[3]
+            if fname:
+                file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi", fname))
+                
+    with geo_engine.connect() as geo_conn:
+        bm_row = geo_conn.execute(text("""
+            SELECT barrio, comuna FROM public.cur_parcelas_ok
+            WHERE TRIM(seccion) = :s AND TRIM(manzana) = :m AND barrio IS NOT NULL AND TRIM(barrio) <> ''
+            LIMIT 1
+        """), {"s": s_clean, "m": m_clean}).fetchone()
+        if bm_row:
+            barrio = bm_row[0] or "CABA"
+            comuna = str(bm_row[1]) if bm_row[1] else ""
+
+    from pdf_generator import generate_lfi_a3_pdf
+    pdf_bytes = generate_lfi_a3_pdf(
+        seccion=s_clean,
+        manzana=m_clean,
+        barrio=barrio,
+        comuna=comuna,
+        disposicion=disposicion,
+        estado=estado,
+        analista=analista,
+        file_path=file_path
+    )
+    
+    filename = f"Ficha_A3_LFI_{s_clean}_{m_clean}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 @router.post("/api/ciudad3d/manzanas_lfi/disposicion")
 def update_manzana_lfi_disposicion(req: LFIDisposicionRequest, current_user: User = Depends(get_current_user)):
     if not (current_user.permissions.get("lfi_dibujar") or current_user.permissions.get("lfi_revisar")):
@@ -2497,24 +2610,53 @@ async def download_manzana_dxf(
             m_boundary['geometry'] = m_boundary.geometry.apply(polygon_to_boundary)
             m_layers['manzanas'] = m_boundary
             
-            query_parcelas = f"SELECT geom, smp, seccion, manzana FROM cur_parcelas_ok WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            query_parcelas = f"""
+                SELECT geom, smp, parcela, seccion, manzana, cur_1 
+                FROM cur_parcelas_ok 
+                WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') 
+                  AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL
+            """
             gdf_parcelas = gpd.read_postgis(query_parcelas, con=conn, geom_col="geom", crs="EPSG:22186")
+            m_parcelas_data = []
             if not gdf_parcelas.empty:
+                for idx, row in gdf_parcelas.iterrows():
+                    p_geom = row['geom']
+                    if p_geom and not p_geom.is_empty:
+                        centroid = p_geom.centroid
+                        p_num = str(row.get('parcela') or row.get('smp') or '').strip()
+                        if '-' in p_num:
+                            p_num_clean = p_num.split('-')[-1]
+                        else:
+                            p_num_clean = p_num
+
+                        cur = str(row.get('cur_1') or '').strip()
+                        if cur.lower() in ('nan', 'none'):
+                            cur = ''
+                            
+                        labels = []
+                        if p_num_clean and p_num_clean.lower() != 'none':
+                            labels.append(p_num_clean)
+                        if cur:
+                            labels.append(cur)
+                            
+                        if labels:
+                            m_parcelas_data.append(((centroid.x, centroid.y), labels))
+                            
                 m_parcelas = gdf_parcelas.copy()
                 m_parcelas['geometry'] = m_parcelas.geometry.apply(polygon_to_boundary)
                 m_layers['parcelas'] = m_parcelas
                 
-            query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL"
             gdf_lfi = gpd.read_postgis(query_lfi, con=conn, geom_col="geom", crs="EPSG:22186")
             if not gdf_lfi.empty:
                 m_layers['lfi'] = gdf_lfi
                 
-            query_lib = f"SELECT geom, seccion, manzana FROM mdr_lineadebasamento WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            query_lib = f"SELECT geom, seccion, manzana FROM mdr_lineadebasamento WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL"
             gdf_lib = gpd.read_postgis(query_lib, con=conn, geom_col="geom", crs="EPSG:22186")
             if not gdf_lib.empty:
                 m_layers['lib'] = gdf_lib
                 
-            query_troneras = f"SELECT geom, seccion, manzana, id_tronera, sm, comuna, irregular FROM mdr_troneras WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
+            query_troneras = f"SELECT geom, seccion, manzana, id_tronera, sm, comuna, irregular FROM mdr_troneras WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL"
             gdf_troneras = gpd.read_postgis(query_troneras, con=conn, geom_col="geom", crs="EPSG:22186")
             if not gdf_troneras.empty:
                 m_troneras_si = gdf_troneras[gdf_troneras['irregular'] == 'NO'].copy()
@@ -2535,7 +2677,7 @@ async def download_manzana_dxf(
                     SELECT bm.geom, bm.smp 
                     FROM mdr_banda_minima bm 
                     INNER JOIN cur_parcelas_ok p ON bm.smp = p.smp 
-                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND bm.geom IS NOT NULL
+                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND bm.geom IS NOT NULL
                 """
                 try:
                     gdf_bm = gpd.read_postgis(query_bm, con=conn, geom_col="geom", crs="EPSG:22186")
@@ -2549,7 +2691,7 @@ async def download_manzana_dxf(
                     SELECT ldf.geom, ldf.smp 
                     FROM mdr_ldf_parc ldf 
                     INNER JOIN cur_parcelas_ok p ON ldf.smp = p.smp 
-                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND ldf.geom IS NOT NULL
+                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND ldf.geom IS NOT NULL
                 """
                 try:
                     gdf_ldf = gpd.read_postgis(query_ldf, con=conn, geom_col="geom", crs="EPSG:22186")
@@ -2562,7 +2704,7 @@ async def download_manzana_dxf(
                     SELECT tc.geometry AS geom, tc.smp 
                     FROM mdr_tejidoconsolidado tc 
                     INNER JOIN cur_parcelas_ok p ON tc.smp = p.smp 
-                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND tc.geometry IS NOT NULL
+                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND tc.geometry IS NOT NULL
                 """
                 try:
                     gdf_consolidado = gpd.read_postgis(query_tc, con=conn, geom_col="geom", crs="EPSG:22186")
@@ -2575,7 +2717,7 @@ async def download_manzana_dxf(
                     SELECT tpi.geometry AS geom, tpi.smp 
                     FROM mdr_tejidoparairregular tpi 
                     INNER JOIN cur_parcelas_ok p ON tpi.smp = p.smp 
-                    WHERE p.seccion = '{sec_clean}' AND p.manzana = '{m_clean}' AND tpi.geometry IS NOT NULL
+                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND tpi.geometry IS NOT NULL
                 """
                 try:
                     gdf_tejido_irreg = gpd.read_postgis(query_tpi, con=conn, geom_col="geom", crs="EPSG:22186")
@@ -2602,119 +2744,223 @@ async def download_manzana_dxf(
             except Exception:
                 pass
 
-        gdfs_to_combine = []
-        for layer_name, gdf in m_layers.items():
-            gdf_clean = gpd.GeoDataFrame({'geometry': gdf.geometry}, crs="EPSG:22186")
-            gdf_clean['Layer'] = layer_name
-            
-            if layer_name == 'lib':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#ffd306)'
-            elif layer_name == 'lfi':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
-            elif layer_name == 'banda_minima':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
-            elif layer_name == 'tejido':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#808080)'
-            elif layer_name == 'mdr_tejidoconsolidado':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#c0c0c0)'
-            elif layer_name == 'mdr_tejidoparairregular':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#808080)'
-            elif layer_name == 'manzanas':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#404040)'
-            elif layer_name == 'parcelas':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#606060)'
-            elif layer_name == 'Tronera SI':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
-            elif layer_name == 'Irregular':
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
-            else:
-                gdf_clean['OGR_STYLE'] = 'PEN(c:#000000)'
-                
-            gdfs_to_combine.append(gdf_clean)
+            m_calles_data = []
+            if not gdf_manzanas.empty:
+                try:
+                    mza_geom = gdf_manzanas.geometry.iloc[0]
+                    # Usar filtro espacial en PostGIS (ST_DWithin) para evitar cargar toda la tabla
+                    mza_wkt = mza_geom.buffer(40).wkt
+                    query_calles = f"""
+                        SELECT nomoficial, geom 
+                        FROM public.calles 
+                        WHERE geom IS NOT NULL 
+                          AND nomoficial IS NOT NULL 
+                          AND TRIM(nomoficial) <> ''
+                          AND ST_DWithin(geom, ST_GeomFromText('{mza_wkt}', 22186), 0)
+                    """
+                    gdf_calles = gpd.read_postgis(query_calles, con=conn, geom_col="geom", crs="EPSG:22186")
+                    logger.info(f"DXF calles: query retornó {len(gdf_calles)} calles cercanas")
+                    if not gdf_calles.empty:
+                        gdf_calles['dist'] = gdf_calles.geometry.apply(lambda g: g.distance(mza_geom))
+                        calles_frentistas = gdf_calles[gdf_calles['dist'] <= 30]
+                        logger.info(f"DXF calles: {len(calles_frentistas)} calles frentistas <= 30m")
+                        if not calles_frentistas.empty:
+                            grouped = calles_frentistas.groupby('nomoficial')
+                            for nom, group in grouped:
+                                group_sorted = group.sort_values(by='dist')
+                                best_segment = group_sorted.iloc[0]['geom']
+                                
+                                nearest_pt = best_segment.interpolate(best_segment.project(mza_geom.centroid))
+                                proj_d = best_segment.project(nearest_pt)
+                                p1 = best_segment.interpolate(max(0, proj_d - 1.0))
+                                p2 = best_segment.interpolate(min(best_segment.length, proj_d + 1.0))
+                                ang = math.degrees(math.atan2(p2.y - p1.y, p2.x - p1.x))
+                                if ang > 90:
+                                    ang -= 180
+                                elif ang < -90:
+                                    ang += 180
+                                    
+                                m_calles_data.append(((nearest_pt.x, nearest_pt.y), str(nom).strip().upper(), ang))
+                    logger.info(f"DXF calles: {len(m_calles_data)} etiquetas de calles preparadas")
+                except Exception as e_calle:
+                    import traceback
+                    logger.error(f"Error procesando calles circundantes: {e_calle}")
+                    logger.error(traceback.format_exc())
 
-        if not gdfs_to_combine:
+        # === Generar DXF directamente con ezdxf (sin fiona) ===
+        if not m_layers:
             raise HTTPException(status_code=404, detail="No se encontraron capas vectoriales para esta manzana.")
-            
-        combined_gdf = pd.concat(gdfs_to_combine, ignore_index=True)
-        combined_gdf = gpd.GeoDataFrame(combined_gdf, geometry='geometry', crs="EPSG:22186")
-        combined_gdf = combined_gdf[~combined_gdf.geometry.is_empty].copy()
-        
-        if len(combined_gdf) == 0:
+
+        doc = ezdxf.new(dxfversion='R2010')
+        msp = doc.modelspace()
+
+        # Registrar linetype DASHED
+        try:
+            doc.linetypes.new('DASHED', dxfattribs={
+                'description': 'Dashed line - - -',
+                'pattern': [10.0, 5.0, -5.0]
+            })
+        except Exception:
+            pass
+
+        # Configuración de capas
+        layer_config = {
+            'manzanas':                 {'color': 250, 'rgb': (64, 64, 64)},
+            'parcelas':                 {'color': 252, 'rgb': (96, 96, 96)},
+            'lib':                      {'color': 2,   'rgb': (255, 211, 6)},
+            'lfi':                      {'color': 141, 'rgb': (53, 121, 177)},
+            'banda_minima':             {'color': 1,   'rgb': (228, 26, 28)},
+            'tejido':                   {'color': 8,   'rgb': (128, 128, 128)},
+            'mdr_tejidoconsolidado':    {'color': 9,   'rgb': (192, 192, 192)},
+            'mdr_tejidoparairregular':  {'color': 8,   'rgb': (128, 128, 128)},
+            'Tronera SI':               {'color': 141, 'rgb': (53, 121, 177)},
+            'Irregular':                {'color': 1,   'rgb': (228, 26, 28)},
+            'ldf':                      {'color': 7,   'rgb': (0, 0, 0)},
+        }
+
+        for l_name, cfg in layer_config.items():
+            if l_name in m_layers:
+                try:
+                    layer = doc.layers.new(l_name)
+                    layer.color = cfg['color']
+                    layer.rgb = cfg['rgb']
+                    if l_name == 'banda_minima':
+                        layer.linetype = 'DASHED'
+                except Exception:
+                    pass
+
+        # Función auxiliar: escribir geometría shapely como LWPOLYLINE
+        def write_geom_to_msp(geom, layer_name, extra_attribs=None):
+            if geom is None or geom.is_empty:
+                return
+            attribs = {'layer': layer_name}
+            if extra_attribs:
+                attribs.update(extra_attribs)
+            gtype = geom.geom_type
+            if gtype == 'LineString':
+                pts = [(c[0], c[1]) for c in geom.coords]
+                if len(pts) >= 2:
+                    msp.add_lwpolyline(pts, dxfattribs=attribs)
+            elif gtype == 'MultiLineString':
+                for line in geom.geoms:
+                    write_geom_to_msp(line, layer_name, extra_attribs)
+            elif gtype == 'Polygon':
+                boundary = polygon_to_boundary(geom)
+                if boundary:
+                    write_geom_to_msp(boundary, layer_name, extra_attribs)
+            elif gtype == 'MultiPolygon':
+                for poly in geom.geoms:
+                    write_geom_to_msp(poly, layer_name, extra_attribs)
+            elif gtype == 'GeometryCollection':
+                for sub in geom.geoms:
+                    write_geom_to_msp(sub, layer_name, extra_attribs)
+
+        # Escribir entidades de geometría por capa
+        entity_count = 0
+        hatch_layers = ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular')
+
+        for l_name, gdf in m_layers.items():
+            cfg = layer_config.get(l_name, {})
+            extra = {}
+            if l_name == 'banda_minima':
+                extra = {'linetype': 'DASHED', 'ltscale': 5.0, 'color': 1}
+
+            geom_col_name = gdf.geometry.name
+            for _, row in gdf.iterrows():
+                geom = row[geom_col_name]
+                if geom is None or geom.is_empty:
+                    continue
+                try:
+                    # Capas de hatch: crear relleno sólido desde polígonos
+                    if l_name in hatch_layers:
+                        h_color = cfg.get('color', 8)
+                        polys = []
+                        if geom.geom_type == 'Polygon':
+                            polys = [geom]
+                        elif geom.geom_type == 'MultiPolygon':
+                            polys = list(geom.geoms)
+                        for poly in polys:
+                            pts = [(c[0], c[1]) for c in poly.exterior.coords]
+                            if len(pts) >= 3:
+                                hatch = msp.add_hatch(color=h_color, dxfattribs={'layer': l_name})
+                                hatch.set_pattern_fill('SOLID')
+                                hatch.paths.add_polyline_path(pts, is_closed=True)
+                                entity_count += 1
+                    else:
+                        write_geom_to_msp(geom, l_name, extra if extra else None)
+                        entity_count += 1
+                except Exception as e_ent:
+                    logger.warning(f"Error escribiendo entidad en capa {l_name}: {e_ent}")
+
+        if entity_count == 0:
             raise HTTPException(status_code=404, detail="No se encontraron datos espaciales válidos para esta manzana.")
 
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".dxf")
-        os.close(temp_fd)
-        
-        with fiona.Env(DXF_WRITE_HATCH="FALSE"):
-            combined_gdf.to_file(temp_path, driver="DXF", layer="entities")
-            
+        # Estilo de texto ArialBold
         try:
-            doc = ezdxf.readfile(temp_path)
-            msp = doc.modelspace()
-            
-            layer_colors = {
-                'lib': (2, (255, 211, 6)),
-                'lfi': (141, (53, 121, 177)),
-                'banda_minima': (1, (228, 26, 28)),
-                'tejido': (8, (128, 128, 128)),
-                'mdr_tejidoconsolidado': (9, (192, 192, 192)),
-                'mdr_tejidoparairregular': (8, (128, 128, 128)),
-                'manzanas': (250, (64, 64, 64)),
-                'parcelas': (252, (96, 96, 96)),
-                'Tronera SI': (141, (53, 121, 177)),
-                'Irregular': (1, (228, 26, 28))
-            }
-            
-            for l_name, (aci, rgb) in layer_colors.items():
-                if l_name in doc.layers:
-                    layer = doc.layers.get(l_name)
-                    layer.color = aci
-                    layer.rgb = rgb
-                    if l_name in ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular'):
-                        layer.transparency = 0.5
-                        
-            hatch_layers = ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular')
-            for l_name in hatch_layers:
-                if l_name in doc.layers:
-                    polylines = [e for e in msp if e.dxf.layer == l_name and e.dxftype() in ('LWPOLYLINE', 'POLYLINE')]
-                    for poly in polylines:
-                        if poly.dxftype() == 'LWPOLYLINE':
-                            pts = [(p[0], p[1]) for p in poly.get_points()]
-                        else:
-                            pts = [(v.dxf.location.x, v.dxf.location.y) for v in poly.vertices]
-                            
-                        if len(pts) >= 3:
-                            h_color = doc.layers.get(l_name).color
-                            hatch = msp.add_hatch(color=h_color, dxfattribs={'layer': l_name})
-                            hatch.set_pattern_fill('SOLID')
-                            hatch.paths.add_polyline_path(pts, is_closed=True)
-                            
-                        msp.delete_entity(poly)
-                        
-            if m_tejido_data:
-                if 'ArialBold' not in doc.styles:
-                    style = doc.styles.new('ArialBold', dxfattribs={'font': 'Arial.ttf'})
-                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
-                    
-                h_color = doc.layers.get('tejido').color if 'tejido' in doc.layers else 8
-                for pos, alt in m_tejido_data:
-                    try:
-                        alt_val = float(alt)
-                        text_str = f"{alt_val:.1f}"
-                    except (ValueError, TypeError):
-                        text_str = str(alt)
-                        
-                    t = msp.add_text(text_str, dxfattribs={
-                        'layer': 'tejido',
-                        'color': h_color,
-                        'height': 0.375,
-                        'style': 'ArialBold'
+            style = doc.styles.new('ArialBold', dxfattribs={'font': 'Arial.ttf'})
+            style.set_extended_font_data(family='Arial', italic=False, bold=True)
+        except Exception:
+            pass
+
+        # Etiquetas de altura de tejido
+        if m_tejido_data:
+            h_color = layer_config.get('tejido', {}).get('color', 8)
+            for pos, alt in m_tejido_data:
+                try:
+                    alt_val = float(alt)
+                    text_str = f"{alt_val:.1f}"
+                except (ValueError, TypeError):
+                    text_str = str(alt)
+                t = msp.add_text(text_str, dxfattribs={
+                    'layer': 'tejido', 'color': h_color,
+                    'height': 0.375, 'style': 'ArialBold'
+                })
+                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+
+        # Etiquetas de parcelas (Nro de Parcela y CUR 1)
+        if m_parcelas_data:
+            if 'parcelas_etiquetas' not in doc.layers:
+                l_parc = doc.layers.new('parcelas_etiquetas')
+                l_parc.color = 252
+                l_parc.rgb = (96, 96, 96)
+            p_color = doc.layers.get('parcelas_etiquetas').color
+            for (x, y), lines in m_parcelas_data:
+                positions = [(x, y + 0.8), (x, y - 0.8)] if len(lines) == 2 else [(x, y)]
+                for line_text, pos in zip(lines, positions):
+                    t = msp.add_text(line_text, dxfattribs={
+                        'layer': 'parcelas_etiquetas', 'color': p_color,
+                        'height': 1.2, 'style': 'ArialBold'
                     })
                     t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
-                    
-            doc.save()
-        except Exception as e_dxf:
-            logger.warning(f"Error applying ACI colors with ezdxf: {e_dxf}")
+
+        # Etiquetas de calles orientadas según la dirección de la vía
+        logger.info(f"DXF: insertando {len(m_calles_data)} etiquetas de calles...")
+        if m_calles_data:
+            if 'calles_etiquetas' not in doc.layers:
+                l_calles = doc.layers.new('calles_etiquetas')
+                l_calles.color = 7
+            c_color = 7  # ACI 7 = siempre visible (negro en fondo blanco, blanco en fondo negro)
+            for item in m_calles_data:
+                if len(item) == 3:
+                    pos, calle_name, rot_angle = item
+                else:
+                    pos, calle_name = item
+                    rot_angle = 0.0
+                t = msp.add_text(str(calle_name).upper(), dxfattribs={
+                    'layer': 'calles_etiquetas', 'color': c_color,
+                    'height': 3.0, 'rotation': rot_angle, 'style': 'ArialBold'
+                })
+                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                logger.info(f"DXF calle TEXT: '{calle_name}' pos=({pos[0]:.0f},{pos[1]:.0f}) rot={rot_angle:.1f}")
+            logger.info(f"DXF: {len(m_calles_data)} etiquetas de calles insertadas OK")
+        else:
+            logger.warning("DXF: m_calles_data VACÍO - no hay calles para etiquetar")
+
+        # Guardar DXF a archivo temporal
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".dxf")
+        os.close(temp_fd)
+        doc.saveas(temp_path)
+        logger.info(f"DXF generado: {entity_count} entidades geom, {len(m_calles_data)} calles, {len(m_parcelas_data)} parcelas, {len(m_tejido_data)} tejido")
             
         from starlette.background import BackgroundTasks
         

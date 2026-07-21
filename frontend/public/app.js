@@ -2095,7 +2095,7 @@ const PERMISSION_GROUPS = {
         secgdu: { label: "Buzones SECGDU (Total Universo)", desc: "Visualizar el universo total de expedientes de la secretaría." }
     },
     "Visualización & Datos": {
-        ciudad_3d: { label: "Ciudad 3D", desc: "Acceso al módulo de Línea de Frente Interno de Ciudad 3D." },
+        ciudad_3d: { label: "Ciudad 3D", desc: "Acceso al módulo de Extensión Irregular (Esquinas) de Ciudad 3D." },
         lfi_dibujar: { label: "LFI: Dibujar Trazados", desc: "Permiso para asignarse manzanas y subir borrador de trazado de LFI (Troneras)." },
         lfi_revisar: { label: "LFI: Revisar Trazados", desc: "Permiso para revisar, aprobar/rechazar trazado finalizado de LFI (Visor)." },
         analytics_estadistica: { label: "Analytics (Estadística)", desc: "Acceso a tableros estadísticos interactivos de trámites." },
@@ -10950,21 +10950,33 @@ document.addEventListener('click', (e) => {
 
 
 function calculateLFIStats() {
-    let pendientes = 0;
-    let enCurso = 0;
-    let revision = 0;
-    let aprobadas = 0;
+    let pendientes = 0, enCurso = 0, revision = 0, aprobadas = 0;
+    let pendSi = 0, pendNo = 0;
+    let cursoSi = 0, cursoNo = 0;
+    let revSi = 0, revNo = 0;
+    let aprobSi = 0, aprobNo = 0;
     
     c3dTronerasRawData.forEach(row => {
         const estado = (row.estado || 'Pendiente').toLowerCase();
+        const si = Number(row.irregular_si || 0);
+        const no = Number(row.irregular_no || 0);
+        
         if (estado === 'pendiente' || estado === '') {
             pendientes++;
+            pendSi += si;
+            pendNo += no;
         } else if (estado === 'en curso') {
             enCurso++;
+            cursoSi += si;
+            cursoNo += no;
         } else if (estado === 'para revisión' || estado === 'para revision') {
             revision++;
+            revSi += si;
+            revNo += no;
         } else if (estado === 'subir a ciudad 3d' || estado === 'aprobado' || estado === 'aprobada') {
             aprobadas++;
+            aprobSi += si;
+            aprobNo += no;
         }
     });
     
@@ -10975,15 +10987,15 @@ function calculateLFIStats() {
     const elRevision = document.getElementById('kpi-lfi-val-revision');
     const elAprobadas = document.getElementById('kpi-lfi-val-aprobadas');
     
+    if (elPendientes) elPendientes.innerText = pendientes.toLocaleString('es-AR');
+    if (elEnCurso) elEnCurso.innerText = enCurso.toLocaleString('es-AR');
+    if (elRevision) elRevision.innerText = revision.toLocaleString('es-AR');
+    if (elAprobadas) elAprobadas.innerText = aprobadas.toLocaleString('es-AR');
+    
     const elPctPendientes = document.getElementById('kpi-lfi-pct-pendientes');
     const elPctEnCurso = document.getElementById('kpi-lfi-pct-en-curso');
     const elPctRevision = document.getElementById('kpi-lfi-pct-revision');
     const elPctAprobadas = document.getElementById('kpi-lfi-pct-aprobadas');
-    
-    if (elPendientes) elPendientes.innerText = pendientes;
-    if (elEnCurso) elEnCurso.innerText = enCurso;
-    if (elRevision) elRevision.innerText = revision;
-    if (elAprobadas) elAprobadas.innerText = aprobadas;
     
     if (total > 0) {
         if (elPctPendientes) elPctPendientes.innerText = `(${Math.round((pendientes / total) * 100)}%)`;
@@ -10996,6 +11008,25 @@ function calculateLFIStats() {
         if (elPctRevision) elPctRevision.innerText = `(0%)`;
         if (elPctAprobadas) elPctAprobadas.innerText = `(0%)`;
     }
+
+    // Desglose de esquinas dentro de cada tarjeta
+    const elSiPend = document.getElementById('kpi-lfi-si-pendientes');
+    const elNoPend = document.getElementById('kpi-lfi-no-pendientes');
+    const elSiCurso = document.getElementById('kpi-lfi-si-en-curso');
+    const elNoCurso = document.getElementById('kpi-lfi-no-en-curso');
+    const elSiRev = document.getElementById('kpi-lfi-si-revision');
+    const elNoRev = document.getElementById('kpi-lfi-no-revision');
+    const elSiAprob = document.getElementById('kpi-lfi-si-aprobadas');
+    const elNoAprob = document.getElementById('kpi-lfi-no-aprobadas');
+
+    if (elSiPend) elSiPend.innerText = pendSi.toLocaleString('es-AR');
+    if (elNoPend) elNoPend.innerText = pendNo.toLocaleString('es-AR');
+    if (elSiCurso) elSiCurso.innerText = cursoSi.toLocaleString('es-AR');
+    if (elNoCurso) elNoCurso.innerText = cursoNo.toLocaleString('es-AR');
+    if (elSiRev) elSiRev.innerText = revSi.toLocaleString('es-AR');
+    if (elNoRev) elNoRev.innerText = revNo.toLocaleString('es-AR');
+    if (elSiAprob) elSiAprob.innerText = aprobSi.toLocaleString('es-AR');
+    if (elNoAprob) elNoAprob.innerText = aprobNo.toLocaleString('es-AR');
 }
 
 function renderLFIMisTrazados() {
@@ -11101,9 +11132,14 @@ function renderLFIRevision() {
                     ${row.analista_asignado || 'Sin asignar'}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                        <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
-                    </button>
+                    <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
+                        </button>
+                        <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha PDF A3">
+                            <i class="fa-solid fa-file-pdf"></i> PDF A3
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -11245,9 +11281,16 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         sortedSections.forEach(sName => {
             sectionsHtml += `
                 <div style="margin-bottom: 1.5rem; background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 1rem; font-family: 'Outfit', sans-serif;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.75rem;">
-                        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif;">SECCIÓN</span>
-                        <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem;">${sName}</h4>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif;">SECCIÓN</span>
+                            <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem;">${sName}</h4>
+                        </div>
+                        ${canManageTroneras ? `
+                            <button onclick="event.stopPropagation(); assignSeccionCompletaLFI('${sName}')" class="btn-primary" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Autoasignarme todas las manzanas pendientes de esta sección">
+                                <i class="fa-solid fa-layer-group"></i> Autoasignar Sección Completa (${filteredSecciones[sName].length})
+                            </button>
+                        ` : ''}
                     </div>
                     <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; font-family: 'Outfit', sans-serif;">
                         <thead>
@@ -11298,6 +11341,15 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                 // Action buttons
                                 let actionButtonsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;">`;
                                 
+                                // Autoasignar Manzana Individual (si está Pendiente)
+                                if (rowEstado === 'Pendiente' && canManageTroneras) {
+                                    actionButtonsHtml += `
+                                        <button onclick="event.stopPropagation(); assignManzanaLFI('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Autoasignarme esta manzana">
+                                            <i class="fa-solid fa-user-plus"></i> Autoasignar
+                                        </button>
+                                    `;
+                                }
+
                                 // DXF Base
                                 actionButtonsHtml += `
                                     <button onclick="event.stopPropagation(); downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar DXF Base">
@@ -11309,6 +11361,13 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                 actionButtonsHtml += `
                                     <button onclick="event.stopPropagation(); openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: var(--primary-dark); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Ficha de Trabajo">
                                         <i class="fa-solid fa-file-signature"></i> Ficha
+                                    </button>
+                                `;
+                                
+                                // Ficha PDF A3
+                                actionButtonsHtml += `
+                                    <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha Técnica PDF A3">
+                                        <i class="fa-solid fa-file-pdf"></i> PDF A3
                                     </button>
                                 `;
                                 
@@ -11651,6 +11710,9 @@ async function openLFIFicha(seccion, manzana) {
         <button onclick="downloadManzanaDXF('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
             <i class="fa-solid fa-download"></i> DXF Base original
         </button>
+        <button onclick="downloadLFIPdf('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;" title="Descargar Ficha Técnica en PDF A3">
+            <i class="fa-solid fa-file-pdf"></i> Descargar Ficha PDF (A3)
+        </button>
     `;
     if (row.archivo_trazado) {
         downloadsContainer.innerHTML += `
@@ -11918,13 +11980,70 @@ function downloadUploadedLFITrazado(fileType = "draft") {
     window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_trazado?seccion=${encodeURIComponent(activeWorkflowSeccion)}&manzana=${encodeURIComponent(activeWorkflowManzana)}&file_type=${encodeURIComponent(fileType)}&token=${encodeURIComponent(token)}`, '_blank');
 }
 
+function downloadLFIPdf(seccion, manzana) {
+    const s = seccion || activeWorkflowSeccion;
+    const m = manzana || activeWorkflowManzana;
+    const token = localStorage.getItem('sgdu_token') || '';
+    window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_pdf?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`, '_blank');
+}
+
+window.downloadLFIPdf = downloadLFIPdf;
+
+async function assignManzanaLFI(seccion, manzana) {
+    if (!confirm(`¿Desea autoasignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion, manzana })
+        });
+        if (res && res.ok) {
+            alert(`Manzana ${seccion} - ${manzana} asignada correctamente.`);
+            await loadCiudad3DTroneras();
+            if (typeof activeWorkflowSeccion !== 'undefined' && activeWorkflowSeccion === seccion && activeWorkflowManzana === manzana) {
+                openLFIFicha(seccion, manzana);
+            }
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
+        }
+    } catch (err) {
+        console.error("Error al asignar manzana LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+
+async function assignSeccionCompletaLFI(seccion) {
+    if (!confirm(`¿Está seguro de que desea autoasignarse TODAS las manzanas pendientes de la Sección ${seccion}?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign_seccion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion })
+        });
+        if (res && res.ok) {
+            const data = await res.json();
+            alert(`Sección ${seccion} asignada con éxito: ${data.assigned_count} manzana(s) asignada(s) a tu usuario.`);
+            await loadCiudad3DTroneras();
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo asignar la sección completa.'}`);
+        }
+    } catch (err) {
+        console.error("Error al autoasignar sección completa LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+
 window.assignManzanaLFI = assignManzanaLFI;
+window.assignSeccionCompletaLFI = assignSeccionCompletaLFI;
 window.openLFIFicha = openLFIFicha;
 window.loadLFIFichaNotes = loadLFIFichaNotes;
 window.saveLFIFichaNote = saveLFIFichaNote;
 window.saveLFIFichaDisposicion = saveLFIFichaDisposicion;
 window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
 window.submitLFIFichaReview = submitLFIFichaReview;
+
 async function unassignManzanaLFI(seccion, manzana) {
     if (!confirm(`¿Está seguro de que desea liberar la manzana LFI ${seccion} - ${manzana} y volverla a la bandeja general (Pendiente)?`)) return;
     try {
