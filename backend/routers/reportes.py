@@ -645,12 +645,20 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                 for row in res_metas:
                     r_dict = row._mapping
                     if r_dict["trata"]:
-                        expected_targets[str(r_dict["trata"]).strip().upper()] = round(r_dict["nueva_meta_produccion"] or 0)
+                        val = round(r_dict["nueva_meta_produccion"] or 0)
+                        if val > 0:
+                            expected_targets[str(r_dict["trata"]).strip().upper()] = val
             except Exception as e:
-                logger.warning(f"No se pudo consultar mv_metas_dinamicas_{gerencia_clean}, usando fallback: {e}")
-                expected_targets = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, trata_codes + ['INTERVENCIONES'])
+                logger.warning(f"No se pudo consultar mv_plan_metas_{gerencia_clean}, usando fallback: {e}")
 
-            if "INTERVENCIONES" not in expected_targets:
+            # Fallback para tratas sin meta asignada o con meta 0 (mismo criterio que familias)
+            fallbacks = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, trata_codes + ['INTERVENCIONES'])
+            for t_code in trata_codes + ['INTERVENCIONES']:
+                t_u = t_code.strip().upper()
+                if expected_targets.get(t_u, 0) <= 0:
+                    expected_targets[t_u] = fallbacks.get(t_u, 0)
+
+            if "INTERVENCIONES" not in expected_targets or expected_targets["INTERVENCIONES"] <= 0:
                 expected_targets["INTERVENCIONES"] = round(calculate_trata_expected_egresos(conn, gerencia_clean, 'INTERVENCIONES'))
 
             config_for_g = TRAMITES_CONFIG.get(gerencia_clean, {})
@@ -942,6 +950,102 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
         logger.error(f"Error en metas proyección: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def calculate_single_trata_fallback(conn, gerencia_clean: str, t_upper: str) -> tuple:
+    try:
+        interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+        sql_hist = f"""
+            WITH ing AS (
+                SELECT to_char(fecha_ingreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                FROM mv_{gerencia_clean}_ingresos_eventos
+                WHERE TRIM(trata) = :t
+                GROUP BY 1
+            ),
+            egr AS (
+                SELECT to_char(fecha_egreso, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                FROM (
+                    SELECT fecha_egreso, trata FROM mv_{gerencia_clean}_gedos_egreso
+                    UNION ALL
+                    SELECT fecha_egreso, 'INTERVENCIONES' as trata FROM {interv_egr_table}
+                ) t_egr
+                WHERE TRIM(trata) = :t
+                GROUP BY 1
+            ),
+            egr_ne AS (
+                SELECT to_char(fecha_ultimo_movimiento, 'YYYY-MM') as mes_label, COUNT(*) as cant
+                FROM mv_{gerencia_clean}_egresos_no_efectivos
+                WHERE TRIM(trata) = :t
+                GROUP BY 1
+            ),
+            stock AS (
+                SELECT mes_label, 
+                       SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END) as stock_sector, 
+                       SUM(CASE WHEN categoria = 'SUBSANACION' THEN cant_expedientes ELSE 0 END) as stock_corriente
+                FROM mv_{gerencia_clean}_stock_historico
+                WHERE TRIM(trata) = :t
+                GROUP BY 1
+            )
+            SELECT 
+                s.mes_label,
+                COALESCE(i.cant, 0) as ingresos,
+                COALESCE(e.cant, 0) + COALESCE(ne.cant, 0) as egresos_totales,
+                COALESCE(s.stock_sector, 0) as stock_sector,
+                COALESCE(s.stock_corriente, 0) as stock_corriente
+            FROM stock s
+            LEFT JOIN ing i ON i.mes_label = s.mes_label
+            LEFT JOIN egr e ON e.mes_label = s.mes_label
+            LEFT JOIN egr_ne ne ON ne.mes_label = s.mes_label
+            ORDER BY s.mes_label ASC
+        """
+        result = conn.execute(text(sql_hist), {"t": t_upper})
+        hist_data = [dict(row._mapping) for row in result]
+        
+        if not hist_data:
+            return 0, 0
+
+        current_month_str = datetime.now().strftime('%Y-%m')
+        complete_months = [d for d in hist_data if d['mes_label'] < current_month_str]
+        recent = complete_months[-6:] if len(complete_months) >= 6 else complete_months
+        
+        if not recent:
+            recent = hist_data
+
+        def calculate_median(values):
+            if not values:
+                return 0
+            sorted_vals = sorted(values)
+            n = len(sorted_vals)
+            mid = n // 2
+            if n % 2 == 1:
+                return sorted_vals[mid]
+            else:
+                return (sorted_vals[mid - 1] + sorted_vals[mid]) / 2.0
+
+        avg_ing = calculate_median([float(d['ingresos']) for d in recent])
+        avg_egr = calculate_median([float(d['egresos_totales']) for d in recent])
+        current_sector = float(hist_data[-1]['stock_sector'])
+        current_corriente = float(hist_data[-1]['stock_corriente'])
+        
+        duracion_dias = 90.0
+        try:
+            dur_res = conn.execute(text(f"SELECT COALESCE(duracion_total_mediana, 90) FROM mv_tiempos_resolucion_{gerencia_clean} WHERE trata = :t LIMIT 1"), {"t": t_upper}).fetchone()
+            if dur_res:
+                duracion_dias = float(dur_res[0])
+        except Exception:
+            pass
+        
+        healthy_corriente_target = avg_ing * (duracion_dias / 30.0)
+        excess_corriente = max(0.0, current_corriente - healthy_corriente_target)
+        
+        meta_maint = avg_ing
+        meta_clean_required = (current_sector / 6.0) + (excess_corriente / 3.0)
+        
+        meta_total_target = max(meta_maint / 0.75, meta_clean_required / 0.25)
+        
+        return round(meta_total_target), round(avg_ing)
+    except Exception as e:
+        logger.error(f"Error en calculate_single_trata_fallback para {t_upper}: {e}")
+        return 0, 0
+
 @router.get("/api/reporte/familia")
 async def get_reporte_familia(
     trata: List[str] = Query(...), 
@@ -966,15 +1070,6 @@ async def get_reporte_familia(
             "MDUG4003A": "etapa_proyecto"
         }
 
-        # Calcular último mes completo dinámicamente
-        _now = datetime.now()
-        _y, _m = _now.year, _now.month
-        _m -= 1
-        if _m == 0:
-            _m = 12
-            _y -= 1
-        last_complete_month_date = f"{_y}-{str(_m).zfill(2)}-01"
-
         aggregated_history = {}
         total_ingresos_promedio = 0
         total_egresos_totales_plan = 0
@@ -987,24 +1082,32 @@ async def get_reporte_familia(
                     continue
 
                 try:
+                    # Buscar el mes más cercano en la planificación
+                    mes_cal = '2026-07-01'
+                    month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                    if month_res:
+                        mes_cal = month_res[0]
+
                     meta_res = conn.execute(text(f"""
                         SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_promedio, 0) 
                         FROM mv_plan_metas_{gerencia_clean} 
                         WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
-                    """), {"t": t_upper, "mes": last_complete_month_date}).fetchone()
+                    """), {"t": t_upper, "mes": mes_cal}).fetchone()
 
                     if meta_res and float(meta_res[0]) > 0:
                         total_egresos_totales_plan += float(meta_res[0])
                         total_ingresos_promedio += float(meta_res[1])
                     else:
-                        # Fallback: mediana de últimos 6 meses reales
-                        fallback = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, [t_upper])
-                        total_egresos_totales_plan += fallback.get(t_upper, 0)
+                        # Fallback matemático igual a get_metas_proyeccion
+                        fallback_egr, fallback_ing = calculate_single_trata_fallback(conn, gerencia_clean, t_upper)
+                        total_egresos_totales_plan += fallback_egr
+                        total_ingresos_promedio += fallback_ing
                 except Exception as meta_err:
                     logger.warning(f"Error fetching plan metas for {t_upper} in {gerencia_clean}: {meta_err}")
                     try:
-                        fallback = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, [t_upper])
-                        total_egresos_totales_plan += fallback.get(t_upper, 0)
+                        fallback_egr, fallback_ing = calculate_single_trata_fallback(conn, gerencia_clean, t_upper)
+                        total_egresos_totales_plan += fallback_egr
+                        total_ingresos_promedio += fallback_ing
                     except Exception:
                         pass
 
@@ -1139,13 +1242,21 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                         continue
                         
                     try:
+                        mes_cal = '2026-07-01'
+                        month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                        if month_res:
+                            mes_cal = month_res[0]
+
                         meta_res = conn.execute(text(f"""
                             SELECT COALESCE(egresos_totales_plan, 0)
                             FROM mv_plan_metas_{gerencia_clean} 
-                            WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = '2026-06-01' LIMIT 1
-                        """), {"t": t_upper}).fetchone()
-                        if meta_res:
+                            WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
+                        """), {"t": t_upper, "mes": mes_cal}).fetchone()
+                        if meta_res and float(meta_res[0]) > 0:
                             total_target += float(meta_res[0])
+                        else:
+                            fallback_egr, _ = calculate_single_trata_fallback(conn, gerencia_clean, t_upper)
+                            total_target += fallback_egr
                     except Exception:
                         pass
                         
