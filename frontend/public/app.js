@@ -9875,6 +9875,7 @@ async function loadM2Permisados(resetPage = false) {
     const barrioVal = document.getElementById('m2-filter-barrio').value;
     const obraVal = document.getElementById('m2-filter-obra').value;
     const tareaVal = document.getElementById('m2-filter-tarea').value;
+    const categoriaVal = document.getElementById('m2-filter-categoria').value;
     const limitVal = document.getElementById('m2-table-limit').value;
 
     const queryParams = new URLSearchParams({
@@ -9888,6 +9889,7 @@ async function loadM2Permisados(resetPage = false) {
     if (barrioVal) queryParams.append('barrio', barrioVal);
     if (obraVal) queryParams.append('tipo_obra', obraVal);
     if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+    if (categoriaVal) queryParams.append('categoria', categoriaVal);
 
     try {
         const res = await def_fetch(`${API_BASE}/analytics/m2-permisados?${queryParams}`);
@@ -10212,14 +10214,14 @@ function renderM2Pastillas() {
     // 2. Promedios y Totales Generales
     if (lastM2Data.charts && lastM2Data.charts.barrio && lastM2Data.summary) {
         const barriosList = lastM2Data.charts.barrio;
-        const totalM2Barrios = barriosList.reduce((acc, x) => acc + x.total_m2, 0);
+        const totalM2Barrios = barriosList.reduce((acc, x) => acc + parseFloat(x.total_m2 || 0), 0);
         const promM2Barrio = barriosList.length > 0 ? totalM2Barrios / barriosList.length : 0;
         
-        const totalExpBarrios = barriosList.reduce((acc, x) => acc + x.cantidad_expedientes, 0);
+        const totalExpBarrios = barriosList.reduce((acc, x) => acc + parseInt(x.cantidad_expedientes || 0, 10), 0);
         const promExpBarrio = barriosList.length > 0 ? totalExpBarrios / barriosList.length : 0;
         
-        const totalM2Global = lastM2Data.summary.total_construir + lastM2Data.summary.total_ampliar + lastM2Data.summary.total_modificar;
-        const totalExpGlobal = lastM2Data.total_records;
+        const totalM2Global = parseFloat(lastM2Data.summary.total_construir || 0) + parseFloat(lastM2Data.summary.total_ampliar || 0) + parseFloat(lastM2Data.summary.total_modificar || 0);
+        const totalExpGlobal = parseInt(lastM2Data.total_records || 0, 10);
         const promM2Exp = totalExpGlobal > 0 ? totalM2Global / totalExpGlobal : 0;
 
         document.getElementById('m2-pastilla-prom-m2-barrio').innerText = `${Math.round(promM2Barrio).toLocaleString('es-AR')} m²`;
@@ -10292,6 +10294,7 @@ function clearM2Filters() {
     document.getElementById('m2-filter-barrio').value = '';
     document.getElementById('m2-filter-obra').value = '';
     document.getElementById('m2-filter-tarea').value = '';
+    document.getElementById('m2-filter-categoria').value = '';
     loadM2Permisados(true);
 }
 
@@ -10302,6 +10305,7 @@ function downloadM2PermisadosDataset() {
     const barrioVal = document.getElementById('m2-filter-barrio').value;
     const obraVal = document.getElementById('m2-filter-obra').value;
     const tareaVal = document.getElementById('m2-filter-tarea').value;
+    const categoriaVal = document.getElementById('m2-filter-categoria').value;
 
     const queryParams = new URLSearchParams();
     if (searchVal) queryParams.append('search', searchVal);
@@ -10310,6 +10314,7 @@ function downloadM2PermisadosDataset() {
     if (barrioVal) queryParams.append('barrio', barrioVal);
     if (obraVal) queryParams.append('tipo_obra', obraVal);
     if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+    if (categoriaVal) queryParams.append('categoria', categoriaVal);
 
     window.open(`${API_BASE}/analytics/m2-permisados/download?${queryParams.toString()}`, '_blank');
 }

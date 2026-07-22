@@ -1508,6 +1508,7 @@ async def get_analytics_m2_permisados(
     tipo_obra: Optional[str] = Query(None),
     tipo_tarea: Optional[str] = Query(None),
     anio: Optional[int] = Query(None),
+    categoria: Optional[str] = Query(None), # "construir", "ampliar", "modificar"
     current_user: User = Depends(get_current_user)
 ):
     try:
@@ -1538,6 +1539,15 @@ async def get_analytics_m2_permisados(
         if anio is not None and anio > 0:
             where_clauses.append("EXTRACT(YEAR FROM fecha_creacion_pdo)::int = :anio")
             params["anio"] = anio
+
+        if categoria:
+            cat_val = categoria.strip().lower()
+            if cat_val == "construir":
+                where_clauses.append("sup_construir > 0")
+            elif cat_val == "ampliar":
+                where_clauses.append("sup_ampliar > 0")
+            elif cat_val == "modificar":
+                where_clauses.append("sup_modificar > 0")
             
         where_str = " AND ".join(where_clauses)
         offset = (page - 1) * limit
@@ -1687,6 +1697,7 @@ async def download_analytics_m2_permisados(
     tipo_obra: Optional[str] = Query(None),
     tipo_tarea: Optional[str] = Query(None),
     anio: Optional[int] = Query(None),
+    categoria: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user)
 ):
     try:
@@ -1709,16 +1720,28 @@ async def download_analytics_m2_permisados(
         if tipo_obra:
             where_clauses.append("tipo_obra = :tipo_obra")
             params["tipo_obra"] = tipo_obra.strip()
-            
+
         if tipo_tarea:
             where_clauses.append("tipo_tarea = :tipo_tarea")
             params["tipo_tarea"] = tipo_tarea.strip()
-            
+
         if anio is not None and anio > 0:
             where_clauses.append("EXTRACT(YEAR FROM fecha_creacion_pdo)::int = :anio")
             params["anio"] = anio
-            
+
+        if categoria:
+            cat_val = categoria.strip().lower()
+            if cat_val == "construir":
+                where_clauses.append("sup_construir > 0")
+            elif cat_val == "ampliar":
+                where_clauses.append("sup_ampliar > 0")
+            elif cat_val == "modificar":
+                where_clauses.append("sup_modificar > 0")
+
         where_str = " AND ".join(where_clauses)
+
+
+
         
         from fastapi.responses import StreamingResponse
         import csv
