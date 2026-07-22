@@ -1624,11 +1624,19 @@ async def get_analytics_m2_permisados(
             
             # 5c. Map points (Todos los puntos que cumplan los filtros para mostrarlos en el mapa)
             map_points_res = conn.execute(text(f"""
-                SELECT x, y, expediente, direccion, smp, sup_construir, tipo_obra, tipo_tarea, apellido_profesional, nombre_profesional
+                SELECT x, y, expediente, direccion, smp, sup_construir, sup_ampliar, sup_modificar, tipo_obra, tipo_tarea, apellido_profesional, nombre_profesional
                 FROM public.mvw_m2_permisados
                 WHERE {where_str} AND x IS NOT NULL AND y IS NOT NULL
             """), params)
             map_points = [dict(r._mapping) for r in map_points_res]
+
+            # 5d. Lightweight list of all filtered records to count unique expedientes dynamically
+            all_summary_res = conn.execute(text(f"""
+                SELECT id_expediente, sup_construir, sup_ampliar, sup_modificar
+                FROM public.mvw_m2_permisados
+                WHERE {where_str}
+            """), params)
+            summary_records = [{"id": r[0], "c": float(r[1] or 0), "a": float(r[2] or 0), "m": float(r[3] or 0)} for r in all_summary_res.fetchall()]
             
             # 6. Filters
             filter_comunas = [r[0] for r in conn.execute(text("SELECT DISTINCT comuna FROM public.mvw_m2_permisados WHERE comuna IS NOT NULL AND comuna <> '' ORDER BY 1")).fetchall()]
@@ -1648,6 +1656,7 @@ async def get_analytics_m2_permisados(
                     "total_demoler": stats["total_demoler"],
                     "total_terreno": stats["total_terreno"]
                 },
+                "summary_records": summary_records,
                 "records": records,
                 "map_points": map_points,
                 "charts": {

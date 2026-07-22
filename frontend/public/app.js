@@ -10263,6 +10263,22 @@ function updateKPICardsFromChartVisibility(chart) {
     const kpiConstruir = document.getElementById('m2-kpi-construir');
     const kpiAmpliar = document.getElementById('m2-kpi-ampliar');
     const kpiModificar = document.getElementById('m2-kpi-modificar');
+    const kpiExpedientes = document.getElementById('m2-kpi-expedientes');
+    
+    // Recalcular la cantidad de expedientes única según las categorías activas
+    if (kpiExpedientes && lastM2Data.summary_records) {
+        const matchedExpedientes = new Set();
+        lastM2Data.summary_records.forEach(row => {
+            const hasConstruir = isConstruirVisible && row.c > 0;
+            const hasAmpliar = isAmpliarVisible && row.a > 0;
+            const hasModificar = isModificarVisible && row.m > 0;
+            
+            if (hasConstruir || hasAmpliar || hasModificar) {
+                matchedExpedientes.add(row.id);
+            }
+        });
+        kpiExpedientes.innerText = matchedExpedientes.size.toLocaleString('es-AR');
+    }
     
     if (kpiConstruir) {
         if (isConstruirVisible) {
