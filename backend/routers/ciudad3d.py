@@ -1712,7 +1712,8 @@ async def download_analytics_m2_permisados(
             writer.writerow([
                 "Expediente", "Direccion", "Seccion", "Manzana", "Parcela", "Comuna", "Barrio", "Es UF", "SMP",
                 "Uso Particularizado", "Tipo Tarea", "Tipo Obra", "Superficie Terreno", "Superficie Libre",
-                "Superficie Existente", "Superficie Demoler", "Superficie Construir", "Profundidad Subsuelos",
+                "Superficie Existente", "Superficie Demoler", "Superficie Construir", "Superficie Modificar",
+                "Superficie Ampliar", "Superficie Plusvalia", "Superficie Anti Reglamentaria", "Profundidad Subsuelos",
                 "Cantidad Subsuelos", "Cantidad Pisos", "Altura Metros", "Uso CUR", "Apellido Profesional",
                 "Nombre Profesional", "Matricula Profesional", "Plano", "Encomienda Profesional",
                 "Comprobante Pagos Derechos", "Informe Dominio", "Fecha Creacion OCD", "Fecha Creacion PDO"
@@ -1734,6 +1735,7 @@ async def download_analytics_m2_permisados(
                         r["expediente"], r["direccion"], r["seccion"], r["manzana"], r["parcela"], r["comuna"], r["barrio"],
                         "SI" if r["es_uf"] else "NO", r["smp"], r["uso_particularizado"], r["tipo_tarea"], r["tipo_obra"],
                         r["sup_terreno"], r["sup_libre"], r["sup_existente"], r["sup_demoler"], r["sup_construir"],
+                        r["sup_modificar"], r["sup_ampliar"], r["sup_plusvalia"], r["sup_anti_reglamentaria"],
                         r["profundidad_subsuelos"], r["cantidad_subsuelos"], r["cantidad_pisos"], r["altura_metros"],
                         r["uso_cur"], r["apellido_profesional"], r["nombre_profesional"], r["matricula_profesional"],
                         r["plano"], r["encomienda_profesional"], r["comprobante_pagos_derechos"], r["informe_dominio"],

@@ -4,8 +4,7 @@ from sqlalchemy import create_engine, text
 
 # Add backend directory to path to allow importing local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-DEFAULT_PROD_URL = os.getenv("DATABASE_URL_PUBLIC", "postgresql://postgres:frQB7%7D0%26p~.C_.X%40Ymu(1tAO7@34.136.69.128:5432/sade_db")
+from database import engine as local_engine
 
 SQL_VIEW = """
 DROP MATERIALIZED VIEW IF EXISTS public.mvw_m2_permisados CASCADE;
@@ -101,19 +100,15 @@ CREATE INDEX idx_m2_permisados_prof ON public.mvw_m2_permisados (matricula_profe
 """
 
 def main():
-    print(f"[*] Conectando a producción para crear la vista materializada...")
-    prod_engine = create_engine(DEFAULT_PROD_URL)
-    
+    print(f"[*] Conectando a base de datos LOCAL para recrear la vista materializada...")
     try:
-        with prod_engine.connect() as conn:
-            # Dividir los comandos SQL por punto y coma y ejecutarlos secuencialmente
-            # O ejecutar el bloque completo
+        with local_engine.connect() as conn:
             print("[*] Ejecutando definición SQL de mvw_m2_permisados...")
             conn.execute(text(SQL_VIEW))
             conn.commit()
-            print("[+] Vista materializada y sus índices creados correctamente en producción.")
+            print("[+] Vista materializada y sus índices recreados correctamente en local.")
     except Exception as e:
-        print(f"[-] Error al crear la vista en producción: {e}")
+        print(f"[-] Error al recrear la vista local: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":

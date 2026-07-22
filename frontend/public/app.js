@@ -9907,7 +9907,7 @@ async function loadM2Permisados(resetPage = false) {
 
         // 3. Render Table
         if (data.records.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron registros.</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron registros.</td></tr>';
         } else {
             tableBody.innerHTML = data.records.map(row => {
                 const docPlano = row.plano || '-';
@@ -9940,6 +9940,18 @@ async function loadM2Permisados(resetPage = false) {
                         </td>
                         <td style="padding: 12px 16px; text-align:right; font-weight:700; color:#dc2626;">
                             ${row.sup_demoler ? Math.round(row.sup_demoler).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_modificar ? Math.round(row.sup_modificar).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_ampliar ? Math.round(row.sup_ampliar).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_plusvalia ? Math.round(row.sup_plusvalia).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_anti_reglamentaria ? Math.round(row.sup_anti_reglamentaria).toLocaleString('es-AR') : '0'} m²
                         </td>
                         <td style="padding: 12px 16px;">
                             <strong>${row.apellido_profesional || ''}, ${row.nombre_profesional || ''}</strong><br>
