@@ -1894,12 +1894,11 @@ async def get_analytics_avisos_obra(
             """), params).fetchall()
             monthly_data = [{"mes": r[0], "total": int(r[1])} for r in monthly_res]
 
-            # 7. Map points (limit to 2500 points with coords)
+            # 7. Map points (all points with coords)
             map_points_res = conn.execute(text(f"""
                 SELECT id_expediente, expediente, documento, acronimo, direccion, barrio, comuna, x, y
                 FROM public.mvw_avisos_obra
                 WHERE {where_str} AND x IS NOT NULL AND y IS NOT NULL
-                LIMIT 2500
             """), params)
             map_points = [dict(r._mapping) for r in map_points_res]
 
