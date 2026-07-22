@@ -173,7 +173,7 @@ function initAuth() {
         if (navCiudad3D) navCiudad3D.style.display = hasCiudad3DAccess ? 'inline-block' : 'none';
 
         const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
-        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados) ? 'block' : 'none';
+        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra) ? 'block' : 'none';
         const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
         if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
 
@@ -189,6 +189,10 @@ function initAuth() {
         const cardM2Permisados = document.getElementById('card-goto-m2-permisados');
         if (cardM2Permisados) {
             cardM2Permisados.style.display = perms.analytics_m2_permisados ? 'flex' : 'none';
+        }
+        const cardAvisosObra = document.getElementById('card-goto-avisos-obra');
+        if (cardAvisosObra) {
+            cardAvisosObra.style.display = perms.analytics_avisos_obra ? 'flex' : 'none';
         }
 
         // Toggles for Mis Expedientes dropdown and its contents
@@ -319,9 +323,11 @@ function showView(viewId, updateHash = true) {
         if (viewId === 'publico_privado' || viewId === 'copua') {
             hasPermission = !!(currentUser.permissions[viewId] || currentUser.permissions['seguimiento']);
         } else if (viewId === 'analytics_estadistica') {
-            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo'] || currentUser.permissions['analytics_m2_permisados']);
+            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo'] || currentUser.permissions['analytics_m2_permisados'] || currentUser.permissions['analytics_avisos_obra']);
         } else if (viewId === 'analytics_m2_permisados') {
             hasPermission = !!currentUser.permissions['analytics_m2_permisados'];
+        } else if (viewId === 'analytics_avisos_obra') {
+            hasPermission = !!currentUser.permissions['analytics_avisos_obra'];
         } else if (viewId === 'asignados-mi') {
             hasPermission = !!currentUser.permissions['asignados-mi'];
         } else if (dgrocViews.includes(viewId)) {
@@ -2116,6 +2122,7 @@ const PERMISSION_GROUPS = {
         ley_blanqueo: { label: "Analytics (Ley de Blanqueo)", desc: "Acceso a reportes del blanqueo de capitales." },
         analytics_datasets: { label: "Analytics (Datasets)", desc: "Descarga de datasets crudos del tablero." },
         analytics_m2_permisados: { label: "Analytics (M2 Permisados)", desc: "Acceso al módulo de análisis y consulta de M2 Permisados." },
+        analytics_avisos_obra: { label: "Analytics (Avisos de Obra)", desc: "Acceso al módulo de estadísticas y mapas de Avisos de Obra." },
         family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites de un mismo expediente." }
     },
     "Administración": {
