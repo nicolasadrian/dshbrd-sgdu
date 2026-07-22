@@ -10834,7 +10834,7 @@ function switchAvisoSubTab(tabName) {
                 renderAvisoMap(lastAvisoData.map_points);
             }
             if (avisoMap) {
-                avisoMap.invalidateSize();
+                avisoMap.resize();
             }
         }, 150);
     }
@@ -10842,53 +10842,139 @@ function switchAvisoSubTab(tabName) {
 
 function renderAvisoMap(points) {
     const mapContainer = document.getElementById('aviso-leaflet-map');
-    if (!mapContainer) return;
+    if (!mapContainer || typeof maplibregl === 'undefined') return;
 
-    document.getElementById('aviso-map-count').innerText = `${points.length.toLocaleString('es-AR')} ubicaciones georreferenciadas`;
+    const validPoints = (points || []).filter(p => p && p.x && p.y);
+    document.getElementById('aviso-map-count').innerText = `${validPoints.length.toLocaleString('es-AR')} ubicaciones georreferenciadas`;
+
+    const geojson = {
+        type: 'FeatureCollection',
+        features: validPoints.map(row => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [row.x, row.y]
+            },
+            properties: {
+                acronimo: row.acronimo,
+                expediente: row.expediente || '',
+                documento: row.documento || '',
+                direccion: row.direccion || '',
+                barrio: row.barrio || '',
+                comuna: row.comuna || ''
+            }
+        }))
+    };
+
+    const fitToData = () => {
+        if (validPoints.length > 0) {
+            const bounds = new maplibregl.LngLatBounds();
+            validPoints.forEach(p => bounds.extend([p.x, p.y]));
+            avisoMap.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+        } else {
+            avisoMap.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
+        }
+    };
 
     if (!avisoMap) {
-        avisoMap = L.map('aviso-leaflet-map').setView([-34.6037, -58.3816], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(avisoMap);
-    }
+        avisoMap = new maplibregl.Map({
+            container: 'aviso-leaflet-map',
+            style: {
+                version: 8,
+                sources: {
+                    'carto-tiles': {
+                        type: 'raster',
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                            'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                            'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                        ],
+                        tileSize: 256,
+                        attribution: '&copy; CARTO &copy; OpenStreetMap',
+                        maxzoom: 19
+                    }
+                },
+                layers: [{
+                    id: 'carto-basemap',
+                    type: 'raster',
+                    source: 'carto-tiles',
+                    minzoom: 0,
+                    maxzoom: 22
+                }]
+            },
+            center: [-58.4173, -34.6118],
+            zoom: 11.5,
+            attributionControl: false
+        });
 
-    // Clear existing markers if any
-    if (window.avisoMarkersGroup) {
-        avisoMap.removeLayer(window.avisoMarkersGroup);
-    }
+        avisoMap.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
 
-    window.avisoMarkersGroup = L.layerGroup().addTo(avisoMap);
-
-    const validBounds = [];
-    points.forEach(pt => {
-        if (pt.y && pt.x) {
-            const marker = L.circleMarker([pt.y, pt.x], {
-                radius: 6,
-                fillColor: pt.acronimo === 'IFCAO' ? '#3b82f6' : (pt.acronimo === 'IFCFP' ? '#10b981' : '#a855f7'),
-                color: '#ffffff',
-                weight: 1.5,
-                opacity: 1,
-                fillOpacity: 0.85
+        avisoMap.on('load', () => {
+            avisoMap.addSource('aviso-points', {
+                type: 'geojson',
+                data: geojson
             });
 
-            marker.bindPopup(`
-                <div style="font-family:'Outfit', sans-serif; font-size:0.85rem; line-height: 1.4;">
-                    <strong style="color:#d97706;">${pt.acronimo}</strong> - <b>${pt.expediente || ''}</b><br/>
-                    <b>Dirección:</b> ${pt.direccion || '-'}<br/>
-                    <b>Barrio:</b> ${pt.barrio || '-'} (${pt.comuna || '-' })<br/>
-                    <b>Documento:</b> ${pt.documento || '-'}
-                </div>
-            `);
+            avisoMap.addLayer({
+                id: 'aviso-points-layer',
+                type: 'circle',
+                source: 'aviso-points',
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': [
+                        'match',
+                        ['get', 'acronimo'],
+                        'IFCAO', '#3b82f6',
+                        'IFCFP', '#10b981',
+                        'IFCAC', '#a855f7',
+                        '#f59e0b'
+                    ],
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.85
+                }
+            });
 
-            window.avisoMarkersGroup.addLayer(marker);
-            validBounds.push([pt.y, pt.x]);
+            avisoMap.on('click', 'aviso-points-layer', (e) => {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const props = e.features[0].properties;
+
+                const popupContent = `
+                    <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
+                        <strong style="color:#d97706;">${props.acronimo}</strong> - <b>${props.expediente}</b><br/>
+                        <b>Dirección:</b> ${props.direccion}<br/>
+                        <b>Barrio:</b> ${props.barrio} (${props.comuna})<br/>
+                        <b>Documento:</b> ${props.documento}
+                    </div>
+                `;
+
+                new maplibregl.Popup({ offset: 10 })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(avisoMap);
+            });
+
+            avisoMap.on('mouseenter', 'aviso-points-layer', () => {
+                avisoMap.getCanvas().style.cursor = 'pointer';
+            });
+            avisoMap.on('mouseleave', 'aviso-points-layer', () => {
+                avisoMap.getCanvas().style.cursor = '';
+            });
+
+            fitToData();
+        });
+    } else {
+        if (avisoMap.getSource('aviso-points')) {
+            avisoMap.getSource('aviso-points').setData(geojson);
+            fitToData();
+        } else {
+            avisoMap.once('idle', () => {
+                if (avisoMap.getSource('aviso-points')) {
+                    avisoMap.getSource('aviso-points').setData(geojson);
+                    fitToData();
+                }
+            });
         }
-    });
-
-    if (validBounds.length > 0) {
-        avisoMap.fitBounds(validBounds, { padding: [30, 30], maxZoom: 15 });
     }
 }
 
