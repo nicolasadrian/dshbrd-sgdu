@@ -1550,6 +1550,8 @@ async def get_analytics_m2_permisados(
             stats = conn.execute(text(f"""
                 SELECT 
                     COALESCE(SUM(sup_construir), 0) as total_construir,
+                    COALESCE(SUM(sup_ampliar), 0) as total_ampliar,
+                    COALESCE(SUM(sup_modificar), 0) as total_modificar,
                     COALESCE(SUM(sup_demoler), 0) as total_demoler,
                     COALESCE(SUM(sup_terreno), 0) as total_terreno
                 FROM public.mvw_m2_permisados
@@ -1641,6 +1643,8 @@ async def get_analytics_m2_permisados(
                 "limit": limit,
                 "summary": {
                     "total_construir": stats["total_construir"],
+                    "total_ampliar": stats["total_ampliar"],
+                    "total_modificar": stats["total_modificar"],
                     "total_demoler": stats["total_demoler"],
                     "total_terreno": stats["total_terreno"]
                 },

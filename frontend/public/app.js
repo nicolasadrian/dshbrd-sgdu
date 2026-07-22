@@ -9859,6 +9859,7 @@ let m2EvolucionChart = null;
 let m2Map = null;
 let m2Markers = [];
 let m2MapPoints = [];
+let lastM2Data = null;
 
 async function loadM2Permisados(resetPage = false) {
     if (resetPage) m2CurrentPage = 1;
@@ -9866,7 +9867,7 @@ async function loadM2Permisados(resetPage = false) {
     const tableBody = document.getElementById('m2-table-body');
     if (!tableBody) return;
 
-    tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b;">Cargando registros...</p></td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b;">Cargando registros...</p></td></tr>';
 
     const searchVal = document.getElementById('m2-filter-search').value.trim();
     const anioVal = document.getElementById('m2-filter-anio').value;
@@ -9892,10 +9893,13 @@ async function loadM2Permisados(resetPage = false) {
         const res = await def_fetch(`${API_BASE}/analytics/m2-permisados?${queryParams}`);
         if (!res || !res.ok) throw new Error("Error fetching M2 Permisados");
         const data = await res.json();
+        lastM2Data = data;
 
         // 1. KPI Cards
         document.getElementById('m2-kpi-expedientes').innerText = data.total_records.toLocaleString('es-AR');
         document.getElementById('m2-kpi-construir').innerText = `${Math.round(data.summary.total_construir).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-kpi-ampliar').innerText = `${Math.round(data.summary.total_ampliar).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-kpi-modificar').innerText = `${Math.round(data.summary.total_modificar).toLocaleString('es-AR')} m²`;
         document.getElementById('m2-kpi-demoler').innerText = `${Math.round(data.summary.total_demoler).toLocaleString('es-AR')} m²`;
 
         // 2. Populate filters
@@ -10249,6 +10253,77 @@ function downloadM2PermisadosDataset() {
     window.open(`${API_BASE}/analytics/m2-permisados/download?${queryParams.toString()}`, '_blank');
 }
 
+function updateKPICardsFromChartVisibility(chart) {
+    if (!lastM2Data || !lastM2Data.summary) return;
+    
+    const isConstruirVisible = chart.isDatasetVisible(0);
+    const isAmpliarVisible = chart.isDatasetVisible(1);
+    const isModificarVisible = chart.isDatasetVisible(2);
+    
+    const kpiConstruir = document.getElementById('m2-kpi-construir');
+    const kpiAmpliar = document.getElementById('m2-kpi-ampliar');
+    const kpiModificar = document.getElementById('m2-kpi-modificar');
+    
+    if (kpiConstruir) {
+        if (isConstruirVisible) {
+            kpiConstruir.style.opacity = '1';
+            kpiConstruir.innerText = `${Math.round(lastM2Data.summary.total_construir).toLocaleString('es-AR')} m²`;
+        } else {
+            kpiConstruir.style.opacity = '0.4';
+            kpiConstruir.innerText = `0 m²`;
+        }
+    }
+    if (kpiAmpliar) {
+        if (isAmpliarVisible) {
+            kpiAmpliar.style.opacity = '1';
+            kpiAmpliar.innerText = `${Math.round(lastM2Data.summary.total_ampliar).toLocaleString('es-AR')} m²`;
+        } else {
+            kpiAmpliar.style.opacity = '0.4';
+            kpiAmpliar.innerText = `0 m²`;
+        }
+    }
+    if (kpiModificar) {
+        if (isModificarVisible) {
+            kpiModificar.style.opacity = '1';
+            kpiModificar.innerText = `${Math.round(lastM2Data.summary.total_modificar).toLocaleString('es-AR')} m²`;
+        } else {
+            kpiModificar.style.opacity = '0.4';
+            kpiModificar.innerText = `0 m²`;
+        }
+    }
+}
+
+const customLegendClick = function(e, legendItem, legend) {
+    const index = legendItem.datasetIndex;
+    const ci = legend.chart;
+    
+    const isVisible = ci.isDatasetVisible(index);
+    if (isVisible) {
+        ci.hide(index);
+        legendItem.hidden = true;
+    } else {
+        ci.show(index);
+        legendItem.hidden = false;
+    }
+    
+    const otherChart = (ci === m2BarrioChart) ? m2ComunaChart : m2BarrioChart;
+    if (otherChart) {
+        if (isVisible) {
+            otherChart.hide(index);
+        } else {
+            otherChart.show(index);
+        }
+        const otherLegend = otherChart.legend;
+        if (otherLegend && otherLegend.legendItems && otherLegend.legendItems[index]) {
+            otherLegend.legendItems[index].hidden = isVisible;
+        }
+        otherChart.update();
+    }
+    
+    updateKPICardsFromChartVisibility(ci);
+    ci.update();
+};
+
 function renderM2Charts(chartsData) {
     const ctxBarrio = document.getElementById('m2-chart-barrio')?.getContext('2d');
     const ctxComuna = document.getElementById('m2-chart-comuna')?.getContext('2d');
@@ -10288,7 +10363,7 @@ function renderM2Charts(chartsData) {
                     const dataset = chart.data.datasets[i];
                     const meta = chart.getDatasetMeta(i);
                     const bar = meta.data[index];
-                    if (bar && dataset.data[index] > 0) {
+                    if (bar && dataset.data[index] > 0 && chart.isDatasetVisible(i)) {
                         totalVal += dataset.data[index];
                         if (bar.x > maxEndX) {
                             maxEndX = bar.x;
@@ -10350,6 +10425,7 @@ function renderM2Charts(chartsData) {
                     legend: {
                         display: true,
                         position: 'top',
+                        onClick: customLegendClick,
                         labels: { font: { family: 'Outfit', size: 10, weight: '600' } }
                     },
                     tooltip: {
@@ -10365,7 +10441,7 @@ function renderM2Charts(chartsData) {
                         stacked: true,
                         ticks: { font: { family: 'Outfit', size: 10 } },
                         grid: { color: '#f1f5f9' },
-                        grace: '10%' // Añade espacio a la derecha para las etiquetas
+                        grace: '10%'
                     },
                     y: {
                         stacked: true,
@@ -10421,6 +10497,7 @@ function renderM2Charts(chartsData) {
                     legend: {
                         display: true,
                         position: 'top',
+                        onClick: customLegendClick,
                         labels: { font: { family: 'Outfit', size: 10, weight: '600' } }
                     },
                     tooltip: {
