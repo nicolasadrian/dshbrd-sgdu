@@ -260,14 +260,19 @@ try:
         roles_count = conn.execute(text("SELECT COUNT(*) FROM auth_roles")).scalar()
         if roles_count == 0:
             default_roles = [
-                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "slate": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": True, "lfi_revisar": True})),
-                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": True, "lfi_revisar": True})),
-                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": False, "lfi_revisar": False})),
-                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": False, "ciudad_3d": False, "lfi_dibujar": False, "lfi_revisar": False}))
+                ("administrador", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "slate": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "analytics_m2_permisados": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": True, "lfi_revisar": True})),
+                ("admin", json.dumps({"admin": True, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "analytics_m2_permisados": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": True, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": True, "lfi_revisar": True})),
+                ("seguimiento", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": True, "cierre": True, "sla": True, "subsanaciones": True, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "analytics_m2_permisados": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": True, "ciudad_3d": True, "lfi_dibujar": False, "lfi_revisar": False})),
+                ("usuario", json.dumps({"admin": False, "dgroc": True, "dgiur": True, "family": True, "seguimiento": False, "cierre": False, "sla": False, "subsanaciones": False, "buscador": True, "favoritos": True, "favoritos-seguimiento": True, "analytics_estadistica": True, "analytics_datasets": True, "analytics_m2_permisados": True, "asignados-mi": True, "buzones_analisis": True, "productividad_analistas": False, "secgdu": False, "ciudad_3d": False, "lfi_dibujar": False, "lfi_revisar": False}))
             ]
             for r_name, r_perms in default_roles:
                 conn.execute(text("INSERT INTO auth_roles (role_name, permissions) VALUES (:n, :p)"), {"n": r_name, "p": r_perms})
         else:
+            conn.execute(text("""
+                UPDATE auth_roles 
+                SET permissions = permissions || '{"analytics_m2_permisados": true}'::jsonb
+                WHERE NOT (permissions ? 'analytics_m2_permisados')
+            """))
             conn.execute(text("""
                 UPDATE auth_roles 
                 SET permissions = permissions || '{"favoritos-seguimiento": true}'::jsonb

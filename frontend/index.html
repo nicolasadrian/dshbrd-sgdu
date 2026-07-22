@@ -209,7 +209,6 @@
                     <div class="dropdown-content">
                         <a href="#" onclick="event.preventDefault(); showView('analytics_estadistica')">Estadística</a>
                         <a href="#" onclick="event.preventDefault(); showView('analytics_datasets')">Datasets</a>
-                        <a href="#" onclick="event.preventDefault(); showView('analytics_m2_permisados')">M2 Permisados</a>
                     </div>
                 </div>
 
@@ -3773,6 +3772,25 @@
                                     Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
                                 </div>
                             </div>
+
+                            <!-- Tarjeta M2 Permisados -->
+                            <div class="meta-card hover-card" id="card-goto-m2-permisados"
+                                onclick="showView('analytics_m2_permisados')"
+                                style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid #a855f7; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div
+                                        style="background: rgba(168, 85, 247, 0.1); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #a855f7;">
+                                        <i class="fa-solid fa-map-location-dot" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b;">M2 Permisados</h3>
+                                </div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.45;">
+                                    Análisis geoespacial de superficie permisada, distribución por barrio/comuna y visualización de mapas.</p>
+                                <div
+                                    style="margin-top: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; color: #a855f7; font-size: 0.85rem;">
+                                    Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -4001,7 +4019,7 @@
         <!-- Vista: M2 Permisados -->
         <section id="analytics_m2_permisados" class="view-container" style="display: none;">
             <div class="breadcrumbs">
-                <span onclick="showView('landing')">Inicio</span> / Analytics / M2 Permisados
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('analytics_estadistica')" style="cursor: pointer;">Estadística</span> / M2 Permisados
             </div>
 
             <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
