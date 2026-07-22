@@ -10716,9 +10716,9 @@ async function loadAvisosObra(resetPage = false) {
     if (searchVal) queryParams.append('search', searchVal);
 
     try {
-        const response = await fetchWithAuth(`/api/analytics/avisos-obra?${queryParams.toString()}`);
-        if (!response.ok) {
-            throw new Error(`Error en servidor: ${response.status}`);
+        const response = await def_fetch(`${API_BASE}/analytics/avisos-obra?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en servidor: ${response ? response.status : 'no response'}`);
         }
 
         const data = await response.json();
