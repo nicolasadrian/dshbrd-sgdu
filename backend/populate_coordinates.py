@@ -21,8 +21,25 @@ logger = logging.getLogger("geocodificador")
 
 # Mapeo específico de columna de dirección/ubicación por tabla GEDO
 TABLE_LOCATION_COLUMNS = {
+    "gedo_ifocd_datos": "ubicacion",
+    "gedo_ifpdo_datos": "ubicacion",
+    "gedo_proin_datos": "ubicacion",
+    "gedo_pline_datos": "ubicacion",
+    "gedo_ifsmc_datos": "ubicacion",
+    "gedo_ifsmi_datos": "ubicacion",
+    "gedo_ifpco_datos": "ubicacion",
+    "gedo_iftpt_datos": "ubicacion",
+    "gedo_ifpeo_datos": "ubicacion",
+    "gedo_ifcis_datos": "ubicacion",
+    "gedo_ifrsp_datos": "ubicacion",
     "gedo_ifroc_datos": "calle_altura",
-    "gedo_ifocd_datos": "ubicacion"
+    "gedo_cecnu_datos": "dom_caba_calle",
+    "gedo_fipar_datos": "dom_caba_calle",
+    "gedo_ifgpa_datos": "componente_domicilio",
+    "gedo_ifpcb_datos": "dir",
+    "gedo_ifcao_datos": "datos",
+    "gedo_ifcfp_datos": "datos",
+    "gedo_ifcac_datos": "datos"
 }
 
 # Prioridad de columnas que contienen direcciones cuando no hay mapeo específico
