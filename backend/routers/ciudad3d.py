@@ -1571,6 +1571,7 @@ async def get_analytics_m2_permisados(
             barrio_res = conn.execute(text(f"""
                 SELECT 
                     COALESCE(barrio, 'SIN ESPECIFICAR') as barrio,
+                    COUNT(DISTINCT id_expediente) as cantidad_expedientes,
                     ROUND(SUM(sup_construir)::numeric, 2) as total_construir,
                     ROUND(SUM(sup_ampliar)::numeric, 2) as total_ampliar,
                     ROUND(SUM(sup_modificar)::numeric, 2) as total_modificar,
@@ -1586,6 +1587,7 @@ async def get_analytics_m2_permisados(
             comuna_res = conn.execute(text(f"""
                 SELECT 
                     COALESCE(comuna, 'SIN ESPECIFICAR') as comuna,
+                    COUNT(DISTINCT id_expediente) as cantidad_expedientes,
                     ROUND(SUM(sup_construir)::numeric, 2) as total_construir,
                     ROUND(SUM(sup_ampliar)::numeric, 2) as total_ampliar,
                     ROUND(SUM(sup_modificar)::numeric, 2) as total_modificar,
@@ -1602,9 +1604,9 @@ async def get_analytics_m2_permisados(
                 monthly_res = conn.execute(text(f"""
                     SELECT 
                         EXTRACT(MONTH FROM fecha_creacion_pdo)::int as mes,
-                        ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                        ROUND((SUM(sup_construir) + SUM(sup_ampliar) + SUM(sup_modificar))::numeric, 2) as total_m2
                     FROM public.mvw_m2_permisados
-                    WHERE {where_str} AND sup_construir > 0 AND fecha_creacion_pdo IS NOT NULL
+                    WHERE {where_str} AND (sup_construir > 0 OR sup_ampliar > 0 OR sup_modificar > 0) AND fecha_creacion_pdo IS NOT NULL
                     GROUP BY 1
                     ORDER BY 1
                 """), params)
@@ -1614,9 +1616,9 @@ async def get_analytics_m2_permisados(
                     SELECT 
                         EXTRACT(YEAR FROM fecha_creacion_pdo)::int as anio,
                         EXTRACT(MONTH FROM fecha_creacion_pdo)::int as mes,
-                        ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                        ROUND((SUM(sup_construir) + SUM(sup_ampliar) + SUM(sup_modificar))::numeric, 2) as total_m2
                     FROM public.mvw_m2_permisados
-                    WHERE {where_str} AND sup_construir > 0 AND fecha_creacion_pdo IS NOT NULL
+                    WHERE {where_str} AND (sup_construir > 0 OR sup_ampliar > 0 OR sup_modificar > 0) AND fecha_creacion_pdo IS NOT NULL
                     GROUP BY 1, 2
                     ORDER BY 1, 2
                 """), params)

@@ -9991,9 +9991,12 @@ async function loadM2Permisados(resetPage = false) {
             renderM2Map(m2MapPoints);
         }
 
+        // 7. Render Pastillas
+        renderM2Pastillas();
+
     } catch (err) {
         console.error("Error loading M2 Permisados:", err);
-        tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #ef4444; padding: 2rem;">Error al conectar con el servidor.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #ef4444; padding: 2rem;">Error al conectar con el servidor.</td></tr>';
     }
 }
 
@@ -10181,6 +10184,64 @@ function switchM2SubTab(tabName) {
                 m2Map.resize();
             }
         }, 150);
+    } else if (tabName === 'pastillas') {
+        renderM2Pastillas();
+    }
+}
+
+function renderM2Pastillas() {
+    if (!lastM2Data) return;
+
+    // 1. Ranking de barrios
+    const barrioBody = document.getElementById('m2-pastillas-barrios-body');
+    if (barrioBody && lastM2Data.charts && lastM2Data.charts.barrio) {
+        barrioBody.innerHTML = lastM2Data.charts.barrio.map((row, index) => {
+            const promM2 = row.cantidad_expedientes > 0 ? Math.round(row.total_m2 / row.cantidad_expedientes) : 0;
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; text-align: center; font-weight: 700; color: #64748b;">${index + 1}</td>
+                    <td style="padding: 10px; font-weight: 600; color: var(--primary-dark);">${row.barrio}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; color: var(--primary);">${Math.round(row.total_m2).toLocaleString('es-AR')} m²</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #475569;">${row.cantidad_expedientes.toLocaleString('es-AR')}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #10b981;">${promM2.toLocaleString('es-AR')} m²</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 2. Promedios y Totales Generales
+    if (lastM2Data.charts && lastM2Data.charts.barrio && lastM2Data.summary) {
+        const barriosList = lastM2Data.charts.barrio;
+        const totalM2Barrios = barriosList.reduce((acc, x) => acc + x.total_m2, 0);
+        const promM2Barrio = barriosList.length > 0 ? totalM2Barrios / barriosList.length : 0;
+        
+        const totalExpBarrios = barriosList.reduce((acc, x) => acc + x.cantidad_expedientes, 0);
+        const promExpBarrio = barriosList.length > 0 ? totalExpBarrios / barriosList.length : 0;
+        
+        const totalM2Global = lastM2Data.summary.total_construir + lastM2Data.summary.total_ampliar + lastM2Data.summary.total_modificar;
+        const totalExpGlobal = lastM2Data.total_records;
+        const promM2Exp = totalExpGlobal > 0 ? totalM2Global / totalExpGlobal : 0;
+
+        document.getElementById('m2-pastilla-prom-m2-barrio').innerText = `${Math.round(promM2Barrio).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-pastilla-prom-exp-barrio').innerText = Math.round(promExpBarrio).toLocaleString('es-AR');
+        document.getElementById('m2-pastilla-prom-m2-exp').innerText = `${Math.round(promM2Exp).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-pastilla-total-m2').innerText = `${Math.round(totalM2Global).toLocaleString('es-AR')} m²`;
+    }
+
+    // 3. Evolución Mes a Mes
+    const evolucionBody = document.getElementById('m2-pastillas-evolucion-body');
+    if (evolucionBody && lastM2Data.charts && lastM2Data.charts.evolucion_mensual) {
+        const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        
+        evolucionBody.innerHTML = lastM2Data.charts.evolucion_mensual.map(row => {
+            const periodLabel = row.anio ? `${nombresMeses[row.mes - 1]} ${row.anio}` : `${nombresMeses[row.mes - 1]}`;
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; font-weight: 600; color: #475569;">${periodLabel}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; color: var(--primary);">${Math.round(row.total_m2).toLocaleString('es-AR')} m²</td>
+                </tr>
+            `;
+        }).join('');
     }
 }
 

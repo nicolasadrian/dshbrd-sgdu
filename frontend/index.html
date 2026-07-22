@@ -4045,6 +4045,7 @@
             <div style="display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; padding-bottom: 0px;">
                 <button class="m2-subtab-btn active" onclick="switchM2SubTab('stats')" style="padding: 10px 20px; border: none; background: none; font-weight: 700; cursor: pointer; border-bottom: 3px solid var(--primary); font-family: 'Outfit'; color: var(--primary-dark); font-size: 0.95rem; transition: all 0.2s;">Estadísticas y Datos</button>
                 <button class="m2-subtab-btn" onclick="switchM2SubTab('map')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Mapa de Permisos</button>
+                <button class="m2-subtab-btn" onclick="switchM2SubTab('pastillas')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Pastillas de Datos</button>
             </div>
 
             <!-- Tab 1: Estadísticas y Datos -->
@@ -4204,6 +4205,82 @@
                         <span id="m2-map-total-points" style="font-size: 0.85rem; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-weight: 700;">0 puntos georreferenciados</span>
                     </h3>
                     <div id="m2-map" style="height: 600px; width: 100%; border-radius: 12px; border: 1px solid #cbd5e1;"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Pastillas de Datos -->
+            <div id="m2-panel-pastillas" class="m2-subview-panel" style="display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; width: 100%; margin-bottom: 3rem;">
+                    <!-- Columna Izquierda: Ranking y Promedios de Barrios -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column;">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-list-ol" style="color: var(--primary);"></i> Resumen y Ranking de Barrios
+                        </h3>
+                        <div style="overflow-x: auto; width: 100%; flex-grow: 1;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                        <th style="padding: 10px; text-align: center; width: 50px;">Pos</th>
+                                        <th style="padding: 10px;">Barrio</th>
+                                        <th style="padding: 10px; text-align: right;">Total M²</th>
+                                        <th style="padding: 10px; text-align: right;">Expedientes</th>
+                                        <th style="padding: 10px; text-align: right;">Prom. M²/Exp</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="m2-pastillas-barrios-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Columna Derecha: Resumen de Averages Globales y Evolución Temporal -->
+                    <div style="display: flex; flex-direction: column; gap: 2rem;">
+                        <!-- Card de Métricas Promedio Globales -->
+                        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                            <h3 style="margin: 0 0 1.2rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-calculator" style="color: #10b981;"></i> Promedios y Totales Generales
+                            </h3>
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                    <span style="font-weight: 600; color: #64748b;">Promedio M² por Barrio:</span>
+                                    <span id="m2-pastilla-prom-m2-barrio" style="font-weight: 700; color: var(--primary-dark);">0 m²</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                    <span style="font-weight: 600; color: #64748b;">Promedio Expedientes por Barrio:</span>
+                                    <span id="m2-pastilla-prom-exp-barrio" style="font-weight: 700; color: var(--primary-dark);">0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                    <span style="font-weight: 600; color: #64748b;">Promedio M² General por Expediente:</span>
+                                    <span id="m2-pastilla-prom-m2-exp" style="font-weight: 700; color: var(--primary-dark);">0 m²</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
+                                    <span style="font-weight: 600; color: #64748b;">Total General M² Permisados:</span>
+                                    <span id="m2-pastilla-total-m2" style="font-weight: 800; color: var(--primary); font-size: 1.05rem;">0 m²</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card de Evolución Mes a Mes -->
+                        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); flex-grow: 1; display: flex; flex-direction: column;">
+                            <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-chart-line" style="color: #f59e0b;"></i> Evolución M² Mes a Mes
+                            </h3>
+                            <div style="overflow-y: auto; max-height: 380px; flex-grow: 1;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                    <thead>
+                                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                            <th style="padding: 10px;">Período / Mes</th>
+                                            <th style="padding: 10px; text-align: right;">Total M²</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="m2-pastillas-evolucion-body">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
