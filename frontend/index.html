@@ -3791,6 +3791,25 @@
                                     Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
                                 </div>
                             </div>
+
+                            <!-- Tarjeta Avisos de Obra -->
+                            <div class="meta-card hover-card" id="card-goto-avisos-obra"
+                                onclick="showView('analytics_avisos_obra')"
+                                style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid #f59e0b; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div
+                                        style="background: rgba(245, 158, 11, 0.1); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f59e0b;">
+                                        <i class="fa-solid fa-person-digging" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b;">Avisos de Obra</h3>
+                                </div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.45;">
+                                    Estadísticas, mapas interactivos, métricas por barrio/comuna y evolución mensual de Avisos de Obra.</p>
+                                <div
+                                    style="margin-top: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; color: #f59e0b; font-size: 0.85rem;">
+                                    Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -4286,6 +4305,247 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Avisos de Obra -->
+        <section id="analytics_avisos_obra" class="view-container" style="display: none; padding: 2rem;">
+            <!-- Header con Breadcrumb, Filtros y botón volver -->
+            <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 4px; font-weight: 600;">
+                        <span onclick="showView('landing')" style="cursor: pointer;">Inicio</span> / <span onclick="showView('analytics_estadistica')" style="cursor: pointer;">Estadística</span> / Avisos de Obra
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <button onclick="showView('analytics_estadistica')" class="btn-primary" style="padding: 6px 12px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 6px; cursor: pointer; background: #64748b; color: white;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver
+                        </button>
+                        <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Análisis de Avisos de Obra (IFCAO / IFCFP / IFCAC)</h1>
+                    </div>
+                </div>
+
+                <!-- Global Filter by Year & Search -->
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #475569; font-family: 'Outfit';">Año:</span>
+                        <select id="aviso-filter-anio" style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.88rem; font-weight: 700; background: white; color: var(--primary-dark);" onchange="loadAvisosObra(true)">
+                            <option value="">[Todos los Años]</option>
+                            <option value="2026" selected>2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                            <option value="2022">2022</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #475569; font-family: 'Outfit';">Acrónimo:</span>
+                        <select id="aviso-filter-acronimo" style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.88rem; font-weight: 700; background: white; color: var(--primary-dark);" onchange="loadAvisosObra(true)">
+                            <option value="">[Todos los Acrónimos]</option>
+                            <option value="IFCAO">IFCAO (Copia de Plano)</option>
+                            <option value="IFCFP">IFCFP (Frente / Fachada)</option>
+                            <option value="IFCAC">IFCAC (Aviso Demolición/Obra)</option>
+                        </select>
+                    </div>
+                    <button onclick="downloadAvisosObraDataset()" class="btn-primary" style="padding: 10px 20px; font-size: 0.88rem; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; background: #10b981; color: white;">
+                        <i class="fa-solid fa-file-excel"></i> Descargar Dataset (.csv)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub-tabs navigation -->
+            <div style="display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; padding-bottom: 0px;">
+                <button class="aviso-subtab-btn active" onclick="switchAvisoSubTab('stats')" style="padding: 10px 20px; border: none; background: none; font-weight: 700; cursor: pointer; border-bottom: 3px solid #f59e0b; font-family: 'Outfit'; color: var(--primary-dark); font-size: 0.95rem; transition: all 0.2s;">Estadísticas Generales</button>
+                <button class="aviso-subtab-btn" onclick="switchAvisoSubTab('map')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;"><i class="fa-solid fa-map-location-dot" style="margin-right: 6px; color: #f59e0b;"></i>Mapa de Avisos de Obra</button>
+                <button class="aviso-subtab-btn" onclick="switchAvisoSubTab('barrios')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Distribución por Barrio y Comuna</button>
+                <button class="aviso-subtab-btn" onclick="switchAvisoSubTab('evolucion')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Evolución Mes a Mes</button>
+            </div>
+
+            <!-- Tab 1: Estadísticas Generales -->
+            <div id="aviso-panel-stats" class="aviso-subview-panel">
+                <!-- KPI Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                    <!-- Total Avisos -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                            <i class="fa-solid fa-file-signature"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">Total Avisos de Obra</span>
+                            <span id="aviso-kpi-total" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0</span>
+                        </div>
+                    </div>
+                    <!-- Total IFCAO -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                            <i class="fa-solid fa-copy"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCAO (Planos)</span>
+                            <span id="aviso-kpi-ifcao" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: #3b82f6;">0</span>
+                        </div>
+                    </div>
+                    <!-- Total IFCFP -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(16, 185, 129, 0.1); color: #10b981; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                            <i class="fa-solid fa-building"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCFP (Fachada)</span>
+                            <span id="aviso-kpi-ifcfp" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: #10b981;">0</span>
+                        </div>
+                    </div>
+                    <!-- Total IFCAC -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.5rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(168, 85, 247, 0.1); color: #a855f7; width: 48px; height: 48px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                            <i class="fa-solid fa-hammer"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCAC (Demolición)</span>
+                            <span id="aviso-kpi-ifcac" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: #a855f7;">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla de datos con filtros locales y paginación -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 15px;">
+                        <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem;">Detalle de Registros de Avisos de Obra</h3>
+                        
+                        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                            <select id="aviso-filter-barrio" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;" onchange="loadAvisosObra(true)">
+                                <option value="">[Todos los Barrios]</option>
+                            </select>
+                            <select id="aviso-filter-comuna" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem;" onchange="loadAvisosObra(true)">
+                                <option value="">[Todas las Comunas]</option>
+                            </select>
+                            <input type="text" id="aviso-search-input" placeholder="Buscar por expediente, dir..." style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; min-width: 220px;" onkeyup="if(event.key==='Enter') loadAvisosObra(true)">
+                            <button onclick="loadAvisosObra(true)" class="btn-primary" style="padding: 8px 16px; font-size: 0.85rem; border: none; border-radius: 8px; cursor: pointer; background: var(--primary); color: white;">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                    <th style="padding: 12px;">Acrónimo</th>
+                                    <th style="padding: 12px;">Expediente</th>
+                                    <th style="padding: 12px;">Documento</th>
+                                    <th style="padding: 12px;">Dirección</th>
+                                    <th style="padding: 12px;">Barrio</th>
+                                    <th style="padding: 12px;">Comuna</th>
+                                    <th style="padding: 12px;">Fecha Asociación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aviso-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; flex-wrap: wrap; gap: 10px;">
+                        <span id="aviso-pagination-info" style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Mostrando 0 de 0</span>
+                        <div style="display: flex; gap: 6px;">
+                            <button id="aviso-prev-page" onclick="changeAvisoPage(-1)" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; font-weight: 600;" disabled>&laquo; Anterior</button>
+                            <span id="aviso-page-num" style="padding: 6px 12px; font-weight: 700; color: var(--primary-dark);">Página 1</span>
+                            <button id="aviso-next-page" onclick="changeAvisoPage(1)" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; font-weight: 600;" disabled>Siguiente &raquo;</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Mapa de Avisos de Obra -->
+            <div id="aviso-panel-map" class="aviso-subview-panel" style="display: none;">
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem;">
+                            <i class="fa-solid fa-location-dot" style="color: #f59e0b;"></i> Mapa Interactivo de Avisos de Obra
+                        </h3>
+                        <span id="aviso-map-count" style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Cargando puntos...</span>
+                    </div>
+                    <div id="aviso-leaflet-map" style="height: 600px; width: 100%; border-radius: 12px; border: 1px solid #cbd5e1; background: #e2e8f0; position: relative; z-index: 1;"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Distribución por Barrio y Comuna -->
+            <div id="aviso-panel-barrios" class="aviso-subview-panel" style="display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
+                    <!-- Ranking de Barrios -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
+                            <i class="fa-solid fa-trophy" style="color: #f59e0b;"></i> Top 15 Barrios con más Avisos de Obra
+                        </h3>
+                        <div style="height: 380px; position: relative;">
+                            <canvas id="aviso-chart-barrio"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Distribución por Comuna -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
+                            <i class="fa-solid fa-chart-pie" style="color: #3b82f6;"></i> Cantidad de Avisos por Comuna
+                        </h3>
+                        <div style="height: 380px; position: relative;">
+                            <canvas id="aviso-chart-comuna"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla Detalle por Barrio / Promedios -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); margin-top: 1.5rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
+                        <i class="fa-solid fa-list-ol" style="color: #10b981;"></i> Detalle Completo por Barrio (% sobre el total)
+                    </h3>
+                    <div style="overflow-y: auto; max-height: 400px;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                    <th style="padding: 10px;">#</th>
+                                    <th style="padding: 10px;">Barrio</th>
+                                    <th style="padding: 10px; text-align: right;">Cantidad Avisos</th>
+                                    <th style="padding: 10px; text-align: right;">% del Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aviso-barrios-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 4: Evolución Mes a Mes -->
+            <div id="aviso-panel-evolucion" class="aviso-subview-panel" style="display: none;">
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); margin-bottom: 1.5rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
+                        <i class="fa-solid fa-chart-line" style="color: #f59e0b;"></i> Evolución Mensual de Avisos de Obra
+                    </h3>
+                    <div style="height: 380px; position: relative;">
+                        <canvas id="aviso-chart-evolucion"></canvas>
+                    </div>
+                </div>
+
+                <!-- Tabla de evolución mensual -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">
+                        <i class="fa-solid fa-calendar-days" style="color: #3b82f6;"></i> Tabla de Evolución Mes a Mes
+                    </h3>
+                    <div style="overflow-y: auto; max-height: 350px;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                    <th style="padding: 10px;">Mes / Período</th>
+                                    <th style="padding: 10px; text-align: right;">Cantidad de Avisos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="aviso-evolucion-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

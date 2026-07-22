@@ -1799,6 +1799,224 @@ async def download_analytics_m2_permisados(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/analytics/avisos-obra")
+async def get_analytics_avisos_obra(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    comuna: Optional[str] = Query(None),
+    barrio: Optional[str] = Query(None),
+    acronimo: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if search:
+            search_clean = f"%{search.strip()}%"
+            where_clauses.append("(expediente ILIKE :search OR documento ILIKE :search OR direccion ILIKE :search OR motivo ILIKE :search)")
+            params["search"] = search_clean
+            
+        if comuna:
+            where_clauses.append("comuna = :comuna")
+            params["comuna"] = comuna.strip()
+            
+        if barrio:
+            where_clauses.append("barrio = :barrio")
+            params["barrio"] = barrio.strip()
+            
+        if acronimo:
+            where_clauses.append("acronimo = :acronimo")
+            params["acronimo"] = acronimo.strip().upper()
+            
+        if anio is not None and anio > 0:
+            where_clauses.append("anio = :anio")
+            params["anio"] = anio
+
+        where_str = " AND ".join(where_clauses)
+        offset = (page - 1) * limit
+        
+        with engine.connect() as conn:
+            # 1. Total records count
+            total_count = conn.execute(text(f"SELECT COUNT(*) FROM public.mvw_avisos_obra WHERE {where_str}"), params).scalar() or 0
+            
+            # 2. Count by acronym (IFCAO, IFCFP, IFCAC)
+            acro_res = conn.execute(text(f"""
+                SELECT acronimo, COUNT(*) as cant
+                FROM public.mvw_avisos_obra
+                WHERE {where_str}
+                GROUP BY acronimo
+            """), params).fetchall()
+            acro_counts = {r[0]: int(r[1]) for r in acro_res}
+            
+            # 3. Paginated table records
+            records_res = conn.execute(text(f"""
+                SELECT id_expediente, expediente, documento, acronimo, direccion, barrio, comuna, fecha_asociacion, x, y
+                FROM public.mvw_avisos_obra
+                WHERE {where_str}
+                ORDER BY fecha_asociacion DESC NULLS LAST, id_expediente DESC
+                LIMIT :limit OFFSET :offset
+            """), {**params, "limit": limit, "offset": offset})
+            records = [dict(r._mapping) for r in records_res]
+            for r in records:
+                if r.get("fecha_asociacion"):
+                    r["fecha_asociacion"] = str(r["fecha_asociacion"])
+
+            # 4. Chart: Ranking Barrios (Top 15 + summary)
+            barrio_res = conn.execute(text(f"""
+                SELECT COALESCE(NULLIF(barrio, ''), 'SIN ESPECIFICAR') as b, COUNT(*) as cant
+                FROM public.mvw_avisos_obra
+                WHERE {where_str}
+                GROUP BY 1
+                ORDER BY cant DESC
+            """), params).fetchall()
+            barrio_data = [{"barrio": r[0], "total": int(r[1])} for r in barrio_res]
+
+            # 5. Chart: Comunas
+            comuna_res = conn.execute(text(f"""
+                SELECT COALESCE(NULLIF(comuna, ''), 'SIN ESPECIFICAR') as c, COUNT(*) as cant
+                FROM public.mvw_avisos_obra
+                WHERE {where_str}
+                GROUP BY 1
+                ORDER BY cant DESC
+            """), params).fetchall()
+            comuna_data = [{"comuna": r[0], "total": int(r[1])} for r in comuna_res]
+
+            # 6. Chart: Evolución mensual
+            monthly_res = conn.execute(text(f"""
+                SELECT TO_CHAR(fecha_asociacion, 'YYYY-MM') as mes, COUNT(*) as cant
+                FROM public.mvw_avisos_obra
+                WHERE {where_str} AND fecha_asociacion IS NOT NULL
+                GROUP BY mes
+                ORDER BY mes ASC
+            """), params).fetchall()
+            monthly_data = [{"mes": r[0], "total": int(r[1])} for r in monthly_res]
+
+            # 7. Map points (limit to 2500 points with coords)
+            map_points_res = conn.execute(text(f"""
+                SELECT id_expediente, expediente, documento, acronimo, direccion, barrio, comuna, x, y
+                FROM public.mvw_avisos_obra
+                WHERE {where_str} AND x IS NOT NULL AND y IS NOT NULL
+                LIMIT 2500
+            """), params)
+            map_points = [dict(r._mapping) for r in map_points_res]
+
+            # 8. Available Filters dropdown values
+            filter_comunas = [r[0] for r in conn.execute(text("SELECT DISTINCT comuna FROM public.mvw_avisos_obra WHERE comuna IS NOT NULL AND comuna <> '' ORDER BY 1")).fetchall()]
+            filter_barrios = [r[0] for r in conn.execute(text("SELECT DISTINCT barrio FROM public.mvw_avisos_obra WHERE barrio IS NOT NULL AND barrio <> '' ORDER BY 1")).fetchall()]
+            filter_anios = [int(r[0]) for r in conn.execute(text("SELECT DISTINCT anio FROM public.mvw_avisos_obra WHERE anio IS NOT NULL ORDER BY 1 DESC")).fetchall()]
+
+            return {
+                "total_records": total_count,
+                "page": page,
+                "limit": limit,
+                "acronyms": {
+                    "IFCAO": acro_counts.get("IFCAO", 0),
+                    "IFCFP": acro_counts.get("IFCFP", 0),
+                    "IFCAC": acro_counts.get("IFCAC", 0)
+                },
+                "records": records,
+                "map_points": map_points,
+                "charts": {
+                    "barrio": barrio_data,
+                    "comuna": comuna_data,
+                    "evolucion_mensual": monthly_data
+                },
+                "filters": {
+                    "comunas": filter_comunas,
+                    "barrios": filter_barrios,
+                    "anios": filter_anios
+                }
+            }
+    except Exception as e:
+        logger.error(f"Error in avisos-obra analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/analytics/avisos-obra/download")
+async def download_analytics_avisos_obra(
+    search: Optional[str] = Query(None),
+    comuna: Optional[str] = Query(None),
+    barrio: Optional[str] = Query(None),
+    acronimo: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if search:
+            search_clean = f"%{search.strip()}%"
+            where_clauses.append("(expediente ILIKE :search OR documento ILIKE :search OR direccion ILIKE :search OR motivo ILIKE :search)")
+            params["search"] = search_clean
+            
+        if comuna:
+            where_clauses.append("comuna = :comuna")
+            params["comuna"] = comuna.strip()
+            
+        if barrio:
+            where_clauses.append("barrio = :barrio")
+            params["barrio"] = barrio.strip()
+            
+        if acronimo:
+            where_clauses.append("acronimo = :acronimo")
+            params["acronimo"] = acronimo.strip().upper()
+            
+        if anio is not None and anio > 0:
+            where_clauses.append("anio = :anio")
+            params["anio"] = anio
+
+        where_str = " AND ".join(where_clauses)
+
+        def generate_csv():
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            writer.writerow([
+                "ID Expediente", "Acrónimo", "Expediente", "Documento", "Usuario Creador", "Motivo",
+                "Fecha Creación", "Fecha Asociación", "Dirección", "Barrio", "Comuna",
+                "Sección", "Manzana", "Parcela", "Coordenada X", "Coordenada Y"
+            ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+            
+            with engine.connect() as conn:
+                res = conn.execute(text(f"""
+                    SELECT id_expediente, acronimo, expediente, documento, usuario_creador, motivo,
+                           fecha_creacion, fecha_asociacion, direccion, barrio, comuna,
+                           seccion, manzana, parcela, x, y
+                    FROM public.mvw_avisos_obra
+                    WHERE {where_str}
+                    ORDER BY fecha_asociacion DESC NULLS LAST, id_expediente DESC
+                """), params)
+                
+                for row in res:
+                    r = row._mapping
+                    writer.writerow([
+                        r["id_expediente"], r["acronimo"], r["expediente"], r["documento"], r["usuario_creador"], r["motivo"],
+                        str(r["fecha_creacion"]) if r["fecha_creacion"] else "",
+                        str(r["fecha_asociacion"]) if r["fecha_asociacion"] else "",
+                        r["direccion"], r["barrio"], r["comuna"], r["seccion"], r["manzana"], r["parcela"],
+                        r["x"], r["y"]
+                    ])
+                    yield output.getvalue()
+                    output.seek(0)
+                    output.truncate(0)
+                    
+        return StreamingResponse(
+            generate_csv(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=avisos_de_obra.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Error in download avisos-obra: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/api/analytics/ley-blanqueo")
 async def get_analytics_ley_blanqueo(current_user: User = Depends(get_current_user)):
     try:

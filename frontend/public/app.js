@@ -388,6 +388,10 @@ function showView(viewId, updateHash = true) {
         loadM2Permisados(true);
     }
 
+    if (viewId === 'analytics_avisos_obra') {
+        loadAvisosObra(true);
+    }
+
     if (viewId === 'seguimiento') {
         loadSeguimientoData();
     }
@@ -10672,6 +10676,373 @@ window.debounceM2Search = debounceM2Search;
 window.clearM2Filters = clearM2Filters;
 window.downloadM2PermisadosDataset = downloadM2PermisadosDataset;
 window.switchM2SubTab = switchM2SubTab;
+
+// --- MÓDULO AVISOS DE OBRA ---
+let avisoCurrentPage = 1;
+let avisoLimit = 50;
+let lastAvisoData = null;
+let avisoMap = null;
+let avisoChartBarrio = null;
+let avisoChartComuna = null;
+let avisoChartEvolucion = null;
+
+async function loadAvisosObra(resetPage = false) {
+    if (resetPage) {
+        avisoCurrentPage = 1;
+    }
+
+    const anioVal = document.getElementById('aviso-filter-anio') ? document.getElementById('aviso-filter-anio').value : '2026';
+    const acronimoVal = document.getElementById('aviso-filter-acronimo') ? document.getElementById('aviso-filter-acronimo').value : '';
+    const barrioVal = document.getElementById('aviso-filter-barrio') ? document.getElementById('aviso-filter-barrio').value : '';
+    const comunaVal = document.getElementById('aviso-filter-comuna') ? document.getElementById('aviso-filter-comuna').value : '';
+    const searchVal = document.getElementById('aviso-search-input') ? document.getElementById('aviso-search-input').value.trim() : '';
+
+    const queryParams = new URLSearchParams({
+        page: avisoCurrentPage,
+        limit: avisoLimit
+    });
+
+    if (anioVal) queryParams.append('anio', anioVal);
+    if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+    if (barrioVal) queryParams.append('barrio', barrioVal);
+    if (comunaVal) queryParams.append('comuna', comunaVal);
+    if (searchVal) queryParams.append('search', searchVal);
+
+    try {
+        const response = await fetchWithAuth(`/api/analytics/avisos-obra?${queryParams.toString()}`);
+        if (!response.ok) {
+            throw new Error(`Error en servidor: ${response.status}`);
+        }
+
+        const data = await response.json();
+        lastAvisoData = data;
+
+        // Populate dropdown filters dynamically
+        if (data.filters) {
+            populateAvisoDropdown('aviso-filter-barrio', data.filters.barrios || [], barrioVal, 'Todos los Barrios');
+            populateAvisoDropdown('aviso-filter-comuna', data.filters.comunas || [], comunaVal, 'Todas las Comunas');
+        }
+
+        // Render KPI Cards
+        document.getElementById('aviso-kpi-total').innerText = (data.total_records || 0).toLocaleString('es-AR');
+        document.getElementById('aviso-kpi-ifcao').innerText = (data.acronyms?.IFCAO || 0).toLocaleString('es-AR');
+        document.getElementById('aviso-kpi-ifcfp').innerText = (data.acronyms?.IFCFP || 0).toLocaleString('es-AR');
+        document.getElementById('aviso-kpi-ifcac').innerText = (data.acronyms?.IFCAC || 0).toLocaleString('es-AR');
+
+        // Render Table Records
+        renderAvisoTable(data.records || [], data.total_records || 0);
+
+        // Render Charts
+        renderAvisoCharts(data.charts || {});
+
+        // Render Map if active or points available
+        if (data.map_points) {
+            renderAvisoMap(data.map_points);
+        }
+
+    } catch (err) {
+        console.error("Error al cargar Avisos de Obra:", err);
+    }
+}
+
+function populateAvisoDropdown(elementId, items, currentVal, placeholder) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 1) return; // Populate once unless empty
+    
+    let html = `<option value="">[${placeholder}]</option>`;
+    items.forEach(item => {
+        if (!item) return;
+        const selectedAttr = item === currentVal ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    select.innerHTML = html;
+}
+
+function renderAvisoTable(records, totalRecords) {
+    const tbody = document.getElementById('aviso-table-body');
+    if (!tbody) return;
+
+    if (records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #94a3b8;">No se encontraron registros de Avisos de Obra con los filtros seleccionados.</td></tr>`;
+    } else {
+        tbody.innerHTML = records.map(r => `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px 12px;"><span style="background: rgba(245, 158, 11, 0.12); color: #d97706; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">${r.acronimo}</span></td>
+                <td style="padding: 10px 12px; font-weight: 700; color: var(--primary-dark);">${r.expediente || '-'}</td>
+                <td style="padding: 10px 12px; font-size: 0.82rem; color: #475569;">${r.documento || '-'}</td>
+                <td style="padding: 10px 12px; font-weight: 600; color: #334155;">${r.direccion || '-'}</td>
+                <td style="padding: 10px 12px; color: #475569;">${r.barrio || '-'}</td>
+                <td style="padding: 10px 12px; color: #475569;">${r.comuna || '-'}</td>
+                <td style="padding: 10px 12px; color: #64748b; font-size: 0.82rem;">${r.fecha_asociacion ? r.fecha_asociacion.substring(0, 10) : '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    // Pagination info
+    const start = totalRecords === 0 ? 0 : (avisoCurrentPage - 1) * avisoLimit + 1;
+    const end = Math.min(avisoCurrentPage * avisoLimit, totalRecords);
+    document.getElementById('aviso-pagination-info').innerText = `Mostrando ${start} - ${end} de ${totalRecords.toLocaleString('es-AR')} registros`;
+    
+    document.getElementById('aviso-page-num').innerText = `Página ${avisoCurrentPage}`;
+    document.getElementById('aviso-prev-page').disabled = (avisoCurrentPage <= 1);
+    document.getElementById('aviso-next-page').disabled = (end >= totalRecords);
+}
+
+function changeAvisoPage(delta) {
+    avisoCurrentPage += delta;
+    if (avisoCurrentPage < 1) avisoCurrentPage = 1;
+    loadAvisosObra();
+}
+
+function switchAvisoSubTab(tabName) {
+    document.querySelectorAll('.aviso-subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottom = 'none';
+        btn.style.fontWeight = '600';
+        btn.style.color = '#64748b';
+    });
+
+    const activeBtn = Array.from(document.querySelectorAll('.aviso-subtab-btn')).find(btn => 
+        btn.getAttribute('onclick').includes(tabName)
+    );
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.borderBottom = '3px solid #f59e0b';
+        activeBtn.style.fontWeight = '700';
+        activeBtn.style.color = 'var(--primary-dark)';
+    }
+
+    document.querySelectorAll('.aviso-subview-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    const activePanel = document.getElementById(`aviso-panel-${tabName}`);
+    if (activePanel) {
+        activePanel.style.display = 'block';
+    }
+
+    if (tabName === 'map') {
+        setTimeout(() => {
+            if (lastAvisoData && lastAvisoData.map_points) {
+                renderAvisoMap(lastAvisoData.map_points);
+            }
+            if (avisoMap) {
+                avisoMap.invalidateSize();
+            }
+        }, 150);
+    }
+}
+
+function renderAvisoMap(points) {
+    const mapContainer = document.getElementById('aviso-leaflet-map');
+    if (!mapContainer) return;
+
+    document.getElementById('aviso-map-count').innerText = `${points.length.toLocaleString('es-AR')} ubicaciones georreferenciadas`;
+
+    if (!avisoMap) {
+        avisoMap = L.map('aviso-leaflet-map').setView([-34.6037, -58.3816], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(avisoMap);
+    }
+
+    // Clear existing markers if any
+    if (window.avisoMarkersGroup) {
+        avisoMap.removeLayer(window.avisoMarkersGroup);
+    }
+
+    window.avisoMarkersGroup = L.layerGroup().addTo(avisoMap);
+
+    const validBounds = [];
+    points.forEach(pt => {
+        if (pt.y && pt.x) {
+            const marker = L.circleMarker([pt.y, pt.x], {
+                radius: 6,
+                fillColor: pt.acronimo === 'IFCAO' ? '#3b82f6' : (pt.acronimo === 'IFCFP' ? '#10b981' : '#a855f7'),
+                color: '#ffffff',
+                weight: 1.5,
+                opacity: 1,
+                fillOpacity: 0.85
+            });
+
+            marker.bindPopup(`
+                <div style="font-family:'Outfit', sans-serif; font-size:0.85rem; line-height: 1.4;">
+                    <strong style="color:#d97706;">${pt.acronimo}</strong> - <b>${pt.expediente || ''}</b><br/>
+                    <b>Dirección:</b> ${pt.direccion || '-'}<br/>
+                    <b>Barrio:</b> ${pt.barrio || '-'} (${pt.comuna || '-' })<br/>
+                    <b>Documento:</b> ${pt.documento || '-'}
+                </div>
+            `);
+
+            window.avisoMarkersGroup.addLayer(marker);
+            validBounds.push([pt.y, pt.x]);
+        }
+    });
+
+    if (validBounds.length > 0) {
+        avisoMap.fitBounds(validBounds, { padding: [30, 30], maxZoom: 15 });
+    }
+}
+
+function renderAvisoCharts(charts) {
+    if (typeof Chart === 'undefined') return;
+
+    // 1. Chart Ranking Barrios (Top 15)
+    const ctxBarrio = document.getElementById('aviso-chart-barrio')?.getContext('2d');
+    if (ctxBarrio && charts.barrio) {
+        const topBarrios = charts.barrio.slice(0, 15);
+        const labels = topBarrios.map(b => b.barrio);
+        const totals = topBarrios.map(b => b.total);
+
+        if (avisoChartBarrio) avisoChartBarrio.destroy();
+
+        avisoChartBarrio = new Chart(ctxBarrio, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cantidad de Avisos',
+                    data: totals,
+                    backgroundColor: '#f59e0b',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { grid: { color: '#f1f5f9' } },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Populate table detail for barrios
+        const totalAvisosGlobal = charts.barrio.reduce((acc, x) => acc + x.total, 0);
+        const barrioTbody = document.getElementById('aviso-barrios-table-body');
+        if (barrioTbody) {
+            barrioTbody.innerHTML = charts.barrio.map((row, idx) => {
+                const pct = totalAvisosGlobal > 0 ? ((row.total / totalAvisosGlobal) * 100).toFixed(2) : 0;
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px 10px; font-weight: 700; color: #64748b;">${idx + 1}</td>
+                        <td style="padding: 8px 10px; font-weight: 600; color: var(--primary-dark);">${row.barrio}</td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #f59e0b;">${row.total.toLocaleString('es-AR')}</td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 600; color: #475569;">${pct}%</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    // 2. Chart Comunas
+    const ctxComuna = document.getElementById('aviso-chart-comuna')?.getContext('2d');
+    if (ctxComuna && charts.comuna) {
+        const labels = charts.comuna.map(c => c.comuna);
+        const totals = charts.comuna.map(c => c.total);
+
+        if (avisoChartComuna) avisoChartComuna.destroy();
+
+        avisoChartComuna = new Chart(ctxComuna, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cantidad de Avisos',
+                    data: totals,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // 3. Chart Evolución Mensual
+    const ctxEvolucion = document.getElementById('aviso-chart-evolucion')?.getContext('2d');
+    if (ctxEvolucion && charts.evolucion_mensual) {
+        const labels = charts.evolucion_mensual.map(m => m.mes);
+        const totals = charts.evolucion_mensual.map(m => m.total);
+
+        if (avisoChartEvolucion) avisoChartEvolucion.destroy();
+
+        avisoChartEvolucion = new Chart(ctxEvolucion, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Avisos de Obra por Mes',
+                    data: totals,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' } },
+                    x: { grid: { color: '#f1f5f9' } }
+                }
+            }
+        });
+
+        // Populate evolution table
+        const evoTbody = document.getElementById('aviso-evolucion-table-body');
+        if (evoTbody) {
+            evoTbody.innerHTML = charts.evolucion_mensual.map(row => `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 8px 10px; font-weight: 600; color: #475569;">${row.mes}</td>
+                    <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #f59e0b;">${row.total.toLocaleString('es-AR')}</td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+function downloadAvisosObraDataset() {
+    const searchVal = document.getElementById('aviso-search-input') ? document.getElementById('aviso-search-input').value.trim() : '';
+    const anioVal = document.getElementById('aviso-filter-anio') ? document.getElementById('aviso-filter-anio').value : '';
+    const comunaVal = document.getElementById('aviso-filter-comuna') ? document.getElementById('aviso-filter-comuna').value : '';
+    const barrioVal = document.getElementById('aviso-filter-barrio') ? document.getElementById('aviso-filter-barrio').value : '';
+    const acronimoVal = document.getElementById('aviso-filter-acronimo') ? document.getElementById('aviso-filter-acronimo').value : '';
+
+    const queryParams = new URLSearchParams();
+    if (searchVal) queryParams.append('search', searchVal);
+    if (anioVal) queryParams.append('anio', anioVal);
+    if (comunaVal) queryParams.append('comuna', comunaVal);
+    if (barrioVal) queryParams.append('barrio', barrioVal);
+    if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+
+    window.open(`/api/analytics/avisos-obra/download?${queryParams.toString()}`, '_blank');
+}
+
+window.loadAvisosObra = loadAvisosObra;
+window.changeAvisoPage = changeAvisoPage;
+window.switchAvisoSubTab = switchAvisoSubTab;
+window.downloadAvisosObraDataset = downloadAvisosObraDataset;
 
 // --- ACCESO A BUZONES (ADMIN BACKLOG) ---
 let allBuzonesCatalogo = [];
