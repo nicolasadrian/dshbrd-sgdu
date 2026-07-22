@@ -10263,27 +10263,45 @@ function renderM2Charts(chartsData) {
     if (m2ComunaChart) m2ComunaChart.destroy();
     if (m2EvolucionChart) m2EvolucionChart.destroy();
 
-    // Plugin personalizado para dibujar los valores a la derecha de las barras horizontales
+    // Plugin personalizado para dibujar los valores acumulados a la derecha de las barras apiladas
     const m2DatalabelsPlugin = {
         id: 'm2Datalabels',
         afterDatasetsDraw(chart) {
             const { ctx } = chart;
             ctx.save();
-            ctx.font = 'bold 10px Outfit, sans-serif';
-            ctx.fillStyle = '#475569';
+            ctx.font = 'bold 9.5px Outfit, sans-serif';
+            ctx.fillStyle = '#1e293b';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
 
-            chart.data.datasets.forEach((dataset, i) => {
-                const meta = chart.getDatasetMeta(i);
-                meta.data.forEach((bar, index) => {
-                    const dataVal = dataset.data[index];
-                    if (dataVal > 0) {
-                        const formatted = ' ' + Math.round(dataVal).toLocaleString('es-AR') + ' m²';
-                        ctx.fillText(formatted, bar.x + 2, bar.y);
+            const datasetCount = chart.data.datasets.length;
+            if (datasetCount === 0) return;
+
+            const labelsCount = chart.data.labels.length;
+            for (let index = 0; index < labelsCount; index++) {
+                let totalVal = 0;
+                let maxEndX = 0;
+                let barY = 0;
+
+                // Encontrar el final real de la barra apilada
+                for (let i = 0; i < datasetCount; i++) {
+                    const dataset = chart.data.datasets[i];
+                    const meta = chart.getDatasetMeta(i);
+                    const bar = meta.data[index];
+                    if (bar && dataset.data[index] > 0) {
+                        totalVal += dataset.data[index];
+                        if (bar.x > maxEndX) {
+                            maxEndX = bar.x;
+                        }
+                        barY = bar.y;
                     }
-                });
-            });
+                }
+
+                if (totalVal > 0 && barY > 0) {
+                    const formatted = ' ' + Math.round(totalVal).toLocaleString('es-AR') + ' m²';
+                    ctx.fillText(formatted, maxEndX + 2, barY);
+                }
+            }
             ctx.restore();
         }
     };
@@ -10293,15 +10311,35 @@ function renderM2Charts(chartsData) {
             type: 'bar',
             data: {
                 labels: chartsData.barrio.map(x => x.barrio),
-                datasets: [{
-                    label: 'm² Construir',
-                    data: chartsData.barrio.map(x => x.total_m2),
-                    backgroundColor: 'rgba(0, 159, 227, 0.75)',
-                    borderColor: 'rgb(0, 159, 227)',
-                    borderWidth: 1.5,
-                    borderRadius: 4,
-                    barThickness: 18 // Barras más grandes y gruesas
-                }]
+                datasets: [
+                    {
+                        label: 'm² Construir',
+                        data: chartsData.barrio.map(x => x.total_construir),
+                        backgroundColor: 'rgba(0, 159, 227, 0.75)',
+                        borderColor: 'rgb(0, 159, 227)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 18
+                    },
+                    {
+                        label: 'm² Ampliar',
+                        data: chartsData.barrio.map(x => x.total_ampliar),
+                        backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                        borderColor: 'rgb(249, 115, 22)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 18
+                    },
+                    {
+                        label: 'm² Modificar',
+                        data: chartsData.barrio.map(x => x.total_modificar),
+                        backgroundColor: 'rgba(168, 85, 247, 0.75)',
+                        borderColor: 'rgb(168, 85, 247)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 18
+                    }
+                ]
             },
             plugins: [m2DatalabelsPlugin],
             options: {
@@ -10309,20 +10347,28 @@ function renderM2Charts(chartsData) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { family: 'Outfit', size: 10, weight: '600' } }
+                    },
                     tooltip: {
+                        mode: 'index',
+                        intersect: false,
                         callbacks: {
-                            label: (context) => `${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                            label: (context) => `${context.dataset.label}: ${Math.round(context.raw).toLocaleString('es-AR')} m²`
                         }
                     }
                 },
                 scales: {
                     x: {
+                        stacked: true,
                         ticks: { font: { family: 'Outfit', size: 10 } },
                         grid: { color: '#f1f5f9' },
                         grace: '10%' // Añade espacio a la derecha para las etiquetas
                     },
                     y: {
+                        stacked: true,
                         ticks: { font: { family: 'Outfit', size: 9, weight: '600' } },
                         grid: { display: false }
                     }
@@ -10336,15 +10382,35 @@ function renderM2Charts(chartsData) {
             type: 'bar',
             data: {
                 labels: chartsData.comuna.map(x => x.comuna),
-                datasets: [{
-                    label: 'm² Construir',
-                    data: chartsData.comuna.map(x => x.total_m2),
-                    backgroundColor: 'rgba(34, 197, 94, 0.75)',
-                    borderColor: 'rgb(34, 197, 94)',
-                    borderWidth: 1.5,
-                    borderRadius: 4,
-                    barThickness: 16 // Grosor equilibrado para Comunas
-                }]
+                datasets: [
+                    {
+                        label: 'm² Construir',
+                        data: chartsData.comuna.map(x => x.total_construir),
+                        backgroundColor: 'rgba(34, 197, 94, 0.75)',
+                        borderColor: 'rgb(34, 197, 94)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 16
+                    },
+                    {
+                        label: 'm² Ampliar',
+                        data: chartsData.comuna.map(x => x.total_ampliar),
+                        backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                        borderColor: 'rgb(249, 115, 22)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 16
+                    },
+                    {
+                        label: 'm² Modificar',
+                        data: chartsData.comuna.map(x => x.total_modificar),
+                        backgroundColor: 'rgba(168, 85, 247, 0.75)',
+                        borderColor: 'rgb(168, 85, 247)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 16
+                    }
+                ]
             },
             plugins: [m2DatalabelsPlugin],
             options: {
@@ -10352,20 +10418,28 @@ function renderM2Charts(chartsData) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { font: { family: 'Outfit', size: 10, weight: '600' } }
+                    },
                     tooltip: {
+                        mode: 'index',
+                        intersect: false,
                         callbacks: {
-                            label: (context) => `${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                            label: (context) => `${context.dataset.label}: ${Math.round(context.raw).toLocaleString('es-AR')} m²`
                         }
                     }
                 },
                 scales: {
                     x: {
+                        stacked: true,
                         ticks: { font: { family: 'Outfit', size: 10 } },
                         grid: { color: '#f1f5f9' },
                         grace: '10%'
                     },
                     y: {
+                        stacked: true,
                         ticks: { font: { family: 'Outfit', size: 10, weight: '600' } },
                         grid: { display: false }
                     }

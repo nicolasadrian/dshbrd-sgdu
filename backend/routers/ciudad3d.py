@@ -1569,9 +1569,12 @@ async def get_analytics_m2_permisados(
             barrio_res = conn.execute(text(f"""
                 SELECT 
                     COALESCE(barrio, 'SIN ESPECIFICAR') as barrio,
-                    ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                    ROUND(SUM(sup_construir)::numeric, 2) as total_construir,
+                    ROUND(SUM(sup_ampliar)::numeric, 2) as total_ampliar,
+                    ROUND(SUM(sup_modificar)::numeric, 2) as total_modificar,
+                    ROUND((SUM(sup_construir) + SUM(sup_ampliar) + SUM(sup_modificar))::numeric, 2) as total_m2
                 FROM public.mvw_m2_permisados
-                WHERE {where_str} AND sup_construir > 0
+                WHERE {where_str} AND (sup_construir > 0 OR sup_ampliar > 0 OR sup_modificar > 0)
                 GROUP BY 1
                 ORDER BY total_m2 DESC
             """), params)
@@ -1581,9 +1584,12 @@ async def get_analytics_m2_permisados(
             comuna_res = conn.execute(text(f"""
                 SELECT 
                     COALESCE(comuna, 'SIN ESPECIFICAR') as comuna,
-                    ROUND(SUM(sup_construir)::numeric, 2) as total_m2
+                    ROUND(SUM(sup_construir)::numeric, 2) as total_construir,
+                    ROUND(SUM(sup_ampliar)::numeric, 2) as total_ampliar,
+                    ROUND(SUM(sup_modificar)::numeric, 2) as total_modificar,
+                    ROUND((SUM(sup_construir) + SUM(sup_ampliar) + SUM(sup_modificar))::numeric, 2) as total_m2
                 FROM public.mvw_m2_permisados
-                WHERE {where_str} AND sup_construir > 0
+                WHERE {where_str} AND (sup_construir > 0 OR sup_ampliar > 0 OR sup_modificar > 0)
                 GROUP BY 1
                 ORDER BY total_m2 DESC
             """), params)
