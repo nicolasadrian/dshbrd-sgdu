@@ -10309,25 +10309,44 @@ function clearM2Filters() {
     loadM2Permisados(true);
 }
 
-function downloadM2PermisadosDataset() {
-    const searchVal = document.getElementById('m2-filter-search').value.trim();
-    const anioVal = document.getElementById('m2-filter-anio').value;
-    const comunaVal = document.getElementById('m2-filter-comuna').value;
-    const barrioVal = document.getElementById('m2-filter-barrio').value;
-    const obraVal = document.getElementById('m2-filter-obra').value;
-    const tareaVal = document.getElementById('m2-filter-tarea').value;
-    const categoriaVal = document.getElementById('m2-filter-categoria').value;
+async function downloadM2PermisadosDataset() {
+    try {
+        const searchVal = document.getElementById('m2-filter-search').value.trim();
+        const anioVal = document.getElementById('m2-filter-anio').value;
+        const comunaVal = document.getElementById('m2-filter-comuna').value;
+        const barrioVal = document.getElementById('m2-filter-barrio').value;
+        const obraVal = document.getElementById('m2-filter-obra').value;
+        const tareaVal = document.getElementById('m2-filter-tarea').value;
+        const categoriaVal = document.getElementById('m2-filter-categoria').value;
 
-    const queryParams = new URLSearchParams();
-    if (searchVal) queryParams.append('search', searchVal);
-    if (anioVal) queryParams.append('anio', anioVal);
-    if (comunaVal) queryParams.append('comuna', comunaVal);
-    if (barrioVal) queryParams.append('barrio', barrioVal);
-    if (obraVal) queryParams.append('tipo_obra', obraVal);
-    if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
-    if (categoriaVal) queryParams.append('categoria', categoriaVal);
+        const queryParams = new URLSearchParams();
+        if (searchVal) queryParams.append('search', searchVal);
+        if (anioVal) queryParams.append('anio', anioVal);
+        if (comunaVal) queryParams.append('comuna', comunaVal);
+        if (barrioVal) queryParams.append('barrio', barrioVal);
+        if (obraVal) queryParams.append('tipo_obra', obraVal);
+        if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+        if (categoriaVal) queryParams.append('categoria', categoriaVal);
 
-    window.open(`${API_BASE}/analytics/m2-permisados/download?${queryParams.toString()}`, '_blank');
+        const response = await def_fetch(`${API_BASE}/analytics/m2-permisados/download?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en el servidor: ${response ? response.status : 'Sin respuesta'}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'm2_permisados.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (err) {
+        console.error("Error al descargar dataset M2 Permisados:", err);
+        alert("No se pudo descargar el dataset. Verifique sus permisos e intente nuevamente.");
+    }
 }
 
 function updateKPICardsFromChartVisibility(chart) {
@@ -11115,21 +11134,40 @@ function renderAvisoCharts(charts) {
     }
 }
 
-function downloadAvisosObraDataset() {
-    const searchVal = document.getElementById('aviso-search-input') ? document.getElementById('aviso-search-input').value.trim() : '';
-    const anioVal = document.getElementById('aviso-filter-anio') ? document.getElementById('aviso-filter-anio').value : '';
-    const comunaVal = document.getElementById('aviso-filter-comuna') ? document.getElementById('aviso-filter-comuna').value : '';
-    const barrioVal = document.getElementById('aviso-filter-barrio') ? document.getElementById('aviso-filter-barrio').value : '';
-    const acronimoVal = document.getElementById('aviso-filter-acronimo') ? document.getElementById('aviso-filter-acronimo').value : '';
+async function downloadAvisosObraDataset() {
+    try {
+        const searchVal = document.getElementById('aviso-search-input') ? document.getElementById('aviso-search-input').value.trim() : '';
+        const anioVal = document.getElementById('aviso-filter-anio') ? document.getElementById('aviso-filter-anio').value : '';
+        const comunaVal = document.getElementById('aviso-filter-comuna') ? document.getElementById('aviso-filter-comuna').value : '';
+        const barrioVal = document.getElementById('aviso-filter-barrio') ? document.getElementById('aviso-filter-barrio').value : '';
+        const acronimoVal = document.getElementById('aviso-filter-acronimo') ? document.getElementById('aviso-filter-acronimo').value : '';
 
-    const queryParams = new URLSearchParams();
-    if (searchVal) queryParams.append('search', searchVal);
-    if (anioVal) queryParams.append('anio', anioVal);
-    if (comunaVal) queryParams.append('comuna', comunaVal);
-    if (barrioVal) queryParams.append('barrio', barrioVal);
-    if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+        const queryParams = new URLSearchParams();
+        if (searchVal) queryParams.append('search', searchVal);
+        if (anioVal) queryParams.append('anio', anioVal);
+        if (comunaVal) queryParams.append('comuna', comunaVal);
+        if (barrioVal) queryParams.append('barrio', barrioVal);
+        if (acronimoVal) queryParams.append('acronimo', acronimoVal);
 
-    window.open(`/api/analytics/avisos-obra/download?${queryParams.toString()}`, '_blank');
+        const response = await def_fetch(`${API_BASE}/analytics/avisos-obra/download?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en el servidor: ${response ? response.status : 'Sin respuesta'}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'avisos_de_obra.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (err) {
+        console.error("Error al descargar dataset Avisos de Obra:", err);
+        alert("No se pudo descargar el dataset. Verifique sus permisos e intente nuevamente.");
+    }
 }
 
 window.loadAvisosObra = loadAvisosObra;
