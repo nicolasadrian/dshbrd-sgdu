@@ -4343,9 +4343,9 @@
                         <span style="font-size: 0.85rem; font-weight: 700; color: #475569; font-family: 'Outfit';">Acrónimo:</span>
                         <select id="aviso-filter-acronimo" style="padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.88rem; font-weight: 700; background: white; color: var(--primary-dark);" onchange="loadAvisosObra(true)">
                             <option value="">[Todos los Acrónimos]</option>
-                            <option value="IFCAO">IFCAO (Copia de Plano)</option>
-                            <option value="IFCFP">IFCFP (Frente / Fachada)</option>
-                            <option value="IFCAC">IFCAC (Aviso Demolición/Obra)</option>
+                            <option value="IFCAO">IFCAO (Certificado de Aviso de Obra)</option>
+                            <option value="IFCFP">IFCFP (Clausura por permiso (total/parcial))</option>
+                            <option value="IFCAC">IFCAC (Certificado de Aviso de Obra)</option>
                         </select>
                     </div>
                     <button onclick="downloadAvisosObraDataset()" class="btn-primary" style="padding: 10px 20px; font-size: 0.88rem; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; background: #10b981; color: white;">
@@ -4382,7 +4382,7 @@
                             <i class="fa-solid fa-copy"></i>
                         </div>
                         <div>
-                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCAO (Planos)</span>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCAO (Certificado de Aviso de Obra)</span>
                             <span id="aviso-kpi-ifcao" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: #3b82f6;">0</span>
                         </div>
                     </div>
@@ -4392,7 +4392,7 @@
                             <i class="fa-solid fa-building"></i>
                         </div>
                         <div>
-                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCFP (Fachada)</span>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCFP (Clausura por permiso (total/parcial))</span>
                             <span id="aviso-kpi-ifcfp" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: #10b981;">0</span>
                         </div>
                     </div>
@@ -4402,7 +4402,7 @@
                             <i class="fa-solid fa-hammer"></i>
                         </div>
                         <div>
-                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCAC (Demolición)</span>
+                            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFCAC (Certificado de Aviso de Obra)</span>
                             <span id="aviso-kpi-ifcac" style="font-size: 1.6rem; font-family: 'Outfit'; font-weight: 800; color: #a855f7;">0</span>
                         </div>
                     </div>
@@ -5730,7 +5730,7 @@
         </div>
     </div>
 
-    <script src="/app.js?v=5"></script>
+    <script src="/app.js?v=6"></script>
     <script type="module" src="/src/main.js"></script>
 </body>
 
