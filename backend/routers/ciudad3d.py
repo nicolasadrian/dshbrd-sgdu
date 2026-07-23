@@ -3,10 +3,12 @@ import time
 import logging
 import warnings
 import tempfile
+import io
+import csv
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -1972,7 +1974,8 @@ async def download_analytics_avisos_obra(
 
         def generate_csv():
             output = io.StringIO()
-            writer = csv.writer(output)
+            output.write('\ufeff')
+            writer = csv.writer(output, delimiter=';')
             
             writer.writerow([
                 "ID Expediente", "Acrónimo", "Expediente", "Documento", "Usuario Creador", "Motivo",
