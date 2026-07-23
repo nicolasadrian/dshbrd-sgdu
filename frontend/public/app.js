@@ -10859,6 +10859,15 @@ function switchAvisoSubTab(tabName) {
     }
 }
 
+function toggleAvisoMapLayer(acronimo) {
+    if (!avisoMap) return;
+    const layerId = `aviso-points-${acronimo}`;
+    const chk = document.getElementById(`layer-toggle-${acronimo.toLowerCase()}`);
+    if (chk && avisoMap.getLayer(layerId)) {
+        avisoMap.setLayoutProperty(layerId, 'visibility', chk.checked ? 'visible' : 'none');
+    }
+}
+
 function renderAvisoMap(points) {
     const mapContainer = document.getElementById('aviso-leaflet-map');
     if (!mapContainer || typeof maplibregl === 'undefined') return;
@@ -10893,6 +10902,22 @@ function renderAvisoMap(points) {
         } else {
             avisoMap.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
         }
+    };
+
+    const acronymConfigs = [
+        { acr: 'IFCAO', color: '#3b82f6' },
+        { acr: 'IFCFP', color: '#10b981' },
+        { acr: 'IFCAC', color: '#a855f7' }
+    ];
+
+    const syncLayerVisibilities = () => {
+        acronymConfigs.forEach(cfg => {
+            const layerId = `aviso-points-${cfg.acr}`;
+            const chk = document.getElementById(`layer-toggle-${cfg.acr.toLowerCase()}`);
+            if (chk && avisoMap.getLayer(layerId)) {
+                avisoMap.setLayoutProperty(layerId, 'visibility', chk.checked ? 'visible' : 'none');
+            }
+        });
     };
 
     if (!avisoMap) {
@@ -10934,50 +10959,53 @@ function renderAvisoMap(points) {
                 data: geojson
             });
 
-            avisoMap.addLayer({
-                id: 'aviso-points-layer',
-                type: 'circle',
-                source: 'aviso-points',
-                paint: {
-                    'circle-radius': 6,
-                    'circle-color': [
-                        'match',
-                        ['get', 'acronimo'],
-                        'IFCAO', '#3b82f6',
-                        'IFCFP', '#10b981',
-                        'IFCAC', '#a855f7',
-                        '#f59e0b'
-                    ],
-                    'circle-stroke-width': 1.5,
-                    'circle-stroke-color': '#ffffff',
-                    'circle-opacity': 0.85
-                }
-            });
+            acronymConfigs.forEach(cfg => {
+                const layerId = `aviso-points-${cfg.acr}`;
+                const chk = document.getElementById(`layer-toggle-${cfg.acr.toLowerCase()}`);
+                const isVisible = chk ? chk.checked : true;
 
-            avisoMap.on('click', 'aviso-points-layer', (e) => {
-                const coordinates = e.features[0].geometry.coordinates.slice();
-                const props = e.features[0].properties;
+                avisoMap.addLayer({
+                    id: layerId,
+                    type: 'circle',
+                    source: 'aviso-points',
+                    filter: ['==', ['get', 'acronimo'], cfg.acr],
+                    layout: {
+                        'visibility': isVisible ? 'visible' : 'none'
+                    },
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': cfg.color,
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff',
+                        'circle-opacity': 0.85
+                    }
+                });
 
-                const popupContent = `
-                    <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
-                        <strong style="color:#d97706;">${props.acronimo}</strong> - <b>${props.expediente}</b><br/>
-                        <b>Dirección:</b> ${props.direccion}<br/>
-                        <b>Barrio:</b> ${props.barrio} (${props.comuna})<br/>
-                        <b>Documento:</b> ${props.documento}
-                    </div>
-                `;
+                avisoMap.on('click', layerId, (e) => {
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    const props = e.features[0].properties;
 
-                new maplibregl.Popup({ offset: 10 })
-                    .setLngLat(coordinates)
-                    .setHTML(popupContent)
-                    .addTo(avisoMap);
-            });
+                    const popupContent = `
+                        <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
+                            <strong style="color:#d97706;">${props.acronimo}</strong> - <b>${props.expediente}</b><br/>
+                            <b>Dirección:</b> ${props.direccion}<br/>
+                            <b>Barrio:</b> ${props.barrio} (${props.comuna})<br/>
+                            <b>Documento:</b> ${props.documento}
+                        </div>
+                    `;
 
-            avisoMap.on('mouseenter', 'aviso-points-layer', () => {
-                avisoMap.getCanvas().style.cursor = 'pointer';
-            });
-            avisoMap.on('mouseleave', 'aviso-points-layer', () => {
-                avisoMap.getCanvas().style.cursor = '';
+                    new maplibregl.Popup({ offset: 10 })
+                        .setLngLat(coordinates)
+                        .setHTML(popupContent)
+                        .addTo(avisoMap);
+                });
+
+                avisoMap.on('mouseenter', layerId, () => {
+                    avisoMap.getCanvas().style.cursor = 'pointer';
+                });
+                avisoMap.on('mouseleave', layerId, () => {
+                    avisoMap.getCanvas().style.cursor = '';
+                });
             });
 
             fitToData();
@@ -10985,11 +11013,13 @@ function renderAvisoMap(points) {
     } else {
         if (avisoMap.getSource('aviso-points')) {
             avisoMap.getSource('aviso-points').setData(geojson);
+            syncLayerVisibilities();
             fitToData();
         } else {
             avisoMap.once('idle', () => {
                 if (avisoMap.getSource('aviso-points')) {
                     avisoMap.getSource('aviso-points').setData(geojson);
+                    syncLayerVisibilities();
                     fitToData();
                 }
             });
@@ -11174,6 +11204,7 @@ window.loadAvisosObra = loadAvisosObra;
 window.changeAvisoPage = changeAvisoPage;
 window.switchAvisoSubTab = switchAvisoSubTab;
 window.downloadAvisosObraDataset = downloadAvisosObraDataset;
+window.toggleAvisoMapLayer = toggleAvisoMapLayer;
 
 // --- ACCESO A BUZONES (ADMIN BACKLOG) ---
 let allBuzonesCatalogo = [];
