@@ -138,17 +138,15 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception:
             try:
-                fallback_q = f"""
-                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
-                    FROM calles c 
-                    WHERE c.geom IS NOT NULL 
-                      AND c.nomoficial IS NOT NULL 
-                      AND TRIM(c.nomoficial) <> ''
-                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
-                """
+                fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception:
-                gdf_calles = gpd.GeoDataFrame()
+                try:
+                    fallback_q2 = "SELECT nomoficial, geom FROM calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+                    gdf_calles = gpd.read_postgis(fallback_q2, con=engine, geom_col="geom", crs="EPSG:22186")
+                except Exception as e_c:
+                    print(f"Error cargando calles: {e_c}")
+                    gdf_calles = gpd.GeoDataFrame()
     else:
         gdf_calles = gpd.GeoDataFrame()
 
@@ -490,23 +488,26 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo ARIAL oficial (fuente 'arial.ttf' por defecto en Windows y Linux)
+                        # 3. Estilo de texto oficial GOOGLE SANS
+                        font_reg = 'GoogleSans-Regular.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Regular.ttf')) else 'arial.ttf'
+                        font_bold = 'GoogleSans-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Bold.ttf')) else 'arialbd.ttf'
+
                         for s in doc.styles:
                             try:
-                                s.dxf.font = 'arial.ttf'
+                                s.dxf.font = font_reg
                             except Exception:
                                 pass
 
-                        text_style = 'ARIAL'
+                        text_style = 'GOOGLE_SANS'
                         try:
-                            if 'ARIAL' not in doc.styles:
-                                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
+                            if 'GOOGLE_SANS' not in doc.styles:
+                                style = doc.styles.new('GOOGLE_SANS', dxfattribs={'font': font_bold})
                                 try:
-                                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
+                                    style.set_extended_font_data(family='Google Sans', italic=False, bold=True)
                                 except Exception:
                                     pass
                             else:
-                                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
+                                doc.styles.get('GOOGLE_SANS').dxf.font = font_bold
                         except Exception:
                             text_style = 'Standard'
 
@@ -553,20 +554,20 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                             except Exception as e_p:
                                 print(f"Error procesando parcelas texto: {e_p}")
 
-                        # 6. Agregar etiquetas de calles orientadas según la dirección del objeto lineal
+                        # 6. Agregar etiquetas de calles (con las mismas propiedades de parcelas_etiquetas)
                         if m_calles_data:
                             try:
                                 if 'calles_etiquetas' not in doc.layers:
                                     l_calles = doc.layers.new('calles_etiquetas')
-                                    l_calles.color = 7
-                                    l_calles.rgb = (40, 40, 40)
+                                    l_calles.color = 252
+                                    l_calles.rgb = (96, 96, 96)
                                 
                                 c_color = doc.layers.get('calles_etiquetas').color
                                 for pos, calle_name, rot_angle in m_calles_data:
                                     t = msp.add_text(str(calle_name).upper(), dxfattribs={
                                         'layer': 'calles_etiquetas',
                                         'color': c_color,
-                                        'height': 1.2,
+                                        'height': 0.45,
                                         'rotation': rot_angle,
                                         'style': text_style
                                     })
@@ -640,18 +641,15 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception as e_c1:
             try:
-                fallback_q = f"""
-                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
-                    FROM calles c 
-                    WHERE c.geom IS NOT NULL 
-                      AND c.nomoficial IS NOT NULL 
-                      AND TRIM(c.nomoficial) <> ''
-                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
-                """
+                fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception as e_c2:
-                print(f"Error cargando calles: {e_c1} / {e_c2}")
-                gdf_calles = gpd.GeoDataFrame()
+                try:
+                    fallback_q2 = "SELECT nomoficial, geom FROM calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+                    gdf_calles = gpd.read_postgis(fallback_q2, con=engine, geom_col="geom", crs="EPSG:22186")
+                except Exception as e_c3:
+                    print(f"Error cargando calles: {e_c1} / {e_c2} / {e_c3}")
+                    gdf_calles = gpd.GeoDataFrame()
     else:
         gdf_calles = gpd.GeoDataFrame()
 
@@ -907,23 +905,26 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        # Actualizar todos los estilos del DXF (Standard, etc.) para forzar la fuente Arial
+        # Actualizar todos los estilos del DXF para usar Google Sans
+        font_reg = 'GoogleSans-Regular.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Regular.ttf')) else 'arial.ttf'
+        font_bold = 'GoogleSans-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Bold.ttf')) else 'arialbd.ttf'
+
         for s in doc.styles:
             try:
-                s.dxf.font = 'arial.ttf'
+                s.dxf.font = font_reg
             except Exception:
                 pass
 
-        text_style = 'ARIAL'
+        text_style = 'GOOGLE_SANS'
         try:
-            if 'ARIAL' not in doc.styles:
-                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
+            if 'GOOGLE_SANS' not in doc.styles:
+                style = doc.styles.new('GOOGLE_SANS', dxfattribs={'font': font_bold})
                 try:
-                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
+                    style.set_extended_font_data(family='Google Sans', italic=False, bold=True)
                 except Exception:
                     pass
             else:
-                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
+                doc.styles.get('GOOGLE_SANS').dxf.font = font_bold
         except Exception:
             text_style = 'Standard'
 
@@ -956,10 +957,10 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             try:
                 if 'calles_etiquetas' not in doc.layers:
                     l_calles = doc.layers.new('calles_etiquetas')
-                    l_calles.color = 7; l_calles.rgb = (40, 40, 40)
+                    l_calles.color = 252; l_calles.rgb = (96, 96, 96)
                 c_color = doc.layers.get('calles_etiquetas').color
                 for pos, calle_name, rot_angle in m_calles_data:
-                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 1.2, 'rotation': rot_angle, 'style': text_style})
+                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 0.45, 'rotation': rot_angle, 'style': text_style})
                     t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_c:
                 print(f"Error calles texto: {e_c}")
