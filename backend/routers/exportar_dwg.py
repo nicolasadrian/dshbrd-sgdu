@@ -123,32 +123,51 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles con ST_Transform nativo en PostGIS
+    # 2b. Cargar Calles con normalización automática de CRS en GeoPandas
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
-        query_calles = f"""
-            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+        query_calles = """
+            SELECT c.nomoficial, c.geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
         """
         try:
-            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
+            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom")
         except Exception:
             try:
-                fallback_q = f"""
-                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+                fallback_q = """
+                    SELECT c.nomoficial, c.geom 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
-                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
                 """
-                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
-            except Exception:
+                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom")
+            except Exception as e_c:
+                print(f"Error al cargar calles de la base de datos: {e_c}")
                 gdf_calles = gpd.GeoDataFrame()
+
+        if not gdf_calles.empty:
+            try:
+                c_xmin, c_ymin, c_xmax, c_ymax = gdf_calles.total_bounds
+                if -180 <= c_xmin <= 180 and -90 <= c_ymin <= 90:
+                    gdf_calles = gdf_calles.set_crs("EPSG:4326", allow_override=True).to_crs("EPSG:22186")
+                elif c_xmin < 0:
+                    gdf_calles = gdf_calles.set_crs("EPSG:3857", allow_override=True).to_crs("EPSG:22186")
+                else:
+                    gdf_calles = gdf_calles.set_crs("EPSG:22186", allow_override=True)
+
+                bbox_filter = (
+                    (gdf_calles.geometry.bounds['minx'] <= sec_xmax + 150) &
+                    (gdf_calles.geometry.bounds['maxx'] >= sec_xmin - 150) &
+                    (gdf_calles.geometry.bounds['miny'] <= sec_ymax + 150) &
+                    (gdf_calles.geometry.bounds['maxy'] >= sec_ymin - 150)
+                )
+                gdf_calles = gdf_calles[bbox_filter].copy()
+            except Exception as e_proc:
+                print(f"Error procesando CRS o bbox de calles: {e_proc}")
     else:
         gdf_calles = gpd.GeoDataFrame()
 
@@ -628,33 +647,51 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186)
+    # 2b. Cargar Calles cercanas con normalización automática de CRS en GeoPandas
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
-        query_calles = f"""
-            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+        query_calles = """
+            SELECT c.nomoficial, c.geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
         """
         try:
-            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
-        except Exception as e_c1:
+            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom")
+        except Exception:
             try:
-                fallback_q = f"""
-                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+                fallback_q = """
+                    SELECT c.nomoficial, c.geom 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
-                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
                 """
-                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
-            except Exception as e_c2:
-                print(f"Error cargando calles: {e_c1} / {e_c2}")
+                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom")
+            except Exception as e_c:
+                print(f"Error cargando calles: {e_c}")
                 gdf_calles = gpd.GeoDataFrame()
+
+        if not gdf_calles.empty:
+            try:
+                c_xmin, c_ymin, c_xmax, c_ymax = gdf_calles.total_bounds
+                if -180 <= c_xmin <= 180 and -90 <= c_ymin <= 90:
+                    gdf_calles = gdf_calles.set_crs("EPSG:4326", allow_override=True).to_crs("EPSG:22186")
+                elif c_xmin < 0:
+                    gdf_calles = gdf_calles.set_crs("EPSG:3857", allow_override=True).to_crs("EPSG:22186")
+                else:
+                    gdf_calles = gdf_calles.set_crs("EPSG:22186", allow_override=True)
+
+                bbox_filter = (
+                    (gdf_calles.geometry.bounds['minx'] <= m_xmax + 150) &
+                    (gdf_calles.geometry.bounds['maxx'] >= m_xmin - 150) &
+                    (gdf_calles.geometry.bounds['miny'] <= m_ymax + 150) &
+                    (gdf_calles.geometry.bounds['maxy'] >= m_ymin - 150)
+                )
+                gdf_calles = gdf_calles[bbox_filter].copy()
+            except Exception as e_proc:
+                print(f"Error procesando calles: {e_proc}")
     else:
         gdf_calles = gpd.GeoDataFrame()
 
