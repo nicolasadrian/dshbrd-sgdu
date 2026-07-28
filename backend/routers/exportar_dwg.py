@@ -95,14 +95,18 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
     # Escapar la sección para SQL seguro
     sec_escaped = seccion_val.replace("'", "''")
     
-    # 1. Cargar Manzanas de la sección
-    query_manzanas = f"SELECT geom, seccion, manzana FROM manzanas WHERE seccion = '{sec_escaped}' AND geom IS NOT NULL"
+    # 1. Cargar Manzanas de la sección con ST_Transform nativo en PostGIS
+    query_manzanas = f"""
+        SELECT ST_Transform(ST_SetSRID(geom, CASE WHEN ST_SRID(geom) = 0 THEN 3857 ELSE ST_SRID(geom) END), 22186) AS geom, seccion, manzana 
+        FROM public.manzanas 
+        WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_escaped}') 
+          AND geom IS NOT NULL
+    """
     try:
-        gdf_manzanas = gpd.read_postgis(query_manzanas, con=engine, geom_col="geom", crs="EPSG:3857")
+        gdf_manzanas = gpd.read_postgis(query_manzanas, con=engine, geom_col="geom", crs="EPSG:22186")
         if gdf_manzanas.empty:
             print(f"No se encontraron manzanas para la sección {seccion_val}.")
             return
-        gdf_manzanas = gdf_manzanas.to_crs("EPSG:22186")
     except Exception as e:
         print(f"Error al cargar manzanas de sección {seccion_val}: {e}")
         return
@@ -110,8 +114,8 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
     # 2. Cargar Parcelas de la sección (con CUR y Unidades de Edificabilidad)
     query_parcelas = f"""
         SELECT geom, smp, seccion, manzana, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
-        FROM cur_parcelas_ok 
-        WHERE seccion = '{sec_escaped}' AND geom IS NOT NULL
+        FROM public.cur_parcelas_ok 
+        WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_escaped}') AND geom IS NOT NULL
     """
     try:
         gdf_parcelas = gpd.read_postgis(query_parcelas, con=engine, geom_col="geom", crs="EPSG:22186")
@@ -119,28 +123,28 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles
+    # 2b. Cargar Calles con ST_Transform nativo en PostGIS
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
-            SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
+            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
         """
         try:
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception:
             try:
                 fallback_q = f"""
-                    SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
+                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
-                      AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
                 """
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception:
@@ -593,19 +597,18 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     m_lpad = m_escaped.zfill(3)
     m_unpad = m_escaped.lstrip('0') or '0'
 
-    # 1. Cargar Manzanas
+    # 1. Cargar Manzanas con ST_Transform nativo en PostGIS
     query_manzanas = f"""
-        SELECT geom, seccion, manzana 
+        SELECT ST_Transform(ST_SetSRID(geom, CASE WHEN ST_SRID(geom) = 0 THEN 3857 ELSE ST_SRID(geom) END), 22186) AS geom, seccion, manzana 
         FROM public.manzanas 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}' OR TRIM(seccion) = '{sec_unpad}')
           AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}' OR TRIM(manzana) = '{m_unpad}')
           AND geom IS NOT NULL
     """
     try:
-        gdf_manzanas = gpd.read_postgis(query_manzanas, con=engine, geom_col="geom", crs="EPSG:3857")
+        gdf_manzanas = gpd.read_postgis(query_manzanas, con=engine, geom_col="geom", crs="EPSG:22186")
         if gdf_manzanas.empty:
             raise ValueError(f"No se encontró la manzana {m_str} en la sección {sec_str}.")
-        gdf_manzanas = gdf_manzanas.to_crs("EPSG:22186")
     except Exception as e:
         raise ValueError(f"Error al cargar manzana {sec_str}-{m_str}: {e}")
 
@@ -622,28 +625,28 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_SetSRID forzado en EPSG:22186)
+    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186)
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
-            SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
+            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
         """
         try:
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception as e_c1:
             try:
                 fallback_q = f"""
-                    SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
+                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
-                      AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
                 """
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception as e_c2:
