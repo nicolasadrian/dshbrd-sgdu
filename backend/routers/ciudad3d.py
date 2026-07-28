@@ -2648,53 +2648,76 @@ async def upload_trazado_lfi(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    if not current_user.permissions.get("lfi_dibujar"):
-        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir trazados.")
-        
-    sec_clean = seccion.strip()
-    man_clean = manzana.strip()
-    
-    file_ext = os.path.splitext(file.filename)[1]
-    if file_ext.lower() not in ['.dxf', '.dwg']:
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos con extensión .dxf o .dwg")
-
-    with engine.connect() as conn:
-        existing = conn.execute(text("""
-            SELECT analista_asignado, estado FROM public.manzanas_lfi_workflow
-            WHERE seccion = :s AND manzana = :m
-        """), {"s": sec_clean, "m": man_clean}).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=400, detail="Esta manzana no ha sido asignada ni iniciada.")
-        
-        assigned_user = (existing[0] or "").strip().lower()
-        current_username = (current_user.username or "").strip().lower()
-        
-        if assigned_user and assigned_user != current_username and current_user.role.lower() not in ['admin', 'administrador']:
-            raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
-
-    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    safe_filename = f"lfi-{sec_clean}-{man_clean}-{int(time.time())}{file_ext}"
-    file_path = os.path.join(upload_dir, safe_filename)
-    
     try:
-        with open(file_path, "wb") as f:
+        if not current_user.permissions.get("lfi_dibujar"):
+            raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir trazados.")
+            
+        sec_clean = seccion.strip()
+        man_clean = manzana.strip()
+        
+        sec_unpadded = sec_clean.lstrip('0') or '0'
+        sec_padded = sec_clean.zfill(3)
+        man_unpadded = man_clean.lstrip('0') or '0'
+        man_padded = man_clean.zfill(3)
+
+        file_filename = file.filename or "trazado.dxf"
+        file_ext = os.path.splitext(file_filename)[1]
+        if not file_ext or file_ext.lower() not in ['.dxf', '.dwg']:
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos con extensión .dxf o .dwg")
+
+        with engine.connect() as conn:
+            existing = conn.execute(text("""
+                SELECT analista_asignado, estado, seccion, manzana 
+                FROM public.manzanas_lfi_workflow
+                WHERE (TRIM(seccion) IN (:s, :s_unpadded, :s_padded))
+                  AND (TRIM(manzana) IN (:m, :m_unpadded, :m_padded))
+            """), {
+                "s": sec_clean, "s_unpadded": sec_unpadded, "s_padded": sec_padded,
+                "m": man_clean, "m_unpadded": man_unpadded, "m_padded": man_padded
+            }).fetchone()
+            
+            if not existing:
+                raise HTTPException(status_code=400, detail=f"La manzana {sec_clean}-{man_clean} no ha sido asignada ni iniciada.")
+            
+            assigned_user = (existing[0] or "").strip().lower()
+            current_username = (current_user.username or "").strip().lower()
+            
+            if assigned_user and assigned_user != current_username and current_user.role.lower() not in ['admin', 'administrador']:
+                raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
+                
+            real_sec = existing[2]
+            real_man = existing[3]
+
+        upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
+        try:
+            os.makedirs(upload_dir, exist_ok=True)
+        except Exception as dir_err:
+            logger.error(f"Error creando directorio uploads: {dir_err}")
+
+        safe_filename = f"lfi-{real_sec}-{real_man}-{int(time.time())}{file_ext}"
+        file_path = os.path.join(upload_dir, safe_filename)
+        
+        try:
             content = await file.read()
-            f.write(content)
-    except Exception as e:
-        logger.error(f"Error saving LFI file: {e}")
-        raise HTTPException(status_code=500, detail="Error interno al guardar el archivo.")
-        
-    with engine.begin() as conn:
-        conn.execute(text("""
-            UPDATE public.manzanas_lfi_workflow
-            SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
-            WHERE seccion = :s AND manzana = :m
-        """), {"s": sec_clean, "m": man_clean, "f": safe_filename})
-        
-    return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+            with open(file_path, "wb") as f:
+                f.write(content)
+        except Exception as e:
+            logger.error(f"Error saving LFI file: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al guardar archivo en el servidor: {str(e)}")
+            
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE public.manzanas_lfi_workflow
+                SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
+                WHERE seccion = :s AND manzana = :m
+            """), {"s": real_sec, "m": real_man, "f": safe_filename})
+            
+        return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(f"Error inesperado en upload_trazado_lfi: {exc}")
+        raise HTTPException(status_code=500, detail=f"Error inesperado en el servidor: {str(exc)}")
 
 @router.post("/api/ciudad3d/manzanas_lfi/review")
 async def review_manzana_lfi(
@@ -2976,53 +2999,76 @@ async def upload_trazado(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user)
 ):
-    if not current_user.permissions.get("lfi_dibujar"):
-        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir archivos.")
-        
-    sec_clean = seccion.strip()
-    man_clean = manzana.strip()
-    
-    file_ext = os.path.splitext(file.filename)[1]
-    if file_ext.lower() not in ['.dxf', '.dwg']:
-        raise HTTPException(status_code=400, detail="Solo se permiten archivos con extensión .dxf o .dwg")
-
-    with engine.connect() as conn:
-        existing = conn.execute(text("""
-            SELECT analista_asignado, estado FROM public.manzanas_atipicas_workflow
-            WHERE seccion = :s AND manzana = :m
-        """), {"s": sec_clean, "m": man_clean}).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=400, detail="Esta manzana no ha sido asignada ni iniciada.")
-            
-        assigned_user = (existing[0] or "").strip().lower()
-        current_username = (current_user.username or "").strip().lower()
-        
-        if assigned_user and assigned_user != current_username and current_user.role.lower() not in ['admin', 'administrador']:
-            raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
-
-    upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados"))
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    safe_filename = f"{sec_clean}-{man_clean}-{int(time.time())}{file_ext}"
-    file_path = os.path.join(upload_dir, safe_filename)
-    
     try:
-        with open(file_path, "wb") as f:
+        if not current_user.permissions.get("lfi_dibujar"):
+            raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir archivos.")
+            
+        sec_clean = seccion.strip()
+        man_clean = manzana.strip()
+        
+        sec_unpadded = sec_clean.lstrip('0') or '0'
+        sec_padded = sec_clean.zfill(3)
+        man_unpadded = man_clean.lstrip('0') or '0'
+        man_padded = man_clean.zfill(3)
+
+        file_filename = file.filename or "trazado.dxf"
+        file_ext = os.path.splitext(file_filename)[1]
+        if not file_ext or file_ext.lower() not in ['.dxf', '.dwg']:
+            raise HTTPException(status_code=400, detail="Solo se permiten archivos con extensión .dxf o .dwg")
+
+        with engine.connect() as conn:
+            existing = conn.execute(text("""
+                SELECT analista_asignado, estado, seccion, manzana 
+                FROM public.manzanas_atipicas_workflow
+                WHERE (TRIM(seccion) IN (:s, :s_unpadded, :s_padded))
+                  AND (TRIM(manzana) IN (:m, :m_unpadded, :m_padded))
+            """), {
+                "s": sec_clean, "s_unpadded": sec_unpadded, "s_padded": sec_padded,
+                "m": man_clean, "m_unpadded": man_unpadded, "m_padded": man_padded
+            }).fetchone()
+            
+            if not existing:
+                raise HTTPException(status_code=400, detail=f"La manzana {sec_clean}-{man_clean} no ha sido asignada ni iniciada.")
+                
+            assigned_user = (existing[0] or "").strip().lower()
+            current_username = (current_user.username or "").strip().lower()
+            
+            if assigned_user and assigned_user != current_username and current_user.role.lower() not in ['admin', 'administrador']:
+                raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
+
+            real_sec = existing[2]
+            real_man = existing[3]
+
+        upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados"))
+        try:
+            os.makedirs(upload_dir, exist_ok=True)
+        except Exception as dir_err:
+            logger.error(f"Error creando directorio uploads: {dir_err}")
+
+        safe_filename = f"{real_sec}-{real_man}-{int(time.time())}{file_ext}"
+        file_path = os.path.join(upload_dir, safe_filename)
+        
+        try:
             content = await file.read()
-            f.write(content)
-    except Exception as e:
-        logger.error(f"Error saving uploaded file: {e}")
-        raise HTTPException(status_code=500, detail="Error interno al guardar el archivo.")
-        
-    with engine.begin() as conn:
-        conn.execute(text("""
-            UPDATE public.manzanas_atipicas_workflow
-            SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
-            WHERE seccion = :s AND manzana = :m
-        """), {"s": sec_clean, "m": man_clean, "f": safe_filename})
-        
-    return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+            with open(file_path, "wb") as f:
+                f.write(content)
+        except Exception as e:
+            logger.error(f"Error saving uploaded file: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al guardar archivo en el servidor: {str(e)}")
+            
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE public.manzanas_atipicas_workflow
+                SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
+                WHERE seccion = :s AND manzana = :m
+            """), {"s": real_sec, "m": real_man, "f": safe_filename})
+            
+        return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(f"Error inesperado en upload_trazado: {exc}")
+        raise HTTPException(status_code=500, detail=f"Error inesperado en el servidor: {str(exc)}")
 
 @router.post("/api/ciudad3d/manzanas_atipicas/review")
 def review_manzana_atipica(req: ReviewRequest, current_user: User = Depends(get_current_user)):
