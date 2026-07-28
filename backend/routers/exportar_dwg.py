@@ -124,15 +124,15 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles (Carga directa vía ST_AsBinary sin dependencias de SRID de PostGIS)
+    # 2b. Cargar Calles (Carga directa vía ST_AsText en WKT para compatibilidad universal Linux/Windows)
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
         try:
-            query_calles = "SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb FROM public.calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
+            query_calles = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM public.calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
             df_c = pd.read_sql_query(query_calles, con=engine)
         except Exception:
             try:
-                fallback_q = "SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb FROM calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
+                fallback_q = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
                 df_c = pd.read_sql_query(fallback_q, con=engine)
             except Exception as e_c:
                 print(f"Error leyendo SQL calles: {e_c}")
@@ -140,7 +140,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
 
         if not df_c.empty:
             try:
-                df_c['geometry'] = df_c['geom_wkb'].apply(lambda b: wkb.loads(bytes(b)) if b else None)
+                df_c['geometry'] = df_c['wkt_geom'].apply(lambda w: wkt.loads(w) if w else None)
                 gdf_calles = gpd.GeoDataFrame(df_c[df_c['geometry'].notnull()], geometry='geometry')
                 
                 c_xmin, c_ymin, c_xmax, c_ymax = gdf_calles.total_bounds
@@ -504,25 +504,26 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo de texto HELVETICA oficial
-                        font_name = 'Helvetica-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'Helvetica-Bold.ttf')) else 'arialbd.ttf'
+                        # 3. Estilo de texto oficial GOOGLE SANS
+                        font_reg = 'GoogleSans-Regular.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Regular.ttf')) else 'arial.ttf'
+                        font_bold = 'GoogleSans-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Bold.ttf')) else 'arialbd.ttf'
 
                         for s in doc.styles:
                             try:
-                                s.dxf.font = font_name
+                                s.dxf.font = font_reg
                             except Exception:
                                 pass
 
-                        text_style = 'HELVETICA'
+                        text_style = 'GOOGLE_SANS'
                         try:
-                            if 'HELVETICA' not in doc.styles:
-                                style = doc.styles.new('HELVETICA', dxfattribs={'font': font_name})
+                            if 'GOOGLE_SANS' not in doc.styles:
+                                style = doc.styles.new('GOOGLE_SANS', dxfattribs={'font': font_bold})
                                 try:
-                                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                                    style.set_extended_font_data(family='Google Sans', italic=False, bold=True)
                                 except Exception:
                                     pass
                             else:
-                                doc.styles.get('HELVETICA').dxf.font = font_name
+                                doc.styles.get('GOOGLE_SANS').dxf.font = font_bold
                         except Exception:
                             text_style = 'Standard'
 
@@ -641,15 +642,15 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (Carga directa vía ST_AsBinary sin dependencias de SRID de PostGIS)
+    # 2b. Cargar Calles cercanas (Carga directa vía ST_AsText en WKT para compatibilidad universal Linux/Windows)
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
         try:
-            query_calles = "SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb FROM public.calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
+            query_calles = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM public.calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
             df_c = pd.read_sql_query(query_calles, con=engine)
         except Exception:
             try:
-                fallback_q = "SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb FROM calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
+                fallback_q = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
                 df_c = pd.read_sql_query(fallback_q, con=engine)
             except Exception as e_c:
                 print(f"Error leyendo SQL calles: {e_c}")
@@ -657,7 +658,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
 
         if not df_c.empty:
             try:
-                df_c['geometry'] = df_c['geom_wkb'].apply(lambda b: wkb.loads(bytes(b)) if b else None)
+                df_c['geometry'] = df_c['wkt_geom'].apply(lambda w: wkt.loads(w) if w else None)
                 gdf_calles = gpd.GeoDataFrame(df_c[df_c['geometry'].notnull()], geometry='geometry')
                 
                 c_xmin, c_ymin, c_xmax, c_ymax = gdf_calles.total_bounds
@@ -935,25 +936,26 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        # Actualizar todos los estilos del DXF para usar Helvetica
-        font_name = 'Helvetica-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'Helvetica-Bold.ttf')) else 'arialbd.ttf'
+        # Actualizar todos los estilos del DXF para usar Google Sans
+        font_reg = 'GoogleSans-Regular.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Regular.ttf')) else 'arial.ttf'
+        font_bold = 'GoogleSans-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Bold.ttf')) else 'arialbd.ttf'
 
         for s in doc.styles:
             try:
-                s.dxf.font = font_name
+                s.dxf.font = font_reg
             except Exception:
                 pass
 
-        text_style = 'HELVETICA'
+        text_style = 'GOOGLE_SANS'
         try:
-            if 'HELVETICA' not in doc.styles:
-                style = doc.styles.new('HELVETICA', dxfattribs={'font': font_name})
+            if 'GOOGLE_SANS' not in doc.styles:
+                style = doc.styles.new('GOOGLE_SANS', dxfattribs={'font': font_bold})
                 try:
-                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                    style.set_extended_font_data(family='Google Sans', italic=False, bold=True)
                 except Exception:
                     pass
             else:
-                doc.styles.get('HELVETICA').dxf.font = font_name
+                doc.styles.get('GOOGLE_SANS').dxf.font = font_bold
         except Exception:
             text_style = 'Standard'
 
