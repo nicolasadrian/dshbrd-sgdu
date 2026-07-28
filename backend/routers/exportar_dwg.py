@@ -474,70 +474,79 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         hatch.paths.add_polyline_path(pts, is_closed=True)
                                         
                                     msp.delete_entity(poly)
-                                    
-                        # 3. Agregar estilo Arial Bold si no existe
-                        if 'ArialBold' not in doc.styles:
-                            style = doc.styles.new('ArialBold', dxfattribs={'font': 'Arial.ttf'})
-                            style.set_extended_font_data(family='Arial', italic=False, bold=True)
+
+                        # 3. Estilo de texto compatible con Windows y Linux
+                        text_style = 'Standard'
+                        try:
+                            if 'ArialBold' not in doc.styles:
+                                doc.styles.new('ArialBold', dxfattribs={'font': 'txt'})
+                            text_style = 'ArialBold'
+                        except Exception:
+                            text_style = 'Standard'
 
                         # 4. Agregar etiquetas de altura (labels) para la capa 'tejido'
                         if m_tejido_data:
-                            h_color = doc.layers.get('tejido').color if 'tejido' in doc.layers else 8
-                            for pos, alt in m_tejido_data:
-                                try:
-                                    alt_val = float(alt)
-                                    text_str = f"{alt_val:.1f}"
-                                except (ValueError, TypeError):
-                                    text_str = str(alt)
-                                    
-                                t = msp.add_text(text_str, dxfattribs={
-                                    'layer': 'tejido',
-                                    'color': h_color,
-                                    'height': 0.375,
-                                    'style': 'ArialBold'
-                                })
-                                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                            try:
+                                h_color = doc.layers.get('tejido').color if 'tejido' in doc.layers else 8
+                                for pos, alt in m_tejido_data:
+                                    try:
+                                        alt_val = float(alt)
+                                        text_str = f"{alt_val:.1f}"
+                                    except (ValueError, TypeError):
+                                        text_str = str(alt)
+                                        
+                                    t = msp.add_text(text_str, dxfattribs={
+                                        'layer': 'tejido',
+                                        'color': h_color,
+                                        'height': 0.375,
+                                        'style': text_style
+                                    })
+                                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                            except Exception as e_t:
+                                print(f"Error procesando tejido texto: {e_t}")
 
                         # 5. Agregar etiquetas de parcelas (CUR y Unidades de Edificabilidad)
                         if m_parcelas_data:
-                            if 'parcelas_etiquetas' not in doc.layers:
-                                l_parc = doc.layers.new('parcelas_etiquetas')
-                                l_parc.color = 252  # Gris Carbón
-                                l_parc.rgb = (96, 96, 96)
-                            
-                            p_color = doc.layers.get('parcelas_etiquetas').color
-                            for (x, y), lines in m_parcelas_data:
-                                if len(lines) == 2:
-                                    positions = [(x, y + 0.3), (x, y - 0.3)]
-                                else:
-                                    positions = [(x, y)]
+                            try:
+                                if 'parcelas_etiquetas' not in doc.layers:
+                                    l_parc = doc.layers.new('parcelas_etiquetas')
+                                    l_parc.color = 252
+                                    l_parc.rgb = (96, 96, 96)
                                 
-                                for line_text, pos in zip(lines, positions):
-                                    t = msp.add_text(line_text, dxfattribs={
-                                        'layer': 'parcelas_etiquetas',
-                                        'color': p_color,
-                                        'height': 0.45,
-                                        'style': 'ArialBold'
-                                    })
-                                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                                p_color = doc.layers.get('parcelas_etiquetas').color
+                                for (x, y), lines in m_parcelas_data:
+                                    positions = [(x, y + 0.3), (x, y - 0.3)] if len(lines) == 2 else [(x, y)]
+                                    for line_text, pos in zip(lines, positions):
+                                        t = msp.add_text(line_text, dxfattribs={
+                                            'layer': 'parcelas_etiquetas',
+                                            'color': p_color,
+                                            'height': 0.45,
+                                            'style': text_style
+                                        })
+                                        t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                            except Exception as e_p:
+                                print(f"Error procesando parcelas texto: {e_p}")
 
                         # 6. Agregar etiquetas de calles orientadas según la dirección del objeto lineal
                         if m_calles_data:
-                            if 'calles_etiquetas' not in doc.layers:
-                                l_calles = doc.layers.new('calles_etiquetas')
-                                l_calles.color = 7  # Blanco/Negro
-                                l_calles.rgb = (40, 40, 40)
-                            
-                            c_color = doc.layers.get('calles_etiquetas').color
-                            for pos, calle_name, rot_angle in m_calles_data:
-                                t = msp.add_text(calle_name, dxfattribs={
-                                    'layer': 'calles_etiquetas',
-                                    'color': c_color,
-                                    'height': 0.75,
-                                    'rotation': rot_angle,
-                                    'style': 'ArialBold'
-                                })
-                                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                            try:
+                                if 'calles_etiquetas' not in doc.layers:
+                                    l_calles = doc.layers.new('calles_etiquetas')
+                                    l_calles.color = 7
+                                    l_calles.rgb = (40, 40, 40)
+                                
+                                c_color = doc.layers.get('calles_etiquetas').color
+                                for pos, calle_name, rot_angle in m_calles_data:
+                                    t = msp.add_text(str(calle_name).upper(), dxfattribs={
+                                        'layer': 'calles_etiquetas',
+                                        'color': c_color,
+                                        'height': 1.2,
+                                        'rotation': rot_angle,
+                                        'style': text_style
+                                    })
+                                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+                            except Exception as e_c:
+                                print(f"Error procesando calles texto: {e_c}")
                                     
                         doc.save()
                     except Exception as e_dxf:
@@ -866,34 +875,51 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        if 'ArialBold' not in doc.styles:
-            style = doc.styles.new('ArialBold', dxfattribs={'font': 'Arial.ttf'})
-            style.set_extended_font_data(family='Arial', italic=False, bold=True)
+        text_style = 'Standard'
+        try:
+            if 'ArialBold' not in doc.styles:
+                doc.styles.new('ArialBold', dxfattribs={'font': 'txt'})
+            text_style = 'ArialBold'
+        except Exception:
+            text_style = 'Standard'
+
         if m_tejido_data:
-            h_color = doc.layers.get('tejido').color if 'tejido' in doc.layers else 8
-            for pos, alt in m_tejido_data:
-                try: alt_val = float(alt); text_str = f"{alt_val:.1f}"
-                except (ValueError, TypeError): text_str = str(alt)
-                t = msp.add_text(text_str, dxfattribs={'layer': 'tejido', 'color': h_color, 'height': 0.375, 'style': 'ArialBold'})
-                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
-        if m_parcelas_data:
-            if 'parcelas_etiquetas' not in doc.layers:
-                l_parc = doc.layers.new('parcelas_etiquetas')
-                l_parc.color = 252; l_parc.rgb = (96, 96, 96)
-            p_color = doc.layers.get('parcelas_etiquetas').color
-            for (x, y), lines in m_parcelas_data:
-                positions = [(x, y + 0.3), (x, y - 0.3)] if len(lines) == 2 else [(x, y)]
-                for line_text, pos in zip(lines, positions):
-                    t = msp.add_text(line_text, dxfattribs={'layer': 'parcelas_etiquetas', 'color': p_color, 'height': 0.45, 'style': 'ArialBold'})
+            try:
+                h_color = doc.layers.get('tejido').color if 'tejido' in doc.layers else 8
+                for pos, alt in m_tejido_data:
+                    try: alt_val = float(alt); text_str = f"{alt_val:.1f}"
+                    except (ValueError, TypeError): text_str = str(alt)
+                    t = msp.add_text(text_str, dxfattribs={'layer': 'tejido', 'color': h_color, 'height': 0.375, 'style': text_style})
                     t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+            except Exception as e_t:
+                print(f"Error tejido texto: {e_t}")
+
+        if m_parcelas_data:
+            try:
+                if 'parcelas_etiquetas' not in doc.layers:
+                    l_parc = doc.layers.new('parcelas_etiquetas')
+                    l_parc.color = 252; l_parc.rgb = (96, 96, 96)
+                p_color = doc.layers.get('parcelas_etiquetas').color
+                for (x, y), lines in m_parcelas_data:
+                    positions = [(x, y + 0.3), (x, y - 0.3)] if len(lines) == 2 else [(x, y)]
+                    for line_text, pos in zip(lines, positions):
+                        t = msp.add_text(line_text, dxfattribs={'layer': 'parcelas_etiquetas', 'color': p_color, 'height': 0.45, 'style': text_style})
+                        t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+            except Exception as e_p:
+                print(f"Error parcelas texto: {e_p}")
+
         if m_calles_data:
-            if 'calles_etiquetas' not in doc.layers:
-                l_calles = doc.layers.new('calles_etiquetas')
-                l_calles.color = 7; l_calles.rgb = (40, 40, 40)
-            c_color = doc.layers.get('calles_etiquetas').color
-            for pos, calle_name, rot_angle in m_calles_data:
-                t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 1.2, 'rotation': rot_angle, 'style': 'ArialBold'})
-                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+            try:
+                if 'calles_etiquetas' not in doc.layers:
+                    l_calles = doc.layers.new('calles_etiquetas')
+                    l_calles.color = 7; l_calles.rgb = (40, 40, 40)
+                c_color = doc.layers.get('calles_etiquetas').color
+                for pos, calle_name, rot_angle in m_calles_data:
+                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 1.2, 'rotation': rot_angle, 'style': text_style})
+                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
+            except Exception as e_c:
+                print(f"Error calles texto: {e_c}")
+
         doc.save()
     except Exception as e_dxf:
         print(f"Advertencia ezdxf: {e_dxf}")
