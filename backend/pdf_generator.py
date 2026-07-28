@@ -99,13 +99,14 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
         try:
             import ezdxf
             from ezdxf.addons.drawing import RenderContext, Frontend
+            from ezdxf.addons.drawing.config import Configuration, LinePolicy
             from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
             
             doc = ezdxf.readfile(file_path)
             
             if 'DASHED' not in doc.linetypes:
                 try:
-                    doc.linetypes.new('DASHED', dxfattribs={'description': 'Dashed line - - -', 'pattern': [10.0, 5.0, -5.0]})
+                    doc.linetypes.new('DASHED', dxfattribs={'description': 'Dashed line - - -', 'pattern': [5.0, 3.0, -3.0]})
                 except Exception:
                     pass
             
@@ -135,9 +136,13 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_axis_off()
             
+            config = Configuration(
+                line_policy=LinePolicy.ACCURATE,
+                min_lineweight=1.5
+            )
             ctx = RenderContext(doc)
             out = MatplotlibBackend(ax)
-            frontend = Frontend(ctx, out)
+            frontend = Frontend(ctx, out, config=config)
             frontend.draw_layout(msp, finalize=True)
             
             # Forzar todas las etiquetas de texto a COLOR NEGRO ABSOLUTO (#000000) con Google Sans
@@ -273,7 +278,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             for bm_j in bm_rows:
                 bm_geom = shape(json.loads(bm_j))
                 for x, y in extract_lines_from_geom(bm_geom):
-                    ax.plot(x, y, color='#e41a1c', linestyle='--', linewidth=3.5, dashes=(6, 4), zorder=12)
+                    ax.plot(x, y, color='#e41a1c', linestyle='--', linewidth=3.5, dashes=(20, 10), dash_capstyle='round', zorder=12)
 
             # 7. DIBUJAR ETIQUETAS DE NOMBRES DE CALLES EN COLOR NEGRO ABSOLUTO (#000000)
             if calles_rows:
