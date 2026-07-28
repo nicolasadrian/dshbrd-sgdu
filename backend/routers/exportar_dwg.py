@@ -123,18 +123,25 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
-            SELECT c.nomoficial, c.geom 
+            SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND c.geom && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+              AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
         """
         try:
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception:
             try:
-                fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+                fallback_q = f"""
+                    SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
+                    FROM calles c 
+                    WHERE c.geom IS NOT NULL 
+                      AND c.nomoficial IS NOT NULL 
+                      AND TRIM(c.nomoficial) <> ''
+                      AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+                """
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception:
                 gdf_calles = gpd.GeoDataFrame()
@@ -615,22 +622,29 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta de la manzana en EPSG:22186)
+    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_SetSRID forzado en EPSG:22186)
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
-            SELECT c.nomoficial, c.geom 
+            SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND c.geom && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+              AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
         """
         try:
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception as e_c1:
             try:
-                fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+                fallback_q = f"""
+                    SELECT c.nomoficial, ST_SetSRID(c.geom, 22186) AS geom 
+                    FROM calles c 
+                    WHERE c.geom IS NOT NULL 
+                      AND c.nomoficial IS NOT NULL 
+                      AND TRIM(c.nomoficial) <> ''
+                      AND ST_SetSRID(c.geom, 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+                """
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception as e_c2:
                 print(f"Error cargando calles: {e_c1} / {e_c2}")
