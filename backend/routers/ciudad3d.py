@@ -2689,12 +2689,14 @@ async def upload_trazado_lfi(
             real_man = existing[3]
 
         upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
-        if not os.path.exists(upload_dir):
+        try:
+            os.makedirs(upload_dir, mode=0o777, exist_ok=True)
             try:
-                os.makedirs(upload_dir, mode=0o777, exist_ok=True)
-            except Exception as dir_err:
-                logger.error(f"Error creando directorio uploads ({upload_dir}): {dir_err}")
-                raise HTTPException(status_code=500, detail=f"No se pudo crear la carpeta de subidas en el servidor: {str(dir_err)}")
+                os.chmod(upload_dir, 0o777)
+            except Exception:
+                pass
+        except Exception as dir_err:
+            logger.error(f"Error creando directorio uploads ({upload_dir}): {dir_err}")
 
         safe_filename = f"lfi-{real_sec}-{real_man}-{int(time.time())}{file_ext}"
         file_path = os.path.join(upload_dir, safe_filename)
@@ -2703,6 +2705,17 @@ async def upload_trazado_lfi(
             content = await file.read()
             with open(file_path, "wb") as f:
                 f.write(content)
+            try:
+                os.chmod(file_path, 0o666)
+            except Exception:
+                pass
+        except PermissionError as p_err:
+            logger.error(f"Permission error saving LFI file: {p_err}")
+            base_up = os.path.abspath(os.path.join(upload_dir, ".."))
+            raise HTTPException(
+                status_code=500,
+                detail=f"Permiso denegado en el servidor al escribir en '{upload_dir}'. Ejecute 'sudo chmod -R 777 {base_up}' en el servidor."
+            )
         except Exception as e:
             logger.error(f"Error saving LFI file: {e}")
             raise HTTPException(status_code=500, detail=f"Error al guardar archivo en el servidor: {str(e)}")
@@ -3042,12 +3055,14 @@ async def upload_trazado(
             real_man = existing[3]
 
         upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados"))
-        if not os.path.exists(upload_dir):
+        try:
+            os.makedirs(upload_dir, mode=0o777, exist_ok=True)
             try:
-                os.makedirs(upload_dir, mode=0o777, exist_ok=True)
-            except Exception as dir_err:
-                logger.error(f"Error creando directorio uploads ({upload_dir}): {dir_err}")
-                raise HTTPException(status_code=500, detail=f"No se pudo crear la carpeta de subidas en el servidor: {str(dir_err)}")
+                os.chmod(upload_dir, 0o777)
+            except Exception:
+                pass
+        except Exception as dir_err:
+            logger.error(f"Error creando directorio uploads ({upload_dir}): {dir_err}")
 
         safe_filename = f"{real_sec}-{real_man}-{int(time.time())}{file_ext}"
         file_path = os.path.join(upload_dir, safe_filename)
@@ -3056,6 +3071,17 @@ async def upload_trazado(
             content = await file.read()
             with open(file_path, "wb") as f:
                 f.write(content)
+            try:
+                os.chmod(file_path, 0o666)
+            except Exception:
+                pass
+        except PermissionError as p_err:
+            logger.error(f"Permission error saving atipica file: {p_err}")
+            base_up = os.path.abspath(os.path.join(upload_dir, ".."))
+            raise HTTPException(
+                status_code=500,
+                detail=f"Permiso denegado en el servidor al escribir en '{upload_dir}'. Ejecute 'sudo chmod -R 777 {base_up}' en el servidor."
+            )
         except Exception as e:
             logger.error(f"Error saving uploaded file: {e}")
             raise HTTPException(status_code=500, detail=f"Error al guardar archivo en el servidor: {str(e)}")

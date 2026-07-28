@@ -65,12 +65,16 @@ app.add_middleware(
 )
 
 # Initialize upload directories
-for _dir in ["trazados_lfi", "trazados"]:
+for _dir in ["", "trazados_lfi", "trazados"]:
     _path = os.path.abspath(os.path.join(os.path.dirname(__file__), "uploads", _dir))
     try:
         os.makedirs(_path, mode=0o777, exist_ok=True)
+        try:
+            os.chmod(_path, 0o777)
+        except Exception:
+            pass
     except Exception as _e:
-        logger.error(f"Error creando directorio {_path}: {_e}")
+        logger.error(f"Error creando o ajustando directorio {_path}: {_e}")
 
 # Initialize Database Schema DDLs
 try:
