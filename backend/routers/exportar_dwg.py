@@ -264,8 +264,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                         if cur and str(cur) != 'nan' and str(cur).strip():
                             labels.append(str(cur).strip())
                         if parc and str(parc) != 'nan' and str(parc).strip():
-                            parc_clean = str(parc).strip().lstrip('0') or '0'
-                            labels.append(f"Parc. {parc_clean}")
+                            labels.append(str(parc).strip())
                         
                         if labels:
                             m_parcelas_data.append(((centroid.x, centroid.y), labels))
@@ -756,8 +755,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                 if cur and str(cur) != 'nan' and str(cur).strip():
                     labels.append(str(cur).strip())
                 if parc and str(parc) != 'nan' and str(parc).strip():
-                    parc_clean = str(parc).strip().lstrip('0') or '0'
-                    labels.append(f"Parc. {parc_clean}")
+                    labels.append(str(parc).strip())
                 if labels:
                     m_parcelas_data.append(((centroid.x, centroid.y), labels))
         m_parcelas = gdf_parcelas.copy()
