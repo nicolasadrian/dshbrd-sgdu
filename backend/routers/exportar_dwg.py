@@ -113,7 +113,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
 
     # 2. Cargar Parcelas de la sección (con CUR y Unidades de Edificabilidad)
     query_parcelas = f"""
-        SELECT geom, smp, seccion, manzana, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
+        SELECT geom, smp, seccion, manzana, cur_1, parcela 
         FROM public.cur_parcelas_ok 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_escaped}') AND geom IS NOT NULL
     """
@@ -258,14 +258,14 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                     if geom and not geom.is_empty:
                         centroid = geom.centroid
                         cur = row.get('cur_1')
-                        unis = [row.get(f'uni_edif_{i}') for i in range(1, 5)]
-                        unis_clean = [float(u) for u in unis if u is not None and str(u) != 'nan' and float(u) > 0]
+                        parc = row.get('parcela')
                         
                         labels = []
-                        if cur and str(cur) != 'nan':
-                            labels.append(str(cur))
-                        if unis_clean:
-                            labels.append(" / ".join(f"{u:.1f}m" for u in unis_clean))
+                        if cur and str(cur) != 'nan' and str(cur).strip():
+                            labels.append(str(cur).strip())
+                        if parc and str(parc) != 'nan' and str(parc).strip():
+                            parc_clean = str(parc).strip().lstrip('0') or '0'
+                            labels.append(f"Parc. {parc_clean}")
                         
                         if labels:
                             m_parcelas_data.append(((centroid.x, centroid.y), labels))
@@ -569,7 +569,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                     t = msp.add_text(str(calle_name).upper(), dxfattribs={
                                         'layer': 'calles_etiquetas',
                                         'color': c_color,
-                                        'height': 0.45,
+                                        'height': 0.585,
                                         'rotation': rot_angle,
                                         'style': text_style
                                     })
@@ -617,7 +617,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
 
     # 2. Cargar Parcelas
     query_parcelas = f"""
-        SELECT geom, smp, seccion, manzana, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
+        SELECT geom, smp, seccion, manzana, cur_1, parcela 
         FROM public.cur_parcelas_ok 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') 
           AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') 
@@ -751,13 +751,13 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             if geom and not geom.is_empty:
                 centroid = geom.centroid
                 cur = row.get('cur_1')
-                unis = [row.get(f'uni_edif_{i}') for i in range(1, 5)]
-                unis_clean = [float(u) for u in unis if u is not None and str(u) != 'nan' and float(u) > 0]
+                parc = row.get('parcela')
                 labels = []
-                if cur and str(cur) != 'nan':
-                    labels.append(str(cur))
-                if unis_clean:
-                    labels.append(" / ".join(f"{u:.1f}m" for u in unis_clean))
+                if cur and str(cur) != 'nan' and str(cur).strip():
+                    labels.append(str(cur).strip())
+                if parc and str(parc) != 'nan' and str(parc).strip():
+                    parc_clean = str(parc).strip().lstrip('0') or '0'
+                    labels.append(f"Parc. {parc_clean}")
                 if labels:
                     m_parcelas_data.append(((centroid.x, centroid.y), labels))
         m_parcelas = gdf_parcelas.copy()
@@ -965,7 +965,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                     l_calles.color = 252; l_calles.rgb = (96, 96, 96)
                 c_color = doc.layers.get('calles_etiquetas').color
                 for pos, calle_name, rot_angle in m_calles_data:
-                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 0.45, 'rotation': rot_angle, 'style': text_style})
+                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 0.585, 'rotation': rot_angle, 'style': text_style})
                     t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_c:
                 print(f"Error calles texto: {e_c}")
