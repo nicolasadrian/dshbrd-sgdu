@@ -138,7 +138,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             
             config = Configuration(
                 line_policy=LinePolicy.ACCURATE,
-                min_lineweight=1.5
+                min_lineweight=0.75
             )
             ctx = RenderContext(doc)
             out = MatplotlibBackend(ax)
@@ -236,7 +236,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             if mza_json:
                 m_geom = shape(json.loads(mza_json))
                 for x, y in extract_lines_from_geom(m_geom):
-                    ax.plot(x, y, color='#404040', linewidth=2.8, zorder=2)
+                    ax.plot(x, y, color='#404040', linewidth=1.4, zorder=2)
                     
             # 2. Dibujar Parcelas y ETIQUETAS DE PARCELA EN COLOR NEGRO (#000000)
             if parc_rows:
@@ -244,7 +244,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                     if p_json:
                         p_geom = shape(json.loads(p_json))
                         for x, y in extract_lines_from_geom(p_geom):
-                            ax.plot(x, y, color='#606060', linewidth=1.5, zorder=3)
+                            ax.plot(x, y, color='#606060', linewidth=0.75, zorder=3)
                         
                         # ETIQUETA DE PARCELA (COLOR NEGRO ABSOLUTO #000000, GOOGLE SANS BOLD)
                         if p_num and cx and cy:
@@ -257,28 +257,28 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             for l_json in lib_rows:
                 l_geom = shape(json.loads(l_json))
                 for x, y in extract_lines_from_geom(l_geom):
-                    ax.plot(x, y, color='#ffd306', linewidth=2.8, zorder=5)
+                    ax.plot(x, y, color='#ffd306', linewidth=1.4, zorder=5)
 
             # 4. Dibujar LFI - Azul #3579b1
             for l_json in lfi_rows:
                 l_geom = shape(json.loads(l_json))
                 for x, y in extract_lines_from_geom(l_geom):
-                    ax.plot(x, y, color='#3579b1', linewidth=3.2, zorder=6)
+                    ax.plot(x, y, color='#3579b1', linewidth=1.6, zorder=6)
 
             # 5. Dibujar Troneras (SI = Irregular Rojo #e41a1c, NO = Regular Azul #3579b1)
             for irr_val, t_json in tron_rows:
                 if t_json:
                     t_geom = shape(json.loads(t_json))
                     t_color = '#e41a1c' if str(irr_val).upper() == 'SI' else '#3579b1'
-                    t_lw = 3.5 if str(irr_val).upper() == 'SI' else 2.8
+                    t_lw = 1.75 if str(irr_val).upper() == 'SI' else 1.4
                     for x, y in extract_lines_from_geom(t_geom):
                         ax.plot(x, y, color=t_color, linewidth=t_lw, zorder=7)
 
-            # 6. DIBUJAR BANDA MÍNIMA COMO LÍNEA CORTADA / DASHED RED LINE (#e41a1c)
+            # 6. DIBUJAR BANDA MÍNIMA COMO LÍNEA CORTADA COMPACTA / DASHED RED LINE (#e41a1c)
             for bm_j in bm_rows:
                 bm_geom = shape(json.loads(bm_j))
                 for x, y in extract_lines_from_geom(bm_geom):
-                    ax.plot(x, y, color='#e41a1c', linestyle='--', linewidth=3.5, dashes=(20, 10), dash_capstyle='round', zorder=12)
+                    ax.plot(x, y, color='#e41a1c', linestyle='--', linewidth=1.6, dashes=(6, 4), dash_capstyle='butt', zorder=12)
 
             # 7. DIBUJAR ETIQUETAS DE NOMBRES DE CALLES EN COLOR NEGRO ABSOLUTO (#000000)
             if calles_rows:
