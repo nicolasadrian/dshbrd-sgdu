@@ -479,23 +479,23 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Actualizar todos los estilos del DXF (Standard, etc.) para forzar la fuente sans-serif Helvetica
+                        # 3. Estilo ARIAL oficial (fuente 'arial.ttf' por defecto en Windows y Linux)
                         for s in doc.styles:
                             try:
                                 s.dxf.font = 'arial.ttf'
                             except Exception:
                                 pass
 
-                        text_style = 'HELVETICA'
+                        text_style = 'ARIAL'
                         try:
-                            if 'HELVETICA' not in doc.styles:
-                                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
+                            if 'ARIAL' not in doc.styles:
+                                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
                                 try:
-                                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
                                 except Exception:
                                     pass
                             else:
-                                doc.styles.get('HELVETICA').dxf.font = 'arialbd.ttf'
+                                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
                         except Exception:
                             text_style = 'Standard'
 
@@ -510,15 +510,13 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                     except (ValueError, TypeError):
                                         text_str = str(alt)
                                         
-                                    t_formatted = rf"{{\fHelvetica|b1|i0;{text_str}}}"
-                                    mt = msp.add_mtext(t_formatted, dxfattribs={
+                                    t = msp.add_text(text_str, dxfattribs={
                                         'layer': 'tejido',
                                         'color': h_color,
-                                        'char_height': 0.375,
-                                        'style': text_style,
-                                        'attachment_point': 5
+                                        'height': 0.375,
+                                        'style': text_style
                                     })
-                                    mt.set_location(pos, attachment_point=5)
+                                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
                             except Exception as e_t:
                                 print(f"Error procesando tejido texto: {e_t}")
 
@@ -534,15 +532,13 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                 for (x, y), lines in m_parcelas_data:
                                     positions = [(x, y + 0.3), (x, y - 0.3)] if len(lines) == 2 else [(x, y)]
                                     for line_text, pos in zip(lines, positions):
-                                        t_formatted = rf"{{\fHelvetica|b1|i0;{line_text}}}"
-                                        mt = msp.add_mtext(t_formatted, dxfattribs={
+                                        t = msp.add_text(line_text, dxfattribs={
                                             'layer': 'parcelas_etiquetas',
                                             'color': p_color,
-                                            'char_height': 0.45,
-                                            'style': text_style,
-                                            'attachment_point': 5
+                                            'height': 0.45,
+                                            'style': text_style
                                         })
-                                        mt.set_location(pos, attachment_point=5)
+                                        t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
                             except Exception as e_p:
                                 print(f"Error procesando parcelas texto: {e_p}")
 
@@ -556,16 +552,14 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                 
                                 c_color = doc.layers.get('calles_etiquetas').color
                                 for pos, calle_name, rot_angle in m_calles_data:
-                                    t_formatted = rf"{{\fHelvetica|b1|i0;{str(calle_name).upper()}}}"
-                                    mt = msp.add_mtext(t_formatted, dxfattribs={
+                                    t = msp.add_text(str(calle_name).upper(), dxfattribs={
                                         'layer': 'calles_etiquetas',
                                         'color': c_color,
-                                        'char_height': 1.2,
+                                        'height': 1.2,
                                         'rotation': rot_angle,
-                                        'style': text_style,
-                                        'attachment_point': 5
+                                        'style': text_style
                                     })
-                                    mt.set_location(pos, rotation=rot_angle, attachment_point=5)
+                                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
                             except Exception as e_c:
                                 print(f"Error procesando calles texto: {e_c}")
                                     
@@ -896,23 +890,23 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        # Actualizar todos los estilos del DXF (Standard, etc.) para forzar la fuente sans-serif Helvetica
+        # Actualizar todos los estilos del DXF (Standard, etc.) para forzar la fuente Arial
         for s in doc.styles:
             try:
                 s.dxf.font = 'arial.ttf'
             except Exception:
                 pass
 
-        text_style = 'HELVETICA'
+        text_style = 'ARIAL'
         try:
-            if 'HELVETICA' not in doc.styles:
-                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
+            if 'ARIAL' not in doc.styles:
+                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
                 try:
-                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
                 except Exception:
                     pass
             else:
-                doc.styles.get('HELVETICA').dxf.font = 'arialbd.ttf'
+                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
         except Exception:
             text_style = 'Standard'
 
@@ -922,9 +916,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                 for pos, alt in m_tejido_data:
                     try: alt_val = float(alt); text_str = f"{alt_val:.1f}"
                     except (ValueError, TypeError): text_str = str(alt)
-                    t_formatted = rf"{{\fHelvetica|b1|i0;{text_str}}}"
-                    mt = msp.add_mtext(t_formatted, dxfattribs={'layer': 'tejido', 'color': h_color, 'char_height': 0.375, 'style': text_style, 'attachment_point': 5})
-                    mt.set_location(pos, attachment_point=5)
+                    t = msp.add_text(text_str, dxfattribs={'layer': 'tejido', 'color': h_color, 'height': 0.375, 'style': text_style})
+                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_t:
                 print(f"Error tejido texto: {e_t}")
 
@@ -937,9 +930,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                 for (x, y), lines in m_parcelas_data:
                     positions = [(x, y + 0.3), (x, y - 0.3)] if len(lines) == 2 else [(x, y)]
                     for line_text, pos in zip(lines, positions):
-                        t_formatted = rf"{{\fHelvetica|b1|i0;{line_text}}}"
-                        mt = msp.add_mtext(t_formatted, dxfattribs={'layer': 'parcelas_etiquetas', 'color': p_color, 'char_height': 0.45, 'style': text_style, 'attachment_point': 5})
-                        mt.set_location(pos, attachment_point=5)
+                        t = msp.add_text(line_text, dxfattribs={'layer': 'parcelas_etiquetas', 'color': p_color, 'height': 0.45, 'style': text_style})
+                        t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_p:
                 print(f"Error parcelas texto: {e_p}")
 
@@ -950,9 +942,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                     l_calles.color = 7; l_calles.rgb = (40, 40, 40)
                 c_color = doc.layers.get('calles_etiquetas').color
                 for pos, calle_name, rot_angle in m_calles_data:
-                    t_formatted = rf"{{\fHelvetica|b1|i0;{str(calle_name).upper()}}}"
-                    mt = msp.add_mtext(t_formatted, dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'char_height': 1.2, 'rotation': rot_angle, 'style': text_style, 'attachment_point': 5})
-                    mt.set_location(pos, rotation=rot_angle, attachment_point=5)
+                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 1.2, 'rotation': rot_angle, 'style': text_style})
+                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_c:
                 print(f"Error calles texto: {e_c}")
 
