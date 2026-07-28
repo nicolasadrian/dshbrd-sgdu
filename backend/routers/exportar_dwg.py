@@ -29,6 +29,10 @@ except ImportError:
     except ImportError:
         from database import geo_engine as get_engine
 
+FONTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "fonts"))
+if os.path.exists(FONTS_DIR) and FONTS_DIR not in ezdxf.options.support_dirs:
+    ezdxf.options.support_dirs.append(FONTS_DIR)
+
 def extract_lines(geom):
     """
     Recursively extracts all boundary outlines from Polygons, MultiPolygons,
@@ -475,12 +479,11 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo de texto compatible con Windows y Linux
-                        text_style = 'Standard'
+                        # 3. Estilo de texto Helvetica empacado en backend/fonts
+                        text_style = 'HELVETICA'
                         try:
-                            if 'ArialBold' not in doc.styles:
-                                doc.styles.new('ArialBold', dxfattribs={'font': 'txt'})
-                            text_style = 'ArialBold'
+                            if 'HELVETICA' not in doc.styles:
+                                doc.styles.new('HELVETICA', dxfattribs={'font': 'Helvetica-Bold.ttf'})
                         except Exception:
                             text_style = 'Standard'
 
@@ -875,11 +878,10 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        text_style = 'Standard'
+        text_style = 'HELVETICA'
         try:
-            if 'ArialBold' not in doc.styles:
-                doc.styles.new('ArialBold', dxfattribs={'font': 'txt'})
-            text_style = 'ArialBold'
+            if 'HELVETICA' not in doc.styles:
+                doc.styles.new('HELVETICA', dxfattribs={'font': 'Helvetica-Bold.ttf'})
         except Exception:
             text_style = 'Standard'
 
