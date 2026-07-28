@@ -116,10 +116,25 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         gdf_parcelas = gpd.GeoDataFrame()
 
     # 2b. Cargar Calles
-    query_calles = "SELECT geom, nomoficial FROM calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
-    try:
-        gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
-    except Exception as e:
+    if not gdf_manzanas.empty:
+        sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
+        query_calles = f"""
+            SELECT c.nomoficial, c.geom 
+            FROM public.calles c 
+            WHERE c.geom IS NOT NULL 
+              AND c.nomoficial IS NOT NULL 
+              AND TRIM(c.nomoficial) <> ''
+              AND c.geom && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+        """
+        try:
+            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception:
+            try:
+                fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
+            except Exception:
+                gdf_calles = gpd.GeoDataFrame()
+    else:
         gdf_calles = gpd.GeoDataFrame()
 
     # 3. Cargar LFI de la sección
@@ -576,26 +591,28 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas
-    query_calles = f"""
-        SELECT c.nomoficial, c.geom 
-        FROM public.calles c 
-        INNER JOIN public.manzanas m 
-          ON (TRIM(m.seccion) = '{sec_escaped}' OR LPAD(TRIM(m.seccion), 3, '0') = '{sec_lpad}' OR TRIM(m.seccion) = '{sec_unpad}')
-         AND (TRIM(m.manzana) = '{m_escaped}' OR LPAD(TRIM(m.manzana), 3, '0') = '{m_lpad}' OR TRIM(m.manzana) = '{m_unpad}')
-        WHERE c.geom IS NOT NULL 
-          AND c.nomoficial IS NOT NULL 
-          AND TRIM(c.nomoficial) <> ''
-          AND ST_DWithin(c.geom, ST_Transform(m.geom, 22186), 150)
-    """
-    try:
-        gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
-    except Exception:
+    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta de la manzana en EPSG:22186)
+    if not gdf_manzanas.empty:
+        m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
+        query_calles = f"""
+            SELECT c.nomoficial, c.geom 
+            FROM public.calles c 
+            WHERE c.geom IS NOT NULL 
+              AND c.nomoficial IS NOT NULL 
+              AND TRIM(c.nomoficial) <> ''
+              AND c.geom && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+        """
         try:
-            fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
-            gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
-        except Exception:
-            gdf_calles = gpd.GeoDataFrame()
+            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception as e_c1:
+            try:
+                fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
+            except Exception as e_c2:
+                print(f"Error cargando calles: {e_c1} / {e_c2}")
+                gdf_calles = gpd.GeoDataFrame()
+    else:
+        gdf_calles = gpd.GeoDataFrame()
 
     # 3. LFI
     query_lfi = f"SELECT geom, seccion, manzana FROM public.mdr_lineadefrenteinterno WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
