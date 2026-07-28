@@ -13413,16 +13413,47 @@ async function loadLFIFichaNotes() {
             }
             notes.forEach(n => {
                 const noteCard = document.createElement('div');
-                noteCard.style.cssText = "background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem;";
+                noteCard.style.cssText = "background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem;";
                 
                 const cleanDate = n.created_at ? n.created_at.substring(0, 19).replace('T', ' ') : '-';
+                const noteContent = (n.nota || '').trim();
+                
+                // Formatear notas de revisión si contienen el marcador de decisión
+                const revMatch = noteContent.match(/^\*\*\*\s*REVISI[OÓ]N\s*\[(.*?)\]:\s*(.*?)\s*\*\*\*$/s);
+                let formattedHtml = '';
+                
+                if (revMatch) {
+                    const dec = revMatch[1].toUpperCase();
+                    const msg = revMatch[2].trim();
+                    const isApprove = dec === 'APPROVE' || dec === 'APROBADO' || dec === 'ACEPTADO';
+                    const badgeBg = isApprove ? '#dcfce7' : '#fee2e2';
+                    const badgeColor = isApprove ? '#15803d' : '#b91c1c';
+                    const badgeBorder = isApprove ? '#bbf7d0' : '#fca5a5';
+                    const icon = isApprove ? 'fa-circle-check' : 'fa-circle-xmark';
+                    const decTitle = isApprove ? 'REVISIÓN APROBADA' : 'REVISIÓN RECHAZADA';
+                    
+                    formattedHtml = `
+                        <div style="margin-top: 2px; margin-bottom: 2px;">
+                            <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="fa-solid ${icon}"></i> ${decTitle}
+                            </span>
+                        </div>
+                        <div style="color: #1e293b; white-space: pre-wrap; font-weight: 500; margin-top: 2px; line-height: 1.35;">${msg}</div>
+                    `;
+                } else {
+                    let cleanText = noteContent
+                        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                        .replace(/\*\*\*(.*?)\*\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    formattedHtml = `<div style="color: #334155; white-space: pre-wrap; line-height: 1.35; margin-top: 2px;">${cleanText}</div>`;
+                }
                 
                 noteCard.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-dark);">
-                        <span>${n.full_name}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--primary-dark);">
+                        <span>${n.full_name || 'Usuario'}</span>
                         <span style="font-weight: 500; color: #94a3b8; font-size: 0.75rem;">${cleanDate}</span>
                     </div>
-                    <div style="color: #334155; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${n.nota}</div>
+                    ${formattedHtml}
                 `;
                 listDiv.appendChild(noteCard);
             });

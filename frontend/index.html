@@ -5640,7 +5640,7 @@
     <!-- Modal: Ficha de Trabajo de Manzana LFI -->
     <div id="c3d-lfi-ficha-modal" class="modal">
         <div class="modal-content"
-            style="max-width: 900px; width: 95%; padding: 25px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif; gap: 20px; max-height: 90vh;">
+            style="max-width: 950px; width: 95%; padding: 25px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif; gap: 20px; max-height: 90vh; overflow-y: auto; box-sizing: border-box;">
             <div class="modal-header"
                 style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <div>
@@ -5658,11 +5658,11 @@
             <input type="hidden" id="c3d-lfi-ficha-seccion">
             <input type="hidden" id="c3d-lfi-ficha-manzana">
 
-            <div style="display: flex; gap: 25px; overflow: hidden; flex-wrap: wrap; flex-grow: 1;">
+            <div style="display: flex; gap: 25px; flex-wrap: wrap; flex-grow: 1; min-height: 0;">
 
                 <!-- Columna Izquierda: Información y Acciones de Trazado -->
                 <div
-                    style="flex: 1 1 400px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding-right: 5px;">
+                    style="flex: 1 1 380px; min-width: 280px; display: flex; flex-direction: column; gap: 15px;">
 
                     <!-- Tarjeta de Estado & Asignación -->
                     <div
@@ -5724,7 +5724,7 @@
 
                 <!-- Columna Derecha: Bitácora de Observaciones -->
                 <div
-                    style="flex: 1 1 400px; display: flex; flex-direction: column; gap: 15px; overflow: hidden; border-left: 1px solid #e2e8f0; padding-left: 20px;">
+                    style="flex: 1 1 380px; min-width: 280px; display: flex; flex-direction: column; gap: 15px; border-left: 1px solid #e2e8f0; padding-left: 20px; box-sizing: border-box;">
                     <h4
                         style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem; flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-clock-rotate-left"></i> Historial y Observaciones
@@ -5732,7 +5732,7 @@
 
                     <!-- Lista de notas (scrollable) -->
                     <div id="c3d-lfi-ficha-notes-list"
-                        style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
+                        style="flex-grow: 1; max-height: 280px; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
                         <!-- Dinámico via JS -->
                     </div>
 
