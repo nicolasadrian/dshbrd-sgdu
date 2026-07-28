@@ -123,15 +123,15 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles con ST_Transform nativo en PostGIS y detección dinámica de SRID
+    # 2b. Cargar Calles con ST_Transform nativo en PostGIS y detección dinámica de SRID (usando ST_Centroid para MultiLineString)
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
             SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
                 CASE 
                     WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                     ELSE 22186 
                 END
             ), 22186) AS geom 
@@ -142,8 +142,8 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
               AND ST_Transform(ST_SetSRID(c.geom, 
                 CASE 
                     WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                     ELSE 22186 
                 END
             ), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
@@ -156,8 +156,8 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                     SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
                         CASE 
                             WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                             ELSE 22186 
                         END
                     ), 22186) AS geom 
@@ -168,8 +168,8 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                       AND ST_Transform(ST_SetSRID(c.geom, 
                         CASE 
                             WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                             ELSE 22186 
                         END
                     ), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
@@ -518,24 +518,23 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo de fuente oficial (usar Helvetica.ttf de backend/fonts para paridad Win/Linux)
-                        font_name = 'Helvetica.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'Helvetica.ttf')) else 'arial.ttf'
+                        # 3. Estilo ARIAL oficial para AutoCAD
                         for s in doc.styles:
                             try:
-                                s.dxf.font = font_name
+                                s.dxf.font = 'arial.ttf'
                             except Exception:
                                 pass
 
-                        text_style = 'HELVETICA'
+                        text_style = 'ARIAL'
                         try:
-                            if 'HELVETICA' not in doc.styles:
-                                style = doc.styles.new('HELVETICA', dxfattribs={'font': font_name})
+                            if 'ARIAL' not in doc.styles:
+                                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
                                 try:
-                                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
                                 except Exception:
                                     pass
                             else:
-                                doc.styles.get('HELVETICA').dxf.font = font_name
+                                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
                         except Exception:
                             text_style = 'Standard'
 
@@ -653,15 +652,15 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186)
+    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186 y ST_Centroid)
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
             SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
                 CASE 
                     WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                     ELSE 22186 
                 END
             ), 22186) AS geom 
@@ -672,8 +671,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
               AND ST_Transform(ST_SetSRID(c.geom, 
                 CASE 
                     WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                     ELSE 22186 
                 END
             ), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
@@ -686,8 +685,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                     SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
                         CASE 
                             WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                             ELSE 22186 
                         END
                     ), 22186) AS geom 
@@ -698,8 +697,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                       AND ST_Transform(ST_SetSRID(c.geom, 
                         CASE 
                             WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_StartPoint(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_StartPoint(c.geom)) < 0 THEN 3857
+                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
+                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
                             ELSE 22186 
                         END
                     ), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
@@ -963,24 +962,23 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        # Actualizar todos los estilos del DXF (usar Helvetica.ttf de backend/fonts para paridad Win/Linux)
-        font_name = 'Helvetica.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'Helvetica.ttf')) else 'arial.ttf'
+        # Actualizar todos los estilos del DXF (Standard, etc.) para forzar la fuente Arial
         for s in doc.styles:
             try:
-                s.dxf.font = font_name
+                s.dxf.font = 'arial.ttf'
             except Exception:
                 pass
 
-        text_style = 'HELVETICA'
+        text_style = 'ARIAL'
         try:
-            if 'HELVETICA' not in doc.styles:
-                style = doc.styles.new('HELVETICA', dxfattribs={'font': font_name})
+            if 'ARIAL' not in doc.styles:
+                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
                 try:
-                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
                 except Exception:
                     pass
             else:
-                doc.styles.get('HELVETICA').dxf.font = font_name
+                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
         except Exception:
             text_style = 'Standard'
 
