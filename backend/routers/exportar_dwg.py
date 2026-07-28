@@ -479,11 +479,15 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo de texto Helvetica empacado en backend/fonts
+                        # 3. Estilo de texto Helvetica compatible universalmente con CAD (AutoCAD/QGIS/Win/Unix)
                         text_style = 'HELVETICA'
                         try:
                             if 'HELVETICA' not in doc.styles:
-                                doc.styles.new('HELVETICA', dxfattribs={'font': 'Helvetica-Bold.ttf'})
+                                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
+                                try:
+                                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                                except Exception:
+                                    pass
                         except Exception:
                             text_style = 'Standard'
 
@@ -878,10 +882,15 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
+        # Estilo de texto Helvetica compatible universalmente con CAD (AutoCAD/QGIS/Win/Unix)
         text_style = 'HELVETICA'
         try:
             if 'HELVETICA' not in doc.styles:
-                doc.styles.new('HELVETICA', dxfattribs={'font': 'Helvetica-Bold.ttf'})
+                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
+                try:
+                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                except Exception:
+                    pass
         except Exception:
             text_style = 'Standard'
 
