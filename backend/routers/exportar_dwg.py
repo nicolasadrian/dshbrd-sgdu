@@ -116,21 +116,11 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         gdf_parcelas = gpd.GeoDataFrame()
 
     # 2b. Cargar Calles
-    query_calles = f"""
-        SELECT c.nomoficial, c.geom 
-        FROM public.calles c 
-        INNER JOIN public.manzanas m ON (TRIM(m.seccion) = '{sec_escaped}' OR LPAD(TRIM(m.seccion), 3, '0') = '{sec_lpad}')
-        WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''
-          AND ST_DWithin(c.geom, ST_Transform(m.geom, 22186), 150)
-    """
+    query_calles = "SELECT geom, nomoficial FROM calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
     try:
         gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
     except Exception as e:
-        try:
-            fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
-            gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
-        except Exception:
-            gdf_calles = gpd.GeoDataFrame()
+        gdf_calles = gpd.GeoDataFrame()
 
     # 3. Cargar LFI de la sección
     query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE seccion = '{sec_escaped}' AND geom IS NOT NULL"
@@ -253,7 +243,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                 m_parcelas['geometry'] = m_parcelas.geometry.apply(polygon_to_boundary)
                 m_layers['parcelas'] = m_parcelas
 
-        # Calles circundantes frentistas a la manzana (posicionadas exactamente frente a la manzana con su ángulo de orientación)
+        # Calles circundantes (posicionadas exactamente frente a la manzana con su ángulo de orientación)
         m_calles_data = []
         if not gdf_calles.empty and not group_manzana.empty:
             mza_geom = group_manzana.geometry.iloc[0]
@@ -560,7 +550,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     # 1. Cargar Manzanas
     query_manzanas = f"""
         SELECT geom, seccion, manzana 
-        FROM manzanas 
+        FROM public.manzanas 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}' OR TRIM(seccion) = '{sec_unpad}')
           AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}' OR TRIM(manzana) = '{m_unpad}')
           AND geom IS NOT NULL
@@ -576,7 +566,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     # 2. Cargar Parcelas
     query_parcelas = f"""
         SELECT geom, smp, seccion, manzana, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
-        FROM cur_parcelas_ok 
+        FROM public.cur_parcelas_ok 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') 
           AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') 
           AND geom IS NOT NULL
@@ -586,7 +576,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles
+    # 2b. Cargar Calles cercanas
     query_calles = f"""
         SELECT c.nomoficial, c.geom 
         FROM public.calles c 
@@ -608,21 +598,21 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             gdf_calles = gpd.GeoDataFrame()
 
     # 3. LFI
-    query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
+    query_lfi = f"SELECT geom, seccion, manzana FROM public.mdr_lineadefrenteinterno WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
     try:
         gdf_lfi = gpd.read_postgis(query_lfi, con=engine, geom_col="geom", crs="EPSG:22186")
     except Exception:
         gdf_lfi = gpd.GeoDataFrame()
 
     # 4. LIB
-    query_lib = f"SELECT geom, seccion, manzana FROM mdr_lineadebasamento WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
+    query_lib = f"SELECT geom, seccion, manzana FROM public.mdr_lineadebasamento WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
     try:
         gdf_lib = gpd.read_postgis(query_lib, con=engine, geom_col="geom", crs="EPSG:22186")
     except Exception:
         gdf_lib = gpd.GeoDataFrame()
 
     # 5. Troneras
-    query_troneras = f"SELECT geom, seccion, manzana, id_tronera, sm, comuna, irregular FROM mdr_troneras WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
+    query_troneras = f"SELECT geom, seccion, manzana, id_tronera, sm, comuna, irregular FROM public.mdr_troneras WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
     try:
         gdf_troneras = gpd.read_postgis(query_troneras, con=engine, geom_col="geom", crs="EPSG:22186")
     except Exception:
@@ -631,8 +621,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     # 6. Banda Mínima
     query_bm = f"""
         SELECT bm.geom, bm.smp 
-        FROM mdr_banda_minima bm 
-        INNER JOIN cur_parcelas_ok p ON bm.smp = p.smp 
+        FROM public.mdr_banda_minima bm 
+        INNER JOIN public.cur_parcelas_ok p ON bm.smp = p.smp 
         WHERE (TRIM(p.seccion) = '{sec_escaped}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_lpad}') AND (TRIM(p.manzana) = '{m_escaped}' OR LPAD(TRIM(p.manzana), 3, '0') = '{m_lpad}') AND bm.geom IS NOT NULL
     """
     try:
@@ -643,8 +633,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     # 7. LDF
     query_ldf = f"""
         SELECT ldf.geom, ldf.smp 
-        FROM mdr_ldf_parc ldf 
-        INNER JOIN cur_parcelas_ok p ON ldf.smp = p.smp 
+        FROM public.mdr_ldf_parc ldf 
+        INNER JOIN public.cur_parcelas_ok p ON ldf.smp = p.smp 
         WHERE (TRIM(p.seccion) = '{sec_escaped}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_lpad}') AND (TRIM(p.manzana) = '{m_escaped}' OR LPAD(TRIM(p.manzana), 3, '0') = '{m_lpad}') AND ldf.geom IS NOT NULL
     """
     try:
@@ -653,7 +643,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
         gdf_ldf = gpd.GeoDataFrame()
 
     # 8. Tejido
-    query_tejido = f"SELECT geom, smp, LPAD(sec, 3, '0') AS seccion, man AS manzana, altura FROM tejido WHERE (LPAD(sec, 3, '0') = '{sec_lpad}' OR TRIM(sec) = '{sec_unpad}') AND (TRIM(man) = '{m_escaped}' OR LPAD(TRIM(man), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
+    query_tejido = f"SELECT geom, smp, LPAD(sec, 3, '0') AS seccion, man AS manzana, altura FROM public.tejido WHERE (LPAD(sec, 3, '0') = '{sec_lpad}' OR TRIM(sec) = '{sec_unpad}') AND (TRIM(man) = '{m_escaped}' OR LPAD(TRIM(man), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
     try:
         gdf_tejido = gpd.read_postgis(query_tejido, con=engine, geom_col="geom", crs="EPSG:3857")
         if not gdf_tejido.empty:
@@ -664,8 +654,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     # 9. Tejido Consolidado
     query_tc = f"""
         SELECT tc.geometry AS geom, tc.smp 
-        FROM mdr_tejidoconsolidado tc 
-        INNER JOIN cur_parcelas_ok p ON tc.smp = p.smp 
+        FROM public.mdr_tejidoconsolidado tc 
+        INNER JOIN public.cur_parcelas_ok p ON tc.smp = p.smp 
         WHERE (TRIM(p.seccion) = '{sec_escaped}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_lpad}') AND (TRIM(p.manzana) = '{m_escaped}' OR LPAD(TRIM(p.manzana), 3, '0') = '{m_lpad}') AND tc.geometry IS NOT NULL
     """
     try:
@@ -676,8 +666,8 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     # 10. Tejido Para Irregular
     query_tpi = f"""
         SELECT tpi.geometry AS geom, tpi.smp 
-        FROM mdr_tejidoparairregular tpi 
-        INNER JOIN cur_parcelas_ok p ON tpi.smp = p.smp 
+        FROM public.mdr_tejidoparairregular tpi 
+        INNER JOIN public.cur_parcelas_ok p ON tpi.smp = p.smp 
         WHERE (TRIM(p.seccion) = '{sec_escaped}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_lpad}') AND (TRIM(p.manzana) = '{m_escaped}' OR LPAD(TRIM(p.manzana), 3, '0') = '{m_lpad}') AND tpi.geometry IS NOT NULL
     """
     try:
@@ -885,7 +875,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                 l_calles.color = 7; l_calles.rgb = (40, 40, 40)
             c_color = doc.layers.get('calles_etiquetas').color
             for pos, calle_name, rot_angle in m_calles_data:
-                t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 0.75, 'rotation': rot_angle, 'style': 'ArialBold'})
+                t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 1.2, 'rotation': rot_angle, 'style': 'ArialBold'})
                 t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
         doc.save()
     except Exception as e_dxf:
@@ -893,6 +883,35 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
 
     return filepath
 
+def main():
+    parser = argparse.ArgumentParser(description="Exportar capas vectoriales a DXF por manzana (Optimizado por Sección).")
+    parser.add_argument("--seccion", type=str, help="Sección específica a procesar (ej. 009). Si no se define, procesa todas.")
+    args = parser.parse_args()
+    
+    engine = get_engine()
+    
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    dxf_base_dir = os.path.join(root_dir, "dxf")
+    os.makedirs(dxf_base_dir, exist_ok=True)
+    
+    if args.seccion:
+        sections = [args.seccion.strip().zfill(3)]
+    else:
+        print("Obteniendo listado de secciones catastrales en la base de datos...")
+        with engine.connect() as conn:
+            res_sec = conn.execute(text("SELECT DISTINCT seccion FROM manzanas WHERE seccion IS NOT NULL ORDER BY seccion")).fetchall()
+            sections = [r[0].strip().zfill(3) for r in res_sec if r[0]]
+            
+    print(f"Total de secciones a procesar: {len(sections)}")
+    
+    t_global_start = time.time()
+    for idx, sec in enumerate(sections, 1):
+        print(f"\n[{idx}/{len(sections)}]", end=" ")
+        exportar_seccion(engine, sec, dxf_base_dir)
+        
+    print(f"\n==========================================")
+    print(f"EXPORTACIÓN COMPLETADA en {time.time() - t_global_start:.2f} segundos.")
+    print(f"==========================================")
+
 if __name__ == "__main__":
     main()
-
