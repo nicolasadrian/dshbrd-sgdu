@@ -490,23 +490,26 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo de texto oficial
+                        # 3. Estilo de texto oficial GOOGLE SANS
+                        font_regular = 'GoogleSans-Regular.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Regular.ttf')) else 'arial.ttf'
+                        font_bold = 'GoogleSans-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Bold.ttf')) else 'arialbd.ttf'
+
                         for s in doc.styles:
                             try:
-                                s.dxf.font = 'arial.ttf'
+                                s.dxf.font = font_regular
                             except Exception:
                                 pass
 
-                        text_style = 'HELVETICA'
+                        text_style = 'GOOGLE_SANS'
                         try:
-                            if 'HELVETICA' not in doc.styles:
-                                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
+                            if 'GOOGLE_SANS' not in doc.styles:
+                                style = doc.styles.new('GOOGLE_SANS', dxfattribs={'font': font_bold})
                                 try:
-                                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                                    style.set_extended_font_data(family='Google Sans', italic=False, bold=True)
                                 except Exception:
                                     pass
                             else:
-                                doc.styles.get('HELVETICA').dxf.font = 'arialbd.ttf'
+                                doc.styles.get('GOOGLE_SANS').dxf.font = font_bold
                         except Exception:
                             text_style = 'Standard'
 
@@ -907,23 +910,26 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                         hatch.transparency = 0.40
                     msp.delete_entity(poly)
 
-        # Actualizar todos los estilos del DXF (Standard, etc.) para forzar la fuente Arial
+        # Actualizar todos los estilos del DXF para usar Google Sans
+        font_regular = 'GoogleSans-Regular.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Regular.ttf')) else 'arial.ttf'
+        font_bold = 'GoogleSans-Bold.ttf' if os.path.exists(os.path.join(FONTS_DIR, 'GoogleSans-Bold.ttf')) else 'arialbd.ttf'
+
         for s in doc.styles:
             try:
-                s.dxf.font = 'arial.ttf'
+                s.dxf.font = font_regular
             except Exception:
                 pass
 
-        text_style = 'HELVETICA'
+        text_style = 'GOOGLE_SANS'
         try:
-            if 'HELVETICA' not in doc.styles:
-                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
+            if 'GOOGLE_SANS' not in doc.styles:
+                style = doc.styles.new('GOOGLE_SANS', dxfattribs={'font': font_bold})
                 try:
-                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
+                    style.set_extended_font_data(family='Google Sans', italic=False, bold=True)
                 except Exception:
                     pass
             else:
-                doc.styles.get('HELVETICA').dxf.font = 'arialbd.ttf'
+                doc.styles.get('GOOGLE_SANS').dxf.font = font_bold
         except Exception:
             text_style = 'Standard'
 
