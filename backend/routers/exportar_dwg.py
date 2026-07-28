@@ -11,6 +11,7 @@ import geopandas as gpd
 import pandas as pd
 from sqlalchemy import text
 from shapely.geometry import LineString, MultiLineString
+from shapely import wkb
 import fiona
 
 # Suppress warnings to keep terminal output clean
@@ -123,28 +124,32 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles con normalización automática de CRS en GeoPandas
+    # 2b. Cargar Calles con WKB binario y normalización de CRS en GeoPandas
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
         query_calles = """
-            SELECT c.nomoficial, c.geom 
+            SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
         """
         try:
-            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom")
+            df_calles = pd.read_sql_query(query_calles, con=engine)
+            df_calles['geometry'] = df_calles['geom_wkb'].apply(lambda b: wkb.loads(bytes(b)) if b else None)
+            gdf_calles = gpd.GeoDataFrame(df_calles, geometry='geometry')
         except Exception:
             try:
                 fallback_q = """
-                    SELECT c.nomoficial, c.geom 
+                    SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
                 """
-                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom")
+                df_calles = pd.read_sql_query(fallback_q, con=engine)
+                df_calles['geometry'] = df_calles['geom_wkb'].apply(lambda b: wkb.loads(bytes(b)) if b else None)
+                gdf_calles = gpd.GeoDataFrame(df_calles, geometry='geometry')
             except Exception as e_c:
                 print(f"Error al cargar calles de la base de datos: {e_c}")
                 gdf_calles = gpd.GeoDataFrame()
@@ -306,7 +311,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                         if not nom or str(nom) == 'nan':
                             continue
                         group_sorted = group.sort_values(by='dist')
-                        best_segment = group_sorted.iloc[0]['geom']
+                        best_segment = group_sorted.iloc[0].geometry
                         if best_segment and not best_segment.is_empty:
                             nearest_pt = best_segment.interpolate(best_segment.project(mza_geom.centroid))
                             proj_d = best_segment.project(nearest_pt)
@@ -647,28 +652,32 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas con normalización automática de CRS en GeoPandas
+    # 2b. Cargar Calles cercanas con WKB binario y normalización de CRS en GeoPandas
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
         query_calles = """
-            SELECT c.nomoficial, c.geom 
+            SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
         """
         try:
-            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom")
+            df_calles = pd.read_sql_query(query_calles, con=engine)
+            df_calles['geometry'] = df_calles['geom_wkb'].apply(lambda b: wkb.loads(bytes(b)) if b else None)
+            gdf_calles = gpd.GeoDataFrame(df_calles, geometry='geometry')
         except Exception:
             try:
                 fallback_q = """
-                    SELECT c.nomoficial, c.geom 
+                    SELECT c.nomoficial, ST_AsBinary(c.geom) AS geom_wkb 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
                 """
-                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom")
+                df_calles = pd.read_sql_query(fallback_q, con=engine)
+                df_calles['geometry'] = df_calles['geom_wkb'].apply(lambda b: wkb.loads(bytes(b)) if b else None)
+                gdf_calles = gpd.GeoDataFrame(df_calles, geometry='geometry')
             except Exception as e_c:
                 print(f"Error cargando calles: {e_c}")
                 gdf_calles = gpd.GeoDataFrame()
@@ -815,7 +824,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                     if not nom or str(nom) == 'nan':
                         continue
                     group_sorted = group.sort_values(by='dist')
-                    best_segment = group_sorted.iloc[0]['geom']
+                    best_segment = group_sorted.iloc[0].geometry
                     if best_segment and not best_segment.is_empty:
                         nearest_pt = best_segment.interpolate(best_segment.project(mza_geom.centroid))
                         proj_d = best_segment.project(nearest_pt)
