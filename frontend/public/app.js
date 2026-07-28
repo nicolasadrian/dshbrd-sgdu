@@ -9880,14 +9880,14 @@ async function loadM2Permisados(resetPage = false) {
 
     tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b;">Cargando registros...</p></td></tr>';
 
-    const searchVal = document.getElementById('m2-filter-search').value.trim();
-    const anioVal = document.getElementById('m2-filter-anio').value;
-    const comunaVal = document.getElementById('m2-filter-comuna').value;
-    const barrioVal = document.getElementById('m2-filter-barrio').value;
-    const obraVal = document.getElementById('m2-filter-obra').value;
-    const tareaVal = document.getElementById('m2-filter-tarea').value;
-    const categoriaVal = document.getElementById('m2-filter-categoria').value;
-    const limitVal = document.getElementById('m2-table-limit').value;
+    const searchVal = (document.getElementById('m2-filter-search')?.value || '').trim();
+    const anioVal = document.getElementById('m2-filter-anio')?.value || '';
+    const comunaVal = document.getElementById('m2-filter-comuna')?.value || '';
+    const barrioVal = document.getElementById('m2-filter-barrio')?.value || '';
+    const obraVal = document.getElementById('m2-filter-obra')?.value || '';
+    const tareaVal = document.getElementById('m2-filter-tarea')?.value || '';
+    const categoriaVal = document.getElementById('m2-filter-categoria')?.value || '';
+    const limitVal = document.getElementById('m2-table-limit')?.value || 10;
 
     const queryParams = new URLSearchParams({
         page: m2CurrentPage,
@@ -9908,25 +9908,39 @@ async function loadM2Permisados(resetPage = false) {
         const data = await res.json();
         lastM2Data = data;
 
+        const totalRecords = data.total_records || 0;
+        const recordsList = data.records || [];
+        const summary = data.summary || {};
+        const filters = data.filters || {};
+
         // 1. KPI Cards
-        document.getElementById('m2-kpi-expedientes').innerText = data.total_records.toLocaleString('es-AR');
-        document.getElementById('m2-kpi-construir').innerText = `${Math.round(data.summary.total_construir).toLocaleString('es-AR')} m²`;
-        document.getElementById('m2-kpi-ampliar').innerText = `${Math.round(data.summary.total_ampliar).toLocaleString('es-AR')} m²`;
-        document.getElementById('m2-kpi-modificar').innerText = `${Math.round(data.summary.total_modificar).toLocaleString('es-AR')} m²`;
-        document.getElementById('m2-kpi-demoler').innerText = `${Math.round(data.summary.total_demoler).toLocaleString('es-AR')} m²`;
+        const elExp = document.getElementById('m2-kpi-expedientes');
+        if (elExp) elExp.innerText = totalRecords.toLocaleString('es-AR');
+        
+        const elConst = document.getElementById('m2-kpi-construir');
+        if (elConst) elConst.innerText = `${Math.round(summary.total_construir || 0).toLocaleString('es-AR')} m²`;
+        
+        const elAmp = document.getElementById('m2-kpi-ampliar');
+        if (elAmp) elAmp.innerText = `${Math.round(summary.total_ampliar || 0).toLocaleString('es-AR')} m²`;
+        
+        const elMod = document.getElementById('m2-kpi-modificar');
+        if (elMod) elMod.innerText = `${Math.round(summary.total_modificar || 0).toLocaleString('es-AR')} m²`;
+        
+        const elDem = document.getElementById('m2-kpi-demoler');
+        if (elDem) elDem.innerText = `${Math.round(summary.total_demoler || 0).toLocaleString('es-AR')} m²`;
 
         // 2. Populate filters
-        populateM2YearDropdown('m2-filter-anio', data.filters.anios, anioVal);
-        populateM2FilterDropdown('m2-filter-comuna', data.filters.comunas, comunaVal, 'Comuna');
-        populateM2FilterDropdown('m2-filter-barrio', data.filters.barrios, barrioVal, 'Barrio');
-        populateM2FilterDropdown('m2-filter-obra', data.filters.tipos_obra, obraVal, 'Tipo Obra');
-        populateM2FilterDropdown('m2-filter-tarea', data.filters.tipos_tarea, tareaVal, 'Tipo Tarea');
+        populateM2YearDropdown('m2-filter-anio', filters.anios || [], anioVal);
+        populateM2FilterDropdown('m2-filter-comuna', filters.comunas || [], comunaVal, 'Comuna');
+        populateM2FilterDropdown('m2-filter-barrio', filters.barrios || [], barrioVal, 'Barrio');
+        populateM2FilterDropdown('m2-filter-obra', filters.tipos_obra || [], obraVal, 'Tipo Obra');
+        populateM2FilterDropdown('m2-filter-tarea', filters.tipos_tarea || [], tareaVal, 'Tipo Tarea');
 
         // 3. Render Table
-        if (data.records.length === 0) {
+        if (recordsList.length === 0) {
             tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron registros.</td></tr>';
         } else {
-            tableBody.innerHTML = data.records.map(row => {
+            tableBody.innerHTML = recordsList.map(row => {
                 const docPlano = row.plano || '-';
                 const docEncomienda = row.encomienda_profesional || '-';
                 const docPago = row.comprobante_pagos_derechos || '-';
@@ -9986,19 +10000,28 @@ async function loadM2Permisados(resetPage = false) {
         }
 
         // 4. Pagination footer update
-        const fromRow = data.records.length > 0 ? (data.page - 1) * data.limit + 1 : 0;
-        const toRow = (data.page - 1) * data.limit + data.records.length;
-        document.getElementById('m2-pagination-info').innerText = `Mostrando ${fromRow} - ${toRow} de ${data.total_records.toLocaleString('es-AR')} registros`;
-        document.getElementById('m2-pg-current').innerText = data.page;
+        const fromRow = recordsList.length > 0 ? (m2CurrentPage - 1) * limitVal + 1 : 0;
+        const toRow = (m2CurrentPage - 1) * limitVal + recordsList.length;
+        
+        const elInfo = document.getElementById('m2-pagination-info');
+        if (elInfo) elInfo.innerText = `Mostrando ${fromRow} - ${toRow} de ${totalRecords.toLocaleString('es-AR')} registros`;
+        
+        const elPgCurr = document.getElementById('m2-pg-current');
+        if (elPgCurr) elPgCurr.innerText = m2CurrentPage;
 
-        document.getElementById('m2-pg-prev').disabled = (data.page === 1);
-        document.getElementById('m2-pg-next').disabled = (toRow >= data.total_records);
+        const elPgPrev = document.getElementById('m2-pg-prev');
+        if (elPgPrev) elPgPrev.disabled = (m2CurrentPage === 1);
+        
+        const elPgNext = document.getElementById('m2-pg-next');
+        if (elPgNext) elPgNext.disabled = (toRow >= totalRecords);
 
         // 5. Render Charts
-        renderM2Charts(data.charts);
+        if (data.charts) {
+            renderM2Charts(data.charts);
+        }
 
         // 6. Guardar puntos y renderizar mapa solo si el panel está visible
-        m2MapPoints = data.map_points || data.records || [];
+        m2MapPoints = data.map_points || recordsList;
         const mapPanel = document.getElementById('m2-panel-map');
         if (mapPanel && mapPanel.style.display !== 'none') {
             renderM2Map(m2MapPoints);
@@ -12553,7 +12576,7 @@ function rowMatchesLfiFilter(row, filter) {
     return true;
 }
 
-function renderCiudad3DTronerasBarrios(filteredNames = null) {
+function renderCiudad3DTronerasBarrios(filteredNames = null, searchQuery = null) {
     const tbody = document.getElementById('c3d-troneras-table-body');
     if (!tbody) return;
     
@@ -12568,11 +12591,14 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
     const canReviewTroneras = !!uPerms.lfi_revisar;
     const canEditDispo = canManageTroneras || canReviewTroneras;
 
+    const q = searchQuery ? searchQuery.toUpperCase().trim() : null;
+
     let count = 0;
     sortedBarrioNames.forEach(bName => {
         if (filteredNames && !filteredNames.includes(bName)) return;
         
         const b = c3dTronerasGroupedData[bName];
+        const isBarrioMatch = q && bName.toUpperCase().includes(q);
         
         // Filter sections and calculate counts on the fly if filter is active
         const filteredSecciones = {};
@@ -12581,7 +12607,29 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         let totalNo = 0;
         
         Object.keys(b.secciones).forEach(sName => {
-            const matchedRows = b.secciones[sName].filter(row => rowMatchesLfiFilter(row, currentLfiStatusFilter));
+            const matchedRows = b.secciones[sName].filter(row => {
+                if (!rowMatchesLfiFilter(row, currentLfiStatusFilter)) return false;
+                if (!q || isBarrioMatch) return true;
+
+                const secP = (row.seccion || '').toUpperCase();
+                const mzaP = (row.manzana || '').toUpperCase();
+                const secU = (row.seccion_unpad || secP.replace(/^0+/, '')).toUpperCase();
+                const mzaU = (row.manzana_unpad || mzaP.replace(/^0+/, '')).toUpperCase();
+
+                const combo1 = `${secP}-${mzaP}`;
+                const combo2 = `${secU}-${mzaU}`;
+                const combo3 = `${secP} ${mzaP}`;
+                const combo4 = `${secU} ${mzaU}`;
+                const combo5 = `${secP}/${mzaP}`;
+                const combo6 = `${secU}/${mzaU}`;
+
+                return secP.includes(q) || secU.includes(q) ||
+                       mzaP.includes(q) || mzaU.includes(q) ||
+                       combo1.includes(q) || combo2.includes(q) ||
+                       combo3.includes(q) || combo4.includes(q) ||
+                       combo5.includes(q) || combo6.includes(q);
+            });
+
             if (matchedRows.length > 0) {
                 filteredSecciones[sName] = matchedRows;
                 totalManzanas += matchedRows.length;
@@ -12606,6 +12654,9 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         // We will toggle the details row on click
         const uniqueId = `details-${bName.replace(/[^a-zA-Z0-9]/g, '-')}`;
         const chevronId = `chevron-${bName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        
+        const autoExpand = !!q;
+
         parentTr.onclick = () => {
             const detailsRow = document.getElementById(uniqueId);
             const chevron = document.getElementById(chevronId);
@@ -12620,7 +12671,7 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         
         parentTr.innerHTML = `
             <td style="padding: 12px 16px; text-align: center;">
-                <i id="${chevronId}" class="fa-solid fa-chevron-right" style="transition: transform 0.2s; color: #64748b;"></i>
+                <i id="${chevronId}" class="fa-solid fa-chevron-right" style="transition: transform 0.2s; color: #64748b; ${autoExpand ? 'transform: rotate(90deg);' : ''}"></i>
             </td>
             <td style="padding: 12px 16px; font-weight: 700; text-transform: uppercase; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">${b.name}</td>
             <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #475569; font-family: 'Outfit', sans-serif;">${cantSecciones}</td>
@@ -12637,7 +12688,7 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         // Details row (initially hidden)
         const detailsTr = document.createElement('tr');
         detailsTr.id = uniqueId;
-        detailsTr.style.display = "none";
+        detailsTr.style.display = autoExpand ? "table-row" : "none";
         detailsTr.style.background = "#f8fafc";
         
         const sortedSections = Object.keys(filteredSecciones).sort();
@@ -12648,8 +12699,8 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                 <div style="margin-bottom: 1.5rem; background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 1rem; font-family: 'Outfit', sans-serif;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif;">SECCIÓN</span>
-                            <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem;">${sName}</h4>
+                            <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem;">SECCIÓN</span>
+                            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 1rem;">${sName}</h4>
                         </div>
                         ${canManageTroneras ? `
                             <button onclick="event.stopPropagation(); assignSeccionCompletaLFI('${sName}')" class="btn-primary" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Autoasignarme todas las manzanas pendientes de esta sección">
@@ -12657,9 +12708,9 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                             </button>
                         ` : ''}
                     </div>
-                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; font-family: 'Outfit', sans-serif;">
+                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                         <thead>
-                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700;">
                                 <th style="padding: 8px 10px;">Sección - Manzana</th>
                                 <th style="padding: 8px 10px; text-align: center;">Esquinas consolidadas</th>
                                 <th style="padding: 8px 10px; text-align: center;">Esquinas no consolidadas</th>
@@ -12669,44 +12720,21 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                 <th style="padding: 8px 10px; text-align: center;">Acción</th>
                             </tr>
                         </thead>
-                        <tbody style="color: #334155; font-family: 'Outfit', sans-serif;">
+                        <tbody style="color: #334155;">
                             ${filteredSecciones[sName].map(row => {
-                                const isSiDanger = row.irregular_si > 0;
                                 const rowEstado = row.estado || 'Pendiente';
                                 const rowAnalista = row.analista_nombre || row.analista_asignado || '';
                                 const rowDisposicion = row.disposicion || '';
-                                const rowArchivo = row.archivo_trazado || '';
                                 
-                                // Estado Badge styling
-                                let badgeBg = '#e2e8f0';
-                                let badgeColor = '#475569';
-                                if (rowEstado === 'Pendiente') {
-                                    badgeBg = '#f1f5f9';
-                                    badgeColor = '#64748b';
-                                } else if (rowEstado === 'En curso') {
-                                    badgeBg = '#dbeafe';
-                                    badgeColor = '#1e40af';
-                                } else if (rowEstado === 'Para revisión') {
-                                    badgeBg = '#ffedd5';
-                                    badgeColor = '#c2410c';
-                                } else if (rowEstado === 'Subir a Ciudad 3D') {
-                                    badgeBg = '#dcfce7';
-                                    badgeColor = '#166534';
-                                }
+                                let badgeBg = '#f1f5f9'; let badgeColor = '#64748b';
+                                if (rowEstado === 'En curso') { badgeBg = '#dbeafe'; badgeColor = '#1e40af'; }
+                                else if (rowEstado === 'Para revisión') { badgeBg = '#ffedd5'; badgeColor = '#c2410c'; }
+                                else if (rowEstado === 'Subir a Ciudad 3D') { badgeBg = '#dcfce7'; badgeColor = '#166534'; }
                                 const badgeHtml = `<span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${rowEstado}</span>`;
                                 
-                                // Disposición link style
-                                let dispoHtml = '';
-                                if (rowDisposicion) {
-                                    dispoHtml = `<span style="font-weight: 600; color: #334155; font-size: 0.8rem;">${rowDisposicion}</span>`;
-                                } else {
-                                    dispoHtml = `<span style="color: #94a3b8;">-</span>`;
-                                }
+                                let dispoHtml = rowDisposicion ? `<span style="font-weight: 600; color: #334155; font-size: 0.8rem;">${rowDisposicion}</span>` : `<span style="color: #94a3b8;">-</span>`;
                                 
-                                // Action buttons
                                 let actionButtonsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;">`;
-                                
-                                // Autoasignar Manzana Individual (si está Pendiente)
                                 if (rowEstado === 'Pendiente' && canManageTroneras) {
                                     actionButtonsHtml += `
                                         <button onclick="event.stopPropagation(); assignManzanaLFI('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Autoasignarme esta manzana">
@@ -12714,25 +12742,16 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                         </button>
                                     `;
                                 }
-
-                                // DXF Base
                                 actionButtonsHtml += `
                                     <button onclick="event.stopPropagation(); downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar DXF Base">
                                         <i class="fa-solid fa-download"></i> DXF
                                     </button>
-                                `;
-                                
-                                // Ficha de Trabajo
-                                actionButtonsHtml += `
                                     <button onclick="event.stopPropagation(); openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: var(--primary-dark); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Ficha de Trabajo">
                                         <i class="fa-solid fa-file-signature"></i> Ficha
                                     </button>
                                 `;
-                                
-                                // Ficha PDF A3 (solo en etapa de Revisión y Aprobado/Subir a Ciudad 3D)
                                 const estClean = (row.estado || '').toLowerCase();
                                 const canDownloadPdf = ['para revisión', 'para revision', 'subir a ciudad 3d', 'aprobado', 'aprobada', 'finalizado', 'finalizada'].includes(estClean) || !!(row.archivo_trazado || row.archivo_finalizado);
-                                
                                 if (canDownloadPdf) {
                                     actionButtonsHtml += `
                                         <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha Técnica PDF A3">
@@ -12740,21 +12759,20 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                         </button>
                                     `;
                                 }
-                                
                                 actionButtonsHtml += `</div>`;
                                 
                                 return `
-                                    <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
-                                        <td style="padding: 8px 10px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.9rem;">
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 8px 10px; font-weight: 700; font-size: 0.9rem;">
                                             ${row.seccion} - ${row.manzana}
                                         </td>
                                         <td style="padding: 8px 10px; text-align: center;">
-                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 28px; text-align: center;">
+                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; display: inline-block; min-width: 28px; text-align: center;">
                                                 ${row.irregular_si}
                                             </span>
                                         </td>
                                         <td style="padding: 8px 10px; text-align: center;">
-                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 28px; text-align: center;">
+                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; display: inline-block; min-width: 28px; text-align: center;">
                                                 ${row.irregular_no}
                                             </span>
                                         </td>
@@ -12793,14 +12811,42 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
 }
 
 function filterCiudad3DTroneras() {
-    const q = document.getElementById('c3d-troneras-search').value.toUpperCase().trim();
-    if (!q) {
-        renderCiudad3DTronerasBarrios();
+    const rawVal = (document.getElementById('c3d-troneras-search')?.value || '').trim();
+    if (!rawVal) {
+        renderCiudad3DTronerasBarrios(null, null);
         return;
     }
     
-    const matchedNames = Object.keys(c3dTronerasGroupedData).filter(bName => bName.includes(q));
-    renderCiudad3DTronerasBarrios(matchedNames);
+    const q = rawVal.toUpperCase();
+
+    const matchedNames = Object.keys(c3dTronerasGroupedData).filter(bName => {
+        if (bName.toUpperCase().includes(q)) return true;
+        
+        const b = c3dTronerasGroupedData[bName];
+        if (!b || !b.secciones) return false;
+
+        return Object.keys(b.secciones).some(sName => {
+            const rows = b.secciones[sName];
+            return rows.some(row => {
+                const secP = (row.seccion || '').toString().trim().toUpperCase();
+                const mzaP = (row.manzana || '').toString().trim().toUpperCase();
+                const secU = secP.replace(/^0+/, '');
+                const mzaU = mzaP.replace(/^0+/, '');
+
+                const combos = [
+                    secP, secU, mzaP, mzaU,
+                    `${secP}-${mzaP}`, `${secU}-${mzaU}`,
+                    `${secP} ${mzaP}`, `${secU} ${mzaU}`,
+                    `${secP}/${mzaP}`, `${secU}/${mzaU}`,
+                    `0${secU}-${mzaP}`, `0${secU}-${mzaU}`
+                ];
+
+                return combos.some(c => c && c.includes(q));
+            });
+        });
+    });
+
+    renderCiudad3DTronerasBarrios(matchedNames, q);
 }
 
 function expandBarrioTroneras(barrioName) {
@@ -12874,9 +12920,208 @@ function expandBarrioTroneras(barrioName) {
     modal.style.display = "flex";
 }
 
-function downloadManzanaDXF(seccion, manzana) {
+async function downloadManzanaDXF(seccion, manzana) {
     const token = localStorage.getItem('sgdu_token') || '';
-    window.open(`${API_BASE}/ciudad3d/dxf/download?seccion=${encodeURIComponent(seccion)}&manzana=${encodeURIComponent(manzana)}&token=${encodeURIComponent(token)}`, '_blank');
+    if (!seccion || !manzana) return;
+
+    let modal = document.getElementById('dxf-download-progress-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'dxf-download-progress-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); border: none;">
+            <div class="modal-header" style="background: var(--primary-dark, #0f172a); color: white; padding: 1.25rem 1.75rem; border-top-left-radius: 16px; border-top-right-radius: 16px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff;">Generando Archivo DXF</h2>
+                    <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #cbd5e1; opacity: 0.9;">Sección ${seccion} — Manzana ${manzana}</p>
+                </div>
+                <button type="button" onclick="document.getElementById('dxf-download-progress-modal').style.display='none'" style="background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 1.25rem; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem 1.75rem 1.75rem 1.75rem; text-align: center; background: #ffffff;">
+                <!-- Minimalist Pristine Isometric 3D Vector Geometry -->
+                <div style="position: relative; width: 200px; height: 140px; margin: 0 auto 1.25rem auto;">
+                    <svg viewBox="0 0 200 150" width="200" height="140" style="overflow: visible;">
+                        <defs>
+                            <style>
+                                .iso-face {
+                                    fill: none;
+                                    stroke: #0284c7;
+                                    stroke-width: 1.8;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .iso-sub {
+                                    fill: none;
+                                    stroke: #38bdf8;
+                                    stroke-width: 1.2;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .iso-grid {
+                                    fill: none;
+                                    stroke: #cbd5e1;
+                                    stroke-width: 1;
+                                    stroke-dasharray: 4 3;
+                                }
+                                @keyframes isoFloat1 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-9px); }
+                                }
+                                @keyframes isoFloat2 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-6px); }
+                                }
+                                @keyframes isoFloat3 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-11px); }
+                                }
+                            </style>
+                        </defs>
+
+                        <!-- Ground Isometric Grid -->
+                        <g opacity="0.75">
+                            <polygon points="100,140 170,105 100,70 30,105" class="iso-grid"/>
+                            <polygon points="100,125 145,102.5 100,80 55,102.5" class="iso-grid"/>
+                        </g>
+
+                        <!-- Block 1: Center High Tower -->
+                        <g style="animation: isoFloat1 3s ease-in-out infinite;">
+                            <polygon points="100,30 130,45 100,60 70,45" class="iso-face" />
+                            <polygon points="70,45 100,60 100,110 70,95" class="iso-face" />
+                            <polygon points="100,60 130,45 130,95 100,110" class="iso-face" />
+                            <!-- Floor Lines -->
+                            <line x1="70" y1="61.6" x2="100" y2="76.6" class="iso-sub"/>
+                            <line x1="100" y1="76.6" x2="130" y2="61.6" class="iso-sub"/>
+                            <line x1="70" y1="78.3" x2="100" y2="93.3" class="iso-sub"/>
+                            <line x1="100" y1="93.3" x2="130" y2="78.3" class="iso-sub"/>
+                        </g>
+
+                        <!-- Block 2: Left Wing Block -->
+                        <g style="animation: isoFloat2 3s ease-in-out infinite 0.5s;">
+                            <polygon points="65,65 90,77.5 65,90 40,77.5" class="iso-face" />
+                            <polygon points="40,77.5 65,90 65,120 40,107.5" class="iso-face" />
+                            <polygon points="65,90 90,77.5 90,107.5 65,120" class="iso-face" />
+                            <line x1="40" y1="92.5" x2="65" y2="105" class="iso-sub"/>
+                            <line x1="65" y1="105" x2="90" y2="92.5" class="iso-sub"/>
+                        </g>
+
+                        <!-- Block 3: Right Wing Block -->
+                        <g style="animation: isoFloat3 3s ease-in-out infinite 1s;">
+                            <polygon points="135,65 160,77.5 135,90 110,77.5" class="iso-face" />
+                            <polygon points="110,77.5 135,90 135,120 110,107.5" class="iso-face" />
+                            <polygon points="135,90 160,77.5 160,107.5 135,120" class="iso-face" />
+                            <line x1="110" y1="92.5" x2="135" y2="105" class="iso-sub"/>
+                            <line x1="135" y1="105" x2="160" y2="92.5" class="iso-sub"/>
+                        </g>
+
+                        <!-- Block 4: Front Low Cube -->
+                        <g style="animation: isoFloat2 3s ease-in-out infinite 1.5s;">
+                            <polygon points="100,95 120,105 100,115 80,105" class="iso-face" />
+                            <polygon points="80,105 100,115 100,130 80,120" class="iso-face" />
+                            <polygon points="100,115 120,105 120,120 100,130" class="iso-face" />
+                        </g>
+                    </svg>
+                </div>
+                <div style="background: #f1f5f9; border-radius: 9999px; height: 10px; padding: 2px; margin: 0 0 1.25rem 0; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="dxf-progress-bar-fill" style="width: 15%; height: 100%; background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%); border-radius: 9999px; transition: width 0.35s ease;"></div>
+                </div>
+                <div id="dxf-progress-status-text" style="font-size: 0.88rem; color: #475569; font-weight: 500; min-height: 2.5em; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="color: #0284c7;"></i>
+                    <span>Iniciando motor CAD y lectura de geometrías GIS...</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+
+    const steps = [
+        { pct: '30%', text: 'Extrayendo límites de parcelas y tejido urbano...' },
+        { pct: '55%', text: 'Mapeando ejes de calles circundantes y orientación de nombres...' },
+        { pct: '80%', text: 'Generando capas CAD vectorizadas (LFI, LIB, Troneras y Calles)...' },
+        { pct: '92%', text: 'Compilando y optimizando archivo DXF...' }
+    ];
+
+    let stepIdx = 0;
+    const progressInterval = setInterval(() => {
+        if (stepIdx < steps.length) {
+            const fill = document.getElementById('dxf-progress-bar-fill');
+            const status = document.getElementById('dxf-progress-status-text');
+            if (fill) fill.style.width = steps[stepIdx].pct;
+            if (status) {
+                status.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: #0284c7;"></i> <span>${steps[stepIdx].text}</span>`;
+            }
+            stepIdx++;
+        }
+    }, 600);
+
+    try {
+        const url = `${API_BASE}/ciudad3d/dxf/download?seccion=${encodeURIComponent(seccion)}&manzana=${encodeURIComponent(manzana)}&token=${encodeURIComponent(token)}`;
+        const response = await fetch(url, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        clearInterval(progressInterval);
+
+        if (!response.ok) {
+            let errorMsg = 'Error al generar el archivo DXF.';
+            try {
+                const errData = await response.json();
+                if (errData && errData.detail) errorMsg = errData.detail;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const blob = await response.blob();
+
+        const fill = document.getElementById('dxf-progress-bar-fill');
+        const status = document.getElementById('dxf-progress-status-text');
+        if (fill) fill.style.width = '100%';
+        if (status) {
+            status.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #16a34a; font-size: 1.1rem;"></i> <span style="color: #16a34a; font-weight: 600;">¡DXF generado y listo para descargar!</span>`;
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `DXF-${seccion}-${manzana}.dxf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+
+        setTimeout(() => {
+            if (modal) modal.style.display = 'none';
+        }, 1200);
+
+    } catch (err) {
+        clearInterval(progressInterval);
+        const status = document.getElementById('dxf-progress-status-text');
+        if (status) {
+            status.innerHTML = `
+                <div style="color: #dc2626; text-align: center; width: 100%;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem; margin-bottom: 6px;"></i>
+                    <div style="margin-bottom: 8px;">${err.message || 'Error en la descarga'}</div>
+                    <button onclick="document.getElementById('dxf-download-progress-modal').style.display='none'" style="background: #334155; color: white; border: none; padding: 6px 16px; border-radius: 8px; font-family: inherit; font-size: 0.82rem; cursor: pointer;">Cerrar</button>
+                </div>
+            `;
+        }
+    }
 }
 
 let c3dAtipicasRawData = [];
@@ -13108,15 +13353,15 @@ async function openLFIFicha(seccion, manzana) {
     const actionsContainer = document.getElementById('c3d-lfi-ficha-actions-container');
     actionsContainer.innerHTML = '';
     
-    const isAssignee = (row.analista_asignado === uName || uRole === 'admin' || uRole === 'administrador');
+    const isAssignee = ((row.analista_asignado || '').trim().toLowerCase() === (uName || '').trim().toLowerCase() || uRole === 'admin' || uRole === 'administrador');
     
     if (row.estado === 'En curso' && canManageTroneras && isAssignee) {
         actionsContainer.innerHTML = `
             <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Subir Borrador de Trazado</h4>
             <div style="display: flex; flex-direction: column; gap: 8px;">
-                <input type="file" id="c3d-lfi-ficha-upload-file" style="font-family: inherit; font-size: 0.88rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: white; width: 100%;">
+                <input type="file" id="c3d-lfi-ficha-upload-file" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.88rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: white; width: 100%;">
                 <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 8px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: #f59e0b; color: white;">
-                    <i class="fa-solid fa-upload"></i> Subir Trazado Preliminar
+                    <i class="fa-solid fa-upload"></i> Subir Trazado Preliminar (.dxf / .dwg)
                 </button>
             </div>
         `;
@@ -13125,8 +13370,8 @@ async function openLFIFicha(seccion, manzana) {
             <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Revisión de Trazado LFI (Visor)</h4>
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Trazado Finalizado (Solo si aprueba):</label>
-                    <input type="file" id="c3d-lfi-ficha-review-file-final" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: white;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Trazado Finalizado (.dxf / .dwg, Solo si aprueba):</label>
+                    <input type="file" id="c3d-lfi-ficha-review-file-final" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: white;">
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Comentarios / Motivo de Rechazo:</label>
@@ -13364,6 +13609,72 @@ function downloadLFIPdf(seccion, manzana) {
 }
 
 window.downloadLFIPdf = downloadLFIPdf;
+window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
+window.submitLFIFichaReview = submitLFIFichaReview;
+window.downloadUploadedLFITrazado = downloadUploadedLFITrazado;
+
+function openUploadModal(seccion, manzana) {
+    const secEl = document.getElementById('c3d-upload-seccion');
+    const manEl = document.getElementById('c3d-upload-manzana');
+    if (secEl) secEl.value = seccion;
+    if (manEl) manEl.value = manzana;
+    const fileInput = document.getElementById('c3d-upload-file');
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.setAttribute('accept', '.dxf,.dwg,.DXF,.DWG');
+    }
+    const modal = document.getElementById('c3d-atipicas-upload-modal');
+    if (modal) modal.style.display = 'flex';
+}
+window.openUploadModal = openUploadModal;
+
+async function submitTrazadoFile() {
+    const seccion = document.getElementById('c3d-upload-seccion')?.value || '';
+    const manzana = document.getElementById('c3d-upload-manzana')?.value || '';
+    const fileInput = document.getElementById('c3d-upload-file');
+    
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert("Debe seleccionar un archivo (.dxf o .dwg) para subir.");
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', seccion);
+    formData.append('manzana', manzana);
+    formData.append('file', fileInput.files[0]);
+    
+    const token = localStorage.getItem('sgdu_token') || '';
+    
+    try {
+        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_atipicas/upload`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+        });
+        if (res.ok) {
+            alert("Trazado subido correctamente.");
+            if (typeof closeModal === 'function') closeModal('c3d-atipicas-upload-modal');
+            if (typeof loadCiudad3DManzanasAtipicas === 'function') {
+                await loadCiudad3DManzanasAtipicas();
+            }
+        } else {
+            const errData = await res.json();
+            alert(`Error: ${errData.detail || 'No se pudo subir el trazado.'}`);
+        }
+    } catch (err) {
+        console.error("Error al subir archivo de trazado:", err);
+        alert("Error de conexión al servidor.");
+    }
+}
+window.submitTrazadoFile = submitTrazadoFile;
+
+function downloadUploadedTrazado(seccion, manzana) {
+    const s = seccion || document.getElementById('c3d-review-seccion')?.value || '';
+    const m = manzana || document.getElementById('c3d-review-manzana')?.value || '';
+    const token = localStorage.getItem('sgdu_token') || '';
+    window.open(`${API_BASE}/ciudad3d/manzanas_atipicas/download_trazado?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`, '_blank');
+}
+window.downloadUploadedTrazado = downloadUploadedTrazado;
 
 async function assignManzanaLFI(seccion, manzana) {
     if (!confirm(`¿Desea autoasignarse la manzana LFI ${seccion} - ${manzana}?`)) return;

@@ -12,11 +12,16 @@ from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 
-# Import database, config, schemas, auth
-from database import engine, geo_engine
-from config import TRAMITES_CONFIG
-from schemas import User
-from auth_utils import get_current_user, get_current_user_from_param_or_header
+try:
+    from database import engine, geo_engine
+    from config import TRAMITES_CONFIG
+    from schemas import User
+    from auth_utils import get_current_user, get_current_user_from_param_or_header
+except ImportError:
+    from backend.database import engine, geo_engine
+    from backend.config import TRAMITES_CONFIG
+    from backend.schemas import User
+    from backend.auth_utils import get_current_user, get_current_user_from_param_or_header
 
 logger = logging.getLogger(__name__)
 
@@ -1514,36 +1519,46 @@ async def get_analytics_m2_permisados(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        page_val = int(page.default) if hasattr(page, 'default') else int(page)
+        limit_val = int(limit.default) if hasattr(limit, 'default') else int(limit)
+        search_str = str(search).strip() if search and isinstance(search, str) else None
+        comuna_str = str(comuna).strip() if comuna and isinstance(comuna, str) else None
+        barrio_str = str(barrio).strip() if barrio and isinstance(barrio, str) else None
+        tipo_obra_str = str(tipo_obra).strip() if tipo_obra and isinstance(tipo_obra, str) else None
+        tipo_tarea_str = str(tipo_tarea).strip() if tipo_tarea and isinstance(tipo_tarea, str) else None
+        categoria_str = str(categoria).strip() if categoria and isinstance(categoria, str) else None
+        anio_val = anio if isinstance(anio, int) else (int(anio.default) if hasattr(anio, 'default') and isinstance(anio.default, int) else None)
+
         where_clauses = ["1=1"]
         params = {}
         
-        if search:
-            search_clean = f"%{search.strip()}%"
+        if search_str:
+            search_clean = f"%{search_str}%"
             where_clauses.append("(expediente ILIKE :search OR direccion ILIKE :search OR smp ILIKE :search OR matricula_profesional ILIKE :search OR apellido_profesional ILIKE :search)")
             params["search"] = search_clean
             
-        if comuna:
+        if comuna_str:
             where_clauses.append("comuna = :comuna")
-            params["comuna"] = comuna.strip()
+            params["comuna"] = comuna_str
             
-        if barrio:
+        if barrio_str:
             where_clauses.append("barrio = :barrio")
-            params["barrio"] = barrio.strip()
+            params["barrio"] = barrio_str
             
-        if tipo_obra:
+        if tipo_obra_str:
             where_clauses.append("tipo_obra = :tipo_obra")
-            params["tipo_obra"] = tipo_obra.strip()
+            params["tipo_obra"] = tipo_obra_str
             
-        if tipo_tarea:
+        if tipo_tarea_str:
             where_clauses.append("tipo_tarea = :tipo_tarea")
-            params["tipo_tarea"] = tipo_tarea.strip()
+            params["tipo_tarea"] = tipo_tarea_str
             
-        if anio is not None and anio > 0:
+        if isinstance(anio, int) and anio > 0:
             where_clauses.append("EXTRACT(YEAR FROM fecha_creacion_pdo)::int = :anio")
             params["anio"] = anio
 
-        if categoria:
-            cat_val = categoria.strip().lower()
+        if categoria_str:
+            cat_val = categoria_str.lower()
             if cat_val == "construir":
                 where_clauses.append("sup_construir > 0")
             elif cat_val == "ampliar":
@@ -1552,7 +1567,7 @@ async def get_analytics_m2_permisados(
                 where_clauses.append("sup_modificar > 0")
             
         where_str = " AND ".join(where_clauses)
-        offset = (page - 1) * limit
+        offset = (page_val - 1) * limit_val
         
         with engine.connect() as conn:
             # 1. Total records count
@@ -1576,7 +1591,7 @@ async def get_analytics_m2_permisados(
                 WHERE {where_str}
                 ORDER BY fecha_creacion_pdo DESC, id_expediente DESC
                 LIMIT :limit OFFSET :offset
-            """), {**params, "limit": limit, "offset": offset})
+            """), {**params, "limit": limit_val, "offset": offset})
             records = [dict(r._mapping) for r in records_res]
             
             # 4. Barrio chart data (Todos los barrios, ordenados por m2 desc)
@@ -1612,7 +1627,7 @@ async def get_analytics_m2_permisados(
             comuna_data = [dict(r._mapping) for r in comuna_res]
             
             # 5b. Evolución mensual de m2 construidos
-            if anio is not None and anio > 0:
+            if isinstance(anio_val, int) and anio_val > 0:
                 monthly_res = conn.execute(text(f"""
                     SELECT 
                         EXTRACT(MONTH FROM fecha_creacion_pdo)::int as mes,
@@ -1813,32 +1828,40 @@ async def get_analytics_avisos_obra(
     current_user: User = Depends(get_current_user)
 ):
     try:
+        page_val = int(page.default) if hasattr(page, 'default') else int(page)
+        limit_val = int(limit.default) if hasattr(limit, 'default') else int(limit)
+        search_str = str(search).strip() if search and isinstance(search, str) else None
+        comuna_str = str(comuna).strip() if comuna and isinstance(comuna, str) else None
+        barrio_str = str(barrio).strip() if barrio and isinstance(barrio, str) else None
+        acronimo_str = str(acronimo).strip() if acronimo and isinstance(acronimo, str) else None
+        anio_val = anio if isinstance(anio, int) else (int(anio.default) if hasattr(anio, 'default') and isinstance(anio.default, int) else None)
+
         where_clauses = ["1=1"]
         params = {}
         
-        if search:
-            search_clean = f"%{search.strip()}%"
+        if search_str:
+            search_clean = f"%{search_str}%"
             where_clauses.append("(expediente ILIKE :search OR documento ILIKE :search OR direccion ILIKE :search OR motivo ILIKE :search)")
             params["search"] = search_clean
             
-        if comuna:
+        if comuna_str:
             where_clauses.append("comuna = :comuna")
-            params["comuna"] = comuna.strip()
+            params["comuna"] = comuna_str
             
-        if barrio:
+        if barrio_str:
             where_clauses.append("barrio = :barrio")
-            params["barrio"] = barrio.strip()
+            params["barrio"] = barrio_str
             
-        if acronimo:
+        if acronimo_str:
             where_clauses.append("acronimo = :acronimo")
-            params["acronimo"] = acronimo.strip().upper()
+            params["acronimo"] = acronimo_str.upper()
             
-        if anio is not None and anio > 0:
+        if isinstance(anio_val, int) and anio_val > 0:
             where_clauses.append("anio = :anio")
-            params["anio"] = anio
+            params["anio"] = anio_val
 
         where_str = " AND ".join(where_clauses)
-        offset = (page - 1) * limit
+        offset = (page_val - 1) * limit_val
         
         with engine.connect() as conn:
             # 1. Total records count
@@ -1860,7 +1883,7 @@ async def get_analytics_avisos_obra(
                 WHERE {where_str}
                 ORDER BY fecha_asociacion DESC NULLS LAST, id_expediente DESC
                 LIMIT :limit OFFSET :offset
-            """), {**params, "limit": limit, "offset": offset})
+            """), {**params, "limit": limit_val, "offset": offset})
             records = [dict(r._mapping) for r in records_res]
             for r in records:
                 if r.get("fecha_asociacion"):
@@ -2628,22 +2651,32 @@ async def upload_trazado_lfi(
     if not current_user.permissions.get("lfi_dibujar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir trazados.")
         
+    sec_clean = seccion.strip()
+    man_clean = manzana.strip()
+    
+    file_ext = os.path.splitext(file.filename)[1]
+    if file_ext.lower() not in ['.dxf', '.dwg']:
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos con extensión .dxf o .dwg")
+
     with engine.connect() as conn:
         existing = conn.execute(text("""
             SELECT analista_asignado, estado FROM public.manzanas_lfi_workflow
             WHERE seccion = :s AND manzana = :m
-        """), {"s": seccion, "m": manzana}).fetchone()
+        """), {"s": sec_clean, "m": man_clean}).fetchone()
         
         if not existing:
             raise HTTPException(status_code=400, detail="Esta manzana no ha sido asignada ni iniciada.")
-        if existing[0] != current_user.username and current_user.role.lower() not in ['admin', 'administrador']:
+        
+        assigned_user = (existing[0] or "").strip().lower()
+        current_username = (current_user.username or "").strip().lower()
+        
+        if assigned_user and assigned_user != current_username and current_user.role.lower() not in ['admin', 'administrador']:
             raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
 
     upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
     os.makedirs(upload_dir, exist_ok=True)
     
-    file_ext = os.path.splitext(file.filename)[1]
-    safe_filename = f"lfi-{seccion}-{manzana}-{int(time.time())}{file_ext}"
+    safe_filename = f"lfi-{sec_clean}-{man_clean}-{int(time.time())}{file_ext}"
     file_path = os.path.join(upload_dir, safe_filename)
     
     try:
@@ -2659,7 +2692,7 @@ async def upload_trazado_lfi(
             UPDATE public.manzanas_lfi_workflow
             SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
             WHERE seccion = :s AND manzana = :m
-        """), {"s": seccion, "m": manzana, "f": safe_filename})
+        """), {"s": sec_clean, "m": man_clean, "f": safe_filename})
         
     return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
 
@@ -2946,22 +2979,32 @@ async def upload_trazado(
     if not current_user.permissions.get("lfi_dibujar"):
         raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para subir archivos.")
         
+    sec_clean = seccion.strip()
+    man_clean = manzana.strip()
+    
+    file_ext = os.path.splitext(file.filename)[1]
+    if file_ext.lower() not in ['.dxf', '.dwg']:
+        raise HTTPException(status_code=400, detail="Solo se permiten archivos con extensión .dxf o .dwg")
+
     with engine.connect() as conn:
         existing = conn.execute(text("""
             SELECT analista_asignado, estado FROM public.manzanas_atipicas_workflow
             WHERE seccion = :s AND manzana = :m
-        """), {"s": seccion, "m": manzana}).fetchone()
+        """), {"s": sec_clean, "m": man_clean}).fetchone()
         
         if not existing:
             raise HTTPException(status_code=400, detail="Esta manzana no ha sido asignada ni iniciada.")
-        if existing[0] != current_user.username and current_user.role.lower() not in ['admin', 'administrador']:
+            
+        assigned_user = (existing[0] or "").strip().lower()
+        current_username = (current_user.username or "").strip().lower()
+        
+        if assigned_user and assigned_user != current_username and current_user.role.lower() not in ['admin', 'administrador']:
             raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[0]}, no puede subir el archivo.")
 
     upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados"))
     os.makedirs(upload_dir, exist_ok=True)
     
-    file_ext = os.path.splitext(file.filename)[1]
-    safe_filename = f"{seccion}-{manzana}-{int(time.time())}{file_ext}"
+    safe_filename = f"{sec_clean}-{man_clean}-{int(time.time())}{file_ext}"
     file_path = os.path.join(upload_dir, safe_filename)
     
     try:
@@ -2977,7 +3020,7 @@ async def upload_trazado(
             UPDATE public.manzanas_atipicas_workflow
             SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
             WHERE seccion = :s AND manzana = :m
-        """), {"s": seccion, "m": manzana, "f": safe_filename})
+        """), {"s": sec_clean, "m": man_clean, "f": safe_filename})
         
     return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
 
@@ -3114,396 +3157,35 @@ async def download_manzana_dxf(
     
     if not sec_escaped or not m_val:
         raise HTTPException(status_code=400, detail="La sección y la manzana son obligatorias")
-        
-    sec_clean = sec_escaped.replace("'", "''")
-    m_clean = m_val.replace("'", "''")
-    
-    m_layers = {}
-    
+
+    from backend.routers.exportar_dwg import exportar_single_manzana_dxf
+
     try:
-        with geo_engine.connect() as conn:
-            query_manzanas = f"SELECT geom, seccion, manzana FROM manzanas WHERE seccion = '{sec_clean}' AND manzana = '{m_clean}' AND geom IS NOT NULL"
-            gdf_manzanas = gpd.read_postgis(query_manzanas, con=conn, geom_col="geom", crs="EPSG:3857")
-            if gdf_manzanas.empty:
-                raise HTTPException(status_code=404, detail=f"No se encontró la manzana {m_val} en la sección {sec_escaped}")
-            gdf_manzanas = gdf_manzanas.to_crs("EPSG:22186")
-            
-            m_boundary = gdf_manzanas.copy()
-            m_boundary['geometry'] = m_boundary.geometry.apply(polygon_to_boundary)
-            m_layers['manzanas'] = m_boundary
-            
-            query_parcelas = f"""
-                SELECT geom, smp, parcela, seccion, manzana, cur_1 
-                FROM cur_parcelas_ok 
-                WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') 
-                  AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL
-            """
-            gdf_parcelas = gpd.read_postgis(query_parcelas, con=conn, geom_col="geom", crs="EPSG:22186")
-            m_parcelas_data = []
-            if not gdf_parcelas.empty:
-                for idx, row in gdf_parcelas.iterrows():
-                    p_geom = row['geom']
-                    if p_geom and not p_geom.is_empty:
-                        centroid = p_geom.centroid
-                        p_num = str(row.get('parcela') or row.get('smp') or '').strip()
-                        if '-' in p_num:
-                            p_num_clean = p_num.split('-')[-1]
-                        else:
-                            p_num_clean = p_num
-
-                        cur = str(row.get('cur_1') or '').strip()
-                        if cur.lower() in ('nan', 'none'):
-                            cur = ''
-                            
-                        labels = []
-                        if p_num_clean and p_num_clean.lower() != 'none':
-                            labels.append(p_num_clean)
-                        if cur:
-                            labels.append(cur)
-                            
-                        if labels:
-                            m_parcelas_data.append(((centroid.x, centroid.y), labels))
-                            
-                m_parcelas = gdf_parcelas.copy()
-                m_parcelas['geometry'] = m_parcelas.geometry.apply(polygon_to_boundary)
-                m_layers['parcelas'] = m_parcelas
-                
-            query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL"
-            gdf_lfi = gpd.read_postgis(query_lfi, con=conn, geom_col="geom", crs="EPSG:22186")
-            if not gdf_lfi.empty:
-                m_layers['lfi'] = gdf_lfi
-                
-            query_lib = f"SELECT geom, seccion, manzana FROM mdr_lineadebasamento WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL"
-            gdf_lib = gpd.read_postgis(query_lib, con=conn, geom_col="geom", crs="EPSG:22186")
-            if not gdf_lib.empty:
-                m_layers['lib'] = gdf_lib
-                
-            query_troneras = f"SELECT geom, seccion, manzana, id_tronera, sm, comuna, irregular FROM mdr_troneras WHERE (TRIM(seccion) = '{sec_clean}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_clean}') AND TRIM(manzana) = '{m_clean}' AND geom IS NOT NULL"
-            gdf_troneras = gpd.read_postgis(query_troneras, con=conn, geom_col="geom", crs="EPSG:22186")
-            if not gdf_troneras.empty:
-                m_troneras_si = gdf_troneras[gdf_troneras['irregular'] == 'NO'].copy()
-                if not m_troneras_si.empty:
-                    m_troneras_si['geometry'] = m_troneras_si.geometry.apply(polygon_to_boundary)
-                    m_layers['Tronera SI'] = m_troneras_si
-                    
-                m_irregular = gdf_troneras[gdf_troneras['irregular'] == 'SI'].copy()
-                if not m_irregular.empty:
-                    m_irregular['geometry'] = m_irregular.geometry.apply(polygon_to_boundary)
-                    m_layers['Irregular'] = m_irregular
-            m_smps = []
-            if not gdf_parcelas.empty:
-                m_smps = gdf_parcelas['smp'].dropna().unique().tolist()
-                
-            if m_smps:
-                query_bm = f"""
-                    SELECT bm.geom, bm.smp 
-                    FROM mdr_banda_minima bm 
-                    INNER JOIN cur_parcelas_ok p ON bm.smp = p.smp 
-                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND bm.geom IS NOT NULL
-                """
-                try:
-                    gdf_bm = gpd.read_postgis(query_bm, con=conn, geom_col="geom", crs="EPSG:22186")
-                    if not gdf_bm.empty:
-                        gdf_bm['geometry'] = gdf_bm.geometry.apply(polygon_to_boundary)
-                        m_layers['banda_minima'] = gdf_bm
-                except Exception:
-                    pass
-                    
-                query_ldf = f"""
-                    SELECT ldf.geom, ldf.smp 
-                    FROM mdr_ldf_parc ldf 
-                    INNER JOIN cur_parcelas_ok p ON ldf.smp = p.smp 
-                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND ldf.geom IS NOT NULL
-                """
-                try:
-                    gdf_ldf = gpd.read_postgis(query_ldf, con=conn, geom_col="geom", crs="EPSG:22186")
-                    if not gdf_ldf.empty:
-                        m_layers['ldf'] = gdf_ldf
-                except Exception:
-                    pass
-                    
-                query_tc = f"""
-                    SELECT tc.geometry AS geom, tc.smp 
-                    FROM mdr_tejidoconsolidado tc 
-                    INNER JOIN cur_parcelas_ok p ON tc.smp = p.smp 
-                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND tc.geometry IS NOT NULL
-                """
-                try:
-                    gdf_consolidado = gpd.read_postgis(query_tc, con=conn, geom_col="geom", crs="EPSG:22186")
-                    if not gdf_consolidado.empty:
-                        m_layers['mdr_tejidoconsolidado'] = gdf_consolidado
-                except Exception:
-                    pass
-                    
-                query_tpi = f"""
-                    SELECT tpi.geometry AS geom, tpi.smp 
-                    FROM mdr_tejidoparairregular tpi 
-                    INNER JOIN cur_parcelas_ok p ON tpi.smp = p.smp 
-                    WHERE (TRIM(p.seccion) = '{sec_clean}' OR LPAD(TRIM(p.seccion), 3, '0') = '{sec_clean}') AND TRIM(p.manzana) = '{m_clean}' AND tpi.geometry IS NOT NULL
-                """
-                try:
-                    gdf_tejido_irreg = gpd.read_postgis(query_tpi, con=conn, geom_col="geom", crs="EPSG:22186")
-                    if not gdf_tejido_irreg.empty:
-                        m_layers['mdr_tejidoparairregular'] = gdf_tejido_irreg
-                except Exception:
-                    pass
-
-            query_tejido = f"SELECT geom, smp, LPAD(sec, 3, '0') AS seccion, man AS manzana, altura FROM tejido WHERE LPAD(sec, 3, '0') = '{sec_clean}' AND man = '{m_clean}' AND geom IS NOT NULL"
-            m_tejido_data = []
-            try:
-                gdf_tejido = gpd.read_postgis(query_tejido, con=conn, geom_col="geom", crs="EPSG:3857")
-                if not gdf_tejido.empty:
-                    gdf_tejido = gdf_tejido.to_crs("EPSG:22186")
-                    for idx, row in gdf_tejido.iterrows():
-                        geom = row['geom']
-                        alt = row.get('altura', None)
-                        if geom and not geom.is_empty and alt is not None:
-                            centroid = geom.centroid
-                            m_tejido_data.append(((centroid.x, centroid.y), alt))
-                    
-                    gdf_tejido['geometry'] = gdf_tejido.geometry.apply(polygon_to_boundary)
-                    m_layers['tejido'] = gdf_tejido
-            except Exception:
-                pass
-
-            m_calles_data = []
-            if not gdf_manzanas.empty:
-                try:
-                    mza_geom = gdf_manzanas.geometry.iloc[0]
-                    # Usar filtro espacial en PostGIS (ST_DWithin) para evitar cargar toda la tabla
-                    mza_wkt = mza_geom.buffer(40).wkt
-                    query_calles = f"""
-                        SELECT nomoficial, geom 
-                        FROM public.calles 
-                        WHERE geom IS NOT NULL 
-                          AND nomoficial IS NOT NULL 
-                          AND TRIM(nomoficial) <> ''
-                          AND ST_DWithin(geom, ST_GeomFromText('{mza_wkt}', 22186), 0)
-                    """
-                    gdf_calles = gpd.read_postgis(query_calles, con=conn, geom_col="geom", crs="EPSG:22186")
-                    logger.info(f"DXF calles: query retornó {len(gdf_calles)} calles cercanas")
-                    if not gdf_calles.empty:
-                        gdf_calles['dist'] = gdf_calles.geometry.apply(lambda g: g.distance(mza_geom))
-                        calles_frentistas = gdf_calles[gdf_calles['dist'] <= 30]
-                        logger.info(f"DXF calles: {len(calles_frentistas)} calles frentistas <= 30m")
-                        if not calles_frentistas.empty:
-                            grouped = calles_frentistas.groupby('nomoficial')
-                            for nom, group in grouped:
-                                group_sorted = group.sort_values(by='dist')
-                                best_segment = group_sorted.iloc[0]['geom']
-                                
-                                nearest_pt = best_segment.interpolate(best_segment.project(mza_geom.centroid))
-                                proj_d = best_segment.project(nearest_pt)
-                                p1 = best_segment.interpolate(max(0, proj_d - 1.0))
-                                p2 = best_segment.interpolate(min(best_segment.length, proj_d + 1.0))
-                                ang = math.degrees(math.atan2(p2.y - p1.y, p2.x - p1.x))
-                                if ang > 90:
-                                    ang -= 180
-                                elif ang < -90:
-                                    ang += 180
-                                    
-                                m_calles_data.append(((nearest_pt.x, nearest_pt.y), str(nom).strip().upper(), ang))
-                    logger.info(f"DXF calles: {len(m_calles_data)} etiquetas de calles preparadas")
-                except Exception as e_calle:
-                    import traceback
-                    logger.error(f"Error procesando calles circundantes: {e_calle}")
-                    logger.error(traceback.format_exc())
-
-        # === Generar DXF directamente con ezdxf (sin fiona) ===
-        if not m_layers:
-            raise HTTPException(status_code=404, detail="No se encontraron capas vectoriales para esta manzana.")
-
-        doc = ezdxf.new(dxfversion='R2010')
-        msp = doc.modelspace()
-
-        # Registrar linetype DASHED
-        try:
-            doc.linetypes.new('DASHED', dxfattribs={
-                'description': 'Dashed line - - -',
-                'pattern': [10.0, 5.0, -5.0]
-            })
-        except Exception:
-            pass
-
-        # Configuración de capas
-        layer_config = {
-            'manzanas':                 {'color': 250, 'rgb': (64, 64, 64)},
-            'parcelas':                 {'color': 252, 'rgb': (96, 96, 96)},
-            'lib':                      {'color': 2,   'rgb': (255, 211, 6)},
-            'lfi':                      {'color': 141, 'rgb': (53, 121, 177)},
-            'banda_minima':             {'color': 1,   'rgb': (228, 26, 28)},
-            'tejido':                   {'color': 8,   'rgb': (128, 128, 128)},
-            'mdr_tejidoconsolidado':    {'color': 9,   'rgb': (192, 192, 192)},
-            'mdr_tejidoparairregular':  {'color': 8,   'rgb': (128, 128, 128)},
-            'Tronera SI':               {'color': 141, 'rgb': (53, 121, 177)},
-            'Irregular':                {'color': 1,   'rgb': (228, 26, 28)},
-            'ldf':                      {'color': 7,   'rgb': (0, 0, 0)},
-        }
-
-        for l_name, cfg in layer_config.items():
-            if l_name in m_layers:
-                try:
-                    layer = doc.layers.new(l_name)
-                    layer.color = cfg['color']
-                    layer.rgb = cfg['rgb']
-                    if l_name == 'banda_minima':
-                        layer.linetype = 'DASHED'
-                except Exception:
-                    pass
-
-        # Función auxiliar: escribir geometría shapely como LWPOLYLINE
-        def write_geom_to_msp(geom, layer_name, extra_attribs=None):
-            if geom is None or geom.is_empty:
-                return
-            attribs = {'layer': layer_name}
-            if extra_attribs:
-                attribs.update(extra_attribs)
-            gtype = geom.geom_type
-            if gtype == 'LineString':
-                pts = [(c[0], c[1]) for c in geom.coords]
-                if len(pts) >= 2:
-                    msp.add_lwpolyline(pts, dxfattribs=attribs)
-            elif gtype == 'MultiLineString':
-                for line in geom.geoms:
-                    write_geom_to_msp(line, layer_name, extra_attribs)
-            elif gtype == 'Polygon':
-                boundary = polygon_to_boundary(geom)
-                if boundary:
-                    write_geom_to_msp(boundary, layer_name, extra_attribs)
-            elif gtype == 'MultiPolygon':
-                for poly in geom.geoms:
-                    write_geom_to_msp(poly, layer_name, extra_attribs)
-            elif gtype == 'GeometryCollection':
-                for sub in geom.geoms:
-                    write_geom_to_msp(sub, layer_name, extra_attribs)
-
-        # Escribir entidades de geometría por capa
-        entity_count = 0
-        hatch_layers = ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular')
-
-        for l_name, gdf in m_layers.items():
-            cfg = layer_config.get(l_name, {})
-            extra = {}
-            if l_name == 'banda_minima':
-                extra = {'linetype': 'DASHED', 'ltscale': 5.0, 'color': 1}
-
-            geom_col_name = gdf.geometry.name
-            for _, row in gdf.iterrows():
-                geom = row[geom_col_name]
-                if geom is None or geom.is_empty:
-                    continue
-                try:
-                    # Capas de hatch: crear relleno sólido desde polígonos
-                    if l_name in hatch_layers:
-                        h_color = cfg.get('color', 8)
-                        polys = []
-                        if geom.geom_type == 'Polygon':
-                            polys = [geom]
-                        elif geom.geom_type == 'MultiPolygon':
-                            polys = list(geom.geoms)
-                        for poly in polys:
-                            pts = [(c[0], c[1]) for c in poly.exterior.coords]
-                            if len(pts) >= 3:
-                                hatch = msp.add_hatch(color=h_color, dxfattribs={'layer': l_name})
-                                hatch.set_pattern_fill('SOLID')
-                                hatch.paths.add_polyline_path(pts, is_closed=True)
-                                entity_count += 1
-                    else:
-                        write_geom_to_msp(geom, l_name, extra if extra else None)
-                        entity_count += 1
-                except Exception as e_ent:
-                    logger.warning(f"Error escribiendo entidad en capa {l_name}: {e_ent}")
-
-        if entity_count == 0:
-            raise HTTPException(status_code=404, detail="No se encontraron datos espaciales válidos para esta manzana.")
-
-        # Estilo de texto ArialBold
-        try:
-            style = doc.styles.new('ArialBold', dxfattribs={'font': 'Arial.ttf'})
-            style.set_extended_font_data(family='Arial', italic=False, bold=True)
-        except Exception:
-            pass
-
-        # Etiquetas de altura de tejido
-        if m_tejido_data:
-            h_color = layer_config.get('tejido', {}).get('color', 8)
-            for pos, alt in m_tejido_data:
-                try:
-                    alt_val = float(alt)
-                    text_str = f"{alt_val:.1f}"
-                except (ValueError, TypeError):
-                    text_str = str(alt)
-                t = msp.add_text(text_str, dxfattribs={
-                    'layer': 'tejido', 'color': h_color,
-                    'height': 0.375, 'style': 'ArialBold'
-                })
-                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
-
-        # Etiquetas de parcelas (Nro de Parcela y CUR 1)
-        if m_parcelas_data:
-            if 'parcelas_etiquetas' not in doc.layers:
-                l_parc = doc.layers.new('parcelas_etiquetas')
-                l_parc.color = 252
-                l_parc.rgb = (96, 96, 96)
-            p_color = doc.layers.get('parcelas_etiquetas').color
-            for (x, y), lines in m_parcelas_data:
-                positions = [(x, y + 0.8), (x, y - 0.8)] if len(lines) == 2 else [(x, y)]
-                for line_text, pos in zip(lines, positions):
-                    t = msp.add_text(line_text, dxfattribs={
-                        'layer': 'parcelas_etiquetas', 'color': p_color,
-                        'height': 1.2, 'style': 'ArialBold'
-                    })
-                    t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
-
-        # Etiquetas de calles orientadas según la dirección de la vía
-        logger.info(f"DXF: insertando {len(m_calles_data)} etiquetas de calles...")
-        if m_calles_data:
-            if 'calles_etiquetas' not in doc.layers:
-                l_calles = doc.layers.new('calles_etiquetas')
-                l_calles.color = 7
-            c_color = 7  # ACI 7 = siempre visible (negro en fondo blanco, blanco en fondo negro)
-            for item in m_calles_data:
-                if len(item) == 3:
-                    pos, calle_name, rot_angle = item
-                else:
-                    pos, calle_name = item
-                    rot_angle = 0.0
-                t = msp.add_text(str(calle_name).upper(), dxfattribs={
-                    'layer': 'calles_etiquetas', 'color': c_color,
-                    'height': 3.0, 'rotation': rot_angle, 'style': 'ArialBold'
-                })
-                t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
-                logger.info(f"DXF calle TEXT: '{calle_name}' pos=({pos[0]:.0f},{pos[1]:.0f}) rot={rot_angle:.1f}")
-            logger.info(f"DXF: {len(m_calles_data)} etiquetas de calles insertadas OK")
-        else:
-            logger.warning("DXF: m_calles_data VACÍO - no hay calles para etiquetar")
-
-        # Guardar DXF a archivo temporal
-        temp_fd, temp_path = tempfile.mkstemp(suffix=".dxf")
-        os.close(temp_fd)
-        doc.saveas(temp_path)
-        logger.info(f"DXF generado: {entity_count} entidades geom, {len(m_calles_data)} calles, {len(m_parcelas_data)} parcelas, {len(m_tejido_data)} tejido")
-            
-        from starlette.background import BackgroundTasks
-        
-        def clean_temp():
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-                
-        background_tasks = BackgroundTasks()
-        background_tasks.add_task(clean_temp)
-        
-        return FileResponse(
-            temp_path,
-            media_type="application/dxf",
-            filename=f"{sec_escaped}-{m_val}.dxf",
-            background=background_tasks
-        )
-        
-    except HTTPException:
-        raise
+        temp_path = exportar_single_manzana_dxf(geo_engine, sec_escaped, m_val)
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
     except Exception as e:
-        logger.error(f"Error generating DXF for {sec_escaped}-{m_val}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error interno en la generación del DXF: {e}")
+        logger.error(f"Error generando DXF desde exportar_dwg: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generando DXF: {e}")
+
+    from starlette.background import BackgroundTasks
+    
+    def clean_temp():
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+            
+    background_tasks = BackgroundTasks()
+    background_tasks.add_task(clean_temp)
+    
+    sec_folder = sec_escaped.zfill(3)
+    m_folder = m_val.zfill(3)
+    filename = f"{sec_folder}-{m_folder}.dxf"
+    
+    return FileResponse(
+        temp_path,
+        media_type="application/dxf",
+        filename=filename,
+        background=background_tasks
+    )

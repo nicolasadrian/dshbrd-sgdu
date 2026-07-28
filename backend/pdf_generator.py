@@ -242,10 +242,9 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                                 fontfamily='sans-serif', ha='center', va='center', zorder=25,
                                 bbox=dict(boxstyle='square,pad=0.25', facecolor='#ffffff', edgecolor='#cbd5e1', linewidth=0.8, alpha=0.95))
                         
-            ax.set_title(f"Plano Morfológico - Sección {s_clean} Manzana {m_clean}", fontsize=16, fontweight='bold', color='#000000', pad=15)
             ax.set_aspect('equal')
-            ax.grid(True, linestyle=':', alpha=0.35, color='#94a3b8')
-            ax.tick_params(colors='#000000', labelsize=8)
+            ax.grid(False)
+            ax.set_axis_off()
             
             fig.savefig(img_buf, format='png', bbox_inches='tight', pad_inches=0.04, facecolor='white')
             plt.close(fig)
@@ -345,10 +344,11 @@ def generate_lfi_a3_pdf(seccion, manzana, barrio="", comuna="", disposicion="", 
     
     text_start_y = escudo_y - gap
     c.drawCentredString(x_center, text_start_y, "GOBIERNO DE LA CIUDAD")
-    c.drawCentredString(x_center, text_start_y - 14.0, "AUTÓNOMA DE BUENOS AIRES")
+    c.drawCentredString(x_center, text_start_y - 13.0, "AUTÓNOMA DE BUENOS AIRES")
     
-    c.setFont("Helvetica-Bold", 8.5)
-    c.drawCentredString(x_center, text_start_y - 32.0, "SECRETARÍA DE GESTIÓN URBANA")
+    c.setFont("Helvetica-Bold", 8.0)
+    c.drawCentredString(x_center, text_start_y - 29.0, "SECRETARÍA DE GESTIÓN Y")
+    c.drawCentredString(x_center, text_start_y - 40.0, "DESARROLLO URBANO")
 
     # RECUADRO 2: TÍTULO DEL TIPO DE PLANO (CENTRADO)
     c.setFont("Helvetica-Bold", 10.5)
