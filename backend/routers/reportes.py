@@ -2333,29 +2333,47 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
     if gerencia_clean == 'conforme':
         gerencia_clean = 'regularizacion'
     
-    if gerencia_clean == 'secgdu_todos':
+    if gerencia_clean in ('secgdu_todos', 'secgdu'):
         try:
             with engine.connect() as conn:
-                sql = """
-                    SELECT 
-                        buzon as username,
-                        buzon as name,
-                        total_expedientes as count,
-                        egresados_efectivos,
-                        egresados_no_efectivos,
-                        pendientes_actividad
-                    FROM public.mv_secgdu_buzones_resumen
-                    ORDER BY total_expedientes DESC
-                """
-                result = conn.execute(text(sql))
-                rows = [dict(r._mapping) for r in result.fetchall()]
+                try:
+                    sql = """
+                        SELECT 
+                            buzon as username,
+                            buzon as name,
+                            total_expedientes as count,
+                            egresados_efectivos,
+                            egresados_no_efectivos,
+                            pendientes_actividad
+                        FROM public.mv_secgdu_buzones_resumen
+                        ORDER BY total_expedientes DESC
+                    """
+                    result = conn.execute(text(sql))
+                    rows = [dict(r._mapping) for r in result.fetchall()]
+                except Exception as ex_view:
+                    logger.warning(f"mv_secgdu_buzones_resumen not available, using fallback query: {ex_view}")
+                    sql = """
+                        SELECT 
+                            destinatario_actual as username,
+                            destinatario_actual as name,
+                            COUNT(*) as count,
+                            0 as egresados_efectivos,
+                            0 as egresados_no_efectivos,
+                            0 as pendientes_actividad
+                        FROM public.mv_ultimo_pase
+                        WHERE destinatario_actual IS NOT NULL
+                        GROUP BY destinatario_actual
+                        ORDER BY count DESC
+                    """
+                    result = conn.execute(text(sql))
+                    rows = [dict(r._mapping) for r in result.fetchall()]
                 for r in rows:
                     r["expedientes"] = []
                 return rows
         except Exception as e:
             logger.error(f"Error en get_gerencia_buzones (secgdu_todos): {e}")
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     if gerencia_clean == 'analisis_archivo':
         try:
             with engine.connect() as conn:
@@ -2573,11 +2591,29 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             logger.error(f"Error en get_gerencia_buzones (analisis_archivo): {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    if gerencia_clean not in TRAMITES_CONFIG:
+    valid_gerencias = list(TRAMITES_CONFIG.keys()) + ['copua', 'publico_privado']
+    if gerencia_clean not in valid_gerencias:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
         
     try:
         with engine.connect() as conn:
+            sub_sqls = []
+            for t_suffix, u_name in [
+                ("stock_propio", "STOCK PROPIO"),
+                ("intervenciones_stock", "INTERVENCION"),
+                ("subsanaciones", "SUBSANACION")
+            ]:
+                view_name = f"mv_{gerencia_clean}_{t_suffix}"
+                try:
+                    conn.execute(text(f"SELECT 1 FROM {view_name} LIMIT 1"))
+                    sub_sqls.append(f"SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, '{u_name}' as ubicacion FROM {view_name}")
+                except Exception:
+                    pass
+
+            if not sub_sqls:
+                return []
+
+            union_sql = " UNION ALL ".join(sub_sqls)
             sql = f"""
                 SELECT 
                     s.id_expediente, 
@@ -2599,14 +2635,7 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     (CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia,
                     s.ubicacion
                 FROM (
-                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'STOCK PROPIO' as ubicacion
-                    FROM mv_{gerencia_clean}_stock_propio
-                    UNION ALL
-                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'INTERVENCION' as ubicacion
-                    FROM mv_{gerencia_clean}_intervenciones_stock
-                    UNION ALL
-                    SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, 'SUBSANACION' as ubicacion
-                    FROM mv_{gerencia_clean}_subsanaciones
+                    {union_sql}
                 ) s
                 LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = s.id_expediente
                 LEFT JOIN datos_usuario du ON s.analista = du.usuario

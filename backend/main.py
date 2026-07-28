@@ -64,6 +64,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize upload directories
+for _dir in ["trazados_lfi", "trazados"]:
+    _path = os.path.abspath(os.path.join(os.path.dirname(__file__), "uploads", _dir))
+    try:
+        os.makedirs(_path, mode=0o777, exist_ok=True)
+    except Exception as _e:
+        logger.error(f"Error creando directorio {_path}: {_e}")
+
 # Initialize Database Schema DDLs
 try:
     with engine.begin() as conn:

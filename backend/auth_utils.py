@@ -8,8 +8,12 @@ from fastapi import Depends, HTTPException, status, Query, Header
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import text
 from typing import Optional, Dict, Any
-from database import engine
-from schemas import User
+try:
+    from database import engine
+    from schemas import User
+except ImportError:
+    from backend.database import engine
+    from backend.schemas import User
 
 SECRET_KEY = os.getenv("SECRET_KEY", "7b6f8e9a2c4d5f1a3b5e7d9c0a2b4d6f8e0a2c4d")
 ALGORITHM = "HS256"

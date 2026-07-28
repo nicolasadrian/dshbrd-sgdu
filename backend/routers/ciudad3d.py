@@ -2689,10 +2689,12 @@ async def upload_trazado_lfi(
             real_man = existing[3]
 
         upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi"))
-        try:
-            os.makedirs(upload_dir, exist_ok=True)
-        except Exception as dir_err:
-            logger.error(f"Error creando directorio uploads: {dir_err}")
+        if not os.path.exists(upload_dir):
+            try:
+                os.makedirs(upload_dir, mode=0o777, exist_ok=True)
+            except Exception as dir_err:
+                logger.error(f"Error creando directorio uploads ({upload_dir}): {dir_err}")
+                raise HTTPException(status_code=500, detail=f"No se pudo crear la carpeta de subidas en el servidor: {str(dir_err)}")
 
         safe_filename = f"lfi-{real_sec}-{real_man}-{int(time.time())}{file_ext}"
         file_path = os.path.join(upload_dir, safe_filename)
@@ -3040,10 +3042,12 @@ async def upload_trazado(
             real_man = existing[3]
 
         upload_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados"))
-        try:
-            os.makedirs(upload_dir, exist_ok=True)
-        except Exception as dir_err:
-            logger.error(f"Error creando directorio uploads: {dir_err}")
+        if not os.path.exists(upload_dir):
+            try:
+                os.makedirs(upload_dir, mode=0o777, exist_ok=True)
+            except Exception as dir_err:
+                logger.error(f"Error creando directorio uploads ({upload_dir}): {dir_err}")
+                raise HTTPException(status_code=500, detail=f"No se pudo crear la carpeta de subidas en el servidor: {str(dir_err)}")
 
         safe_filename = f"{real_sec}-{real_man}-{int(time.time())}{file_ext}"
         file_path = os.path.join(upload_dir, safe_filename)
