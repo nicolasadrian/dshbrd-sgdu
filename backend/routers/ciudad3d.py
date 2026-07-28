@@ -3234,7 +3234,10 @@ async def download_manzana_dxf(
     if not sec_escaped or not m_val:
         raise HTTPException(status_code=400, detail="La sección y la manzana son obligatorias")
 
-    from backend.routers.exportar_dwg import exportar_single_manzana_dxf
+    try:
+        from backend.routers.exportar_dwg import exportar_single_manzana_dxf
+    except ImportError:
+        from routers.exportar_dwg import exportar_single_manzana_dxf
 
     try:
         temp_path = exportar_single_manzana_dxf(geo_engine, sec_escaped, m_val)
