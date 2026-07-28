@@ -13527,27 +13527,31 @@ async function uploadLFIFichaTrazado() {
     formData.append('manzana', activeWorkflowManzana);
     formData.append('file', fileInput.files[0]);
     
-    const token = localStorage.getItem('sgdu_token') || '';
-    
     try {
-        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_lfi/upload`, {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/upload`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
-        if (res.ok) {
+        if (res && res.ok) {
             alert("Trazado LFI subido correctamente.");
             await loadCiudad3DTroneras();
             openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo subir el trazado.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
         } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo subir el trazado.'}`);
+            alert("Error de conexión al servidor.");
         }
     } catch (err) {
         console.error("Error al subir archivo LFI:", err);
-        alert("Error de conexión al servidor.");
+        alert(`Error al subir archivo: ${err.message || err}`);
     }
 }
 
@@ -13572,39 +13576,43 @@ async function submitLFIFichaReview(decision) {
         formData.append('file_final', fileFinalInput.files[0]);
     }
     
-    const token = localStorage.getItem('sgdu_token') || '';
-    
     try {
-        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_lfi/review`, {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/review`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
-        if (res.ok) {
+        if (res && res.ok) {
             alert(`Trazado LFI ${decision === 'OK' ? 'aprobado' : 'rechazado'} con éxito.`);
             await loadCiudad3DTroneras();
             openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo registrar la revisión.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
         } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo registrar la revisión.'}`);
+            alert("Error de conexión al servidor.");
         }
     } catch (err) {
         console.error("Error en revisión LFI:", err);
-        alert("Error de conexión al servidor.");
+        alert(`Error al enviar revisión: ${err.message || err}`);
     }
 }
 
 function downloadUploadedLFITrazado(fileType = "draft") {
-    const token = localStorage.getItem('sgdu_token') || '';
+    const token = localStorage.getItem('sgdu_token') || localStorage.getItem('authToken') || (typeof authToken !== 'undefined' ? authToken : '');
     window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_trazado?seccion=${encodeURIComponent(activeWorkflowSeccion)}&manzana=${encodeURIComponent(activeWorkflowManzana)}&file_type=${encodeURIComponent(fileType)}&token=${encodeURIComponent(token)}`, '_blank');
 }
 
 function downloadLFIPdf(seccion, manzana) {
     const s = seccion || activeWorkflowSeccion;
     const m = manzana || activeWorkflowManzana;
-    const token = localStorage.getItem('sgdu_token') || '';
+    const token = localStorage.getItem('sgdu_token') || localStorage.getItem('authToken') || (typeof authToken !== 'undefined' ? authToken : '');
     window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_pdf?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`, '_blank');
 }
 
@@ -13643,27 +13651,33 @@ async function submitTrazadoFile() {
     formData.append('manzana', manzana);
     formData.append('file', fileInput.files[0]);
     
-    const token = localStorage.getItem('sgdu_token') || '';
-    
     try {
-        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_atipicas/upload`, {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_atipicas/upload`, {
             method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-        if (res.ok) {
+        if (res && res.ok) {
             alert("Trazado subido correctamente.");
             if (typeof closeModal === 'function') closeModal('c3d-atipicas-upload-modal');
             if (typeof loadCiudad3DManzanasAtipicas === 'function') {
                 await loadCiudad3DManzanasAtipicas();
             }
+        } else if (res) {
+            let errorMsg = 'No se pudo subir el trazado.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
         } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo subir el trazado.'}`);
+            alert("Error de conexión al servidor.");
         }
     } catch (err) {
         console.error("Error al subir archivo de trazado:", err);
-        alert("Error de conexión al servidor.");
+        alert(`Error al subir archivo: ${err.message || err}`);
     }
 }
 window.submitTrazadoFile = submitTrazadoFile;
