@@ -11,7 +11,6 @@ import geopandas as gpd
 import pandas as pd
 from sqlalchemy import text
 from shapely.geometry import LineString, MultiLineString
-from shapely import wkb, wkt
 import fiona
 
 # Suppress warnings to keep terminal output clean
@@ -124,45 +123,32 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles (Carga directa vía ST_AsText en WKT para compatibilidad universal Linux/Windows)
+    # 2b. Cargar Calles con ST_Transform nativo en PostGIS
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
+        query_calles = f"""
+            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+            FROM public.calles c 
+            WHERE c.geom IS NOT NULL 
+              AND c.nomoficial IS NOT NULL 
+              AND TRIM(c.nomoficial) <> ''
+              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+        """
         try:
-            query_calles = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM public.calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
-            df_c = pd.read_sql_query(query_calles, con=engine)
+            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception:
             try:
-                fallback_q = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
-                df_c = pd.read_sql_query(fallback_q, con=engine)
-            except Exception as e_c:
-                print(f"Error leyendo SQL calles: {e_c}")
-                df_c = pd.DataFrame()
-
-        if not df_c.empty:
-            try:
-                df_c['geometry'] = df_c['wkt_geom'].apply(lambda w: wkt.loads(w) if w else None)
-                gdf_calles = gpd.GeoDataFrame(df_c[df_c['geometry'].notnull()], geometry='geometry')
-                
-                c_xmin, c_ymin, c_xmax, c_ymax = gdf_calles.total_bounds
-                if -180 <= c_xmin <= 180 and -90 <= c_ymin <= 90:
-                    gdf_calles = gdf_calles.set_crs("EPSG:4326", allow_override=True).to_crs("EPSG:22186")
-                elif c_xmin < 0:
-                    gdf_calles = gdf_calles.set_crs("EPSG:3857", allow_override=True).to_crs("EPSG:22186")
-                else:
-                    gdf_calles = gdf_calles.set_crs("EPSG:22186", allow_override=True)
-
-                bbox_filter = (
-                    (gdf_calles.geometry.bounds['minx'] <= sec_xmax + 150) &
-                    (gdf_calles.geometry.bounds['maxx'] >= sec_xmin - 150) &
-                    (gdf_calles.geometry.bounds['miny'] <= sec_ymax + 150) &
-                    (gdf_calles.geometry.bounds['maxy'] >= sec_ymin - 150)
-                )
-                gdf_calles = gdf_calles[bbox_filter].copy()
-            except Exception as e_proc:
-                print(f"Error procesando GeoDataFrame calles: {e_proc}")
+                fallback_q = f"""
+                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+                    FROM calles c 
+                    WHERE c.geom IS NOT NULL 
+                      AND c.nomoficial IS NOT NULL 
+                      AND TRIM(c.nomoficial) <> ''
+                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+                """
+                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
+            except Exception:
                 gdf_calles = gpd.GeoDataFrame()
-        else:
-            gdf_calles = gpd.GeoDataFrame()
     else:
         gdf_calles = gpd.GeoDataFrame()
 
@@ -294,14 +280,14 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
             calles_bbox = gdf_calles[gdf_calles.intersects(mza_geom.buffer(100))].copy()
             if not calles_bbox.empty:
                 calles_bbox['dist'] = calles_bbox.geometry.apply(lambda g: g.distance(mza_geom))
-                calles_frentistas = calles_bbox[calles_bbox['dist'] <= 150]
+                calles_frentistas = calles_bbox[calles_bbox['dist'] <= 60]
                 if not calles_frentistas.empty:
                     grouped = calles_frentistas.groupby('nomoficial')
                     for nom, group in grouped:
                         if not nom or str(nom) == 'nan':
                             continue
                         group_sorted = group.sort_values(by='dist')
-                        best_segment = group_sorted.iloc[0].geometry
+                        best_segment = group_sorted.iloc[0]['geom']
                         if best_segment and not best_segment.is_empty:
                             nearest_pt = best_segment.interpolate(best_segment.project(mza_geom.centroid))
                             proj_d = best_segment.project(nearest_pt)
@@ -570,7 +556,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                             except Exception as e_p:
                                 print(f"Error procesando parcelas texto: {e_p}")
 
-                        # 6. Agregar etiquetas de calles (con las mismas propiedades de parcelas_etiquetas)
+                        # 6. Agregar etiquetas de calles orientadas según la dirección del objeto lineal
                         if m_calles_data:
                             try:
                                 if 'calles_etiquetas' not in doc.layers:
@@ -642,45 +628,33 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (Carga directa vía ST_AsText en WKT para compatibilidad universal Linux/Windows)
+    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186)
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
+        query_calles = f"""
+            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+            FROM public.calles c 
+            WHERE c.geom IS NOT NULL 
+              AND c.nomoficial IS NOT NULL 
+              AND TRIM(c.nomoficial) <> ''
+              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+        """
         try:
-            query_calles = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM public.calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
-            df_c = pd.read_sql_query(query_calles, con=engine)
-        except Exception:
+            gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception as e_c1:
             try:
-                fallback_q = "SELECT c.nomoficial, ST_AsText(c.geom) AS wkt_geom FROM calles c WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''"
-                df_c = pd.read_sql_query(fallback_q, con=engine)
-            except Exception as e_c:
-                print(f"Error leyendo SQL calles: {e_c}")
-                df_c = pd.DataFrame()
-
-        if not df_c.empty:
-            try:
-                df_c['geometry'] = df_c['wkt_geom'].apply(lambda w: wkt.loads(w) if w else None)
-                gdf_calles = gpd.GeoDataFrame(df_c[df_c['geometry'].notnull()], geometry='geometry')
-                
-                c_xmin, c_ymin, c_xmax, c_ymax = gdf_calles.total_bounds
-                if -180 <= c_xmin <= 180 and -90 <= c_ymin <= 90:
-                    gdf_calles = gdf_calles.set_crs("EPSG:4326", allow_override=True).to_crs("EPSG:22186")
-                elif c_xmin < 0:
-                    gdf_calles = gdf_calles.set_crs("EPSG:3857", allow_override=True).to_crs("EPSG:22186")
-                else:
-                    gdf_calles = gdf_calles.set_crs("EPSG:22186", allow_override=True)
-
-                bbox_filter = (
-                    (gdf_calles.geometry.bounds['minx'] <= m_xmax + 150) &
-                    (gdf_calles.geometry.bounds['maxx'] >= m_xmin - 150) &
-                    (gdf_calles.geometry.bounds['miny'] <= m_ymax + 150) &
-                    (gdf_calles.geometry.bounds['maxy'] >= m_ymin - 150)
-                )
-                gdf_calles = gdf_calles[bbox_filter].copy()
-            except Exception as e_proc:
-                print(f"Error procesando GeoDataFrame calles: {e_proc}")
+                fallback_q = f"""
+                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
+                    FROM calles c 
+                    WHERE c.geom IS NOT NULL 
+                      AND c.nomoficial IS NOT NULL 
+                      AND TRIM(c.nomoficial) <> ''
+                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+                """
+                gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
+            except Exception as e_c2:
+                print(f"Error cargando calles: {e_c1} / {e_c2}")
                 gdf_calles = gpd.GeoDataFrame()
-        else:
-            gdf_calles = gpd.GeoDataFrame()
     else:
         gdf_calles = gpd.GeoDataFrame()
 
@@ -797,14 +771,14 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
         calles_bbox = gdf_calles[gdf_calles.intersects(mza_geom.buffer(100))].copy()
         if not calles_bbox.empty:
             calles_bbox['dist'] = calles_bbox.geometry.apply(lambda g: g.distance(mza_geom))
-            calles_frentistas = calles_bbox[calles_bbox['dist'] <= 150]
+            calles_frentistas = calles_bbox[calles_bbox['dist'] <= 60]
             if not calles_frentistas.empty:
                 grouped = calles_frentistas.groupby('nomoficial')
                 for nom, group in grouped:
                     if not nom or str(nom) == 'nan':
                         continue
                     group_sorted = group.sort_values(by='dist')
-                    best_segment = group_sorted.iloc[0].geometry
+                    best_segment = group_sorted.iloc[0]['geom']
                     if best_segment and not best_segment.is_empty:
                         nearest_pt = best_segment.interpolate(best_segment.project(mza_geom.centroid))
                         proj_d = best_segment.project(nearest_pt)
