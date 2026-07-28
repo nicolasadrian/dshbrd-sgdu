@@ -123,56 +123,28 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar parcelas de sección {seccion_val}: {e}")
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles con ST_Transform nativo en PostGIS y detección dinámica de SRID (usando ST_Centroid para MultiLineString)
+    # 2b. Cargar Calles con ST_Transform nativo en PostGIS
     if not gdf_manzanas.empty:
         sec_xmin, sec_ymin, sec_xmax, sec_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
-            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
-                CASE 
-                    WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                    ELSE 22186 
-                END
-            ), 22186) AS geom 
+            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND ST_Transform(ST_SetSRID(c.geom, 
-                CASE 
-                    WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                    ELSE 22186 
-                END
-            ), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
         """
         try:
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception:
             try:
                 fallback_q = f"""
-                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
-                        CASE 
-                            WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                            ELSE 22186 
-                        END
-                    ), 22186) AS geom 
+                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
-                      AND ST_Transform(ST_SetSRID(c.geom, 
-                        CASE 
-                            WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                            ELSE 22186 
-                        END
-                    ), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
+                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({sec_xmin - 150}, {sec_ymin - 150}, {sec_xmax + 150}, {sec_ymax + 150}, 22186)
                 """
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception:
@@ -308,7 +280,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
             calles_bbox = gdf_calles[gdf_calles.intersects(mza_geom.buffer(100))].copy()
             if not calles_bbox.empty:
                 calles_bbox['dist'] = calles_bbox.geometry.apply(lambda g: g.distance(mza_geom))
-                calles_frentistas = calles_bbox[calles_bbox['dist'] <= 80]
+                calles_frentistas = calles_bbox[calles_bbox['dist'] <= 60]
                 if not calles_frentistas.empty:
                     grouped = calles_frentistas.groupby('nomoficial')
                     for nom, group in grouped:
@@ -518,23 +490,23 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                         
                                     msp.delete_entity(poly)
 
-                        # 3. Estilo ARIAL oficial para AutoCAD
+                        # 3. Estilo de texto oficial
                         for s in doc.styles:
                             try:
                                 s.dxf.font = 'arial.ttf'
                             except Exception:
                                 pass
 
-                        text_style = 'ARIAL'
+                        text_style = 'HELVETICA'
                         try:
-                            if 'ARIAL' not in doc.styles:
-                                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
+                            if 'HELVETICA' not in doc.styles:
+                                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
                                 try:
-                                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
+                                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
                                 except Exception:
                                     pass
                             else:
-                                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
+                                doc.styles.get('HELVETICA').dxf.font = 'arialbd.ttf'
                         except Exception:
                             text_style = 'Standard'
 
@@ -581,19 +553,20 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                             except Exception as e_p:
                                 print(f"Error procesando parcelas texto: {e_p}")
 
-                        # 6. Agregar etiquetas de calles orientadas según la dirección del objeto lineal
+                        # 6. Agregar etiquetas de calles (con las mismas propiedades de parcelas_etiquetas)
                         if m_calles_data:
                             try:
                                 if 'calles_etiquetas' not in doc.layers:
                                     l_calles = doc.layers.new('calles_etiquetas')
-                                    l_calles.color = 7  # ACI 7 (Blanco en fondo oscuro, Negro en fondo claro)
+                                    l_calles.color = 252
+                                    l_calles.rgb = (96, 96, 96)
                                 
                                 c_color = doc.layers.get('calles_etiquetas').color
                                 for pos, calle_name, rot_angle in m_calles_data:
                                     t = msp.add_text(str(calle_name).upper(), dxfattribs={
                                         'layer': 'calles_etiquetas',
                                         'color': c_color,
-                                        'height': 1.8,
+                                        'height': 0.45,
                                         'rotation': rot_angle,
                                         'style': text_style
                                     })
@@ -652,56 +625,28 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_parcelas = gpd.GeoDataFrame()
 
-    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186 y ST_Centroid)
+    # 2b. Cargar Calles cercanas (usando la envolvente bounding-box exacta con ST_Transform nativo en EPSG:22186)
     if not gdf_manzanas.empty:
         m_xmin, m_ymin, m_xmax, m_ymax = gdf_manzanas.total_bounds
         query_calles = f"""
-            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
-                CASE 
-                    WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                    ELSE 22186 
-                END
-            ), 22186) AS geom 
+            SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
             FROM public.calles c 
             WHERE c.geom IS NOT NULL 
               AND c.nomoficial IS NOT NULL 
               AND TRIM(c.nomoficial) <> ''
-              AND ST_Transform(ST_SetSRID(c.geom, 
-                CASE 
-                    WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                    WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                    WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                    ELSE 22186 
-                END
-            ), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+              AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
         """
         try:
             gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
         except Exception as e_c1:
             try:
                 fallback_q = f"""
-                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, 
-                        CASE 
-                            WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                            ELSE 22186 
-                        END
-                    ), 22186) AS geom 
+                    SELECT c.nomoficial, ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) AS geom 
                     FROM calles c 
                     WHERE c.geom IS NOT NULL 
                       AND c.nomoficial IS NOT NULL 
                       AND TRIM(c.nomoficial) <> ''
-                      AND ST_Transform(ST_SetSRID(c.geom, 
-                        CASE 
-                            WHEN ST_SRID(c.geom) <> 0 THEN ST_SRID(c.geom)
-                            WHEN ST_X(ST_Centroid(c.geom)) BETWEEN -180 AND 180 THEN 4326
-                            WHEN ST_X(ST_Centroid(c.geom)) < 0 THEN 3857
-                            ELSE 22186 
-                        END
-                    ), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
+                      AND ST_Transform(ST_SetSRID(c.geom, CASE WHEN ST_SRID(c.geom) = 0 THEN 22186 ELSE ST_SRID(c.geom) END), 22186) && ST_MakeEnvelope({m_xmin - 150}, {m_ymin - 150}, {m_xmax + 150}, {m_ymax + 150}, 22186)
                 """
                 gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
             except Exception as e_c2:
@@ -823,7 +768,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
         calles_bbox = gdf_calles[gdf_calles.intersects(mza_geom.buffer(100))].copy()
         if not calles_bbox.empty:
             calles_bbox['dist'] = calles_bbox.geometry.apply(lambda g: g.distance(mza_geom))
-            calles_frentistas = calles_bbox[calles_bbox['dist'] <= 80]
+            calles_frentistas = calles_bbox[calles_bbox['dist'] <= 60]
             if not calles_frentistas.empty:
                 grouped = calles_frentistas.groupby('nomoficial')
                 for nom, group in grouped:
@@ -969,16 +914,16 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             except Exception:
                 pass
 
-        text_style = 'ARIAL'
+        text_style = 'HELVETICA'
         try:
-            if 'ARIAL' not in doc.styles:
-                style = doc.styles.new('ARIAL', dxfattribs={'font': 'arial.ttf'})
+            if 'HELVETICA' not in doc.styles:
+                style = doc.styles.new('HELVETICA', dxfattribs={'font': 'arialbd.ttf'})
                 try:
-                    style.set_extended_font_data(family='Arial', italic=False, bold=True)
+                    style.set_extended_font_data(family='Helvetica', italic=False, bold=True)
                 except Exception:
                     pass
             else:
-                doc.styles.get('ARIAL').dxf.font = 'arial.ttf'
+                doc.styles.get('HELVETICA').dxf.font = 'arialbd.ttf'
         except Exception:
             text_style = 'Standard'
 
@@ -1011,10 +956,10 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             try:
                 if 'calles_etiquetas' not in doc.layers:
                     l_calles = doc.layers.new('calles_etiquetas')
-                    l_calles.color = 7  # ACI 7 (Blanco adaptativo en AutoCAD fondo oscuro, Negro en fondo claro)
+                    l_calles.color = 252; l_calles.rgb = (96, 96, 96)
                 c_color = doc.layers.get('calles_etiquetas').color
                 for pos, calle_name, rot_angle in m_calles_data:
-                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 1.8, 'rotation': rot_angle, 'style': text_style})
+                    t = msp.add_text(str(calle_name).upper(), dxfattribs={'layer': 'calles_etiquetas', 'color': c_color, 'height': 0.45, 'rotation': rot_angle, 'style': text_style})
                     t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_c:
                 print(f"Error calles texto: {e_c}")
