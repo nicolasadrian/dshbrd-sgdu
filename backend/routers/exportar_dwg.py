@@ -24,7 +24,10 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 try:
     from src.db import get_engine
 except ImportError:
-    from backend.database import geo_engine as get_engine
+    try:
+        from backend.database import geo_engine as get_engine
+    except ImportError:
+        from database import geo_engine as get_engine
 
 def extract_lines(geom):
     """
@@ -113,11 +116,21 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         gdf_parcelas = gpd.GeoDataFrame()
 
     # 2b. Cargar Calles
-    query_calles = "SELECT geom, nomoficial FROM calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+    query_calles = f"""
+        SELECT c.nomoficial, c.geom 
+        FROM public.calles c 
+        INNER JOIN public.manzanas m ON (TRIM(m.seccion) = '{sec_escaped}' OR LPAD(TRIM(m.seccion), 3, '0') = '{sec_lpad}')
+        WHERE c.geom IS NOT NULL AND c.nomoficial IS NOT NULL AND TRIM(c.nomoficial) <> ''
+          AND ST_DWithin(c.geom, ST_Transform(m.geom, 22186), 150)
+    """
     try:
         gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
     except Exception as e:
-        gdf_calles = gpd.GeoDataFrame()
+        try:
+            fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+            gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception:
+            gdf_calles = gpd.GeoDataFrame()
 
     # 3. Cargar LFI de la sección
     query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE seccion = '{sec_escaped}' AND geom IS NOT NULL"
@@ -574,11 +587,25 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
         gdf_parcelas = gpd.GeoDataFrame()
 
     # 2b. Cargar Calles
-    query_calles = "SELECT geom, nomoficial FROM calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+    query_calles = f"""
+        SELECT c.nomoficial, c.geom 
+        FROM public.calles c 
+        INNER JOIN public.manzanas m 
+          ON (TRIM(m.seccion) = '{sec_escaped}' OR LPAD(TRIM(m.seccion), 3, '0') = '{sec_lpad}' OR TRIM(m.seccion) = '{sec_unpad}')
+         AND (TRIM(m.manzana) = '{m_escaped}' OR LPAD(TRIM(m.manzana), 3, '0') = '{m_lpad}' OR TRIM(m.manzana) = '{m_unpad}')
+        WHERE c.geom IS NOT NULL 
+          AND c.nomoficial IS NOT NULL 
+          AND TRIM(c.nomoficial) <> ''
+          AND ST_DWithin(c.geom, ST_Transform(m.geom, 22186), 150)
+    """
     try:
         gdf_calles = gpd.read_postgis(query_calles, con=engine, geom_col="geom", crs="EPSG:22186")
     except Exception:
-        gdf_calles = gpd.GeoDataFrame()
+        try:
+            fallback_q = "SELECT nomoficial, geom FROM public.calles WHERE geom IS NOT NULL AND nomoficial IS NOT NULL AND TRIM(nomoficial) <> ''"
+            gdf_calles = gpd.read_postgis(fallback_q, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception:
+            gdf_calles = gpd.GeoDataFrame()
 
     # 3. LFI
     query_lfi = f"SELECT geom, seccion, manzana FROM mdr_lineadefrenteinterno WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') AND geom IS NOT NULL"
