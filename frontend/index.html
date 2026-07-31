@@ -4793,6 +4793,10 @@
                     style="display: none;">
                     <i class="fa-solid fa-clipboard-check"></i> Bandeja de Revisión
                 </button>
+                <button class="lfi-tab-btn" id="lfi-tab-btn-equipo" onclick="changeLfiSubTab('equipo')"
+                    style="display: none;">
+                    <i class="fa-solid fa-users-gear"></i> Estado de Avance por Analista
+                </button>
                 <button class="lfi-tab-btn" id="lfi-tab-btn-mapa" onclick="changeLfiSubTab('mapa')">
                     <i class="fa-solid fa-map"></i> Mapa
                 </button>
@@ -4895,6 +4899,35 @@
                                 </tr>
                             </thead>
                             <tbody id="c3d-lfi-revision-table-body" style="color: #334155;">
+                                <!-- Dinámico via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3.5: Estado de Avance por Analista (Solo para Revisores / Admins) -->
+            <div id="c3d-lfi-panel-equipo" class="lfi-tab-content-panel">
+                <div style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 2rem;">
+                    <div style="margin-bottom: 1.2rem;">
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-size: 1.2rem; font-weight: 700;">
+                            <i class="fa-solid fa-chart-user" style="color: var(--primary); margin-right: 8px;"></i> Monitor de Productividad y Carga del Equipo de Trazados
+                        </h3>
+                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Desglose del estado de avance, volumen asignado y entregas por analista de trazado.</p>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 12px 16px;">Analista / Trazador</th>
+                                    <th style="padding: 12px 16px; text-align: center;">En curso</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Para revisión</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Aprobados / Subir C3D</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Total Asignado</th>
+                                    <th style="padding: 12px 16px; text-align: center;">% Avance / Completado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="c3d-lfi-equipo-table-body" style="color: #334155;">
                                 <!-- Dinámico via JS -->
                             </tbody>
                         </table>

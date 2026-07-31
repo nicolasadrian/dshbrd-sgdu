@@ -11982,18 +11982,22 @@ async function loadCiudad3DTroneras() {
             calculateLFIStats();
             renderLFIMisTrazados();
             renderLFIRevision();
+            renderLFIEquipo();
             // Actualizar filtros del mapa si ya está inicializado
             lfiApplyManzanaFilter();
             
             // Set tab visibilities based on roles
             const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
+            const uRole = (currentUser && currentUser.role || '').toLowerCase();
             const canManageTroneras = !!uPerms.lfi_dibujar;
-            const canReviewTroneras = !!uPerms.lfi_revisar;
+            const canReviewTroneras = !!uPerms.lfi_revisar || uRole === 'admin' || uRole === 'administrador';
             
             const btnMisTrazados = document.getElementById('lfi-tab-btn-mis-trazados');
             const btnRevision = document.getElementById('lfi-tab-btn-revision');
+            const btnEquipo = document.getElementById('lfi-tab-btn-equipo');
             if (btnMisTrazados) btnMisTrazados.style.display = canManageTroneras ? 'flex' : 'none';
             if (btnRevision) btnRevision.style.display = canReviewTroneras ? 'flex' : 'none';
+            if (btnEquipo) btnEquipo.style.display = canReviewTroneras ? 'flex' : 'none';
             
         } else {
             throw new Error("Respuesta no exitosa del servidor");
@@ -12061,9 +12065,11 @@ function changeLfiSubTab(tabId) {
     const activePanel = document.getElementById(`c3d-lfi-panel-${tabId}`);
     if (activePanel) activePanel.classList.add('active');
     
-    // Lazy init del mapa
+    // Lazy init del mapa o equipo
     if (tabId === 'mapa' && !_lfiMapInitialized) {
         setTimeout(() => initLFIMap(), 100);
+    } else if (tabId === 'equipo') {
+        renderLFIEquipo();
     }
 }
 window.changeLfiSubTab = changeLfiSubTab;
@@ -12389,10 +12395,15 @@ function calculateLFIStats() {
     const elPctAprobadas = document.getElementById('kpi-lfi-pct-aprobadas');
     
     if (total > 0) {
-        if (elPctPendientes) elPctPendientes.innerText = `(${Math.round((pendientes / total) * 100)}%)`;
-        if (elPctEnCurso) elPctEnCurso.innerText = `(${Math.round((enCurso / total) * 100)}%)`;
-        if (elPctRevision) elPctRevision.innerText = `(${Math.round((revision / total) * 100)}%)`;
-        if (elPctAprobadas) elPctAprobadas.innerText = `(${Math.round((aprobadas / total) * 100)}%)`;
+        const calcPctStr = (val) => {
+            if (val === 0) return '(0%)';
+            const pct = (val / total) * 100;
+            return pct < 1 ? `(${pct.toFixed(1)}%)` : `(${Math.round(pct)}%)`;
+        };
+        if (elPctPendientes) elPctPendientes.innerText = calcPctStr(pendientes);
+        if (elPctEnCurso) elPctEnCurso.innerText = calcPctStr(enCurso);
+        if (elPctRevision) elPctRevision.innerText = calcPctStr(revision);
+        if (elPctAprobadas) elPctAprobadas.innerText = calcPctStr(aprobadas);
     } else {
         if (elPctPendientes) elPctPendientes.innerText = `(0%)`;
         if (elPctEnCurso) elPctEnCurso.innerText = `(0%)`;
@@ -12533,6 +12544,126 @@ function renderLFIRevision() {
         `;
     }).join('');
 }
+
+async function renderLFIEquipo() {
+    const tbody = document.getElementById('c3d-lfi-equipo-table-body');
+    if (!tbody) return;
+
+    // Obtener lista completa de analistas de trazados
+    let analistas = [];
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/analistas_trazados`);
+        if (res && res.ok) {
+            analistas = await res.json();
+        }
+    } catch (e) {
+        console.warn("Error buscando analistas de trazados para monitor de equipo:", e);
+    }
+
+    // Mapa de estadísticas por analista
+    const stats = {};
+    analistas.forEach(a => {
+        stats[a.username.toLowerCase()] = {
+            username: a.username,
+            full_name: a.full_name || a.username,
+            en_curso: 0,
+            revision: 0,
+            aprobados: 0,
+            total: 0
+        };
+    });
+
+    // Contabilizar desde c3dTronerasRawData
+    (c3dTronerasRawData || []).forEach(row => {
+        const u = (row.analista_asignado || '').trim().toLowerCase();
+        if (!u) return;
+        
+        if (!stats[u]) {
+            stats[u] = {
+                username: row.analista_asignado,
+                full_name: row.analista_nombre || row.analista_asignado,
+                en_curso: 0,
+                revision: 0,
+                aprobados: 0,
+                total: 0
+            };
+        }
+        
+        const est = (row.estado || '').toLowerCase();
+        if (est === 'en curso') {
+            stats[u].en_curso++;
+            stats[u].total++;
+        } else if (est === 'para revisión' || est === 'para revision') {
+            stats[u].revision++;
+            stats[u].total++;
+        } else if (est === 'subir a ciudad 3d' || est === 'aprobado' || est === 'aprobada') {
+            stats[u].aprobados++;
+            stats[u].total++;
+        }
+    });
+
+    const rowsList = Object.values(stats);
+    
+    if (rowsList.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">
+                    <i class="fa-solid fa-users-slash" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">No hay analistas de trazados o manzanas asignadas registradas.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    rowsList.sort((a, b) => b.total - a.total);
+
+    tbody.innerHTML = rowsList.map(s => {
+        const pct = s.total > 0 ? Math.round((s.aprobados / s.total) * 100) : 0;
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 12px 16px; font-weight: 700; color: #0f172a;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem;">
+                            ${(s.full_name || s.username).charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div style="font-weight: 700;">${s.full_name}</div>
+                            <div style="font-size: 0.75rem; color: #64748b; font-family: monospace;">@${s.username}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.en_curso}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.revision}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.aprobados}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #1e293b; font-size: 0.95rem;">
+                    ${s.total}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                        <div style="flex: 1; max-width: 100px; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: ${pct}%; background: #16a34a; height: 100%; border-radius: 4px;"></div>
+                        </div>
+                        <span style="font-weight: 700; font-size: 0.82rem; color: #15803d; min-width: 36px; text-align: right;">${pct}%</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderLFIEquipo = renderLFIEquipo;
 
 function filterLFIByStatus(statusName) {
     // Clear active status on all cards
@@ -13484,7 +13615,7 @@ async function loadLFIFichaNotes() {
                 if (revMatch) {
                     const dec = revMatch[1].toUpperCase();
                     const msg = revMatch[2].trim();
-                    const isApprove = dec === 'APPROVE' || dec === 'APROBADO' || dec === 'ACEPTADO';
+                    const isApprove = dec === 'OK' || dec === 'APPROVE' || dec === 'APROBADO' || dec === 'ACEPTADO';
                     const badgeBg = isApprove ? '#dcfce7' : '#fee2e2';
                     const badgeColor = isApprove ? '#15803d' : '#b91c1c';
                     const badgeBorder = isApprove ? '#bbf7d0' : '#fca5a5';
