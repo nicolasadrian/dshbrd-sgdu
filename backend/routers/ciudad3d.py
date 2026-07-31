@@ -2410,41 +2410,48 @@ def list_analistas_trazados(current_user: User = Depends(get_current_user)):
 
 @router.post("/api/ciudad3d/manzanas_lfi/assign")
 def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
-    target_analyst = (req.analista or "").strip() if req.analista else current_user.username
-    is_reassign = req.analista is not None and req.analista.strip() != current_user.username
-    
-    can_review = bool(current_user.permissions.get("lfi_revisar")) or current_user.role.lower() in ['admin', 'administrador']
-    can_draw = bool(current_user.permissions.get("lfi_dibujar"))
-    
-    if not (can_draw or can_review):
-        raise HTTPException(status_code=403, detail="No tiene permisos para asignar o reasignar manzanas de LFI.")
+    try:
+        target_analyst = (req.analista or "").strip() if req.analista else current_user.username
+        is_reassign = req.analista is not None and req.analista.strip() != current_user.username
         
-    with engine.begin() as conn:
-        existing = conn.execute(text("""
-            SELECT estado, analista_asignado FROM public.manzanas_lfi_workflow
-            WHERE seccion = :s AND manzana = :m
-        """), {"s": req.seccion.strip(), "m": req.manzana.strip()}).fetchone()
+        user_role = (current_user.role or "").lower()
+        can_review = bool(current_user.permissions.get("lfi_revisar")) or user_role in ['admin', 'administrador']
+        can_draw = bool(current_user.permissions.get("lfi_dibujar")) or bool(current_user.permissions.get("ciudad_3d")) or user_role in ['trazados', 'trazador', 'admin', 'administrador']
         
-        if existing and existing[0] != 'Pendiente':
-            # Si ya está asignada / en curso, solo alguien con permiso de revisión o admin puede reasignar
-            if not can_review:
-                raise HTTPException(status_code=400, detail=f"Esta manzana ya está asignada a '{existing[1]}' en estado '{existing[0]}'. Solo un revisor o administrador puede reasignarla.")
+        if not (can_draw or can_review):
+            raise HTTPException(status_code=403, detail="No tiene permisos para asignar o reasignar manzanas de LFI.")
             
-        conn.execute(text("""
-            INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, estado, analista_asignado, updated_at)
-            VALUES (:s, :m, 'En curso', :a, CURRENT_TIMESTAMP)
-            ON CONFLICT (seccion, manzana) 
-            DO UPDATE SET estado = 'En curso', analista_asignado = :a, updated_at = CURRENT_TIMESTAMP
-        """), {"s": req.seccion.strip(), "m": req.manzana.strip(), "a": target_analyst})
-        
-        if existing and existing[1] != target_analyst:
-            note_text = f"*** REASIGNACIÓN DE RESPONSABLE ***: Reasignado de '{existing[1] or 'N/A'}' a '{target_analyst}' por {current_user.username}"
+        with engine.begin() as conn:
+            existing = conn.execute(text("""
+                SELECT estado, analista_asignado FROM public.manzanas_lfi_workflow
+                WHERE seccion = :s AND manzana = :m
+            """), {"s": req.seccion.strip(), "m": req.manzana.strip()}).fetchone()
+            
+            if existing and existing[0] != 'Pendiente':
+                # Si ya está asignada / en curso, solo alguien con permiso de revisión o admin puede reasignar
+                if not can_review and existing[1] != current_user.username:
+                    raise HTTPException(status_code=400, detail=f"Esta manzana ya está asignada a '{existing[1]}' en estado '{existing[0]}'. Solo un revisor o administrador puede reasignarla.")
+                
             conn.execute(text("""
-                INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
-                VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
-            """), {"s": req.seccion.strip(), "m": req.manzana.strip(), "u": current_user.username, "n": note_text})
-        
-    return {"status": "ok", "estado": "En curso", "analista_asignado": target_analyst}
+                INSERT INTO public.manzanas_lfi_workflow (seccion, manzana, estado, analista_asignado, updated_at)
+                VALUES (:s, :m, 'En curso', :a, CURRENT_TIMESTAMP)
+                ON CONFLICT (seccion, manzana) 
+                DO UPDATE SET estado = 'En curso', analista_asignado = :a, updated_at = CURRENT_TIMESTAMP
+            """), {"s": req.seccion.strip(), "m": req.manzana.strip(), "a": target_analyst})
+            
+            if existing and existing[1] != target_analyst:
+                note_text = f"*** REASIGNACIÓN DE RESPONSABLE ***: Reasignado de '{existing[1] or 'N/A'}' a '{target_analyst}' por {current_user.username}"
+                conn.execute(text("""
+                    INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
+                    VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+                """), {"s": req.seccion.strip(), "m": req.manzana.strip(), "u": current_user.username, "n": note_text})
+            
+        return {"status": "ok", "estado": "En curso", "analista_asignado": target_analyst}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en assign_manzana_lfi: {e}")
+        raise HTTPException(status_code=500, detail=f"Error procesando la asignación: {str(e)}")
 
 @router.post("/api/ciudad3d/manzanas_lfi/assign_seccion")
 def assign_seccion_lfi(req: LFIAssignSeccionRequest, current_user: User = Depends(get_current_user)):
