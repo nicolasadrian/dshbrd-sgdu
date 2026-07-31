@@ -2797,6 +2797,45 @@ async def review_manzana_lfi(
             
     return {"status": "ok", "estado": new_state, "archivo_finalizado": safe_filename}
 
+@router.post("/api/ciudad3d/manzanas_lfi/reopen")
+async def reopen_manzana_lfi(
+    seccion: str = Form(...),
+    manzana: str = Form(...),
+    motivo: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user)
+):
+    if not (current_user.permissions.get("lfi_revisar") or current_user.role in ['admin', 'administrador']):
+        raise HTTPException(status_code=403, detail="No tiene permisos de revisión de LFI para reabrir manzanas.")
+        
+    with engine.begin() as conn:
+        existing = conn.execute(text("""
+            SELECT estado, analista_asignado FROM public.manzanas_lfi_workflow
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana}).fetchone()
+        
+        if not existing:
+            raise HTTPException(status_code=404, detail="No se encontró el flujo de la manzana especificada.")
+            
+        if existing[0] not in ['Subir a Ciudad 3D', 'Para revisión']:
+            raise HTTPException(status_code=400, detail=f"No se puede reabrir una manzana en estado '{existing[0]}'. Debe estar en 'Subir a Ciudad 3D' o 'Para revisión'.")
+            
+        conn.execute(text("""
+            UPDATE public.manzanas_lfi_workflow
+            SET estado = 'En curso', updated_at = CURRENT_TIMESTAMP
+            WHERE seccion = :s AND manzana = :m
+        """), {"s": seccion, "m": manzana})
+        
+        note_text = f"*** REAPERTURA DE MANZANA (Volver a revisión / 'En curso') ***"
+        if motivo:
+            note_text += f": {motivo}"
+            
+        conn.execute(text("""
+            INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
+            VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+        """), {"s": seccion, "m": manzana, "u": current_user.username, "n": note_text})
+        
+    return {"status": "ok", "estado": "En curso", "analista_asignado": existing[1]}
+
 @router.get("/api/ciudad3d/manzanas_lfi/download_trazado")
 def download_trazado_lfi_file(
     seccion: str,

@@ -13383,6 +13383,17 @@ async function openLFIFicha(seccion, manzana) {
                 </div>
             </div>
         `;
+    } else if ((row.estado === 'Subir a Ciudad 3D' || row.estado === 'Para revisión') && (canReviewTroneras || uRole === 'admin' || uRole === 'administrador')) {
+        actionsContainer.innerHTML = `
+            <h4 style="margin: 0; color: #b45309; font-weight: 700; font-size: 0.95rem;">Reabrir Manzana / Volver a Trabajo</h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748b;">Esta manzana fue finalizada o aprobada previamente. Si requiere modificaciones, puede volver a mandarla a revisión ("En curso").</p>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <textarea id="c3d-lfi-ficha-reopen-motivo" placeholder="Motivo de la reapertura (opcional)..." style="width: 100%; height: 45px; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.82rem; resize: none;"></textarea>
+                <button onclick="reopenLFIFichaManzana()" class="btn-primary" style="padding: 8px 12px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: #ea580c; color: white; width: 100%;">
+                    <i class="fa-solid fa-rotate-left"></i> Reabrir Manzana (Volver a "En curso")
+                </button>
+            </div>
+        `;
     }
     
     if (actionsContainer.innerHTML) {
@@ -13613,7 +13624,8 @@ async function submitLFIFichaReview(decision) {
             body: formData
         });
         if (res && res.ok) {
-            alert(`Trazado LFI ${decision === 'OK' ? 'aprobado' : 'rechazado'} con éxito.`);
+            const isApproved = decision.toUpperCase() === 'OK';
+            alert(`Trazado LFI ${isApproved ? 'aprobado' : 'rechazado'} con éxito.`);
             await loadCiudad3DTroneras();
             openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
         } else if (res) {
@@ -13647,9 +13659,51 @@ function downloadLFIPdf(seccion, manzana) {
     window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_pdf?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`, '_blank');
 }
 
+async function reopenLFIFichaManzana() {
+    const motivoEl = document.getElementById('c3d-lfi-ficha-reopen-motivo');
+    const motivo = motivoEl ? motivoEl.value.trim() : '';
+    
+    if (!confirm(`¿Está seguro de reabrir el trazado LFI de la Sec. ${activeWorkflowSeccion} Mza. ${activeWorkflowManzana} y volverlo al estado 'En curso'?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', activeWorkflowSeccion);
+    formData.append('manzana', activeWorkflowManzana);
+    if (motivo) formData.append('motivo', motivo);
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/reopen`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res && res.ok) {
+            alert('La manzana ha sido reabierta exitosamente y volvió al estado "En curso".');
+            await loadCiudad3DTroneras();
+            openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo reabrir la manzana.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
+        } else {
+            alert("Error de conexión al servidor.");
+        }
+    } catch (err) {
+        console.error("Error al reabrir manzana LFI:", err);
+        alert(`Error al reabrir manzana: ${err.message || err}`);
+    }
+}
+
 window.downloadLFIPdf = downloadLFIPdf;
 window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
 window.submitLFIFichaReview = submitLFIFichaReview;
+window.reopenLFIFichaManzana = reopenLFIFichaManzana;
 window.downloadUploadedLFITrazado = downloadUploadedLFITrazado;
 
 function openUploadModal(seccion, manzana) {
