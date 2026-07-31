@@ -121,6 +121,7 @@ class FichaInternalNoteEditRequest(BaseModel):
 class LFIAssignRequest(BaseModel):
     seccion: str
     manzana: str
+    analista: Optional[str] = None
 
 class LFINoteRequest(BaseModel):
     seccion: str

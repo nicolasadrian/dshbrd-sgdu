@@ -5640,114 +5640,119 @@
     <!-- Modal: Ficha de Trabajo de Manzana LFI -->
     <div id="c3d-lfi-ficha-modal" class="modal">
         <div class="modal-content"
-            style="max-width: 950px; width: 95%; padding: 25px; background: white; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif; gap: 20px; max-height: 90vh; overflow-y: auto; box-sizing: border-box;">
+            style="max-width: 980px; width: 95%; padding: 28px; background: #ffffff; border-radius: 20px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif; gap: 20px; max-height: 92vh; overflow-y: auto; box-sizing: border-box; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+            
+            <!-- Modal Header -->
             <div class="modal-header"
-                style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <div>
-                    <h2 id="c3d-lfi-ficha-title"
-                        style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.5rem;">
-                        Ficha de Trabajo - Manzana</h2>
-                    <p id="c3d-lfi-ficha-subtitle" style="color: #64748b; font-size: 0.9rem; margin: 4px 0 0 0;">
-                        Información general, trazados y bitácora de la manzana.</p>
+                style="background: transparent !important; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(30, 64, 175, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                        <i class="fa-solid fa-map-location-dot" style="font-size: 1.4rem;"></i>
+                    </div>
+                    <div>
+                        <h2 id="c3d-lfi-ficha-title"
+                            style="margin: 0; color: #0f172a; font-family: 'Outfit'; font-weight: 800; font-size: 1.4rem; letter-spacing: -0.02em;">
+                            Ficha de Trabajo - Manzana</h2>
+                        <p id="c3d-lfi-ficha-subtitle" style="color: #64748b; font-size: 0.88rem; margin: 2px 0 0 0; font-weight: 500;">
+                            Información general, trazados y bitácora de seguimiento.</p>
+                    </div>
                 </div>
                 <span class="close-modal" onclick="closeModal('c3d-lfi-ficha-modal')"
-                    style="cursor: pointer; font-size: 2rem; color: #64748b;">&times;</span>
+                    style="cursor: pointer; font-size: 1.5rem; color: #94a3b8; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f8fafc; transition: all 0.2s;"
+                    onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'"
+                    onmouseout="this.style.background='#f8fafc'; this.style.color='#94a3b8'">&times;</span>
             </div>
 
             <!-- Hidden Fields for state tracking -->
             <input type="hidden" id="c3d-lfi-ficha-seccion">
             <input type="hidden" id="c3d-lfi-ficha-manzana">
 
-            <div style="display: flex; gap: 25px; flex-wrap: wrap; flex-grow: 1; min-height: 0;">
+            <div style="display: flex; gap: 24px; flex-wrap: wrap; flex-grow: 1; min-height: 0;">
 
                 <!-- Columna Izquierda: Información y Acciones de Trazado -->
-                <div
-                    style="flex: 1 1 380px; min-width: 280px; display: flex; flex-direction: column; gap: 15px;">
+                <div style="flex: 1 1 420px; min-width: 300px; display: flex; flex-direction: column; gap: 16px;">
 
                     <!-- Tarjeta de Estado & Asignación -->
-                    <div
-                        style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
-                        <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Estado
-                            y Responsable</h4>
-                        <div
-                            style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                            <span id="c3d-lfi-ficha-estado-badge" class="badge"
-                                style="padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 0.85rem;">-</span>
-                            <div id="c3d-lfi-ficha-asignar-container"></div>
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-list-check" style="color: var(--primary);"></i> Estado y Asignación
+                            </h4>
+                            <span id="c3d-lfi-ficha-estado-badge" class="badge" style="padding: 5px 14px; border-radius: 20px; font-weight: 700; font-size: 0.8rem;">-</span>
                         </div>
-                        <div style="font-size: 0.9rem; color: #334155; margin-top: 4px;">
-                            <strong>Analista Asignado:</strong> <span id="c3d-lfi-ficha-analista-nombre"
-                                style="font-weight: 600;">-</span>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #f1f5f9;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem; color: #475569;">
+                                <span><i class="fa-solid fa-user-gear" style="color: #64748b; margin-right: 6px;"></i><strong>Responsable actual:</strong></span>
+                                <span id="c3d-lfi-ficha-analista-nombre" style="font-weight: 700; color: #0f172a;">-</span>
+                            </div>
+                            <div id="c3d-lfi-ficha-asignar-container" style="margin-top: 4px;"></div>
                         </div>
                     </div>
 
                     <!-- Ficha Alfanumérica: Disposición -->
-                    <div
-                        style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
-                        <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">
-                            Disposición</h4>
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-gavel" style="color: #f59e0b;"></i> Disposición de Aprobación
+                        </h4>
+                        <div style="display: flex; gap: 10px; align-items: center;">
                             <input type="text" id="c3d-lfi-ficha-disposicion-input"
                                 placeholder="Ej: DI-2026-12345-GCABA-DGIUR"
-                                style="flex-grow: 1; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.9rem; outline: none; transition: border-color 0.2s;"
-                                onfocus="this.style.borderColor='var(--primary)'"
-                                onblur="this.style.borderColor='#cbd5e1'">
+                                style="flex-grow: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.88rem; outline: none; transition: all 0.2s;"
+                                onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px rgba(30,64,175,0.1)'"
+                                onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
                             <button id="c3d-lfi-ficha-disposicion-save-btn" onclick="saveLFIFichaDisposicion()"
                                 class="btn-primary"
-                                style="padding: 10px 15px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer;">
+                                style="padding: 9px 16px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; font-size: 0.85rem;">
                                 Guardar
                             </button>
                         </div>
                     </div>
 
-                    <!-- Archivos Descargables (DXF Base, Borrador, Final) -->
-                    <div
-                        style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
-                        <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">
-                            Descarga de Archivos</h4>
-                        <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="c3d-lfi-ficha-downloads-container">
-                            <!-- Botón DXF Base -->
+                    <!-- Archivos Descargables (DXF Base, Borrador, Final, PDF) -->
+                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-folder-open" style="color: #0284c7;"></i> Archivos y Documentos
+                        </h4>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px;" id="c3d-lfi-ficha-downloads-container">
                             <button id="c3d-lfi-ficha-dxf-base-btn" class="btn-primary"
-                                style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                                style="padding: 8px 14px; font-size: 0.85rem; border-radius: 8px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
                                 <i class="fa-solid fa-download"></i> DXF Base original
                             </button>
                         </div>
                     </div>
 
-                    <!-- Panel de Flujo de Trabajo Activo (Subir trazado o Revisar) -->
+                    <!-- Panel de Flujo de Trabajo Activo (Subir trazado o Revisar o Reabrir) -->
                     <div id="c3d-lfi-ficha-actions-container"
-                        style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 10px;">
+                        style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
                         <!-- Se llena dinámicamente según el estado -->
                     </div>
 
                 </div>
 
                 <!-- Columna Derecha: Bitácora de Observaciones -->
-                <div
-                    style="flex: 1 1 380px; min-width: 280px; display: flex; flex-direction: column; gap: 15px; border-left: 1px solid #e2e8f0; padding-left: 20px; box-sizing: border-box;">
-                    <h4
-                        style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem; flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-clock-rotate-left"></i> Historial y Observaciones
+                <div style="flex: 1 1 420px; min-width: 300px; display: flex; flex-direction: column; gap: 16px; background: #fafafa; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-sizing: border-box;">
+                    <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-comments" style="color: var(--primary);"></i> Historial y Observaciones
                     </h4>
 
                     <!-- Lista de notas (scrollable) -->
                     <div id="c3d-lfi-ficha-notes-list"
-                        style="flex-grow: 1; max-height: 280px; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 5px;">
+                        style="flex-grow: 1; max-height: 320px; min-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 6px;">
                         <!-- Dinámico via JS -->
                     </div>
 
                     <!-- Nueva nota -->
-                    <div
-                        style="flex-shrink: 0; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="flex-shrink: 0; border-top: 1px solid #e2e8f0; padding-top: 14px; display: flex; flex-direction: column; gap: 10px;">
                         <textarea id="c3d-lfi-ficha-notes-textarea"
                             placeholder="Escribir un comentario o nota de avance..."
-                            style="width: 100%; height: 70px; padding: 8px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.88rem; resize: none; outline: none; transition: border-color 0.2s;"
-                            onfocus="this.style.borderColor='var(--primary)'"
-                            onblur="this.style.borderColor='#cbd5e1'"></textarea>
+                            style="width: 100%; height: 75px; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.88rem; resize: none; outline: none; transition: all 0.2s; background: white;"
+                            onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px rgba(30,64,175,0.1)'"
+                            onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'"></textarea>
                         <div style="display: flex; justify-content: flex-end;">
                             <button type="button" class="btn-primary" onclick="saveLFIFichaNote()"
-                                style="padding: 6px 15px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">
-                                Agregar Nota
+                                style="padding: 8px 18px; font-size: 0.85rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-paper-plane"></i> Agregar Nota
                             </button>
                         </div>
                     </div>

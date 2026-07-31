@@ -13308,16 +13308,54 @@ async function openLFIFicha(seccion, manzana) {
     assignContainer.innerHTML = '';
     if (row.estado === 'Pendiente' && canManageTroneras) {
         assignContainer.innerHTML = `
-            <button onclick="assignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                <i class="fa-solid fa-user-plus"></i> Asignarme
+            <button onclick="assignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 7px 16px; font-size: 0.82rem; border-radius: 8px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
+                <i class="fa-solid fa-user-plus"></i> Asignarme Manzana
             </button>
         `;
-    } else if (row.estado !== 'Pendiente' && (uRole === 'admin' || uRole === 'administrador')) {
-        assignContainer.innerHTML = `
-            <button onclick="unassignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #ef4444; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                <i class="fa-solid fa-rotate-left"></i> Liberar a Bandeja General
-            </button>
-        `;
+    } else if (row.estado !== 'Pendiente') {
+        let buttonsHtml = '';
+        if (canReviewTroneras || uRole === 'admin' || uRole === 'administrador') {
+            buttonsHtml += `
+                <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 6px 4px 10px; border-radius: 10px; width: 100%; box-sizing: border-box; justify-content: space-between;">
+                    <span style="font-size: 0.8rem; color: #475569; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        <i class="fa-solid fa-user-pen" style="color: #3b82f6;"></i> Reasignar:
+                    </span>
+                    <select id="c3d-lfi-ficha-reassign-select" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; background: #f8fafc; cursor: pointer; color: #1e293b; flex: 1; min-width: 0; margin: 0 4px;">
+                        <option value="">Cargando analistas...</option>
+                    </select>
+                    <button onclick="submitReassignFromFicha('${seccion}', '${manzana}')" class="btn-primary" style="padding: 5px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #3b82f6; color: white; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                        Aplicar
+                    </button>
+                </div>
+            `;
+            // Cargar dinámicamente la lista de analistas aptos para trazados en el <select>
+            setTimeout(async () => {
+                const selectEl = document.getElementById('c3d-lfi-ficha-reassign-select');
+                if (!selectEl) return;
+                try {
+                    const res = await def_fetch(`${API_BASE}/ciudad3d/analistas_trazados`);
+                    if (res && res.ok) {
+                        const analistas = await res.json();
+                        selectEl.innerHTML = '<option value="">-- Seleccionar Analista --</option>' +
+                            analistas.map(u => `<option value="${u.username}" ${u.username === row.analista_asignado ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('');
+                    } else {
+                        selectEl.innerHTML = '<option value="">Error cargando lista</option>';
+                    }
+                } catch (e) {
+                    selectEl.innerHTML = '<option value="">Error de conexión</option>';
+                }
+            }, 50);
+        }
+        if (uRole === 'admin' || uRole === 'administrador') {
+            buttonsHtml += `
+                <div style="margin-top: 6px; display: flex; justify-content: flex-end;">
+                    <button onclick="unassignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 5px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: #ef4444; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; opacity: 0.9;">
+                        <i class="fa-solid fa-rotate-left"></i> Liberar a Bandeja General
+                    </button>
+                </div>
+            `;
+        }
+        assignContainer.innerHTML = buttonsHtml;
     }
     
     const downloadsContainer = document.getElementById('c3d-lfi-ficha-downloads-container');
@@ -13357,39 +13395,49 @@ async function openLFIFicha(seccion, manzana) {
     
     if (row.estado === 'En curso' && canManageTroneras && isAssignee) {
         actionsContainer.innerHTML = `
-            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Subir Borrador de Trazado</h4>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <input type="file" id="c3d-lfi-ficha-upload-file" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.88rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: white; width: 100%;">
-                <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 8px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: #f59e0b; color: white;">
+            <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cloud-arrow-up" style="color: #f59e0b;"></i> Subir Borrador de Trazado
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <input type="file" id="c3d-lfi-ficha-upload-file" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #f8fafc; width: 100%; box-sizing: border-box;">
+                <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #f59e0b; color: white; font-size: 0.88rem;">
                     <i class="fa-solid fa-upload"></i> Subir Trazado Preliminar (.dxf / .dwg)
                 </button>
             </div>
         `;
     } else if (row.estado === 'Para revisión' && canReviewTroneras) {
         actionsContainer.innerHTML = `
-            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Revisión de Trazado LFI (Visor)</h4>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
+            <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-check" style="color: var(--primary);"></i> Revisión de Trazado LFI
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Trazado Finalizado (.dxf / .dwg, Solo si aprueba):</label>
-                    <input type="file" id="c3d-lfi-ficha-review-file-final" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: white;">
+                    <input type="file" id="c3d-lfi-ficha-review-file-final" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; background: #f8fafc; width: 100%; box-sizing: border-box;">
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Comentarios / Motivo de Rechazo:</label>
-                    <textarea id="c3d-lfi-ficha-review-comentario" placeholder="Escriba los comentarios u observaciones de la revisión..." style="width: 100%; height: 50px; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.82rem; resize: none;"></textarea>
+                    <textarea id="c3d-lfi-ficha-review-comentario" placeholder="Escriba los comentarios u observaciones de la revisión..." style="width: 100%; height: 55px; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.85rem; resize: none; box-sizing: border-box;"></textarea>
                 </div>
-                <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <button onclick="submitLFIFichaReview('REJECT')" class="btn-primary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">Rechazar</button>
-                    <button onclick="submitLFIFichaReview('OK')" class="btn-primary" style="background: #22c55e; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">Aprobar</button>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="submitLFIFichaReview('REJECT')" class="btn-primary" style="background: #ef4444; color: white; padding: 8px 16px; font-size: 0.85rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-xmark"></i> Rechazar
+                    </button>
+                    <button onclick="submitLFIFichaReview('OK')" class="btn-primary" style="background: #16a34a; color: white; padding: 8px 16px; font-size: 0.85rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-check"></i> Aprobar
+                    </button>
                 </div>
             </div>
         `;
     } else if ((row.estado === 'Subir a Ciudad 3D' || row.estado === 'Para revisión') && (canReviewTroneras || uRole === 'admin' || uRole === 'administrador')) {
         actionsContainer.innerHTML = `
-            <h4 style="margin: 0; color: #b45309; font-weight: 700; font-size: 0.95rem;">Reabrir Manzana / Volver a Trabajo</h4>
-            <p style="margin: 0; font-size: 0.82rem; color: #64748b;">Esta manzana fue finalizada o aprobada previamente. Si requiere modificaciones, puede volver a mandarla a revisión ("En curso").</p>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                <textarea id="c3d-lfi-ficha-reopen-motivo" placeholder="Motivo de la reapertura (opcional)..." style="width: 100%; height: 45px; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.82rem; resize: none;"></textarea>
-                <button onclick="reopenLFIFichaManzana()" class="btn-primary" style="padding: 8px 12px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: #ea580c; color: white; width: 100%;">
+            <h4 style="margin: 0; color: #b45309; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-rotate-left" style="color: #ea580c;"></i> Reabrir Manzana / Volver a Trabajo
+            </h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748b; font-weight: 500;">Esta manzana fue finalizada previamente. Si requiere modificaciones, puede volver a ponerla en curso con el mismo o distinto analista.</p>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <textarea id="c3d-lfi-ficha-reopen-motivo" placeholder="Motivo de la reapertura (opcional)..." style="width: 100%; height: 48px; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.85rem; resize: none; box-sizing: border-box;"></textarea>
+                <button onclick="reopenLFIFichaManzana()" class="btn-primary" style="padding: 9px 14px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #ea580c; color: white; width: 100%; font-size: 0.85rem;">
                     <i class="fa-solid fa-rotate-left"></i> Reabrir Manzana (Volver a "En curso")
                 </button>
             </div>
@@ -13775,16 +13823,24 @@ function downloadUploadedTrazado(seccion, manzana) {
 }
 window.downloadUploadedTrazado = downloadUploadedTrazado;
 
-async function assignManzanaLFI(seccion, manzana) {
-    if (!confirm(`¿Desea autoasignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
+async function assignManzanaLFI(seccion, manzana, targetAnalyst = null) {
+    const isReassign = targetAnalyst !== null;
+    const msg = isReassign 
+        ? `¿Desea reasignar la manzana LFI ${seccion} - ${manzana} al analista '${targetAnalyst}'?` 
+        : `¿Desea autoasignarse la manzana LFI ${seccion} - ${manzana}?`;
+        
+    if (!confirm(msg)) return;
     try {
+        const payload = { seccion, manzana };
+        if (targetAnalyst) payload.analista = targetAnalyst;
+        
         const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seccion, manzana })
+            body: JSON.stringify(payload)
         });
         if (res && res.ok) {
-            alert(`Manzana ${seccion} - ${manzana} asignada correctamente.`);
+            alert(`Manzana ${seccion} - ${manzana} ${isReassign ? 'reasignada' : 'asignada'} correctamente.`);
             await loadCiudad3DTroneras();
             if (typeof activeWorkflowSeccion !== 'undefined' && activeWorkflowSeccion === seccion && activeWorkflowManzana === manzana) {
                 openLFIFicha(seccion, manzana);
@@ -13799,29 +13855,18 @@ async function assignManzanaLFI(seccion, manzana) {
     }
 }
 
-async function assignSeccionCompletaLFI(seccion) {
-    if (!confirm(`¿Está seguro de que desea autoasignarse TODAS las manzanas pendientes de la Sección ${seccion}?`)) return;
-    try {
-        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign_seccion`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seccion })
-        });
-        if (res && res.ok) {
-            const data = await res.json();
-            alert(`Sección ${seccion} asignada con éxito: ${data.assigned_count} manzana(s) asignada(s) a tu usuario.`);
-            await loadCiudad3DTroneras();
-        } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo asignar la sección completa.'}`);
-        }
-    } catch (err) {
-        console.error("Error al autoasignar sección completa LFI:", err);
-        alert("Error de conexión con el servidor.");
+async function submitReassignFromFicha(seccion, manzana) {
+    const selectEl = document.getElementById('c3d-lfi-ficha-reassign-select');
+    if (!selectEl || !selectEl.value) {
+        alert("Debe seleccionar un analista de la lista para realizar la reasignación.");
+        return;
     }
+    const targetUser = selectEl.value;
+    await assignManzanaLFI(seccion, manzana, targetUser);
 }
 
 window.assignManzanaLFI = assignManzanaLFI;
+window.submitReassignFromFicha = submitReassignFromFicha;
 window.assignSeccionCompletaLFI = assignSeccionCompletaLFI;
 window.openLFIFicha = openLFIFicha;
 window.loadLFIFichaNotes = loadLFIFichaNotes;
