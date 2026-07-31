@@ -2411,8 +2411,9 @@ def list_analistas_trazados(current_user: User = Depends(get_current_user)):
 @router.post("/api/ciudad3d/manzanas_lfi/assign")
 def assign_manzana_lfi(req: LFIAssignRequest, current_user: User = Depends(get_current_user)):
     try:
-        target_analyst = (req.analista or "").strip() if req.analista else current_user.username
-        is_reassign = req.analista is not None and req.analista.strip() != current_user.username
+        analista_val = getattr(req, 'analista', None)
+        target_analyst = (analista_val or "").strip() if analista_val else current_user.username
+        is_reassign = analista_val is not None and analista_val.strip() != current_user.username
         
         user_role = (current_user.role or "").lower()
         can_review = bool(current_user.permissions.get("lfi_revisar")) or user_role in ['admin', 'administrador']
