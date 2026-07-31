@@ -13977,9 +13977,11 @@ async function assignManzanaLFI(seccion, manzana, targetAnalyst = null) {
             if (typeof activeWorkflowSeccion !== 'undefined' && activeWorkflowSeccion === seccion && activeWorkflowManzana === manzana) {
                 openLFIFicha(seccion, manzana);
             }
-        } else {
-            const errData = await res.json();
+        } else if (res) {
+            const errData = await res.json().catch(() => ({}));
             alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
+        } else {
+            alert("Error de conexión o permisos con el servidor.");
         }
     } catch (err) {
         console.error("Error al asignar manzana LFI:", err);
@@ -13995,6 +13997,30 @@ async function submitReassignFromFicha(seccion, manzana) {
     }
     const targetUser = selectEl.value;
     await assignManzanaLFI(seccion, manzana, targetUser);
+}
+
+async function assignSeccionCompletaLFI(seccion) {
+    if (!confirm(`¿Está seguro de que desea autoasignarse TODAS las manzanas pendientes de la Sección ${seccion}?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign_seccion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion })
+        });
+        if (res && res.ok) {
+            const data = await res.json();
+            alert(`Sección ${seccion} asignada con éxito: ${data.assigned_count} manzana(s) asignada(s) a tu usuario.`);
+            await loadCiudad3DTroneras();
+        } else if (res) {
+            const errData = await res.json().catch(() => ({}));
+            alert(`Error: ${errData.detail || 'No se pudo asignar la sección completa.'}`);
+        } else {
+            alert("Error de conexión o permisos con el servidor.");
+        }
+    } catch (err) {
+        console.error("Error al autoasignar sección completa LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
 }
 
 window.assignManzanaLFI = assignManzanaLFI;
