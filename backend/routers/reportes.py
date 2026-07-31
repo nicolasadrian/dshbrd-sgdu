@@ -2157,20 +2157,6 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                         FROM {view_stock}
                         WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
                     ) s
-                    
-                    UNION ALL
-                    
-                    SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, dias, analista, analista_nombre, trata,
-                           caratula, descripcion_trata, descripcion, estado_expediente, dias_en_gerencia, 1 AS is_subs
-                    FROM (
-                        SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
-                               fecha_recepcion_analista as fecha_ultimo_pase, 
-                               dias_en_poder_actual as dias, analista, NULL as analista_nombre, trata,
-                               NULL as caratula, NULL as descripcion_trata, NULL as descripcion, NULL as estado_expediente,
-                               (CURRENT_DATE - fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
-                        FROM {view_subs}
-                        WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
-                    ) sb
                 """
                 result = conn.execute(text(sql))
                 rows = []
