@@ -12397,10 +12397,9 @@ function calculateLFIStats() {
     if (total > 0) {
         const calcPctStr = (val) => {
             if (val === 0) return '(0%)';
+            if (val === total) return '(100%)';
             const pct = (val / total) * 100;
-            if (pct >= 99.9 && pct < 100) return `(${pct.toFixed(2)}%)`;
-            if (pct < 1) return `(${pct.toFixed(2)}%)`;
-            return `(${Math.round(pct)}%)`;
+            return `(${pct.toFixed(2)}%)`;
         };
         if (elPctPendientes) elPctPendientes.innerText = calcPctStr(pendientes);
         if (elPctEnCurso) elPctEnCurso.innerText = calcPctStr(enCurso);
