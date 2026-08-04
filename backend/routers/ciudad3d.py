@@ -2192,6 +2192,322 @@ async def get_analytics_ley_blanqueo_excel(current_user: User = Depends(get_curr
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/analytics/pdl-blanqueo")
+async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_user)):
+    try:
+        # 1. Query geo-mdr database for parcelas statistics (public.cur_parcelas_ok)
+        with geo_engine.connect() as geo_conn:
+            # Check existing columns in geo-mdr public.cur_parcelas_ok or public.parcelas
+            has_cur = geo_conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name = 'cur_parcelas_ok'
+                );
+            """)).scalar()
+
+            tbl_parcelas = "public.cur_parcelas_ok" if has_cur else "public.parcelas"
+
+            cols_res = geo_conn.execute(text(f"""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_schema = 'public' AND table_name = '{tbl_parcelas.replace('public.', '')}';
+            """)).fetchall()
+            existing_cols = {r[0].lower() for r in cols_res}
+
+            col_sup = "superficie" if "superficie" in existing_cols else ("sup_total" if "sup_total" in existing_cols else ("sup_parcela" if "sup_parcela" in existing_cols else ("ST_Area(geom)" if "geom" in existing_cols else "NULL")))
+            col_barrio = "barrio" if "barrio" in existing_cols else "NULL"
+            col_comuna = "comuna" if "comuna" in existing_cols else "NULL"
+            col_ue = "uni_edif_1" if "uni_edif_1" in existing_cols else ("unidad_edificabilidad" if "unidad_edificabilidad" in existing_cols else ("edificabilidad" if "edificabilidad" in existing_cols else ("distrito" if "distrito" in existing_cols else ("usos_cur" if "usos_cur" in existing_cols else "uso_cur"))))
+            col_area = "dist_1_grp" if "dist_1_grp" in existing_cols else ("area_especial" if "area_especial" in existing_cols else ("area_especial_distrito" if "area_especial_distrito" in existing_cols else ("aph" if "aph" in existing_cols else "NULL")))
+
+            # Rangos de Superficie
+            sup_expr = f"CAST({col_sup} AS NUMERIC)" if col_sup not in ["NULL", "ST_Area(geom)"] else (col_sup if col_sup != "NULL" else "0")
+            result_superficie = geo_conn.execute(text(f"""
+                SELECT 
+                    CASE 
+                        WHEN {sup_expr} <= 0 OR {sup_expr} IS NULL THEN 'S/D'
+                        WHEN {sup_expr} < 100 THEN '< 100 m²'
+                        WHEN {sup_expr} BETWEEN 100 AND 250 THEN '100 - 250 m²'
+                        WHEN {sup_expr} BETWEEN 251 AND 500 THEN '251 - 500 m²'
+                        WHEN {sup_expr} BETWEEN 501 AND 1000 THEN '501 - 1000 m²'
+                        ELSE '> 1000 m²'
+                    END as rango,
+                    COUNT(*) as cant,
+                    COALESCE(SUM({sup_expr}), 0) as total_sup
+                FROM {tbl_parcelas}
+                GROUP BY 1
+                ORDER BY cant DESC;
+            """))
+            superficie_dist = [dict(r._mapping) for r in result_superficie]
+
+            # Segmentación por Barrio
+            barrio_expr = f"COALESCE(NULLIF(CAST({col_barrio} AS TEXT), ''), 'S/D')" if col_barrio != "NULL" else "'S/D'"
+            result_barrio = geo_conn.execute(text(f"""
+                SELECT 
+                    {barrio_expr} as barrio,
+                    COUNT(*) as cant,
+                    COALESCE(SUM({sup_expr}), 0) as total_sup
+                FROM {tbl_parcelas}
+                GROUP BY 1
+                ORDER BY cant DESC;
+            """))
+            barrio_dist = [dict(r._mapping) for r in result_barrio]
+
+            # Segmentación por Comuna
+            comuna_expr = f"COALESCE(NULLIF(CAST({col_comuna} AS TEXT), ''), 'S/D')" if col_comuna != "NULL" else "'S/D'"
+            result_comuna = geo_conn.execute(text(f"""
+                SELECT 
+                    {comuna_expr} as comuna,
+                    COUNT(*) as cant,
+                    COALESCE(SUM({sup_expr}), 0) as total_sup
+                FROM {tbl_parcelas}
+                GROUP BY 1
+                ORDER BY cant DESC;
+            """))
+            comuna_dist = [dict(r._mapping) for r in result_comuna]
+
+            # Segmentación por Unidades de Edificabilidad
+            ue_field_str = f"CAST({col_ue} AS TEXT)"
+            result_ue = geo_conn.execute(text(f"""
+                SELECT 
+                    {ue_field_str} as edificabilidad,
+                    COUNT(*) as cant,
+                    COALESCE(SUM({sup_expr}), 0) as total_sup
+                FROM {tbl_parcelas}
+                WHERE {col_ue} IS NOT NULL 
+                  AND {ue_field_str} <> '' 
+                  AND {ue_field_str} <> '0' 
+                  AND TRIM({ue_field_str}) <> '0'
+                GROUP BY 1
+                ORDER BY cant DESC
+                LIMIT 20;
+            """))
+            ue_dist = [dict(r._mapping) for r in result_ue]
+
+            # Segmentación por Áreas Especiales
+            area_field_str = f"CAST({col_area} AS TEXT)"
+            result_area = geo_conn.execute(text(f"""
+                SELECT 
+                    {area_field_str} as area_especial,
+                    COUNT(*) as cant,
+                    COALESCE(SUM({sup_expr}), 0) as total_sup
+                FROM {tbl_parcelas}
+                WHERE {col_area} IS NOT NULL 
+                  AND {area_field_str} <> '' 
+                  AND UPPER(TRIM({area_field_str})) <> 'SIN ÁREA ESPECIAL'
+                  AND UPPER(TRIM({area_field_str})) <> 'SIN AREA ESPECIAL'
+                  AND {area_field_str} <> '0'
+                GROUP BY 1
+                ORDER BY cant DESC
+                LIMIT 20;
+            """))
+            area_dist = [dict(r._mapping) for r in result_area]
+
+            # Median surface calculation (Mediana de Superficie)
+            mediana_res = geo_conn.execute(text(f"""
+                SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {sup_expr}) as mediana
+                FROM {tbl_parcelas}
+                WHERE {sup_expr} > 0 AND {sup_expr} IS NOT NULL;
+            """)).scalar()
+            mediana_sup = float(mediana_res) if mediana_res is not None else 0.0
+
+        # 2 & 3. Query sade_db for Ley de Blanqueo contravenciones (parcelas_leydeblanqueo)
+        with engine.connect() as conn:
+            # 2. Antireglamentario CE (parcelas_leydeblanqueo.sup_contra_no_reg_ce)
+            result_ce_summary = conn.execute(text("""
+                SELECT 
+                    COUNT(*) FILTER (WHERE COALESCE(sup_contra_no_reg_ce, 0) > 0) as cant_parcelas_ce,
+                    COALESCE(SUM(sup_contra_no_reg_ce), 0) as total_sup_ce,
+                    COALESCE(AVG(sup_contra_no_reg_ce) FILTER (WHERE COALESCE(sup_contra_no_reg_ce, 0) > 0), 0) as avg_sup_ce
+                FROM public.parcelas_leydeblanqueo;
+            """)).fetchone()
+            ce_summary = dict(result_ce_summary._mapping) if result_ce_summary else {"cant_parcelas_ce": 0, "total_sup_ce": 0, "avg_sup_ce": 0}
+
+            result_ce_barrio = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(barrio, ''), 'S/D') as barrio,
+                    COUNT(*) FILTER (WHERE COALESCE(sup_contra_no_reg_ce, 0) > 0) as cant,
+                    COALESCE(SUM(sup_contra_no_reg_ce), 0) as total_sup
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY barrio
+                HAVING COALESCE(SUM(sup_contra_no_reg_ce), 0) > 0
+                ORDER BY total_sup DESC;
+            """))
+            ce_barrio = [dict(r._mapping) for r in result_ce_barrio]
+
+            result_ce_comuna = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(comuna, ''), 'S/D') as comuna,
+                    COUNT(*) FILTER (WHERE COALESCE(sup_contra_no_reg_ce, 0) > 0) as cant,
+                    COALESCE(SUM(sup_contra_no_reg_ce), 0) as total_sup
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY comuna
+                HAVING COALESCE(SUM(sup_contra_no_reg_ce), 0) > 0
+                ORDER BY total_sup DESC;
+            """))
+            ce_comuna = [dict(r._mapping) for r in result_ce_comuna]
+
+            # 3. Antireglamentario CUR (parcelas_leydeblanqueo.sup_contra_no_reg_cur)
+            result_cur_summary = conn.execute(text("""
+                SELECT 
+                    COUNT(*) FILTER (WHERE COALESCE(sup_contra_no_reg_cur, 0) > 0) as cant_parcelas_cur,
+                    COALESCE(SUM(sup_contra_no_reg_cur), 0) as total_sup_cur,
+                    COALESCE(AVG(sup_contra_no_reg_cur) FILTER (WHERE COALESCE(sup_contra_no_reg_cur, 0) > 0), 0) as avg_sup_cur
+                FROM public.parcelas_leydeblanqueo;
+            """)).fetchone()
+            cur_summary = dict(result_cur_summary._mapping) if result_cur_summary else {"cant_parcelas_cur": 0, "total_sup_cur": 0, "avg_sup_cur": 0}
+
+            result_cur_barrio = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(barrio, ''), 'S/D') as barrio,
+                    COUNT(*) FILTER (WHERE COALESCE(sup_contra_no_reg_cur, 0) > 0) as cant,
+                    COALESCE(SUM(sup_contra_no_reg_cur), 0) as total_sup
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY barrio
+                HAVING COALESCE(SUM(sup_contra_no_reg_cur), 0) > 0
+                ORDER BY total_sup DESC;
+            """))
+            cur_barrio = [dict(r._mapping) for r in result_cur_barrio]
+
+            result_cur_comuna = conn.execute(text("""
+                SELECT 
+                    COALESCE(NULLIF(comuna, ''), 'S/D') as comuna,
+                    COUNT(*) FILTER (WHERE COALESCE(sup_contra_no_reg_cur, 0) > 0) as cant,
+                    COALESCE(SUM(sup_contra_no_reg_cur), 0) as total_sup
+                FROM public.parcelas_leydeblanqueo
+                GROUP BY comuna
+                HAVING COALESCE(SUM(sup_contra_no_reg_cur), 0) > 0
+                ORDER BY total_sup DESC;
+            """))
+            cur_comuna = [dict(r._mapping) for r in result_cur_comuna]
+
+            # 2b. Antireglamentario CE por Escala de Superficie de Parcela (sup_terreno)
+            result_ce_escala = conn.execute(text("""
+                WITH categorizadas AS (
+                    SELECT 
+                        sup_contra_no_reg_ce as m2_reg,
+                        CASE 
+                            WHEN COALESCE(sup_terreno, 0) < 150 THEN '< 150 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 150 AND 250 THEN '150 - 250 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 250.0001 AND 400 THEN '250 - 400 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 400.0001 AND 500 THEN '400 - 500 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 500.0001 AND 700 THEN '500 - 700 m²'
+                            ELSE '> 700 m²'
+                        END as escala,
+                        CASE 
+                            WHEN COALESCE(sup_terreno, 0) < 150 THEN 1
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 150 AND 250 THEN 2
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 250.0001 AND 400 THEN 3
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 400.0001 AND 500 THEN 4
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 500.0001 AND 700 THEN 5
+                            ELSE 6
+                        END as orden
+                    FROM public.parcelas_leydeblanqueo
+                    WHERE COALESCE(sup_contra_no_reg_ce, 0) > 0
+                )
+                SELECT 
+                    escala,
+                    orden,
+                    COUNT(*) as cant,
+                    COALESCE(AVG(m2_reg), 0) as promedio,
+                    COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY m2_reg), 0) as mediana
+                FROM categorizadas
+                GROUP BY escala, orden
+                ORDER BY orden ASC;
+            """))
+            ce_escala = [dict(r._mapping) for r in result_ce_escala]
+
+            # 3b. Antireglamentario CUR por Escala de Superficie de Parcela (sup_terreno)
+            result_cur_escala = conn.execute(text("""
+                WITH categorizadas AS (
+                    SELECT 
+                        sup_contra_no_reg_cur as m2_reg,
+                        CASE 
+                            WHEN COALESCE(sup_terreno, 0) < 150 THEN '< 150 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 150 AND 250 THEN '150 - 250 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 250.0001 AND 400 THEN '250 - 400 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 400.0001 AND 500 THEN '400 - 500 m²'
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 500.0001 AND 700 THEN '500 - 700 m²'
+                            ELSE '> 700 m²'
+                        END as escala,
+                        CASE 
+                            WHEN COALESCE(sup_terreno, 0) < 150 THEN 1
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 150 AND 250 THEN 2
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 250.0001 AND 400 THEN 3
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 400.0001 AND 500 THEN 4
+                            WHEN COALESCE(sup_terreno, 0) BETWEEN 500.0001 AND 700 THEN 5
+                            ELSE 6
+                        END as orden
+                    FROM public.parcelas_leydeblanqueo
+                    WHERE COALESCE(sup_contra_no_reg_cur, 0) > 0
+                )
+                SELECT 
+                    escala,
+                    orden,
+                    COUNT(*) as cant,
+                    COALESCE(AVG(m2_reg), 0) as promedio,
+                    COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY m2_reg), 0) as mediana
+                FROM categorizadas
+                GROUP BY escala, orden
+                ORDER BY orden ASC;
+            """))
+            cur_escala = [dict(r._mapping) for r in result_cur_escala]
+
+            # 4. Registros individuales para el Simulador de Coeficientes
+            result_ce_records = conn.execute(text("""
+                SELECT 
+                    COALESCE(seccion, 'S/D') as seccion,
+                    COALESCE(manzana, 'S/D') as manzana,
+                    COALESCE(parcela, 'S/D') as parcela,
+                    COALESCE(barrio, 'S/D') as barrio,
+                    COALESCE(comuna, 'S/D') as comuna,
+                    COALESCE(ley_6478, 'S/D') as ley_6478,
+                    COALESCE(sup_terreno, 0) as sup_terreno,
+                    COALESCE(sup_contra_no_reg_ce, 0) as sup_contra_no_reg_ce
+                FROM public.parcelas_leydeblanqueo
+                WHERE COALESCE(sup_contra_no_reg_ce, 0) > 0
+                ORDER BY sup_terreno DESC;
+            """))
+            ce_records = [dict(r._mapping) for r in result_ce_records]
+
+            result_cur_records = conn.execute(text("""
+                SELECT 
+                    COALESCE(seccion, 'S/D') as seccion,
+                    COALESCE(manzana, 'S/D') as manzana,
+                    COALESCE(parcela, 'S/D') as parcela,
+                    COALESCE(barrio, 'S/D') as barrio,
+                    COALESCE(comuna, 'S/D') as comuna,
+                    COALESCE(ley_6478, 'S/D') as ley_6478,
+                    COALESCE(sup_terreno, 0) as sup_terreno,
+                    COALESCE(sup_contra_no_reg_cur, 0) as sup_contra_no_reg_cur
+                FROM public.parcelas_leydeblanqueo
+                WHERE COALESCE(sup_contra_no_reg_cur, 0) > 0
+                ORDER BY sup_terreno DESC;
+            """))
+            cur_records = [dict(r._mapping) for r in result_cur_records]
+
+            return {
+                "superficie_dist": superficie_dist,
+                "mediana_sup": mediana_sup,
+                "barrio_dist": barrio_dist,
+                "comuna_dist": comuna_dist,
+                "ue_dist": ue_dist,
+                "area_dist": area_dist,
+                "ce_summary": ce_summary,
+                "ce_barrio": ce_barrio,
+                "ce_comuna": ce_comuna,
+                "ce_escala": ce_escala,
+                "ce_records": ce_records,
+                "cur_summary": cur_summary,
+                "cur_barrio": cur_barrio,
+                "cur_comuna": cur_comuna,
+                "cur_escala": cur_escala,
+                "cur_records": cur_records
+            }
+    except Exception as e:
+        logger.error(f"Error fetching pdl-blanqueo analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Endpoints de Productividad Analistas ---
 
 @router.get("/api/productividad/sectores-analistas")

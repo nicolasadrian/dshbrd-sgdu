@@ -3810,6 +3810,25 @@
                                     Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
                                 </div>
                             </div>
+
+                            <!-- Tarjeta PDL Blanqueo Análisis -->
+                            <div class="meta-card hover-card" id="card-goto-pdl-blanqueo"
+                                onclick="switchAnalyticsTab('pdl_blanqueo')"
+                                style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid #10b981; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div
+                                        style="background: rgba(16, 185, 129, 0.1); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #10b981;">
+                                        <i class="fa-solid fa-chart-pie" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b;">PDL Blanqueo Análisis</h3>
+                                </div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.45;">
+                                    Análisis de parcelas por superficie, barrios, comunas, edificabilidad y contravenciones CE/CUR.</p>
+                                <div
+                                    style="margin-top: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; color: #10b981; font-size: 0.85rem;">
+                                    Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -3954,6 +3973,263 @@
                                     <canvas id="blanqueoTimelineChart"></canvas>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard: PDL Blanqueo Análisis -->
+                    <div id="analytics-panel-pdl_blanqueo" class="analytics-panel" style="display: none;">
+                        <div style="margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <button onclick="switchAnalyticsTab('landing')" class="btn-primary"
+                                    style="padding: 8px 16px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #64748b; color: #ffffff !important; transition: background 0.2s;">
+                                    <i class="fa-solid fa-arrow-left"></i> Volver
+                                </button>
+                                <div>
+                                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">
+                                        PDL Blanqueo Análisis</h1>
+                                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">
+                                        Análisis detallado de parcelas, edificabilidad, áreas especiales y contravenciones CE/CUR.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-tabs Navigation -->
+                        <div style="display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem; width: 100%;">
+                            <button id="btn-pdl-subtab-parcelas" onclick="switchPdlSubtab('parcelas')"
+                                style="padding: 10px 20px; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid var(--primary); color: var(--primary);">
+                                <i class="fa-solid fa-map"></i> Parcelas
+                            </button>
+                            <button id="btn-pdl-subtab-ce" onclick="switchPdlSubtab('ce')"
+                                style="padding: 10px 20px; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #64748b;">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Antireglamentario CE
+                            </button>
+                            <button id="btn-pdl-subtab-cur" onclick="switchPdlSubtab('cur')"
+                                style="padding: 10px 20px; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #64748b;">
+                                <i class="fa-solid fa-building-circle-exclamation"></i> Antireglamentario CUR
+                            </button>
+                            <button id="btn-pdl-subtab-simulador" onclick="switchPdlSubtab('simulador')"
+                                style="padding: 10px 20px; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #64748b;">
+                                <i class="fa-solid fa-sliders"></i> Simulador Coeficientes
+                            </button>
+                        </div>
+
+                        <!-- Contenido Subtab: Parcelas -->
+                        <div id="pdl-subtab-parcelas" class="pdl-subtab-content" style="display: flex; flex-direction: column; gap: 2rem;">
+                            <!-- KPIs Parcelas -->
+                            <div id="pdl-parcelas-kpis" class="summary-cards-container"
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                            </div>
+
+                            <!-- Gráficos Parcelas -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
+                                <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Distribución por Superficie de Parcela</h3>
+                                    <div style="height: 350px; position: relative;"><canvas id="pdlSuperficieChart"></canvas></div>
+                                </div>
+                                <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Cantidad de Parcelas por Comuna</h3>
+                                    <div style="height: 350px; position: relative;"><canvas id="pdlComunaChart"></canvas></div>
+                                </div>
+                            </div>
+
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Cantidad de Parcelas por Barrio</h3>
+                                <div style="height: 500px; position: relative;"><canvas id="pdlBarrioChart"></canvas></div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem;">
+                                <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Unidades de Edificabilidad</h3>
+                                    <div style="height: 400px; position: relative;"><canvas id="pdlUeChart"></canvas></div>
+                                </div>
+                                <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                    <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Áreas Especiales / Distritos</h3>
+                                    <div style="height: 400px; position: relative;"><canvas id="pdlAreaChart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contenido Subtab: Antireglamentario CE -->
+                        <div id="pdl-subtab-ce" class="pdl-subtab-content" style="display: none; flex-direction: column; gap: 2rem;">
+                            <!-- KPIs CE -->
+                            <div id="pdl-ce-kpis" class="summary-cards-container"
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+                            </div>
+
+                            <!-- Gráficos CE -->
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">m² Regularizados (Promedio vs. Mediana) según Tamaño de Parcela - CE</h3>
+                                <div style="height: 400px; position: relative;"><canvas id="pdlCeEscalaChart"></canvas></div>
+                            </div>
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Superficie Antireglamentaria CE por Barrio (m²)</h3>
+                                <div style="height: 550px; position: relative;"><canvas id="pdlCeBarrioChart"></canvas></div>
+                            </div>
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Superficie Antireglamentaria CE por Comuna (m²)</h3>
+                                <div style="height: 350px; position: relative;"><canvas id="pdlCeComunaChart"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Contenido Subtab: Antireglamentario CUR -->
+                        <div id="pdl-subtab-cur" class="pdl-subtab-content" style="display: none; flex-direction: column; gap: 2rem;">
+                            <!-- KPIs CUR -->
+                            <div id="pdl-cur-kpis" class="summary-cards-container"
+                                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
+                            </div>
+
+                            <!-- Gráficos CUR -->
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">m² Regularizados (Promedio vs. Mediana) según Tamaño de Parcela - CUR</h3>
+                                <div style="height: 400px; position: relative;"><canvas id="pdlCurEscalaChart"></canvas></div>
+                            </div>
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Superficie Antireglamentaria CUR por Barrio (m²)</h3>
+                                <div style="height: 550px; position: relative;"><canvas id="pdlCurBarrioChart"></canvas></div>
+                            </div>
+                            <div class="chart-container-full" style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 15px;">
+                                <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700;">Superficie Antireglamentaria CUR por Comuna (m²)</h3>
+                                <div style="height: 350px; position: relative;"><canvas id="pdlCurComunaChart"></canvas></div>
+                            </div>
+                        </div>
+
+                        <!-- Contenido Subtab: Simulador Coeficientes -->
+                        <div id="pdl-subtab-simulador" class="pdl-subtab-content" style="display: none; flex-direction: column; gap: 2.5rem;">
+                            
+                            <!-- Sección 1: Coeficientes CE -->
+                            <div style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px;">
+                                    <div>
+                                        <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                                            <i class="fa-solid fa-sliders" style="color: #ef4444; margin-right: 8px;"></i> Seccion 1: Coeficientes CE
+                                        </h3>
+                                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Ingrese los coeficientes propuestos por tamaño de parcela para simular regularización en vivo.</p>
+                                    </div>
+                                    <div id="ce-sim-totals" style="display: flex; gap: 15px; font-family: 'Outfit'; font-weight: 700;">
+                                        <span style="background: #f1f5f9; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; color: #334155;">Total Reg. Coef.: <strong id="ce-total-coef-val" style="color: #ef4444;">0 m²</strong></span>
+                                        <span style="background: #f1f5f9; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; color: #334155;">Total Remanente: <strong id="ce-total-rem-val" style="color: #f59e0b;">0 m²</strong></span>
+                                    </div>
+                                </div>
+
+                                <!-- Inputs de Coeficientes CE por Escala -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">&lt; 150 m²</label>
+                                        <input type="number" step="0.01" id="coef-ce-1" value="0.65" oninput="updateCeSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">150 - 250 m²</label>
+                                        <input type="number" step="0.01" id="coef-ce-2" value="0.60" oninput="updateCeSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">250 - 400 m²</label>
+                                        <input type="number" step="0.01" id="coef-ce-3" value="0.55" oninput="updateCeSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">400 - 500 m²</label>
+                                        <input type="number" step="0.01" id="coef-ce-4" value="0.50" oninput="updateCeSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">500 - 700 m²</label>
+                                        <input type="number" step="0.01" id="coef-ce-5" value="0.45" oninput="updateCeSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">&gt; 700 m²</label>
+                                        <input type="number" step="0.01" id="coef-ce-6" value="0.40" oninput="updateCeSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                </div>
+
+                                <!-- Tabla Simulador CE -->
+                                <div style="overflow-x: auto; max-height: 400px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                                        <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;">
+                                            <tr>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Sección</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Manzana</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Parcela</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Barrio</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Comuna</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Ley 6478</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Sup Terreno (m²)</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Sup Contra No Reg CE</th>
+                                                <th style="padding: 10px 12px; color: #2563eb; font-weight: 700; background: #eff6ff;">M2 a regularizar según coef.</th>
+                                                <th style="padding: 10px 12px; color: #d97706; font-weight: 700; background: #fffbeb;">M2 remanente a regularizar</th>
+                                                <th style="padding: 10px 12px; color: #059669; font-weight: 700; background: #ecfdf5;">% M2 remanente</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sim-ce-table-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Sección 2: Coeficientes CUR -->
+                            <div style="background: white; padding: 25px; border-radius: 16px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 20px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 15px;">
+                                    <div>
+                                        <h3 style="color: #1e293b; margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                                            <i class="fa-solid fa-sliders" style="color: #3b82f6; margin-right: 8px;"></i> Sección 2: Coeficientes CUR
+                                        </h3>
+                                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Ingrese los coeficientes propuestos por tamaño de parcela para simular regularización CUR en vivo.</p>
+                                    </div>
+                                    <div id="cur-sim-totals" style="display: flex; gap: 15px; font-family: 'Outfit'; font-weight: 700;">
+                                        <span style="background: #f1f5f9; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; color: #334155;">Total Reg. Coef.: <strong id="cur-total-coef-val" style="color: #3b82f6;">0 m²</strong></span>
+                                        <span style="background: #f1f5f9; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; color: #334155;">Total Remanente: <strong id="cur-total-rem-val" style="color: #8b5cf6;">0 m²</strong></span>
+                                    </div>
+                                </div>
+
+                                <!-- Inputs de Coeficientes CUR por Escala -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;">
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">&lt; 150 m²</label>
+                                        <input type="number" step="0.01" id="coef-cur-1" value="0.65" oninput="updateCurSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">150 - 250 m²</label>
+                                        <input type="number" step="0.01" id="coef-cur-2" value="0.60" oninput="updateCurSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">250 - 400 m²</label>
+                                        <input type="number" step="0.01" id="coef-cur-3" value="0.55" oninput="updateCurSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">400 - 500 m²</label>
+                                        <input type="number" step="0.01" id="coef-cur-4" value="0.50" oninput="updateCurSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">500 - 700 m²</label>
+                                        <input type="number" step="0.01" id="coef-cur-5" value="0.45" oninput="updateCurSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                    <div style="background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                                        <label style="font-size: 0.78rem; font-weight: 700; color: #475569; display: block; margin-bottom: 4px;">&gt; 700 m²</label>
+                                        <input type="number" step="0.01" id="coef-cur-6" value="0.40" oninput="updateCurSimulation()" style="width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; color: #0f172a;" />
+                                    </div>
+                                </div>
+
+                                <!-- Tabla Simulador CUR -->
+                                <div style="overflow-x: auto; max-height: 400px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                                        <thead style="background: #f1f5f9; position: sticky; top: 0; z-index: 10;">
+                                            <tr>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Sección</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Manzana</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Parcela</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Barrio</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Comuna</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Ley 6478</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Sup Terreno (m²)</th>
+                                                <th style="padding: 10px 12px; color: #475569; font-weight: 700;">Sup Contra No Reg CUR</th>
+                                                <th style="padding: 10px 12px; color: #2563eb; font-weight: 700; background: #eff6ff;">M2 a regularizar según coef.</th>
+                                                <th style="padding: 10px 12px; color: #7c3aed; font-weight: 700; background: #f5f3ff;">M2 remanente a regularizar</th>
+                                                <th style="padding: 10px 12px; color: #059669; font-weight: 700; background: #ecfdf5;">% M2 remanente</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sim-cur-table-body">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                 </div>

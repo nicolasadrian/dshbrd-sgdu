@@ -163,7 +163,7 @@ function initAuth() {
         if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
 
         // Toggles for Analytics dropdown and its contents
-        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo;
+        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_pdl_blanqueo;
         const navAnalytics = document.getElementById('nav-dropdown-analytics');
         if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
 
@@ -173,7 +173,7 @@ function initAuth() {
         if (navCiudad3D) navCiudad3D.style.display = hasCiudad3DAccess ? 'inline-block' : 'none';
 
         const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
-        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra) ? 'block' : 'none';
+        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo) ? 'block' : 'none';
         const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
         if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
 
@@ -193,6 +193,10 @@ function initAuth() {
         const cardAvisosObra = document.getElementById('card-goto-avisos-obra');
         if (cardAvisosObra) {
             cardAvisosObra.style.display = perms.analytics_avisos_obra ? 'flex' : 'none';
+        }
+        const cardPdlBlanqueo = document.getElementById('card-goto-pdl-blanqueo');
+        if (cardPdlBlanqueo) {
+            cardPdlBlanqueo.style.display = perms.analytics_pdl_blanqueo ? 'flex' : 'none';
         }
 
         // Toggles for Mis Expedientes dropdown and its contents
@@ -323,7 +327,7 @@ function showView(viewId, updateHash = true) {
         if (viewId === 'publico_privado' || viewId === 'copua') {
             hasPermission = !!(currentUser.permissions[viewId] || currentUser.permissions['seguimiento']);
         } else if (viewId === 'analytics_estadistica') {
-            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo'] || currentUser.permissions['analytics_m2_permisados'] || currentUser.permissions['analytics_avisos_obra']);
+            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo'] || currentUser.permissions['analytics_m2_permisados'] || currentUser.permissions['analytics_avisos_obra'] || currentUser.permissions['analytics_pdl_blanqueo']);
         } else if (viewId === 'analytics_m2_permisados') {
             hasPermission = !!currentUser.permissions['analytics_m2_permisados'];
         } else if (viewId === 'analytics_avisos_obra') {
@@ -2123,6 +2127,7 @@ const PERMISSION_GROUPS = {
         analytics_datasets: { label: "Analytics (Datasets)", desc: "Descarga de datasets crudos del tablero." },
         analytics_m2_permisados: { label: "Analytics (M2 Permisados)", desc: "Acceso al módulo de análisis y consulta de M2 Permisados." },
         analytics_avisos_obra: { label: "Analytics (Avisos de Obra)", desc: "Acceso al módulo de estadísticas y mapas de Avisos de Obra." },
+        analytics_pdl_blanqueo: { label: "Analytics (PDL Blanqueo Análisis)", desc: "Acceso al módulo analítico de PDL Blanqueo (parcelas y contravenciones CE/CUR)." },
         family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites de un mismo expediente." }
     },
     "Administración": {
@@ -9686,8 +9691,508 @@ function switchAnalyticsTab(tabId) {
         loadAnalyticsEstadistica();
     } else if (tabId === 'ley_blanqueo') {
         loadAnalyticsLeyBlanqueo();
+    } else if (tabId === 'pdl_blanqueo') {
+        loadAnalyticsPdlBlanqueo();
     }
 }
+
+// Global variable for PDL charts
+let pdlCharts = {};
+let pdlSimData = { ce_records: [], cur_records: [] };
+
+function switchPdlSubtab(subtabId) {
+    const subtabs = ['parcelas', 'ce', 'cur', 'simulador'];
+    subtabs.forEach(st => {
+        const btn = document.getElementById(`btn-pdl-subtab-${st}`);
+        const content = document.getElementById(`pdl-subtab-${st}`);
+        if (btn) {
+            btn.style.borderBottom = st === subtabId ? '3px solid var(--primary)' : '3px solid transparent';
+            btn.style.color = st === subtabId ? 'var(--primary)' : '#64748b';
+        }
+        if (content) {
+            content.style.display = st === subtabId ? 'flex' : 'none';
+        }
+    });
+}
+window.switchPdlSubtab = switchPdlSubtab;
+
+function getScaleIndex(supTerreno) {
+    const sup = parseFloat(supTerreno) || 0;
+    if (sup < 150) return 1;
+    if (sup <= 250) return 2;
+    if (sup <= 400) return 3;
+    if (sup <= 500) return 4;
+    if (sup <= 700) return 5;
+    return 6;
+}
+
+function updateCeSimulation() {
+    const coefs = {
+        1: parseFloat(document.getElementById('coef-ce-1')?.value) || 0,
+        2: parseFloat(document.getElementById('coef-ce-2')?.value) || 0,
+        3: parseFloat(document.getElementById('coef-ce-3')?.value) || 0,
+        4: parseFloat(document.getElementById('coef-ce-4')?.value) || 0,
+        5: parseFloat(document.getElementById('coef-ce-5')?.value) || 0,
+        6: parseFloat(document.getElementById('coef-ce-6')?.value) || 0
+    };
+
+    const tbody = document.getElementById('sim-ce-table-body');
+    if (!tbody || !pdlSimData.ce_records) return;
+
+    let totalRegCoef = 0;
+    let totalRemanente = 0;
+
+    let html = '';
+    pdlSimData.ce_records.forEach(r => {
+        const supTerreno = parseFloat(r.sup_terreno) || 0;
+        const supContra = parseFloat(r.sup_contra_no_reg_ce) || 0;
+        const scaleIdx = getScaleIndex(supTerreno);
+        const coef = coefs[scaleIdx] || 0;
+
+        const m2RegCoef = Math.round((supTerreno * coef) * 100) / 100;
+        const m2Remanente = Math.round((m2RegCoef - supContra) * 100) / 100;
+
+        // Porcentaje remanente respecto del tope segun coeficiente
+        const pctRemanente = m2RegCoef > 0 ? Math.round((m2Remanente / m2RegCoef) * 1000) / 10 : 0;
+
+        totalRegCoef += m2RegCoef;
+        totalRemanente += m2Remanente;
+
+        const remColor = m2Remanente >= 0 ? '#15803d' : '#b91c1c';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 12px; font-weight: 600; color: #334155;">${r.seccion}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.manzana}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.parcela}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.barrio}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.comuna}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.ley_6478}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #1e293b;">${supTerreno.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #ef4444;">${supContra.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: #2563eb; background: #f8fafc;">${m2RegCoef.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f8fafc;">${m2Remanente.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f0fdf4;">${pctRemanente.toLocaleString('es-AR')}%</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html || `<tr><td colspan="11" style="text-align: center; padding: 20px; color: #94a3b8;">No hay registros CE en contravención.</td></tr>`;
+
+    const totalCoefEl = document.getElementById('ce-total-coef-val');
+    const totalRemEl = document.getElementById('ce-total-rem-val');
+    if (totalCoefEl) totalCoefEl.textContent = `${Math.round(totalRegCoef).toLocaleString('es-AR')} m²`;
+    if (totalRemEl) totalRemEl.textContent = `${Math.round(totalRemanente).toLocaleString('es-AR')} m²`;
+}
+window.updateCeSimulation = updateCeSimulation;
+
+function updateCurSimulation() {
+    const coefs = {
+        1: parseFloat(document.getElementById('coef-cur-1')?.value) || 0,
+        2: parseFloat(document.getElementById('coef-cur-2')?.value) || 0,
+        3: parseFloat(document.getElementById('coef-cur-3')?.value) || 0,
+        4: parseFloat(document.getElementById('coef-cur-4')?.value) || 0,
+        5: parseFloat(document.getElementById('coef-cur-5')?.value) || 0,
+        6: parseFloat(document.getElementById('coef-cur-6')?.value) || 0
+    };
+
+    const tbody = document.getElementById('sim-cur-table-body');
+    if (!tbody || !pdlSimData.cur_records) return;
+
+    let totalRegCoef = 0;
+    let totalRemanente = 0;
+
+    let html = '';
+    pdlSimData.cur_records.forEach(r => {
+        const supTerreno = parseFloat(r.sup_terreno) || 0;
+        const supContra = parseFloat(r.sup_contra_no_reg_cur) || 0;
+        const scaleIdx = getScaleIndex(supTerreno);
+        const coef = coefs[scaleIdx] || 0;
+
+        const m2RegCoef = Math.round((supTerreno * coef) * 100) / 100;
+        const m2Remanente = Math.round((m2RegCoef - supContra) * 100) / 100;
+
+        // Porcentaje remanente respecto del tope segun coeficiente
+        const pctRemanente = m2RegCoef > 0 ? Math.round((m2Remanente / m2RegCoef) * 1000) / 10 : 0;
+
+        totalRegCoef += m2RegCoef;
+        totalRemanente += m2Remanente;
+
+        const remColor = m2Remanente >= 0 ? '#15803d' : '#b91c1c';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 12px; font-weight: 600; color: #334155;">${r.seccion}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.manzana}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.parcela}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.barrio}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.comuna}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.ley_6478}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #1e293b;">${supTerreno.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #3b82f6;">${supContra.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: #2563eb; background: #f8fafc;">${m2RegCoef.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f8fafc;">${m2Remanente.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f0fdf4;">${pctRemanente.toLocaleString('es-AR')}%</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html || `<tr><td colspan="11" style="text-align: center; padding: 20px; color: #94a3b8;">No hay registros CUR en contravención.</td></tr>`;
+
+    const totalCoefEl = document.getElementById('cur-total-coef-val');
+    const totalRemEl = document.getElementById('cur-total-rem-val');
+    if (totalCoefEl) totalCoefEl.textContent = `${Math.round(totalRegCoef).toLocaleString('es-AR')} m²`;
+    if (totalRemEl) totalRemEl.textContent = `${Math.round(totalRemanente).toLocaleString('es-AR')} m²`;
+}
+window.updateCurSimulation = updateCurSimulation;
+
+async function loadAnalyticsPdlBlanqueo() {
+    switchPdlSubtab('parcelas');
+    const kpisParcelas = document.getElementById('pdl-parcelas-kpis');
+    if (kpisParcelas) {
+        kpisParcelas.innerHTML = `
+            <div class="loading-overlay" style="grid-column: 1/-1; min-height: 100px;">
+                <span class="loader"></span>
+                <p style="margin-top: 0.5rem; color: #64748b; font-size: 0.9rem;">Cargando datos de PDL Blanqueo...</p>
+            </div>
+        `;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/analytics/pdl-blanqueo`);
+        if (!res || !res.ok) {
+            throw new Error("Error al obtener los datos de PDL Blanqueo");
+        }
+        const data = await res.json();
+
+        // 1. Subtab Parcelas KPIs
+        const totalParcelas = data.superficie_dist.reduce((acc, curr) => acc + curr.cant, 0);
+        const totalSupParcelas = data.superficie_dist.reduce((acc, curr) => acc + (parseFloat(curr.total_sup) || 0), 0);
+        
+        const kpisParcelas = document.getElementById('pdl-parcelas-kpis');
+        if (kpisParcelas) {
+            kpisParcelas.innerHTML = `
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Total Parcelas</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #1e293b;">${totalParcelas.toLocaleString()}</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Mediana de Superficie (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #10b981;">${(data.mediana_sup || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })} m²</div>
+                </div>
+            `;
+        }
+
+        // Render pdlSuperficieChart
+        if (pdlCharts.superficie) pdlCharts.superficie.destroy();
+        const ctxSup = document.getElementById('pdlSuperficieChart')?.getContext('2d');
+        if (ctxSup) {
+            pdlCharts.superficie = new Chart(ctxSup, {
+                type: 'doughnut',
+                data: {
+                    labels: data.superficie_dist.map(d => d.rango),
+                    datasets: [{
+                        data: data.superficie_dist.map(d => d.cant),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+            });
+        }
+
+        // Render pdlComunaChart
+        if (pdlCharts.comuna) pdlCharts.comuna.destroy();
+        const ctxComuna = document.getElementById('pdlComunaChart')?.getContext('2d');
+        if (ctxComuna) {
+            pdlCharts.comuna = new Chart(ctxComuna, {
+                type: 'bar',
+                data: {
+                    labels: data.comuna_dist.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`),
+                    datasets: [{
+                        label: 'Cantidad de Parcelas',
+                        data: data.comuna_dist.map(d => d.cant),
+                        backgroundColor: 'rgba(59, 130, 246, 0.75)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // Render pdlBarrioChart
+        if (pdlCharts.barrio) pdlCharts.barrio.destroy();
+        const ctxBarrio = document.getElementById('pdlBarrioChart')?.getContext('2d');
+        if (ctxBarrio) {
+            pdlCharts.barrio = new Chart(ctxBarrio, {
+                type: 'bar',
+                data: {
+                    labels: data.barrio_dist.map(d => d.barrio),
+                    datasets: [{
+                        label: 'Parcelas por Barrio',
+                        data: data.barrio_dist.map(d => d.cant),
+                        backgroundColor: 'rgba(16, 185, 129, 0.75)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        // Render pdlUeChart
+        if (pdlCharts.ue) pdlCharts.ue.destroy();
+        const ctxUe = document.getElementById('pdlUeChart')?.getContext('2d');
+        if (ctxUe) {
+            pdlCharts.ue = new Chart(ctxUe, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: data.ue_dist.map(d => d.edificabilidad),
+                    datasets: [{
+                        label: 'Parcelas',
+                        data: data.ue_dist.map(d => d.cant),
+                        backgroundColor: 'rgba(139, 92, 246, 0.75)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 11 },
+                            formatter: (val) => val.toLocaleString()
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render pdlAreaChart
+        if (pdlCharts.area) pdlCharts.area.destroy();
+        const ctxArea = document.getElementById('pdlAreaChart')?.getContext('2d');
+        if (ctxArea) {
+            pdlCharts.area = new Chart(ctxArea, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: data.area_dist.map(d => d.area_especial),
+                    datasets: [{
+                        label: 'Parcelas',
+                        data: data.area_dist.map(d => d.cant),
+                        backgroundColor: 'rgba(245, 158, 11, 0.75)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 11 },
+                            formatter: (val) => val.toLocaleString()
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. Subtab Antireglamentario CE KPIs & Charts
+        const kpisCE = document.getElementById('pdl-ce-kpis');
+        if (kpisCE) {
+            kpisCE.innerHTML = `
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Parcelas en Contravención CE</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #ef4444;">${data.ce_summary.cant_parcelas_ce.toLocaleString()}</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Total Superficie CE (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #ef4444;">${Math.round(data.ce_summary.total_sup_ce).toLocaleString()} m²</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Promedio Sup/Parcela (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #f59e0b;">${Math.round(data.ce_summary.avg_sup_ce).toLocaleString()} m²</div>
+                </div>
+            `;
+        }
+
+        if (pdlCharts.ceEscala) pdlCharts.ceEscala.destroy();
+        const ctxCeEscala = document.getElementById('pdlCeEscalaChart')?.getContext('2d');
+        if (ctxCeEscala) {
+            pdlCharts.ceEscala = new Chart(ctxCeEscala, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: (data.ce_escala || []).map(d => d.escala),
+                    datasets: [
+                        {
+                            label: 'Promedio (m²)',
+                            data: (data.ce_escala || []).map(d => Math.round(d.promedio * 100) / 100),
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)'
+                        },
+                        {
+                            label: 'Mediana (m²)',
+                            data: (data.ce_escala || []).map(d => Math.round(d.mediana * 100) / 100),
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 10 },
+                            formatter: (val) => val ? val.toLocaleString('es-AR') + ' m²' : ''
+                        }
+                    }
+                }
+            });
+        }
+
+        if (pdlCharts.ceBarrio) pdlCharts.ceBarrio.destroy();
+        const ctxCeBarrio = document.getElementById('pdlCeBarrioChart')?.getContext('2d');
+        if (ctxCeBarrio) {
+            pdlCharts.ceBarrio = new Chart(ctxCeBarrio, {
+                type: 'bar',
+                data: {
+                    labels: data.ce_barrio.map(d => d.barrio),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.ce_barrio.map(d => d.total_sup),
+                        backgroundColor: 'rgba(239, 68, 68, 0.75)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        if (pdlCharts.ceComuna) pdlCharts.ceComuna.destroy();
+        const ctxCeComuna = document.getElementById('pdlCeComunaChart')?.getContext('2d');
+        if (ctxCeComuna) {
+            pdlCharts.ceComuna = new Chart(ctxCeComuna, {
+                type: 'bar',
+                data: {
+                    labels: data.ce_comuna.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.ce_comuna.map(d => d.total_sup),
+                        backgroundColor: 'rgba(239, 68, 68, 0.85)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // 3. Subtab Antireglamentario CUR KPIs & Charts
+        const kpisCUR = document.getElementById('pdl-cur-kpis');
+        if (kpisCUR) {
+            kpisCUR.innerHTML = `
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Parcelas en Contravención CUR</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #3b82f6;">${data.cur_summary.cant_parcelas_cur.toLocaleString()}</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Total Superficie CUR (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #3b82f6;">${Math.round(data.cur_summary.total_sup_cur).toLocaleString()} m²</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Promedio Sup/Parcela (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #8b5cf6;">${Math.round(data.cur_summary.avg_sup_cur).toLocaleString()} m²</div>
+                </div>
+            `;
+        }
+
+        if (pdlCharts.curEscala) pdlCharts.curEscala.destroy();
+        const ctxCurEscala = document.getElementById('pdlCurEscalaChart')?.getContext('2d');
+        if (ctxCurEscala) {
+            pdlCharts.curEscala = new Chart(ctxCurEscala, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: (data.cur_escala || []).map(d => d.escala),
+                    datasets: [
+                        {
+                            label: 'Promedio (m²)',
+                            data: (data.cur_escala || []).map(d => Math.round(d.promedio * 100) / 100),
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                        },
+                        {
+                            label: 'Mediana (m²)',
+                            data: (data.cur_escala || []).map(d => Math.round(d.mediana * 100) / 100),
+                            backgroundColor: 'rgba(139, 92, 246, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 10 },
+                            formatter: (val) => val ? val.toLocaleString('es-AR') + ' m²' : ''
+                        }
+                    }
+                }
+            });
+        }
+
+        if (pdlCharts.curBarrio) pdlCharts.curBarrio.destroy();
+        const ctxCurBarrio = document.getElementById('pdlCurBarrioChart')?.getContext('2d');
+        if (ctxCurBarrio) {
+            pdlCharts.curBarrio = new Chart(ctxCurBarrio, {
+                type: 'bar',
+                data: {
+                    labels: data.cur_barrio.map(d => d.barrio),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.cur_barrio.map(d => d.total_sup),
+                        backgroundColor: 'rgba(59, 130, 246, 0.75)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        if (pdlCharts.curComuna) pdlCharts.curComuna.destroy();
+        const ctxCurComuna = document.getElementById('pdlCurComunaChart')?.getContext('2d');
+        if (ctxCurComuna) {
+            pdlCharts.curComuna = new Chart(ctxCurComuna, {
+                type: 'bar',
+                data: {
+                    labels: data.cur_comuna.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.cur_comuna.map(d => d.total_sup),
+                        backgroundColor: 'rgba(59, 130, 246, 0.85)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // 4. Armar Simulador Coeficientes
+        pdlSimData.ce_records = data.ce_records || [];
+        pdlSimData.cur_records = data.cur_records || [];
+        updateCeSimulation();
+        updateCurSimulation();
+
+    } catch (err) {
+        console.error("Error loading PDL Blanqueo analytics:", err);
+    }
+}
+window.loadAnalyticsPdlBlanqueo = loadAnalyticsPdlBlanqueo;
 
 async function loadAnalyticsDatasets() {
     const selectEl = document.getElementById('filter-datasets-usuario');

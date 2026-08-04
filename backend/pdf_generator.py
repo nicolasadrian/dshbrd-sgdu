@@ -64,34 +64,94 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             
             doc = ezdxf.readfile(file_path)
             
-            if 'DASHED' not in doc.linetypes:
+            # Recrear patrón DASHED compacto para la Banda Mínima
+            if 'DASHED' in doc.linetypes:
                 try:
-                    doc.linetypes.new('DASHED', dxfattribs={'description': 'Dashed line - - -', 'pattern': [10.0, 0.5, -0.5]})
+                    doc.linetypes.remove('DASHED')
                 except Exception:
                     pass
+            try:
+                doc.linetypes.new('DASHED', dxfattribs={'description': 'Compact dashed line', 'pattern': [0.6, 0.4, -0.2]})
+            except Exception:
+                pass
             
+            def apply_entity_rules(entities):
+                for entity in entities:
+                    layer_name = (entity.dxf.layer or "").lower()
+                    
+                    # Ocultar únicamente capas de edificabilidad/volumetria 3D genérica
+                    if any(k in layer_name for k in ['edificab', 'volumetria']) and not any(k in layer_name for k in ['cota', 'cotas', 'consolidad', 'cons', 'hatch']):
+                        entity.dxf.invisible = 1
+                        continue
+                        
+                    # Capas de Consolidados / Tejido Consolidado: Forzar visibilidad y color Gris uniforme (ACI 8 / #808080)
+                    is_consolidado = any(k in layer_name for k in ['consolidad', 'cons', 'tejido', 'tej'])
+                    if is_consolidado and not any(k in layer_name for k in ['cota', 'cotas', 'lfi', 'banda', 'irr', 'tronera']):
+                        entity.dxf.invisible = 0
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 8  # Gris uniforme
+                        try:
+                            entity.rgb = (128, 128, 128)
+                        except Exception:
+                            pass
+
+                    # Cotas / Dimensiones / Textos / Flechas: Forzar visibilidad, línea CONTINUA y color negro
+                    is_cotas = any(k in layer_name for k in ['cota', 'cotas', 'dim', 'dimension']) or entity.dxftype() in ('DIMENSION', 'LEADER')
+                    
+                    if is_cotas:
+                        entity.dxf.invisible = 0
+                        if entity.dxf.hasattr('linetype'):
+                            entity.dxf.linetype = 'CONTINUOUS'
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 7  # Negro en CAD
+                    # Extensión Irregular / Tronera / LFI: Mismo color Azul (#3579b1 / ACI 5 / RGB 53, 121, 177) y línea CONTINUA
+                    elif any(k in layer_name for k in ['irr', 'tronera', 'lfi', 'frente']):
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 5  # Azul LFI
+                        if entity.dxf.hasattr('linetype'):
+                            entity.dxf.linetype = 'CONTINUOUS'
+                        try:
+                            entity.rgb = (53, 121, 177)
+                        except Exception:
+                            pass
+                    # Banda Mínima: LÍNEA CORTADA (DASHED) en Violeta (#8a2be2)
+                    elif any(k in layer_name for k in ['banda', 'bm', 'afec']):
+                        if entity.dxf.hasattr('linetype'):
+                            entity.dxf.linetype = 'DASHED'
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 6  # Violeta / Magenta
+                        
+                    # Textos / MText / Etiquetas / Cotas: COLOR NEGRO (#000000)
+                    if entity.dxftype() in ('TEXT', 'MTEXT') or any(k in layer_name for k in ['texto', 'text', 'calle', 'parc', 'nom', 'smp', 'etiqueta']):
+                        if not is_consolidado and entity.dxf.hasattr('color'):
+                            entity.dxf.color = 7
+                        try:
+                            if not is_consolidado:
+                                entity.rgb = (0, 0, 0)
+                        except Exception:
+                            pass
+
+            # Aplicar reglas tanto a ModelSpace como a todos los Bloques definidos (ej. bloques de DIMENSION *D...)
             msp = doc.modelspace()
-            for entity in msp:
-                layer_name = (entity.dxf.layer or "").lower()
-                
-                # Ocultar capas de tejido urbano / volumetría / edificabilidad
-                if any(k in layer_name for k in ['tejido', 'edificab', 'volumetria', 'tej']):
-                    entity.dxf.invisible = 1
-                    continue
-                    
-                # Banda Mínima: LÍNEA CORTADA (DASHED)
-                if any(k in layer_name for k in ['banda', 'bm', 'afec']):
-                    entity.dxf.linetype = 'DASHED'
-                    entity.dxf.color = 1  # Rojo
-                    
-                # Texto / MText / Etiquetas: COLOR NEGRO (#000000)
-                if entity.dxftype() in ('TEXT', 'MTEXT') or any(k in layer_name for k in ['texto', 'text', 'calle', 'parc', 'nom', 'smp', 'etiqueta']):
-                    entity.dxf.color = 7
-                    try:
-                        entity.rgb = (0, 0, 0)
-                    except Exception:
-                        pass
+            apply_entity_rules(msp)
+            for blk in doc.blocks:
+                apply_entity_rules(blk)
             
+            # Orden de dibujado (Z-Order estricto): Consolidados/HATCH al fondo (0), Líneas/Polígonos al medio (1), Cotas/Textos al frente (2)
+            def entity_sort_key(e):
+                layer_name = (e.dxf.layer or "").lower()
+                is_consolidado = any(k in layer_name for k in ['consolidad', 'cons', 'tejido', 'tej'])
+                t = e.dxftype()
+                if is_consolidado or t == 'HATCH':
+                    return 0
+                elif t in ('LINE', 'LWPOLYLINE', 'POLYLINE', 'ARC', 'CIRCLE', 'SOLID'):
+                    return 1
+                elif t in ('TEXT', 'MTEXT', 'DIMENSION', 'LEADER'):
+                    return 2
+                return 1
+
+            sorted_entities = sorted(msp, key=entity_sort_key)
+
             fig = plt.figure(figsize=(16, 13), dpi=600)
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_axis_off()
@@ -99,7 +159,12 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             ctx = RenderContext(doc)
             out = MatplotlibBackend(ax)
             frontend = Frontend(ctx, out)
-            frontend.draw_layout(msp, finalize=True)
+            
+            # Forzar contexto de layout y dibujar entidades respetando la lista ordenada
+            frontend.ctx.set_current_layout(msp)
+            frontend.set_background(frontend.ctx.current_layout_properties.background_color)
+            frontend.draw_entities(sorted_entities)
+            frontend.pipeline.finalize()
             
             # Forzar todas las etiquetas de texto de matplotlib a COLOR NEGRO ABSOLUTO (#000000)
             for txt in ax.texts:
@@ -218,20 +283,20 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                 for x, y in extract_lines_from_geom(l_geom):
                     ax.plot(x, y, color='#3579b1', linewidth=2.5, zorder=6)
 
-            # 5. Dibujar Troneras (SI = Irregular Rojo #e41a1c, NO = Regular Azul #3579b1)
+            # 5. Dibujar Troneras / Extensiones Irregulares - Mismo color Azul #3579b1 que LFI
             for irr_val, t_json in tron_rows:
                 if t_json:
                     t_geom = shape(json.loads(t_json))
-                    t_color = '#e41a1c' if str(irr_val).upper() == 'SI' else '#3579b1'
+                    t_color = '#3579b1'  # Azul unificado con LFI
                     t_lw = 2.8 if str(irr_val).upper() == 'SI' else 2.2
                     for x, y in extract_lines_from_geom(t_geom):
                         ax.plot(x, y, color=t_color, linewidth=t_lw, zorder=7)
 
-            # 6. DIBUJAR BANDA MÍNIMA COMO LÍNEA CORTADA / DASHED RED LINE (#e41a1c)
+            # 6. DIBUJAR BANDA MÍNIMA COMO LÍNEA CORTADA COMPACTA EN VIOLETA (#8a2be2)
             for bm_j in bm_rows:
                 bm_geom = shape(json.loads(bm_j))
                 for x, y in extract_lines_from_geom(bm_geom):
-                    ax.plot(x, y, color='#e41a1c', linestyle='--', linewidth=2.8, dashes=(0.5, 1), zorder=12)
+                    ax.plot(x, y, color='#8a2be2', linestyle='--', linewidth=2.5, dashes=(1.5, 1.0), zorder=12)
 
             # 7. DIBUJAR ETIQUETAS DE NOMBRES DE CALLES EN COLOR NEGRO ABSOLUTO (#000000)
             if calles_rows:
@@ -370,32 +435,44 @@ def generate_lfi_a3_pdf(seccion, manzana, barrio="", comuna="", disposicion="", 
     c.setFillColor(colors.HexColor("#000000"))
     c.drawCentredString(x_center, y_r2_bottom - 60.0, sm_value)
 
-    # RECUADRO 4: REFERENCIAS GRÁFICAS DEL PLANO (BANDA MÍNIMA EN LÍNEA CORTADA)
+    # RECUADRO 4: REFERENCIAS GRÁFICAS DEL PLANO (ESTILOS Y VECTORES UNIFICADOS)
     c.setFont("Helvetica-Bold", 9.5)
     c.setFillColor(colors.HexColor("#000000"))
     c.drawString(x_split + 12.0, y_r3_bottom - 22.0, "REFERENCIAS GRÁFICAS")
     
     c.setLineWidth(0.8)
+    c.setStrokeColor(colors.HexColor("#000000"))
     c.line(x_split + 12.0, y_r3_bottom - 27.0, x_max - 12.0, y_r3_bottom - 27.0)
     
-    y_ref = y_r3_bottom - 50.0
+    y_ref = y_r3_bottom - 45.0
     ref_items = [
-        ("#3579b1", "— — —", "Línea de Frente Interno"),
-        ("#e41a1c", "━━━━", "Extensión Irregular"),
-        ("#ffd306", "━━━━", "Línea de Basamento"),
-        ("#e41a1c", "- - - -", "Banda Mínima Afec."),
-        ("#606060", "━━━━", "Límite Parcelario")
+        ("line", "#3579b1", [], 2.0, "Línea de Frente Interno"),
+        ("line", "#3579b1", [], 2.0, "Extensión Irregular"),
+        ("line", "#ffd306", [], 2.0, "Línea de Basamento"),
+        ("line", "#8a2be2", [3, 2], 2.0, "Banda Mínima Afec."),
+        ("rect", "#808080", [], 0, "Tejido Consolidado"),
+        ("line", "#606060", [], 1.0, "Límite Parcelario")
     ]
     
-    for color_hex, sym, label in ref_items:
-        c.setFont("Helvetica-Bold", 8.5)
-        c.setFillColor(colors.HexColor(color_hex))
-        c.drawString(x_split + 14.0, y_ref, sym)
-        
+    for item_type, color_hex, dash_pat, line_w, label in ref_items:
+        if item_type == "line":
+            c.setStrokeColor(colors.HexColor(color_hex))
+            c.setLineWidth(line_w)
+            if dash_pat:
+                c.setDash(dash_pat, 0)
+            else:
+                c.setDash([], 0)
+            c.line(x_split + 14.0, y_ref + 3.0, x_split + 44.0, y_ref + 3.0)
+            c.setDash([], 0)
+        elif item_type == "rect":
+            c.setFillColor(colors.HexColor(color_hex))
+            c.setStrokeColor(colors.HexColor(color_hex))
+            c.rect(x_split + 14.0, y_ref - 1.0, 30.0, 8.0, fill=1, stroke=0)
+            
         c.setFont("Helvetica", 8.0)
         c.setFillColor(colors.HexColor("#1e293b"))
         c.drawString(x_split + 52.0, y_ref, label)
-        y_ref -= 20.0
+        y_ref -= 16.0
         
     c.showPage()
     c.save()

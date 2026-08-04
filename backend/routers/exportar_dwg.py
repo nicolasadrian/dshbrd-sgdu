@@ -111,9 +111,9 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         print(f"Error al cargar manzanas de sección {seccion_val}: {e}")
         return
 
-    # 2. Cargar Parcelas de la sección (con CUR y Unidades de Edificabilidad)
+    # 2. Cargar Parcelas de la sección (con CUR y campo Parcela)
     query_parcelas = f"""
-        SELECT geom, smp, seccion, manzana, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
+        SELECT geom, smp, seccion, manzana, parcela, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
         FROM public.cur_parcelas_ok 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_escaped}') AND geom IS NOT NULL
     """
@@ -258,14 +258,13 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                     if geom and not geom.is_empty:
                         centroid = geom.centroid
                         cur = row.get('cur_1')
-                        unis = [row.get(f'uni_edif_{i}') for i in range(1, 5)]
-                        unis_clean = [float(u) for u in unis if u is not None and str(u) != 'nan' and float(u) > 0]
+                        parc_val = row.get('parcela')
                         
                         labels = []
-                        if cur and str(cur) != 'nan':
-                            labels.append(str(cur))
-                        if unis_clean:
-                            labels.append(" / ".join(f"{u:.1f}m" for u in unis_clean))
+                        if cur and str(cur) != 'nan' and str(cur).strip() != '':
+                            labels.append(str(cur).strip())
+                        if parc_val is not None and str(parc_val) != 'nan' and str(parc_val).strip() != '':
+                            labels.append(str(parc_val).strip())
                         
                         if labels:
                             m_parcelas_data.append(((centroid.x, centroid.y), labels))
@@ -614,7 +613,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
 
     # 2. Cargar Parcelas
     query_parcelas = f"""
-        SELECT geom, smp, seccion, manzana, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
+        SELECT geom, smp, seccion, manzana, parcela, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
         FROM public.cur_parcelas_ok 
         WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}') 
           AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}') 
@@ -748,13 +747,12 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             if geom and not geom.is_empty:
                 centroid = geom.centroid
                 cur = row.get('cur_1')
-                unis = [row.get(f'uni_edif_{i}') for i in range(1, 5)]
-                unis_clean = [float(u) for u in unis if u is not None and str(u) != 'nan' and float(u) > 0]
+                parc_val = row.get('parcela')
                 labels = []
-                if cur and str(cur) != 'nan':
-                    labels.append(str(cur))
-                if unis_clean:
-                    labels.append(" / ".join(f"{u:.1f}m" for u in unis_clean))
+                if cur and str(cur) != 'nan' and str(cur).strip() != '':
+                    labels.append(str(cur).strip())
+                if parc_val is not None and str(parc_val) != 'nan' and str(parc_val).strip() != '':
+                    labels.append(str(parc_val).strip())
                 if labels:
                     m_parcelas_data.append(((centroid.x, centroid.y), labels))
         m_parcelas = gdf_parcelas.copy()
