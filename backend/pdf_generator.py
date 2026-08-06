@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import logging
 from datetime import datetime
 from reportlab.lib.pagesizes import A3, landscape
@@ -61,6 +62,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             import ezdxf
             from ezdxf.addons.drawing import RenderContext, Frontend
             from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
+            from ezdxf.addons.drawing.config import Configuration
             
             doc = ezdxf.readfile(file_path)
             
@@ -74,9 +76,18 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                 doc.linetypes.new('DASHED', dxfattribs={'description': 'Compact dashed line', 'pattern': [0.6, 0.4, -0.2]})
             except Exception:
                 pass
-            
+            # Forzar color gris oscuro en capas de Cotas / Dimensiones
+            try:
+                for layer in doc.layers:
+                    l_name = layer.dxf.name.lower()
+                    if any(k in l_name for k in ['cota', 'cotas', 'dim', 'dimension']):
+                        layer.color = 250
+                    elif any(k in l_name for k in ['calle', 'calles', 'nom']):
+                        layer.color = 0
+            except Exception:
+                pass
             def apply_entity_rules(entities):
-                for entity in entities:
+                for entity in list(entities):
                     layer_name = (entity.dxf.layer or "").lower()
                     
                     # Ocultar únicamente capas de edificabilidad/volumetria 3D genérica
@@ -84,71 +95,213 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                         entity.dxf.invisible = 1
                         continue
                         
-                    # Capas de Consolidados / Tejido Consolidado: Forzar visibilidad y color Gris uniforme (ACI 8 / #808080)
-                    is_consolidado = any(k in layer_name for k in ['consolidad', 'cons', 'tejido', 'tej'])
-                    if is_consolidado and not any(k in layer_name for k in ['cota', 'cotas', 'lfi', 'banda', 'irr', 'tronera']):
+                    # Capa mdr_tejidoconsolidado (Tejido Consolidado del DXF): RGB(180, 180, 180)
+                    is_consolidado = 'mdr_tejidoconsolidado' in layer_name or 'tejidoconsolidado' in layer_name or 'tejido_consolidado' in layer_name
+                    if is_consolidado:
                         entity.dxf.invisible = 0
                         if entity.dxf.hasattr('color'):
                             entity.dxf.color = 8  # Gris uniforme
                         try:
-                            entity.rgb = (128, 128, 128)
+                            entity.rgb = (180, 180, 180)  # Color exclusivo mdr_tejidoconsolidado
                         except Exception:
                             pass
 
-                    # Cotas / Dimensiones / Textos / Flechas: Forzar visibilidad, línea CONTINUA y color negro
-                    is_cotas = any(k in layer_name for k in ['cota', 'cotas', 'dim', 'dimension']) or entity.dxftype() in ('DIMENSION', 'LEADER')
+                    # Capa Etiquetas de Calles (calles_etiquetas, nom, calles): Negro Puro (#000000)
+                    is_calles = any(k in layer_name for k in ['calle', 'calles', 'nom'])
+                    if is_calles:
+                        entity.dxf.invisible = 0
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 0  # Negro absoluto CAD ACI 0
+                        try:
+                            entity.rgb = (0, 0, 0)  # Negro en pantalla/PDF
+                        except Exception:
+                            pass
+
+                    # Cotas / Dimensiones: Gris Oscuro RGB(60, 60, 60), trazo bien fino (0.15 pt)
+                    is_cotas = any(k in layer_name for k in ['cota', 'cotas', 'dim', 'dimension'])
                     
                     if is_cotas:
                         entity.dxf.invisible = 0
                         if entity.dxf.hasattr('linetype'):
                             entity.dxf.linetype = 'CONTINUOUS'
                         if entity.dxf.hasattr('color'):
-                            entity.dxf.color = 7  # Negro en CAD
-                    # Extensión Irregular / Tronera / LFI: Mismo color Azul (#3579b1 / ACI 5 / RGB 53, 121, 177) y línea CONTINUA
-                    elif any(k in layer_name for k in ['irr', 'tronera', 'lfi', 'frente']):
+                            entity.dxf.color = 250  # Gris Oscuro CAD ACI 250
+                        if entity.dxf.hasattr('lineweight'):
+                            entity.dxf.lineweight = 0  # Línea de cota ultrafina
+                        try:
+                            entity.rgb = (60, 60, 60)  # Gris Oscuro RGB(60, 60, 60)
+                        except Exception:
+                            pass
+                        
+                        # Ajustar la altura del texto al 1.25x (125%) ÚNICAMENTE para la capa de Cotas
+                        if entity.dxf.hasattr('height'):
+                            try:
+                                entity.dxf.height = float(entity.dxf.height) * 1.25
+                            except Exception:
+                                pass
+                        if entity.dxf.hasattr('char_height'):
+                            try:
+                                entity.dxf.char_height = float(entity.dxf.char_height) * 1.25
+                            except Exception:
+                                pass
+
+                    # Capa Irregular
+                    elif 'irregular' in layer_name or 'irr' in layer_name:
                         if entity.dxf.hasattr('color'):
-                            entity.dxf.color = 5  # Azul LFI
+                            entity.dxf.color = 5  # Azul CAD
                         if entity.dxf.hasattr('linetype'):
                             entity.dxf.linetype = 'CONTINUOUS'
                         try:
                             entity.rgb = (53, 121, 177)
                         except Exception:
                             pass
-                    # Banda Mínima: LÍNEA CORTADA (DASHED) en Violeta (#8a2be2)
+
+                    # Capa LFI (Línea de Frente Interno)
+                    elif 'lfi' in layer_name or 'frente' in layer_name:
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 5  # Azul CAD
+                        if entity.dxf.hasattr('linetype'):
+                            entity.dxf.linetype = 'CONTINUOUS'
+                        try:
+                            entity.rgb = (53, 121, 177)
+                        except Exception:
+                            pass
+
+                    # Capa LIB (Basamento)
+                    elif 'lib' in layer_name or 'basamento' in layer_name:
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 2  # Amarillo CAD
+                        if entity.dxf.hasattr('linetype'):
+                            entity.dxf.linetype = 'CONTINUOUS'
+                        try:
+                            entity.rgb = (255, 211, 6)
+                        except Exception:
+                            pass
+
+                    # Capa Banda Mínima
                     elif any(k in layer_name for k in ['banda', 'bm', 'afec']):
                         if entity.dxf.hasattr('linetype'):
                             entity.dxf.linetype = 'DASHED'
                         if entity.dxf.hasattr('color'):
-                            entity.dxf.color = 6  # Violeta / Magenta
-                        
-                    # Textos / MText / Etiquetas / Cotas: COLOR NEGRO (#000000)
-                    if entity.dxftype() in ('TEXT', 'MTEXT') or any(k in layer_name for k in ['texto', 'text', 'calle', 'parc', 'nom', 'smp', 'etiqueta']):
-                        if not is_consolidado and entity.dxf.hasattr('color'):
-                            entity.dxf.color = 7
+                            entity.dxf.color = 8  # Gris CAD
                         try:
-                            if not is_consolidado:
-                                entity.rgb = (0, 0, 0)
+                            entity.rgb = (100, 100, 100)
                         except Exception:
                             pass
 
-            # Aplicar reglas tanto a ModelSpace como a todos los Bloques definidos (ej. bloques de DIMENSION *D...)
+                    # Parcelas (Líneas y Etiquetas)
+                    elif any(k in layer_name for k in ['parc', 'parcela', 'cur_parcelas']) and not is_consolidado:
+                        is_text_entity = entity.dxftype() in ('TEXT', 'MTEXT') or entity.dxf.hasattr('text')
+                        if is_text_entity:
+                            # Etiquetas de Parcelas: Gris intermedio RGB(85, 85, 85), tamaño apenas aumentado (+15%)
+                            if entity.dxf.hasattr('color'):
+                                entity.dxf.color = 8  # Gris CAD ACI 8
+                            try:
+                                entity.rgb = (85, 85, 85)
+                            except Exception:
+                                pass
+                            
+                            # Ajuste de tamaño moderado (+15%)
+                            if entity.dxf.hasattr('height'):
+                                try:
+                                    entity.dxf.height = float(entity.dxf.height) * 1.15
+                                except Exception:
+                                    pass
+                            if entity.dxf.hasattr('char_height'):
+                                try:
+                                    entity.dxf.char_height = float(entity.dxf.char_height) * 1.15
+                                except Exception:
+                                    pass
+                            
+                            # Separación de renglones muy amplia (line_spacing_factor = 2.50) para textos MTEXT de 2 líneas
+                            if entity.dxftype() == 'MTEXT':
+                                try:
+                                    entity.dxf.line_spacing_factor = 2.50
+                                    entity.dxf.line_spacing_style = 1
+                                except Exception:
+                                    pass
+                        else:
+                            # Líneas parcelarias: Gris claro RGB(215, 215, 215)
+                            if entity.dxf.hasattr('color'):
+                                entity.dxf.color = 9  # Gris claro ACI 9
+                            if entity.dxf.hasattr('lineweight'):
+                                entity.dxf.lineweight = 0
+                            try:
+                                entity.rgb = (215, 215, 215)
+                            except Exception:
+                                pass
+
+            # Aplicar reglas tanto a ModelSpace como a todos los Bloques definidos (snapshot estático de iteración)
             msp = doc.modelspace()
             apply_entity_rules(msp)
-            for blk in doc.blocks:
+            for blk in list(doc.blocks):
                 apply_entity_rules(blk)
+
+            # Separación vertical ajustada a 0.25 para pares de etiquetas en 2 renglones en el DXF
+            try:
+                p_texts = [e for e in msp if e.dxftype() in ('TEXT', 'MTEXT') and not any(k in (e.dxf.layer or "").lower() for k in ['cota', 'cotas'])]
+                shift = 0.25
+                for i in range(len(p_texts)):
+                    for j in range(i + 1, len(p_texts)):
+                        e1, e2 = p_texts[i], p_texts[j]
+                        p1 = getattr(e1.dxf, 'align_point', None)
+                        if not p1 or p1 == (0, 0, 0):
+                            p1 = getattr(e1.dxf, 'insert', (0, 0, 0))
+                        p2 = getattr(e2.dxf, 'align_point', None)
+                        if not p2 or p2 == (0, 0, 0):
+                            p2 = getattr(e2.dxf, 'insert', (0, 0, 0))
+                        
+                        x1, y1 = p1[0], p1[1]
+                        x2, y2 = p2[0], p2[1]
+                        
+                        if abs(x1 - x2) < 3.5 and 0.01 < abs(y1 - y2) < 3.5:
+                            z1 = p1[2] if len(p1) > 2 else 0
+                            z2 = p2[2] if len(p2) > 2 else 0
+                            if y1 >= y2:
+                                np1 = (x1, y1 + shift, z1)
+                                np2 = (x2, y2 - shift, z2)
+                            else:
+                                np1 = (x1, y1 - shift, z1)
+                                np2 = (x2, y2 + shift, z2)
+                            
+                            e1.dxf.insert = np1
+                            if e1.dxf.hasattr('align_point'):
+                                e1.dxf.align_point = np1
+                            e2.dxf.insert = np2
+                            if e2.dxf.hasattr('align_point'):
+                                e2.dxf.align_point = np2
+            except Exception:
+                pass
             
-            # Orden de dibujado (Z-Order estricto): Consolidados/HATCH al fondo (0), Líneas/Polígonos al medio (1), Cotas/Textos al frente (2)
+            # Orden de dibujado (Z-Order estricto):
+            # 0: Consolidado (Fondo)
+            # 1: Banda Mínima
+            # 2: Líneas de Parcelas
+            # 3: LFI / LIB / Irregular / Otras líneas
+            # 4: Cotas y Textos Generales
+            # 100: ETIQUETAS DE PARCELAS Y CALLES (POR ENCIMA DE TODO TODO!)
             def entity_sort_key(e):
                 layer_name = (e.dxf.layer or "").lower()
-                is_consolidado = any(k in layer_name for k in ['consolidad', 'cons', 'tejido', 'tej'])
+                is_consolidado = 'mdr_tejidoconsolidado' in layer_name or 'tejidoconsolidado' in layer_name or 'tejido_consolidado' in layer_name
+                is_bm = any(k in layer_name for k in ['banda', 'bm', 'afec'])
+                is_parc = any(k in layer_name for k in ['parc', 'parcela', 'cur_parcelas']) and not is_consolidado
+                is_calles = any(k in layer_name for k in ['calle', 'calles', 'nom'])
+                is_text = e.dxftype() in ('TEXT', 'MTEXT') or e.dxf.hasattr('text')
                 t = e.dxftype()
-                if is_consolidado or t == 'HATCH':
+
+                if (is_parc or is_calles) and is_text:
+                    return 100  # ETIQUETAS DE PARCELAS Y CALLES POR ENCIMA DE TODO TODO!
+                elif is_consolidado or t == 'HATCH':
                     return 0
-                elif t in ('LINE', 'LWPOLYLINE', 'POLYLINE', 'ARC', 'CIRCLE', 'SOLID'):
+                elif is_bm:
                     return 1
-                elif t in ('TEXT', 'MTEXT', 'DIMENSION', 'LEADER'):
+                elif is_parc:
                     return 2
-                return 1
+                elif t in ('LINE', 'LWPOLYLINE', 'POLYLINE', 'ARC', 'CIRCLE', 'SOLID'):
+                    return 3
+                elif t in ('TEXT', 'MTEXT', 'DIMENSION', 'LEADER'):
+                    return 4
+                return 3
 
             sorted_entities = sorted(msp, key=entity_sort_key)
 
@@ -158,7 +311,10 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             
             ctx = RenderContext(doc)
             out = MatplotlibBackend(ax)
-            frontend = Frontend(ctx, out)
+            
+            # Configuración sin escalado global para que solo las capas especificadas sean gruesas o finas
+            drawing_config = Configuration(lineweight_scaling=1.0, min_lineweight=0.01)
+            frontend = Frontend(ctx, out, config=drawing_config)
             
             # Forzar contexto de layout y dibujar entidades respetando la lista ordenada
             frontend.ctx.set_current_layout(msp)
@@ -166,14 +322,148 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             frontend.draw_entities(sorted_entities)
             frontend.pipeline.finalize()
             
-            # Forzar todas las etiquetas de texto de matplotlib a COLOR NEGRO ABSOLUTO (#000000)
+            # --- POST-PROCESAMIENTO DIRECTO EN MATPLOTLIB PARA TODOS LOS OBJETOS (LINES, COLLECTIONS, PATCHES) ---
+            import matplotlib.colors as mcolors
+            import matplotlib.patches as mpatches
+            import numpy as np
+            
+            def get_rgb255(c):
+                try:
+                    rgba = mcolors.to_rgba(c)
+                    return int(round(rgba[0] * 255)), int(round(rgba[1] * 255)), int(round(rgba[2] * 255))
+                except Exception:
+                    return (0, 0, 0)
+
+            # --- POST-PROCESAMIENTO DIRECTO EN MATPLOTLIB PASO A PASO POR CAPA ---
+            for obj_list in (ax.lines, ax.collections, ax.patches):
+                for obj in obj_list:
+                    try:
+                        c_val = None
+                        if hasattr(obj, 'get_color'):
+                            c_val = obj.get_color()
+                        if c_val is None or (isinstance(c_val, (list, tuple, np.ndarray)) and len(c_val) == 0):
+                            if hasattr(obj, 'get_edgecolor'):
+                                c_val = obj.get_edgecolor()
+                        if isinstance(c_val, (list, tuple, np.ndarray)) and len(c_val) > 0 and not isinstance(c_val, (str, tuple)):
+                            c_val = c_val[0]
+                        
+                        rgb = get_rgb255(c_val)
+                        ls = str(getattr(obj, 'get_linestyle', lambda: '')()).lower()
+                        
+                        # CAPA COTAS / DIMENSIONES (Gris Oscuro RGB 60, 60, 60): Trazo ultrafino de línea (0.05 pt) y números con linewidth (0.02 pt)
+                        if rgb == (60, 60, 60):
+                            is_patch = isinstance(obj, mpatches.PathPatch) or type(obj).__name__ == 'PathPatch'
+                            if is_patch:
+                                obj.set_facecolor('#3c3c3c')
+                                obj.set_linewidth(0.02)  # Linewidth de 0.02 pt
+                                if hasattr(obj, 'set_edgecolor'):
+                                    try:
+                                        obj.set_edgecolor('#3c3c3c')
+                                    except Exception:
+                                        pass
+                            else:
+                                obj.set_linewidth(0.05)
+                        # CAPAS IRREGULAR Y LFI (Azul RGB 53, 121, 177): GROSOR 0.6 pt
+                        elif rgb == (53, 121, 177):
+                            obj.set_linewidth(0.6)
+                        # CAPA LIB (Amarillo RGB 255, 211, 6): GROSOR 0.6 pt
+                        elif rgb == (255, 211, 6):
+                            obj.set_linewidth(0.6)
+                        # CAPA BANDA MÍNIMA (Gris RGB 100, 100, 100 / DASHED --): GROSOR 0.25 pt
+                        elif rgb == (100, 100, 100) or 'dash' in ls or '--' in ls:
+                            obj.set_linewidth(0.25)
+                            if hasattr(obj, 'set_linestyle'):
+                                try:
+                                    obj.set_linestyle('--')
+                                except Exception:
+                                    pass
+                        # ETIQUETAS DE PARCELAS (RGB 85, 85, 85): HALO BLANCO POR DETRÁS (STROKE BEHIND FILL) Y LETRA GRIS IMPECABLE
+                        elif rgb == (85, 85, 85):
+                            if hasattr(obj, 'set_facecolor'):
+                                try:
+                                    obj.set_facecolor('#555555')  # Relleno intacto en Gris Intermedio
+                                except Exception:
+                                    pass
+                            obj.set_linewidth(0.0)
+                            if hasattr(obj, 'set_edgecolor'):
+                                try:
+                                    obj.set_edgecolor('none')
+                                except Exception:
+                                    pass
+                            if hasattr(obj, 'set_path_effects'):
+                                try:
+                                    import matplotlib.patheffects as path_effects
+                                    obj.set_path_effects([path_effects.Stroke(linewidth=0.2, foreground='white'), path_effects.Normal()])
+                                except Exception:
+                                    pass
+                        # CAPA PARCELAS (Gris Claro RGB 215, 215, 215): GROSOR 0.25 pt
+                        elif rgb == (215, 215, 215):
+                            obj.set_linewidth(0.25)
+                        # CAPA CONSOLIDADO (mdr_tejidoconsolidado / RGB 180, 180, 180): INTELIGENTE PARA GARANTIZAR VISIBILIDAD DE LÍNEAS Y RELLENOS
+                        elif rgb == (180, 180, 180):
+                            has_fill = False
+                            if hasattr(obj, 'get_facecolor'):
+                                try:
+                                    fc = obj.get_facecolor()
+                                    if fc is not None:
+                                        if isinstance(fc, (list, tuple, np.ndarray)) and len(fc) > 0:
+                                            fc_item = fc[0] if not isinstance(fc, (str, tuple)) else fc
+                                            fc_rgba = mcolors.to_rgba(fc_item)
+                                            if fc_rgba[3] > 0.05 and fc_rgba[:3] != (1.0, 1.0, 1.0):
+                                                has_fill = True
+                                except Exception:
+                                    pass
+                            
+                            if has_fill:
+                                obj.set_linewidth(0.0)
+                                if hasattr(obj, 'set_edgecolor'):
+                                    try:
+                                        obj.set_edgecolor('none')
+                                    except Exception:
+                                        pass
+                            else:
+                                obj.set_linewidth(0.6)
+                        # Cotas y resto de elementos
+                        else:
+                            obj.set_linewidth(0.15)
+                    except Exception:
+                        pass
+
+            # --- POST-PROCESAMIENTO DE TEXTO EN MATPLOTLIB ---
             for txt in ax.texts:
-                txt.set_color('#000000')
-                txt.set_fontweight('bold')
-                txt.set_fontsize(9.5)
-                txt.set_bbox(dict(boxstyle='square,pad=0.15', facecolor='white', edgecolor='none', alpha=0.9))
+                txt_str = txt.get_text()
+                # Formatear a 2 decimales únicamente si es un valor de cota numérico
+                if re.search(r'\d', txt_str) and not re.search(r'^[A-Z\s,.-]{4,}$', txt_str):
+                    def fmt_dec(m):
+                        try:
+                            return f"{float(m.group(0)):.2f}"
+                        except Exception:
+                            return m.group(0)
+                    new_txt_str = re.sub(r'\b\d+(?:\.\d+)?\b', fmt_dec, txt_str)
+                    txt.set_text(new_txt_str)
                 
-            fig.savefig(img_buf, format='png', bbox_inches='tight', pad_inches=0.02, facecolor='white')
+            # --- AJUSTAR EL DXF EXACTO AL ESPACIO DE TRABAJO (8% DE MARGEN) ---
+            try:
+                x0, y0, w, h = ax.dataLim.bounds
+                if w > 0 and h > 0:
+                    cx, cy = x0 + (w / 2.0), y0 + (h / 2.0)
+                    fig_ratio = 16.0 / 13.0
+                    
+                    # Ajuste fino y exacto al marco del espacio de trabajo
+                    if (w / h) > fig_ratio:
+                        w_span = w * 1.08
+                        h_span = w_span / fig_ratio
+                    else:
+                        h_span = h * 1.08
+                        w_span = h_span * fig_ratio
+
+                    ax.set_xlim(cx - (w_span / 2.0), cx + (w_span / 2.0))
+                    ax.set_ylim(cy - (h_span / 2.0), cy + (h_span / 2.0))
+                    ax.set_aspect('equal', adjustable='box')
+            except Exception as e_bounds:
+                logger.warning(f"No se pudo recalcular límites de encuadre DXF: {e_bounds}")
+
+            fig.savefig(img_buf, format='png', bbox_inches='tight', pad_inches=0.03, facecolor='white')
             plt.close(fig)
             img_buf.seek(0)
             return img_buf
@@ -214,7 +504,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             q_tron = "SELECT irregular, ST_AsGeoJSON(geom) FROM public.mdr_troneras WHERE (TRIM(seccion) = :s OR LPAD(TRIM(seccion), 3, '0') = :s) AND TRIM(manzana) = :m"
             tron_rows = conn.execute(text(q_tron), {"s": s_clean, "m": m_clean}).fetchall()
             
-            # F. Banda Mínima (LÍNEA CORTADA)
+            # F. Banda Mínima (LÍNEA CORTADA GRIS)
             q_bm = """
                 SELECT ST_AsGeoJSON(bm.geom) 
                 FROM public.mdr_banda_minima bm 
@@ -254,64 +544,80 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
             if mza_json:
                 m_geom = shape(json.loads(mza_json))
                 for x, y in extract_lines_from_geom(m_geom):
-                    ax.plot(x, y, color='#404040', linewidth=2.2, zorder=2)
+                    ax.plot(x, y, color='#404040', linewidth=1.5, zorder=2)
                     
-            # 2. Dibujar Parcelas y ETIQUETAS DE PARCELA EN COLOR NEGRO (#000000)
+            # 2. Dibujar Parcelas: LO MÁS FINA QUE SE PUEDA (linewidth=0.15, color gris claro #d7d7d7)
             if parc_rows:
                 for p_num, smp, p_json, cx, cy in parc_rows:
                     if p_json:
                         p_geom = shape(json.loads(p_json))
                         for x, y in extract_lines_from_geom(p_geom):
-                            ax.plot(x, y, color='#606060', linewidth=1.2, zorder=3)
+                            ax.plot(x, y, color='#d7d7d7', linewidth=0.15, zorder=3)
                         
                         # ETIQUETA DE PARCELA (COLOR NEGRO ABSOLUTO #000000, ARIAL BOLD)
                         if p_num and cx and cy:
                             p_clean = str(p_num).strip()
-                            ax.text(cx, cy, p_clean, color='#000000', fontsize=8.5, fontweight='bold',
+                            ax.text(cx, cy, p_clean, color='#000000', fontsize=11.0, fontweight='bold',
                                     fontfamily='sans-serif', ha='center', va='center', zorder=20,
-                                    bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='none', alpha=0.85))
+                                    bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='none', alpha=0.9))
 
-            # 3. Dibujar Basamento (LIB) - Amarillo #ffd306
+            # 3. Dibujar Basamento (LIB) - Amarillo #ffd306 GRUESO (linewidth=4.2)
             for l_json in lib_rows:
                 l_geom = shape(json.loads(l_json))
                 for x, y in extract_lines_from_geom(l_geom):
-                    ax.plot(x, y, color='#ffd306', linewidth=2.2, zorder=5)
+                    ax.plot(x, y, color='#ffd306', linewidth=4.2, zorder=5)
 
-            # 4. Dibujar LFI - Azul #3579b1
+            # 4. Dibujar LFI - Azul #3579b1 GRUESO (linewidth=4.2)
             for l_json in lfi_rows:
                 l_geom = shape(json.loads(l_json))
                 for x, y in extract_lines_from_geom(l_geom):
-                    ax.plot(x, y, color='#3579b1', linewidth=2.5, zorder=6)
+                    ax.plot(x, y, color='#3579b1', linewidth=4.2, zorder=6)
 
-            # 5. Dibujar Troneras / Extensiones Irregulares - Mismo color Azul #3579b1 que LFI
+            # 5. Dibujar Troneras / Extensiones Irregulares - Azul #3579b1 GRUESO (linewidth=4.2)
             for irr_val, t_json in tron_rows:
                 if t_json:
                     t_geom = shape(json.loads(t_json))
-                    t_color = '#3579b1'  # Azul unificado con LFI
-                    t_lw = 2.8 if str(irr_val).upper() == 'SI' else 2.2
                     for x, y in extract_lines_from_geom(t_geom):
-                        ax.plot(x, y, color=t_color, linewidth=t_lw, zorder=7)
+                        ax.plot(x, y, color='#3579b1', linewidth=4.2, zorder=7)
 
-            # 6. DIBUJAR BANDA MÍNIMA COMO LÍNEA CORTADA COMPACTA EN VIOLETA (#8a2be2)
+            # 6. DIBUJAR BANDA MÍNIMA COMO LÍNEA CORTADA GRIS (#808080)
             for bm_j in bm_rows:
                 bm_geom = shape(json.loads(bm_j))
                 for x, y in extract_lines_from_geom(bm_geom):
-                    ax.plot(x, y, color='#8a2be2', linestyle='--', linewidth=2.5, dashes=(1.5, 1.0), zorder=12)
+                    ax.plot(x, y, color='#808080', linestyle='--', linewidth=1.6, dashes=(3.0, 2.0), zorder=12)
 
             # 7. DIBUJAR ETIQUETAS DE NOMBRES DE CALLES EN COLOR NEGRO ABSOLUTO (#000000)
             if calles_rows:
                 for c_nom, cx, cy in calles_rows:
                     if c_nom and cx and cy:
                         c_clean = str(c_nom).strip().upper()
-                        ax.text(cx, cy, c_clean, color='#000000', fontsize=9.5, fontweight='bold',
+                        ax.text(cx, cy, c_clean, color='#000000', fontsize=13.0, fontweight='bold',
                                 fontfamily='sans-serif', ha='center', va='center', zorder=25,
                                 bbox=dict(boxstyle='square,pad=0.25', facecolor='#ffffff', edgecolor='#cbd5e1', linewidth=0.8, alpha=0.95))
-                        
-            ax.set_aspect('equal')
+
+            # Auto-zoom exacto encajado al espacio de trabajo (margen 10%)
+            if mza_json:
+                m_geom = shape(json.loads(mza_json))
+                b = m_geom.bounds  # (minx, miny, maxx, maxy)
+                cx, cy = (b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0
+                w, h = b[2] - b[0], b[3] - b[1]
+                fig_ratio = 16.0 / 13.0
+                
+                if (w / h) > fig_ratio:
+                    w_span = w * 1.10
+                    h_span = w_span / fig_ratio
+                else:
+                    h_span = h * 1.10
+                    w_span = h_span * fig_ratio
+
+                ax.set_xlim(cx - (w_span / 2.0), cx + (w_span / 2.0))
+                ax.set_ylim(cy - (h_span / 2.0), cy + (h_span / 2.0))
+
+            ax.set_aspect('equal', adjustable='box')
             ax.grid(False)
             ax.set_axis_off()
             
-            fig.savefig(img_buf, format='png', bbox_inches='tight', pad_inches=0.04, facecolor='white')
+            fig.savefig(img_buf, format='png', bbox_inches='tight', pad_inches=0.03, facecolor='white')
             plt.close(fig)
             img_buf.seek(0)
             return img_buf

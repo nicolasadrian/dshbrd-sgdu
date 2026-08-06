@@ -252,15 +252,15 @@ try:
         fam_count = conn.execute(text("SELECT COUNT(*) FROM public.cfg_tramites_familias")).scalar()
         if fam_count == 0:
             default_familias = {
-                "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C"],
+                "Catastro": ["MDUG0134N", "MDUG0146A", "MDUG0131B", "MDUG0115B", "MDUG1501H", "MDUG0135A", "MDUG0131A", "MDUG0115F", "MDUG0134C", "MDUG0134E", "MDUG1501L", "MDUG0115E", "MDUG0115G", "MDUG0115C", "INTERVENCIONES_CATASTRO"],
                 "Registros": ["MDUG3001A", "MDUG1502A", "MDUG0142A", "MDUG4003A"],
                 "Incendio": ["MDUG2101A"],
-                "Conforme": ["MDUG0141A", "MDUG0104A"],
+                "Conforme": ["MDUG0141A", "MDUG0104A", "INTERVENCIONES_CONFORME"],
                 "Instalaciones": ["MDUG2901A", "MDUG2301A", "MDUG2201A", "MDUG3301A", "MDUG2601A", "MDUG2401A", "MDUG2501A", "MDUG2701A"],
-                "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A"],
+                "Consultas de Usos": ["MDUG4001A", "MDUG4102A", "MJGG0302A", "MDUG0136B", "MJGG0303A", "INTERVENCIONES_USOS"],
                 "Permisos": ["MDUG1501J", "MDUG1501K", "MDUG3402A"],
-                "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A"],
-                "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A"],
+                "Interpretaciones/Informe Urbanisitco": ["MDUG3601A", "MDUG1801A", "INTERVENCIONES_MORFOLOGIA"],
+                "Consultas Obligatorias": ["MDUG3701A", "MDUG3501A", "INTERVENCIONES_APH"],
                 "Otros": ["MDUG0901A", "MDUG0120A", "MDUG0102B", "MDUG0107A", "MJGG1601A", "MDUG0904A", "MDUG3801A", "MJGG1701A", "MDUG1802A"]
             }
             for name, tratas in default_familias.items():
@@ -268,6 +268,26 @@ try:
                     text("INSERT INTO public.cfg_tramites_familias (nombre, tratas) VALUES (:n, :t) ON CONFLICT DO NOTHING"),
                     {"n": name, "t": json.dumps(tratas)}
                 )
+        else:
+            # Migración: asegurar que las intervenciones estén agregadas a las familias existentes en la DB
+            intervenciones_familias_map = {
+                "Catastro": "INTERVENCIONES_CATASTRO",
+                "Conforme": "INTERVENCIONES_CONFORME",
+                "Consultas Obligatorias": "INTERVENCIONES_APH",
+                "Consultas de Usos": "INTERVENCIONES_USOS",
+                "Interpretaciones/Informe Urbanisitco": "INTERVENCIONES_MORFOLOGIA",
+                "Interpretaciones/Informe Urbanistico": "INTERVENCIONES_MORFOLOGIA"
+            }
+            for fam_name, interv_code in intervenciones_familias_map.items():
+                row = conn.execute(text("SELECT tratas FROM public.cfg_tramites_familias WHERE nombre = :n"), {"n": fam_name}).fetchone()
+                if row:
+                    tratas_list = row[0] if isinstance(row[0], list) else json.loads(row[0])
+                    if interv_code not in tratas_list:
+                        tratas_list.append(interv_code)
+                        conn.execute(
+                            text("UPDATE public.cfg_tramites_familias SET tratas = :t WHERE nombre = :n"),
+                            {"t": json.dumps(tratas_list), "n": fam_name}
+                        )
                 roles_count = conn.execute(text("SELECT COUNT(*) FROM auth_roles")).scalar()
         if roles_count == 0:
             default_roles = [

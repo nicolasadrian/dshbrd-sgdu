@@ -1223,7 +1223,12 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
         "MDUG0104A": "etapa_proyecto",
         "MDUG1501J": "etapa_proyecto",
         "MDUG0142A": "etapa_proyecto",
-        "MDUG4003A": "etapa_proyecto"
+        "MDUG4003A": "etapa_proyecto",
+        "INTERVENCIONES_CATASTRO": "catastro",
+        "INTERVENCIONES_CONFORME": "regularizacion",
+        "INTERVENCIONES_APH": "aph",
+        "INTERVENCIONES_USOS": "usos",
+        "INTERVENCIONES_MORFOLOGIA": "morfologia"
     }
 
     results = []
@@ -1255,8 +1260,9 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                         if meta_res and float(meta_res[0]) > 0:
                             total_target += float(meta_res[0])
                         else:
-                            fallback_egr, _ = calculate_single_trata_fallback(conn, gerencia_clean, t_upper)
-                            total_target += fallback_egr
+                            fallback_dict = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, [t_upper, 'INTERVENCIONES'])
+                            t_key = 'INTERVENCIONES' if t_upper.startswith("INTERVENCIONES_") else t_upper
+                            total_target += float(fallback_dict.get(t_key, 0))
                     except Exception:
                         pass
                         
@@ -1268,15 +1274,23 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                         months_rows = conn.execute(text(sql_months)).fetchall()
                         if len(months_rows) >= 1:
                             mes_val = months_rows[0][0]
-                            egr_ef_res = conn.execute(text(f"""
-                                SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
-                                WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
-                            """), {"t": t_upper, "m": mes_val}).fetchone()
-                            
-                            egr_ne_res = conn.execute(text(f"""
-                                SELECT COUNT(*) FROM mv_{gerencia_clean}_egresos_no_efectivos
-                                WHERE TRIM(trata) = :t AND to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
-                            """), {"t": t_upper, "m": mes_val}).fetchone()
+                            if t_upper.startswith("INTERVENCIONES_"):
+                                interv_table = f"mv_{gerencia_clean}_interv_egresos_eventos"
+                                egr_ef_res = conn.execute(text(f"""
+                                    SELECT COUNT(*) FROM {interv_table} 
+                                    WHERE to_char(fecha_egreso, 'YYYY-MM') = :m
+                                """), {"m": mes_val}).fetchone()
+                                egr_ne_res = None
+                            else:
+                                egr_ef_res = conn.execute(text(f"""
+                                    SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
+                                    WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
+                                """), {"t": t_upper, "m": mes_val}).fetchone()
+                                
+                                egr_ne_res = conn.execute(text(f"""
+                                    SELECT COUNT(*) FROM mv_{gerencia_clean}_egresos_no_efectivos
+                                    WHERE TRIM(trata) = :t AND to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
+                                """), {"t": t_upper, "m": mes_val}).fetchone()
                             
                             if egr_ef_res:
                                 total_actual += int(egr_ef_res[0])
@@ -1285,20 +1299,30 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                                 
                         if len(months_rows) >= 2:
                             mes_prev = months_rows[1][0]
-                            egr_ef_prev = conn.execute(text(f"""
-                                SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
-                                WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
-                            """), {"t": t_upper, "m": mes_prev}).fetchone()
-                            
-                            egr_ne_prev = conn.execute(text(f"""
-                                SELECT COUNT(*) FROM mv_{gerencia_clean}_egresos_no_efectivos
-                                WHERE TRIM(trata) = :t AND to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
-                            """), {"t": t_upper, "m": mes_prev}).fetchone()
+                            if t_upper.startswith("INTERVENCIONES_"):
+                                interv_table = f"mv_{gerencia_clean}_interv_egresos_eventos"
+                                egr_ef_prev = conn.execute(text(f"""
+                                    SELECT COUNT(*) FROM {interv_table} 
+                                    WHERE to_char(fecha_egreso, 'YYYY-MM') = :m
+                                """), {"m": mes_prev}).fetchone()
+                                egr_ne_prev = None
+                            else:
+                                egr_ef_prev = conn.execute(text(f"""
+                                    SELECT COUNT(*) FROM mv_{gerencia_clean}_gedos_egreso 
+                                    WHERE TRIM(trata) = :t AND to_char(fecha_egreso, 'YYYY-MM') = :m
+                                """), {"t": t_upper, "m": mes_prev}).fetchone()
+                                
+                                egr_ne_prev = conn.execute(text(f"""
+                                    SELECT COUNT(*) FROM mv_{gerencia_clean}_egresos_no_efectivos
+                                    WHERE TRIM(trata) = :t AND to_char(fecha_ultimo_movimiento, 'YYYY-MM') = :m
+                                """), {"t": t_upper, "m": mes_prev}).fetchone()
                             
                             if egr_ef_prev:
                                 total_prev += int(egr_ef_prev[0])
                             if egr_ne_prev:
                                 total_prev += int(egr_ne_prev[0])
+                    except Exception:
+                        pass
                     except Exception:
                         pass
                 
@@ -3689,8 +3713,10 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                     except Exception:
                         pass
 
-                    if not metas_plan:
-                        metas_plan = calculate_all_trata_expected_egresos_batch(conn, g_clean, trata_codes)
+                fallbacks = calculate_all_trata_expected_egresos_batch(conn, g_clean, trata_codes + ['INTERVENCIONES'])
+                for k, v in fallbacks.items():
+                    if k not in metas_plan or metas_plan[k] == 0:
+                        metas_plan[k] = float(v)
 
                 ingresos = {}
                 ingresos_prev = {}
@@ -3808,6 +3834,14 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                 g_tot_sb = 0; g_tot_sb_p = 0; g_tot_sb_y = 0
                 g_tot_meta = 0
 
+                interv_map = {
+                    "catastro": ("INTERVENCIONES_CATASTRO", "Intervenciones de Catastro"),
+                    "regularizacion": ("INTERVENCIONES_CONFORME", "Intervenciones de Conforme"),
+                    "aph": ("INTERVENCIONES_APH", "Intervenciones de APH"),
+                    "usos": ("INTERVENCIONES_USOS", "Intervenciones de Usos"),
+                    "morfologia": ("INTERVENCIONES_MORFOLOGIA", "Intervenciones de Morfologia")
+                }
+
                 for t_id in trata_codes:
                     t_upper = t_id.upper()
                     
@@ -3818,13 +3852,20 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                     t_egr = egr_ef.get(t_upper, 0) + egr_ne.get(t_upper, 0)
                     t_egr_p = egr_ef_prev.get(t_upper, 0) + egr_ne_prev.get(t_upper, 0)
                     t_egr_y = egr_ef_yoy.get(t_upper, 0) + egr_ne_yoy.get(t_upper, 0)
+
+                    t_out_code = t_id
+                    t_out_desc = config[t_id]["nombre"] if t_id != 'INTERVENCIONES' else "Intervenciones Externas del Sector"
+
                     if t_upper == 'INTERVENCIONES':
-                        t_ing = 0
-                        t_ing_p = 0
-                        t_ing_y = 0
-                        t_egr = 0
-                        t_egr_p = 0
-                        t_egr_y = 0
+                        if g_clean in interv_map:
+                            t_out_code, t_out_desc = interv_map[g_clean]
+                        else:
+                            t_ing = 0
+                            t_ing_p = 0
+                            t_ing_y = 0
+                            t_egr = 0
+                            t_egr_p = 0
+                            t_egr_y = 0
                         
                     t_st = stock.get(t_upper, 0)
                     t_st_p = stock_prev.get(t_upper, 0)
@@ -3834,7 +3875,7 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                     t_sb_p = subs_prev.get(t_upper, 0)
                     t_sb_y = subs_yoy.get(t_upper, 0)
                     
-                    t_meta = metas_plan.get(t_upper, 0)
+                    t_meta = metas_plan.get(t_out_code, metas_plan.get(t_upper, 0))
 
                     g_tot_ing += t_ing
                     g_tot_ing_p += t_ing_p
@@ -3855,8 +3896,8 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                     g_tot_meta += t_meta
 
                     g_detalles.append({
-                        "trata": t_id,
-                        "descripcion_trata": config[t_id]["nombre"] if t_id != 'INTERVENCIONES' else "Intervenciones Externas del Sector",
+                        "trata": t_out_code,
+                        "descripcion_trata": t_out_desc,
                         "ingresos": t_ing,
                         "ingresos_prev": t_ing_p,
                         "ingresos_yoy": t_ing_y,

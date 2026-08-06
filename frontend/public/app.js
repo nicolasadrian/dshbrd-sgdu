@@ -9883,56 +9883,206 @@ async function loadAnalyticsPdlBlanqueo() {
             `;
         }
 
-        // Render pdlSuperficieChart
+        // Definición de rangos estándar y paleta de colores
+        const rangosOrdenados = ['<150 m²', '150-250 m²', '250-400 m²', '400-500 m²', '500-700 m²', '>700 m²'];
+        const coloresRangos = {
+            '<150 m²': '#3b82f6',
+            '150-250 m²': '#10b981',
+            '250-400 m²': '#f59e0b',
+            '400-500 m²': '#ef4444',
+            '500-700 m²': '#8b5cf6',
+            '>700 m²': '#ec4899',
+            'S/D': '#94a3b8'
+        };
+
+        // Ordenar data.superficie_dist según la escala solicitada
+        if (data.superficie_dist) {
+            data.superficie_dist.sort((a, b) => {
+                let idxA = rangosOrdenados.indexOf(a.rango);
+                let idxB = rangosOrdenados.indexOf(b.rango);
+                if (idxA === -1) idxA = 99;
+                if (idxB === -1) idxB = 99;
+                return idxA - idxB;
+            });
+        }
+
+        // Render pdlSuperficieChart (con Porcentajes)
         if (pdlCharts.superficie) pdlCharts.superficie.destroy();
         const ctxSup = document.getElementById('pdlSuperficieChart')?.getContext('2d');
         if (ctxSup) {
+            const totalSupCant = data.superficie_dist.reduce((acc, curr) => acc + curr.cant, 0);
             pdlCharts.superficie = new Chart(ctxSup, {
                 type: 'doughnut',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
                 data: {
                     labels: data.superficie_dist.map(d => d.rango),
                     datasets: [{
                         data: data.superficie_dist.map(d => d.cant),
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b']
+                        backgroundColor: data.superficie_dist.map(d => coloresRangos[d.rango] || '#64748b')
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'right' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.parsed || 0;
+                                    const pct = totalSupCant > 0 ? ((val / totalSupCant) * 100).toFixed(1) : 0;
+                                    return `${context.label}: ${val.toLocaleString('es-AR')} parcelas (${pct}%)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (value) => {
+                                const pct = totalSupCant > 0 ? ((value / totalSupCant) * 100).toFixed(1) : 0;
+                                return pct >= 3 ? `${pct}%` : '';
+                            }
+                        }
+                    } 
+                }
             });
         }
 
-        // Render pdlComunaChart
+        // Render pdlComunaChart (Barras apiladas con porcentajes por comuna y globales)
         if (pdlCharts.comuna) pdlCharts.comuna.destroy();
         const ctxComuna = document.getElementById('pdlComunaChart')?.getContext('2d');
-        if (ctxComuna) {
+        if (ctxComuna && data.comuna_sup_dist && data.comuna_dist) {
+            const comunaLabels = data.comuna_dist.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`);
+            const rawComunaKeys = data.comuna_dist.map(d => d.comuna);
+
+            // Mapa con totales por comuna
+            const comunaTotalesMap = {};
+            data.comuna_dist.forEach(d => { comunaTotalesMap[d.comuna] = d.cant; });
+
+            const allRangos = [...rangosOrdenados];
+            if (data.comuna_sup_dist.some(d => d.rango === 'S/D')) allRangos.push('S/D');
+
+            const datasetsComuna = allRangos.map(rango => {
+                const dataPoints = rawComunaKeys.map(comKey => {
+                    const match = data.comuna_sup_dist.find(item => item.comuna === comKey && item.rango === rango);
+                    return match ? match.cant : 0;
+                });
+                return {
+                    label: rango,
+                    data: dataPoints,
+                    backgroundColor: coloresRangos[rango] || '#64748b'
+                };
+            });
+
             pdlCharts.comuna = new Chart(ctxComuna, {
                 type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
                 data: {
-                    labels: data.comuna_dist.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`),
-                    datasets: [{
-                        label: 'Cantidad de Parcelas',
-                        data: data.comuna_dist.map(d => d.cant),
-                        backgroundColor: 'rgba(59, 130, 246, 0.75)'
-                    }]
+                    labels: comunaLabels,
+                    datasets: datasetsComuna
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const comKey = rawComunaKeys[context.dataIndex];
+                                    const totalComuna = comunaTotalesMap[comKey] || 0;
+                                    const val = context.parsed.y || 0;
+                                    const pctComuna = totalComuna > 0 ? ((val / totalComuna) * 100).toFixed(1) : 0;
+                                    return `${context.dataset.label}: ${val.toLocaleString('es-AR')} parcelas (${pctComuna}% de la comuna)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (value, context) => {
+                                const comKey = rawComunaKeys[context.dataIndex];
+                                const totalComuna = comunaTotalesMap[comKey] || 0;
+                                if (totalComuna <= 0) return '';
+                                const pct = (value / totalComuna) * 100;
+                                return pct >= 5 ? `${pct.toFixed(0)}%` : '';
+                            }
+                        }
+                    }
+                }
             });
         }
 
-        // Render pdlBarrioChart
+        // Render pdlBarrioChart (Barras apiladas con porcentajes por barrio)
         if (pdlCharts.barrio) pdlCharts.barrio.destroy();
         const ctxBarrio = document.getElementById('pdlBarrioChart')?.getContext('2d');
-        if (ctxBarrio) {
+        if (ctxBarrio && data.barrio_sup_dist && data.barrio_dist) {
+            const barrioLabels = data.barrio_dist.map(d => d.barrio);
+
+            // Mapa con totales por barrio
+            const barrioTotalesMap = {};
+            data.barrio_dist.forEach(d => { barrioTotalesMap[d.barrio] = d.cant; });
+
+            const allRangos = [...rangosOrdenados];
+            if (data.barrio_sup_dist.some(d => d.rango === 'S/D')) allRangos.push('S/D');
+
+            const datasetsBarrio = allRangos.map(rango => {
+                const dataPoints = barrioLabels.map(bKey => {
+                    const match = data.barrio_sup_dist.find(item => item.barrio === bKey && item.rango === rango);
+                    return match ? match.cant : 0;
+                });
+                return {
+                    label: rango,
+                    data: dataPoints,
+                    backgroundColor: coloresRangos[rango] || '#64748b'
+                };
+            });
+
             pdlCharts.barrio = new Chart(ctxBarrio, {
                 type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
                 data: {
-                    labels: data.barrio_dist.map(d => d.barrio),
-                    datasets: [{
-                        label: 'Parcelas por Barrio',
-                        data: data.barrio_dist.map(d => d.cant),
-                        backgroundColor: 'rgba(16, 185, 129, 0.75)'
-                    }]
+                    labels: barrioLabels,
+                    datasets: datasetsBarrio
                 },
-                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const bKey = barrioLabels[context.dataIndex];
+                                    const totalBarrio = barrioTotalesMap[bKey] || 0;
+                                    const val = context.parsed.x || 0;
+                                    const pctBarrio = totalBarrio > 0 ? ((val / totalBarrio) * 100).toFixed(1) : 0;
+                                    return `${context.dataset.label}: ${val.toLocaleString('es-AR')} parcelas (${pctBarrio}% del barrio)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 9 },
+                            formatter: (value, context) => {
+                                const bKey = barrioLabels[context.dataIndex];
+                                const totalBarrio = barrioTotalesMap[bKey] || 0;
+                                if (totalBarrio <= 0) return '';
+                                const pct = (value / totalBarrio) * 100;
+                                return pct >= 6 ? `${pct.toFixed(0)}%` : '';
+                            }
+                        }
+                    }
+                }
             });
         }
 

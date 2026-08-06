@@ -248,7 +248,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
         m_boundary['geometry'] = m_boundary.geometry.apply(polygon_to_boundary)
         m_layers['manzanas'] = m_boundary
         
-        # Parcelas (convertidas a contorno de líneas) y recolección de etiquetas de parcelas
+        # Parcelas (convertidas a contorno de líneas) y recolección de etiquetas: CUR_1 + Campo Parcela
         m_parcelas_data = []
         if not gdf_parcelas.empty:
             m_parcelas = gdf_parcelas[gdf_parcelas['manzana'] == m_val].copy()
@@ -258,13 +258,13 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                     if geom and not geom.is_empty:
                         centroid = geom.centroid
                         cur = row.get('cur_1')
-                        parc_val = row.get('parcela')
+                        parc_num = row.get('parcela')
                         
                         labels = []
-                        if cur and str(cur) != 'nan' and str(cur).strip() != '':
+                        if cur and str(cur) != 'nan':
                             labels.append(str(cur).strip())
-                        if parc_val is not None and str(parc_val) != 'nan' and str(parc_val).strip() != '':
-                            labels.append(str(parc_val).strip())
+                        if parc_num and str(parc_num) != 'nan':
+                            labels.append(str(parc_num).strip())
                         
                         if labels:
                             m_parcelas_data.append(((centroid.x, centroid.y), labels))
@@ -442,7 +442,6 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                             'banda_minima': (1, (228, 26, 28)), # ACI 1 (Rojo), RGB #e41a1c
                             'tejido': (8, (128, 128, 128)),     # ACI 8 (Gris Oscuro), RGB #808080
                             'mdr_tejidoconsolidado': (9, (192, 192, 192)), # ACI 9 (Gris Claro), RGB #c0c0c0
-                            'mdr_tejidoparairregular': (8, (128, 128, 128)), # ACI 8 (Gris Oscuro), RGB #808080
                             'manzanas': (250, (64, 64, 64)),    # ACI 250 (Gris Muy Oscuro), RGB #404040
                             'parcelas': (252, (96, 96, 96)),    # ACI 252 (Gris Carbón), RGB #606060
                             'Tronera SI': (141, (53, 121, 177)), # ACI 141 (Azul LFI), RGB #3579b1
@@ -455,8 +454,14 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                 layer = doc.layers.get(l_name)
                                 layer.color = aci
                                 layer.rgb = rgb
-                                if l_name in ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular'):
+                                if l_name == 'mdr_tejidoconsolidado':
                                     layer.transparency = 0.5
+                                    
+                        # Asegurar la creación por defecto de la capa "Cotas" (vacía, sin objetos)
+                        if 'Cotas' not in doc.layers:
+                            l_cotas = doc.layers.new('Cotas')
+                            l_cotas.color = 250
+                            l_cotas.rgb = (60, 60, 60)
                                     
                         # Configurar tipo de línea DASHED en la capa banda_minima
                         if 'banda_minima' in doc.layers:
@@ -471,7 +476,7 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                                 entity.dxf.color = 1
 
                         # 2. Convertir las polilíneas de las capas de tejido a HATCH
-                        hatch_layers = ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular')
+                        hatch_layers = ('mdr_tejidoconsolidado',)
                         for l_name in hatch_layers:
                             if l_name in doc.layers:
                                 polylines = [e for e in msp if e.dxf.layer == l_name and e.dxftype() in ('LWPOLYLINE', 'POLYLINE')]
@@ -611,7 +616,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception as e:
         raise ValueError(f"Error al cargar manzana {sec_str}-{m_str}: {e}")
 
-    # 2. Cargar Parcelas
+    # 2. Cargar Parcelas (con CUR y campo Parcela)
     query_parcelas = f"""
         SELECT geom, smp, seccion, manzana, parcela, cur_1, uni_edif_1, uni_edif_2, uni_edif_3, uni_edif_4 
         FROM public.cur_parcelas_ok 
@@ -739,7 +744,7 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     m_boundary['geometry'] = m_boundary.geometry.apply(polygon_to_boundary)
     m_layers['manzanas'] = m_boundary
 
-    # Parcelas
+    # Parcelas (etiquetas: CUR_1 + Campo Parcela)
     m_parcelas_data = []
     if not gdf_parcelas.empty:
         for idx, row in gdf_parcelas.iterrows():
@@ -747,12 +752,12 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             if geom and not geom.is_empty:
                 centroid = geom.centroid
                 cur = row.get('cur_1')
-                parc_val = row.get('parcela')
+                parc_num = row.get('parcela')
                 labels = []
-                if cur and str(cur) != 'nan' and str(cur).strip() != '':
+                if cur and str(cur) != 'nan':
                     labels.append(str(cur).strip())
-                if parc_val is not None and str(parc_val) != 'nan' and str(parc_val).strip() != '':
-                    labels.append(str(parc_val).strip())
+                if parc_num and str(parc_num) != 'nan':
+                    labels.append(str(parc_num).strip())
                 if labels:
                     m_parcelas_data.append(((centroid.x, centroid.y), labels))
         m_parcelas = gdf_parcelas.copy()
@@ -818,8 +823,6 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
 
     if not gdf_consolidado.empty:
         m_layers['mdr_tejidoconsolidado'] = gdf_consolidado
-    if not gdf_tejido_irreg.empty:
-        m_layers['mdr_tejidoparairregular'] = gdf_tejido_irreg
 
     gdfs_to_combine = []
     for layer_name, gdf in m_layers.items():
@@ -830,7 +833,6 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
         elif layer_name == 'banda_minima': gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
         elif layer_name == 'tejido': gdf_clean['OGR_STYLE'] = 'PEN(c:#808080)'
         elif layer_name == 'mdr_tejidoconsolidado': gdf_clean['OGR_STYLE'] = 'PEN(c:#c0c0c0)'
-        elif layer_name == 'mdr_tejidoparairregular': gdf_clean['OGR_STYLE'] = 'PEN(c:#808080)'
         elif layer_name == 'manzanas': gdf_clean['OGR_STYLE'] = 'PEN(c:#404040)'
         elif layer_name == 'parcelas': gdf_clean['OGR_STYLE'] = 'PEN(c:#606060)'
         elif layer_name == 'Tronera SI': gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
@@ -935,6 +937,15 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
                     t.set_placement(pos, align=TextEntityAlignment.MIDDLE_CENTER)
             except Exception as e_t:
                 print(f"Error tejido texto: {e_t}")
+
+        # Asegurar la creación por defecto de la capa "Cotas" (vacía, sin objetos)
+        try:
+            if 'Cotas' not in doc.layers:
+                l_cotas = doc.layers.new('Cotas')
+                l_cotas.color = 250
+                l_cotas.rgb = (60, 60, 60)
+        except Exception:
+            pass
 
         if m_parcelas_data:
             try:

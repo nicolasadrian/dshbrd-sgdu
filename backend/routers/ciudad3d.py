@@ -2225,11 +2225,12 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                 SELECT 
                     CASE 
                         WHEN {sup_expr} <= 0 OR {sup_expr} IS NULL THEN 'S/D'
-                        WHEN {sup_expr} < 100 THEN '< 100 m²'
-                        WHEN {sup_expr} BETWEEN 100 AND 250 THEN '100 - 250 m²'
-                        WHEN {sup_expr} BETWEEN 251 AND 500 THEN '251 - 500 m²'
-                        WHEN {sup_expr} BETWEEN 501 AND 1000 THEN '501 - 1000 m²'
-                        ELSE '> 1000 m²'
+                        WHEN {sup_expr} < 150 THEN '<150 m²'
+                        WHEN {sup_expr} BETWEEN 150 AND 250 THEN '150-250 m²'
+                        WHEN {sup_expr} BETWEEN 251 AND 400 THEN '250-400 m²'
+                        WHEN {sup_expr} BETWEEN 401 AND 500 THEN '400-500 m²'
+                        WHEN {sup_expr} BETWEEN 501 AND 700 THEN '500-700 m²'
+                        ELSE '>700 m²'
                     END as rango,
                     COUNT(*) as cant,
                     COALESCE(SUM({sup_expr}), 0) as total_sup
@@ -2239,8 +2240,47 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
             """))
             superficie_dist = [dict(r._mapping) for r in result_superficie]
 
-            # Segmentación por Barrio
+            # Segmentación por Barrio y Rangos de Superficie (Barras apiladas)
             barrio_expr = f"COALESCE(NULLIF(CAST({col_barrio} AS TEXT), ''), 'S/D')" if col_barrio != "NULL" else "'S/D'"
+            result_barrio_sup = geo_conn.execute(text(f"""
+                SELECT 
+                    {barrio_expr} as barrio,
+                    CASE 
+                        WHEN {sup_expr} <= 0 OR {sup_expr} IS NULL THEN 'S/D'
+                        WHEN {sup_expr} < 150 THEN '<150 m²'
+                        WHEN {sup_expr} BETWEEN 150 AND 250 THEN '150-250 m²'
+                        WHEN {sup_expr} BETWEEN 251 AND 400 THEN '250-400 m²'
+                        WHEN {sup_expr} BETWEEN 401 AND 500 THEN '400-500 m²'
+                        WHEN {sup_expr} BETWEEN 501 AND 700 THEN '500-700 m²'
+                        ELSE '>700 m²'
+                    END as rango,
+                    COUNT(*) as cant
+                FROM {tbl_parcelas}
+                GROUP BY 1, 2;
+            """))
+            barrio_sup_dist = [dict(r._mapping) for r in result_barrio_sup]
+
+            # Segmentación por Comuna y Rangos de Superficie (Barras apiladas)
+            comuna_expr = f"COALESCE(NULLIF(CAST({col_comuna} AS TEXT), ''), 'S/D')" if col_comuna != "NULL" else "'S/D'"
+            result_comuna_sup = geo_conn.execute(text(f"""
+                SELECT 
+                    {comuna_expr} as comuna,
+                    CASE 
+                        WHEN {sup_expr} <= 0 OR {sup_expr} IS NULL THEN 'S/D'
+                        WHEN {sup_expr} < 150 THEN '<150 m²'
+                        WHEN {sup_expr} BETWEEN 150 AND 250 THEN '150-250 m²'
+                        WHEN {sup_expr} BETWEEN 251 AND 400 THEN '250-400 m²'
+                        WHEN {sup_expr} BETWEEN 401 AND 500 THEN '400-500 m²'
+                        WHEN {sup_expr} BETWEEN 501 AND 700 THEN '500-700 m²'
+                        ELSE '>700 m²'
+                    END as rango,
+                    COUNT(*) as cant
+                FROM {tbl_parcelas}
+                GROUP BY 1, 2;
+            """))
+            comuna_sup_dist = [dict(r._mapping) for r in result_comuna_sup]
+
+            # Segmentación por Barrio
             result_barrio = geo_conn.execute(text(f"""
                 SELECT 
                     {barrio_expr} as barrio,
@@ -2253,7 +2293,6 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
             barrio_dist = [dict(r._mapping) for r in result_barrio]
 
             # Segmentación por Comuna
-            comuna_expr = f"COALESCE(NULLIF(CAST({col_comuna} AS TEXT), ''), 'S/D')" if col_comuna != "NULL" else "'S/D'"
             result_comuna = geo_conn.execute(text(f"""
                 SELECT 
                     {comuna_expr} as comuna,
@@ -2487,6 +2526,8 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
 
             return {
                 "superficie_dist": superficie_dist,
+                "barrio_sup_dist": barrio_sup_dist,
+                "comuna_sup_dist": comuna_sup_dist,
                 "mediana_sup": mediana_sup,
                 "barrio_dist": barrio_dist,
                 "comuna_dist": comuna_dist,
