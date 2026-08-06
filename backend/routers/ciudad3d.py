@@ -2193,7 +2193,11 @@ async def get_analytics_ley_blanqueo_excel(current_user: User = Depends(get_curr
 
 
 @router.get("/api/analytics/pdl-blanqueo")
-async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_user)):
+async def get_analytics_pdl_blanqueo(
+    ue: Optional[str] = Query(None),
+    area: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
     try:
         # 1. Query geo-mdr database for parcelas statistics (public.cur_parcelas_ok)
         with geo_engine.connect() as geo_conn:
@@ -2216,8 +2220,55 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
             col_sup = "superficie" if "superficie" in existing_cols else ("sup_total" if "sup_total" in existing_cols else ("sup_parcela" if "sup_parcela" in existing_cols else ("ST_Area(geom)" if "geom" in existing_cols else "NULL")))
             col_barrio = "barrio" if "barrio" in existing_cols else "NULL"
             col_comuna = "comuna" if "comuna" in existing_cols else "NULL"
-            col_ue = "uni_edif_1" if "uni_edif_1" in existing_cols else ("unidad_edificabilidad" if "unidad_edificabilidad" in existing_cols else ("edificabilidad" if "edificabilidad" in existing_cols else ("distrito" if "distrito" in existing_cols else ("usos_cur" if "usos_cur" in existing_cols else "uso_cur"))))
+            col_ue = "cur_1" if "cur_1" in existing_cols else ("uni_edif_1" if "uni_edif_1" in existing_cols else ("unidad_edificabilidad" if "unidad_edificabilidad" in existing_cols else ("edificabilidad" if "edificabilidad" in existing_cols else ("distrito" if "distrito" in existing_cols else ("usos_cur" if "usos_cur" in existing_cols else "uso_cur")))))
             col_area = "dist_1_grp" if "dist_1_grp" in existing_cols else ("area_especial" if "area_especial" in existing_cols else ("area_especial_distrito" if "area_especial_distrito" in existing_cols else ("aph" if "aph" in existing_cols else "NULL")))
+
+            ue_field_str = f"CAST({col_ue} AS TEXT)"
+            area_field_str = f"CAST({col_area} AS TEXT)"
+
+            # Construct dynamic WHERE clause for parcel filters (supporting multi-select comma separated values)
+            where_clauses = []
+            params = {}
+            if ue and ue.strip():
+                ue_items = [x.strip() for x in ue.split(',') if x.strip()]
+                has_sin_ue = any(x.lower() in ['sin ue', 'sin_ue'] for x in ue_items)
+                reg_ue = [x for x in ue_items if x.lower() not in ['sin ue', 'sin_ue']]
+                
+                ue_sub_clauses = []
+                if reg_ue:
+                    in_vars = []
+                    for idx, item in enumerate(reg_ue):
+                        param_key = f"ue_{idx}"
+                        in_vars.append(f":{param_key}")
+                        params[param_key] = item
+                    ue_sub_clauses.append(f"{ue_field_str} IN ({', '.join(in_vars)})")
+                if has_sin_ue:
+                    ue_sub_clauses.append(f"({col_ue} IS NULL OR TRIM({ue_field_str}) = '' OR TRIM({ue_field_str}) = '0')")
+                
+                if ue_sub_clauses:
+                    where_clauses.append(f"({' OR '.join(ue_sub_clauses)})")
+
+            if area and area.strip():
+                area_items = [x.strip() for x in area.split(',') if x.strip()]
+                has_sin_area = any(x.lower() in ['sin área especial', 'sin area especial', 'sin_area'] for x in area_items)
+                reg_area = [x for x in area_items if x.lower() not in ['sin área especial', 'sin area especial', 'sin_area']]
+                
+                area_sub_clauses = []
+                if reg_area:
+                    in_vars = []
+                    for idx, item in enumerate(reg_area):
+                        param_key = f"area_{idx}"
+                        in_vars.append(f":{param_key}")
+                        params[param_key] = item
+                    area_sub_clauses.append(f"{area_field_str} IN ({', '.join(in_vars)})")
+                if has_sin_area:
+                    area_sub_clauses.append(f"({col_area} IS NULL OR TRIM({area_field_str}) = '' OR TRIM({area_field_str}) = '0' OR UPPER(TRIM({area_field_str})) = 'SIN DATO' OR UPPER(TRIM({area_field_str})) = 'SIN ÁREA ESPECIAL' OR UPPER(TRIM({area_field_str})) = 'SIN AREA ESPECIAL')")
+                
+                if area_sub_clauses:
+                    where_clauses.append(f"({' OR '.join(area_sub_clauses)})")
+
+            where_str = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+            where_str_and = (" AND " + " AND ".join(where_clauses)) if where_clauses else ""
 
             # Rangos de Superficie
             sup_expr = f"CAST({col_sup} AS NUMERIC)" if col_sup not in ["NULL", "ST_Area(geom)"] else (col_sup if col_sup != "NULL" else "0")
@@ -2235,9 +2286,10 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                     COUNT(*) as cant,
                     COALESCE(SUM({sup_expr}), 0) as total_sup
                 FROM {tbl_parcelas}
+                {where_str}
                 GROUP BY 1
                 ORDER BY cant DESC;
-            """))
+            """), params)
             superficie_dist = [dict(r._mapping) for r in result_superficie]
 
             # Segmentación por Barrio y Rangos de Superficie (Barras apiladas)
@@ -2256,8 +2308,9 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                     END as rango,
                     COUNT(*) as cant
                 FROM {tbl_parcelas}
+                {where_str}
                 GROUP BY 1, 2;
-            """))
+            """), params)
             barrio_sup_dist = [dict(r._mapping) for r in result_barrio_sup]
 
             # Segmentación por Comuna y Rangos de Superficie (Barras apiladas)
@@ -2276,8 +2329,9 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                     END as rango,
                     COUNT(*) as cant
                 FROM {tbl_parcelas}
+                {where_str}
                 GROUP BY 1, 2;
-            """))
+            """), params)
             comuna_sup_dist = [dict(r._mapping) for r in result_comuna_sup]
 
             # Segmentación por Barrio
@@ -2287,9 +2341,10 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                     COUNT(*) as cant,
                     COALESCE(SUM({sup_expr}), 0) as total_sup
                 FROM {tbl_parcelas}
+                {where_str}
                 GROUP BY 1
                 ORDER BY cant DESC;
-            """))
+            """), params)
             barrio_dist = [dict(r._mapping) for r in result_barrio]
 
             # Segmentación por Comuna
@@ -2299,13 +2354,13 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                     COUNT(*) as cant,
                     COALESCE(SUM({sup_expr}), 0) as total_sup
                 FROM {tbl_parcelas}
+                {where_str}
                 GROUP BY 1
                 ORDER BY cant DESC;
-            """))
+            """), params)
             comuna_dist = [dict(r._mapping) for r in result_comuna]
 
             # Segmentación por Unidades de Edificabilidad
-            ue_field_str = f"CAST({col_ue} AS TEXT)"
             result_ue = geo_conn.execute(text(f"""
                 SELECT 
                     {ue_field_str} as edificabilidad,
@@ -2316,14 +2371,14 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                   AND {ue_field_str} <> '' 
                   AND {ue_field_str} <> '0' 
                   AND TRIM({ue_field_str}) <> '0'
+                  {where_str_and}
                 GROUP BY 1
                 ORDER BY cant DESC
                 LIMIT 20;
-            """))
+            """), params)
             ue_dist = [dict(r._mapping) for r in result_ue]
 
             # Segmentación por Áreas Especiales
-            area_field_str = f"CAST({col_area} AS TEXT)"
             result_area = geo_conn.execute(text(f"""
                 SELECT 
                     {area_field_str} as area_especial,
@@ -2335,18 +2390,43 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                   AND UPPER(TRIM({area_field_str})) <> 'SIN ÁREA ESPECIAL'
                   AND UPPER(TRIM({area_field_str})) <> 'SIN AREA ESPECIAL'
                   AND {area_field_str} <> '0'
+                  {where_str_and}
                 GROUP BY 1
                 ORDER BY cant DESC
                 LIMIT 20;
-            """))
+            """), params)
             area_dist = [dict(r._mapping) for r in result_area]
+
+            # Opciones completas de UE y Área Especial (para el frontend selector)
+            result_all_ue = geo_conn.execute(text(f"""
+                SELECT DISTINCT {ue_field_str} as val
+                FROM {tbl_parcelas}
+                WHERE {col_ue} IS NOT NULL AND {ue_field_str} <> '' AND {ue_field_str} <> '0' AND TRIM({ue_field_str}) <> '0'
+                ORDER BY 1;
+            """))
+            all_ue_options = [r[0] for r in result_all_ue if r[0]]
+            all_ue_options.append("Sin UE")
+
+            result_all_area = geo_conn.execute(text(f"""
+                SELECT DISTINCT {area_field_str} as val
+                FROM {tbl_parcelas}
+                WHERE {col_area} IS NOT NULL AND {area_field_str} <> '' 
+                  AND UPPER(TRIM({area_field_str})) <> 'SIN ÁREA ESPECIAL'
+                  AND UPPER(TRIM({area_field_str})) <> 'SIN AREA ESPECIAL'
+                  AND UPPER(TRIM({area_field_str})) <> 'SIN DATO'
+                  AND TRIM({area_field_str}) <> '0'
+                ORDER BY 1;
+            """))
+            all_area_options = [r[0] for r in result_all_area if r[0]]
+            all_area_options.append("Sin Área Especial")
 
             # Median surface calculation (Mediana de Superficie)
             mediana_res = geo_conn.execute(text(f"""
                 SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {sup_expr}) as mediana
                 FROM {tbl_parcelas}
-                WHERE {sup_expr} > 0 AND {sup_expr} IS NOT NULL;
-            """)).scalar()
+                WHERE {sup_expr} > 0 AND {sup_expr} IS NOT NULL
+                {where_str_and};
+            """), params).scalar()
             mediana_sup = float(mediana_res) if mediana_res is not None else 0.0
 
         # 2 & 3. Query sade_db for Ley de Blanqueo contravenciones (parcelas_leydeblanqueo)
@@ -2533,6 +2613,8 @@ async def get_analytics_pdl_blanqueo(current_user: User = Depends(get_current_us
                 "comuna_dist": comuna_dist,
                 "ue_dist": ue_dist,
                 "area_dist": area_dist,
+                "all_ue_options": all_ue_options,
+                "all_area_options": all_area_options,
                 "ce_summary": ce_summary,
                 "ce_barrio": ce_barrio,
                 "ce_comuna": ce_comuna,

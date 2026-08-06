@@ -135,12 +135,12 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                         # Ajustar la altura del texto al 1.25x (125%) ÚNICAMENTE para la capa de Cotas
                         if entity.dxf.hasattr('height'):
                             try:
-                                entity.dxf.height = float(entity.dxf.height) * 1.25
+                                entity.dxf.height = float(entity.dxf.height) * 2.00
                             except Exception:
                                 pass
                         if entity.dxf.hasattr('char_height'):
                             try:
-                                entity.dxf.char_height = float(entity.dxf.char_height) * 1.25
+                                entity.dxf.char_height = float(entity.dxf.char_height) * 2.00
                             except Exception:
                                 pass
 

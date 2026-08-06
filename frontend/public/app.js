@@ -8580,31 +8580,38 @@ function exportBuzonAnalistaExcel() {
     
     const columns = [
         { key: 'expediente', label: 'Expediente' },
+        { key: 'tipo_stock', label: 'Tipo de Stock' },
         { key: 'trata', label: 'Trata' },
         { key: 'descripcion_trata', label: 'Descripción Trata' },
         { key: 'dias', label: 'Días Stock' },
         { key: 'dias_en_gerencia', label: 'Días en Gerencia' },
         { key: 'fecha_ultimo_pase', label: 'Último Pase' },
-        { key: 'estado_expediente', label: 'Estado' }
+        { key: 'motivo_pase', label: 'Motivo de Pase' }
     ];
     
     try {
         const query = (document.getElementById('buzon-detalle-search')?.value || '').toLowerCase().trim();
         const filterEstado = document.getElementById('buzon-detalle-filter-estado')?.value || 'ALL';
-        const filteredExpedientes = currentActiveBuzonAnalyst.expedientes.filter(exp => {
+        const filteredExpedientes = (currentActiveBuzonAnalyst.expedientes || []).filter(exp => {
             const matchesQuery = !query || 
                 (exp.expediente || '').toLowerCase().includes(query) ||
                 (exp.trata || '').toLowerCase().includes(query) ||
                 (exp.descripcion_trata || '').toLowerCase().includes(query) ||
                 (exp.motivo_pase || '').toLowerCase().includes(query);
-            const matchesEstado = filterEstado === 'ALL' || exp.estado_expediente === filterEstado;
+            const status = exp.estado_tablero || 'STOCK PROPIO';
+            const matchesEstado = filterEstado === 'ALL' || status === filterEstado;
             return matchesQuery && matchesEstado;
         });
 
         const rows = filteredExpedientes.map(exp => {
             const rowObj = {};
+            const tipoStock = exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO');
             columns.forEach(c => {
-                rowObj[c.label] = exp[c.key] ?? '';
+                if (c.key === 'tipo_stock') {
+                    rowObj[c.label] = tipoStock;
+                } else {
+                    rowObj[c.label] = exp[c.key] ?? '';
+                }
             });
             return rowObj;
         });
@@ -8615,7 +8622,9 @@ function exportBuzonAnalistaExcel() {
         const colWidths = columns.map(col => {
             let maxLen = col.label.length;
             filteredExpedientes.forEach(exp => {
-                const val = exp[col.key];
+                const val = col.key === 'tipo_stock' 
+                    ? (exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO'))
+                    : exp[col.key];
                 const strVal = val !== null && val !== undefined ? String(val) : '';
                 if (strVal.length > maxLen) maxLen = strVal.length;
             });
@@ -8626,7 +8635,7 @@ function exportBuzonAnalistaExcel() {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Analista");
         
-        const nameClean = currentActiveBuzonAnalyst.name.replace(/\s+/g, '_').toLowerCase();
+        const nameClean = (currentActiveBuzonAnalyst.name || 'analista').replace(/\s+/g, '_').toLowerCase();
         XLSX.writeFile(workbook, `stock_${nameClean}_${currentBuzonesGerencia}.xlsx`);
     } catch (e) {
         alert("Error exportando a Excel: " + e.message);
@@ -9846,6 +9855,201 @@ function updateCurSimulation() {
 }
 window.updateCurSimulation = updateCurSimulation;
 
+let pdlFilters = { ue: [], area: [] };
+
+function togglePdlDropdown(type, evt) {
+    if (evt) evt.stopPropagation();
+    const ueMenu = document.getElementById('dropdown-pdl-ue-menu');
+    const areaMenu = document.getElementById('dropdown-pdl-area-menu');
+    
+    if (type === 'ue') {
+        if (areaMenu) areaMenu.style.display = 'none';
+        if (ueMenu) ueMenu.style.display = (ueMenu.style.display === 'flex') ? 'none' : 'flex';
+    } else if (type === 'area') {
+        if (ueMenu) ueMenu.style.display = 'none';
+        if (areaMenu) areaMenu.style.display = (areaMenu.style.display === 'flex') ? 'none' : 'flex';
+    }
+}
+window.togglePdlDropdown = togglePdlDropdown;
+
+// Close dropdown popovers when clicking outside
+document.addEventListener('click', (e) => {
+    const ueMenu = document.getElementById('dropdown-pdl-ue-menu');
+    const areaMenu = document.getElementById('dropdown-pdl-area-menu');
+    const ueBtn = document.getElementById('btn-pdl-dropdown-ue');
+    const areaBtn = document.getElementById('btn-pdl-dropdown-area');
+
+    if (ueMenu && !ueMenu.contains(e.target) && ueBtn && !ueBtn.contains(e.target)) {
+        ueMenu.style.display = 'none';
+    }
+    if (areaMenu && !areaMenu.contains(e.target) && areaBtn && !areaBtn.contains(e.target)) {
+        areaMenu.style.display = 'none';
+    }
+});
+
+function renderPdlFilterCheckboxes(data) {
+    const ueContainer = document.getElementById('container-pdl-ue-checkboxes');
+    const areaContainer = document.getElementById('container-pdl-area-checkboxes');
+    const lblUe = document.getElementById('lbl-pdl-ue-selected');
+    const lblArea = document.getElementById('lbl-pdl-area-selected');
+    const clearBtn = document.getElementById('btn-pdl-clear-filters');
+    const chipsContainer = document.getElementById('pdl-active-filter-chips');
+
+    // Populate UE Checkboxes
+    if (ueContainer && data.all_ue_options) {
+        let html = '';
+        data.all_ue_options.forEach(opt => {
+            const isChecked = (pdlFilters.ue.length === 0) || pdlFilters.ue.includes(opt);
+            html += `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #1e293b; padding: 4px 6px; border-radius: 6px; transition: background 0.15s;">
+                    <input type="checkbox" class="pdl-chk-ue" value="${opt}" ${isChecked ? 'checked' : ''} onchange="onPdlCheckboxChange('ue')" style="width: 16px; height: 16px; accent-color: #8b5cf6; cursor: pointer;">
+                    <span>${opt}</span>
+                </label>
+            `;
+        });
+        ueContainer.innerHTML = html;
+    }
+
+    // Populate Area Checkboxes
+    if (areaContainer && data.all_area_options) {
+        let html = '';
+        data.all_area_options.forEach(opt => {
+            const isChecked = (pdlFilters.area.length === 0) || pdlFilters.area.includes(opt);
+            html += `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #1e293b; padding: 4px 6px; border-radius: 6px; transition: background 0.15s;">
+                    <input type="checkbox" class="pdl-chk-area" value="${opt}" ${isChecked ? 'checked' : ''} onchange="onPdlCheckboxChange('area')" style="width: 16px; height: 16px; accent-color: #f59e0b; cursor: pointer;">
+                    <span>${opt}</span>
+                </label>
+            `;
+        });
+        areaContainer.innerHTML = html;
+    }
+
+    // Label counts
+    const totalUeOpts = data.all_ue_options ? data.all_ue_options.length : 0;
+    if (lblUe) {
+        if (pdlFilters.ue.length === 0 || pdlFilters.ue.length === totalUeOpts) lblUe.textContent = 'Todas';
+        else if (pdlFilters.ue.length === 1 && pdlFilters.ue[0] !== '__NONE__') lblUe.textContent = pdlFilters.ue[0];
+        else if (pdlFilters.ue.includes('__NONE__')) lblUe.textContent = 'Ninguna';
+        else lblUe.textContent = `${pdlFilters.ue.length} / ${totalUeOpts}`;
+    }
+
+    const totalAreaOpts = data.all_area_options ? data.all_area_options.length : 0;
+    if (lblArea) {
+        if (pdlFilters.area.length === 0 || pdlFilters.area.length === totalAreaOpts) lblArea.textContent = 'Todas';
+        else if (pdlFilters.area.length === 1 && pdlFilters.area[0] !== '__NONE__') lblArea.textContent = pdlFilters.area[0];
+        else if (pdlFilters.area.includes('__NONE__')) lblArea.textContent = 'Ninguna';
+        else lblArea.textContent = `${pdlFilters.area.length} / ${totalAreaOpts}`;
+    }
+
+    // Clear button visibility
+    const hasActiveFilters = pdlFilters.ue.length > 0 || pdlFilters.area.length > 0;
+    if (clearBtn) clearBtn.style.display = hasActiveFilters ? 'inline-flex' : 'none';
+
+    // Chips tags
+    if (chipsContainer) {
+        if (!hasActiveFilters) {
+            chipsContainer.style.display = 'none';
+            chipsContainer.innerHTML = '';
+        } else {
+            chipsContainer.style.display = 'flex';
+            let chipsHtml = '<span style="font-size: 0.78rem; font-weight: 700; color: #64748b; margin-right: 4px; align-self: center;">Filtros activos:</span>';
+            
+            if (pdlFilters.ue.includes('__NONE__')) {
+                chipsHtml += `
+                    <span style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                        UE: Ninguna
+                        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="clearPdlFilters()"></i>
+                    </span>
+                `;
+            } else {
+                pdlFilters.ue.forEach(item => {
+                    chipsHtml += `
+                        <span style="background: #f3e8ff; color: #7c3aed; border: 1px solid #ddd6fe; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                            UE: ${item}
+                            <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="removePdlFilterChip('ue', '${item}')"></i>
+                        </span>
+                    `;
+                });
+            }
+
+            if (pdlFilters.area.includes('__NONE__')) {
+                chipsHtml += `
+                    <span style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                        Área: Ninguna
+                        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="clearPdlFilters()"></i>
+                    </span>
+                `;
+            } else {
+                pdlFilters.area.forEach(item => {
+                    chipsHtml += `
+                        <span style="background: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                            Área: ${item}
+                            <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="removePdlFilterChip('area', '${item}')"></i>
+                        </span>
+                    `;
+                });
+            }
+
+            chipsContainer.innerHTML = chipsHtml;
+        }
+    }
+}
+
+function onPdlCheckboxChange(type) {
+    if (type === 'ue') {
+        const allChks = document.querySelectorAll('.pdl-chk-ue');
+        const checkedChks = document.querySelectorAll('.pdl-chk-ue:checked');
+        if (checkedChks.length === allChks.length) {
+            pdlFilters.ue = [];
+        } else if (checkedChks.length === 0) {
+            pdlFilters.ue = ['__NONE__'];
+        } else {
+            pdlFilters.ue = Array.from(checkedChks).map(c => c.value);
+        }
+    } else if (type === 'area') {
+        const allChks = document.querySelectorAll('.pdl-chk-area');
+        const checkedChks = document.querySelectorAll('.pdl-chk-area:checked');
+        if (checkedChks.length === allChks.length) {
+            pdlFilters.area = [];
+        } else if (checkedChks.length === 0) {
+            pdlFilters.area = ['__NONE__'];
+        } else {
+            pdlFilters.area = Array.from(checkedChks).map(c => c.value);
+        }
+    }
+    loadAnalyticsPdlBlanqueo();
+}
+window.onPdlCheckboxChange = onPdlCheckboxChange;
+
+function selectAllPdlCheckboxes(type) {
+    if (type === 'ue') pdlFilters.ue = [];
+    if (type === 'area') pdlFilters.area = [];
+    loadAnalyticsPdlBlanqueo();
+}
+window.selectAllPdlCheckboxes = selectAllPdlCheckboxes;
+
+function deselectAllPdlCheckboxes(type) {
+    if (type === 'ue') pdlFilters.ue = ['__NONE__'];
+    if (type === 'area') pdlFilters.area = ['__NONE__'];
+    loadAnalyticsPdlBlanqueo();
+}
+window.deselectAllPdlCheckboxes = deselectAllPdlCheckboxes;
+
+function removePdlFilterChip(type, val) {
+    if (type === 'ue') pdlFilters.ue = pdlFilters.ue.filter(v => v !== val);
+    if (type === 'area') pdlFilters.area = pdlFilters.area.filter(v => v !== val);
+    loadAnalyticsPdlBlanqueo();
+}
+window.removePdlFilterChip = removePdlFilterChip;
+
+function clearPdlFilters() {
+    pdlFilters.ue = [];
+    pdlFilters.area = [];
+    loadAnalyticsPdlBlanqueo();
+}
+window.clearPdlFilters = clearPdlFilters;
+
 async function loadAnalyticsPdlBlanqueo() {
     switchPdlSubtab('parcelas');
     const kpisParcelas = document.getElementById('pdl-parcelas-kpis');
@@ -9859,11 +10063,20 @@ async function loadAnalyticsPdlBlanqueo() {
     }
 
     try {
-        const res = await def_fetch(`${API_BASE}/analytics/pdl-blanqueo`);
+        let fetchUrl = `${API_BASE}/analytics/pdl-blanqueo`;
+        const queryParams = [];
+        if (pdlFilters.ue.length > 0) queryParams.push(`ue=${encodeURIComponent(pdlFilters.ue.join(','))}`);
+        if (pdlFilters.area.length > 0) queryParams.push(`area=${encodeURIComponent(pdlFilters.area.join(','))}`);
+        if (queryParams.length > 0) fetchUrl += '?' + queryParams.join('&');
+
+        const res = await def_fetch(fetchUrl);
         if (!res || !res.ok) {
             throw new Error("Error al obtener los datos de PDL Blanqueo");
         }
         const data = await res.json();
+
+        // Render checkboxes & filter controls state
+        renderPdlFilterCheckboxes(data);
 
         // 1. Subtab Parcelas KPIs
         const totalParcelas = data.superficie_dist.reduce((acc, curr) => acc + curr.cant, 0);
@@ -10086,10 +10299,11 @@ async function loadAnalyticsPdlBlanqueo() {
             });
         }
 
-        // Render pdlUeChart
+        // Render pdlUeChart (con toggle al hacer clic)
         if (pdlCharts.ue) pdlCharts.ue.destroy();
         const ctxUe = document.getElementById('pdlUeChart')?.getContext('2d');
         if (ctxUe) {
+            const isAllUeSelected = pdlFilters.ue.length === 0;
             pdlCharts.ue = new Chart(ctxUe, {
                 type: 'bar',
                 plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
@@ -10098,12 +10312,33 @@ async function loadAnalyticsPdlBlanqueo() {
                     datasets: [{
                         label: 'Parcelas',
                         data: data.ue_dist.map(d => d.cant),
-                        backgroundColor: 'rgba(139, 92, 246, 0.75)'
+                        backgroundColor: data.ue_dist.map(d => (isAllUeSelected || pdlFilters.ue.includes(d.edificabilidad)) ? '#6d28d9' : 'rgba(139, 92, 246, 0.3)')
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onHover: (e, elements) => {
+                        if (e.native && e.native.target) {
+                            e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: (evt, activeElements) => {
+                        if (activeElements && activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedUe = data.ue_dist[index]?.edificabilidad;
+                            if (selectedUe) {
+                                if (pdlFilters.ue.length === 0) {
+                                    pdlFilters.ue = [selectedUe];
+                                } else {
+                                    const idx = pdlFilters.ue.indexOf(selectedUe);
+                                    if (idx >= 0) pdlFilters.ue.splice(idx, 1);
+                                    else pdlFilters.ue.push(selectedUe);
+                                }
+                                loadAnalyticsPdlBlanqueo();
+                            }
+                        }
+                    },
                     plugins: {
                         datalabels: {
                             display: true,
@@ -10118,10 +10353,11 @@ async function loadAnalyticsPdlBlanqueo() {
             });
         }
 
-        // Render pdlAreaChart
+        // Render pdlAreaChart (con toggle al hacer clic)
         if (pdlCharts.area) pdlCharts.area.destroy();
         const ctxArea = document.getElementById('pdlAreaChart')?.getContext('2d');
         if (ctxArea) {
+            const isAllAreaSelected = pdlFilters.area.length === 0;
             pdlCharts.area = new Chart(ctxArea, {
                 type: 'bar',
                 plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
@@ -10130,12 +10366,33 @@ async function loadAnalyticsPdlBlanqueo() {
                     datasets: [{
                         label: 'Parcelas',
                         data: data.area_dist.map(d => d.cant),
-                        backgroundColor: 'rgba(245, 158, 11, 0.75)'
+                        backgroundColor: data.area_dist.map(d => (isAllAreaSelected || pdlFilters.area.includes(d.area_especial)) ? '#d97706' : 'rgba(245, 158, 11, 0.3)')
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onHover: (e, elements) => {
+                        if (e.native && e.native.target) {
+                            e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: (evt, activeElements) => {
+                        if (activeElements && activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedArea = data.area_dist[index]?.area_especial;
+                            if (selectedArea) {
+                                if (pdlFilters.area.length === 0) {
+                                    pdlFilters.area = [selectedArea];
+                                } else {
+                                    const idx = pdlFilters.area.indexOf(selectedArea);
+                                    if (idx >= 0) pdlFilters.area.splice(idx, 1);
+                                    else pdlFilters.area.push(selectedArea);
+                                }
+                                loadAnalyticsPdlBlanqueo();
+                            }
+                        }
+                    },
                     plugins: {
                         datalabels: {
                             display: true,
