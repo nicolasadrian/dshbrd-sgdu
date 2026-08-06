@@ -90,12 +90,7 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                 for entity in list(entities):
                     layer_name = (entity.dxf.layer or "").lower()
                     
-                    # Ocultar únicamente capas de edificabilidad/volumetria 3D genérica
-                    if any(k in layer_name for k in ['edificab', 'volumetria']) and not any(k in layer_name for k in ['cota', 'cotas', 'consolidad', 'cons', 'hatch']):
-                        entity.dxf.invisible = 1
-                        continue
-                        
-                    # Capa mdr_tejidoconsolidado (Tejido Consolidado del DXF): RGB(180, 180, 180)
+                    # Capa mdr_tejidoconsolidado (ÚNICA capa de tejido permitida en el PDF): RGB(180, 180, 180)
                     is_consolidado = 'mdr_tejidoconsolidado' in layer_name or 'tejidoconsolidado' in layer_name or 'tejido_consolidado' in layer_name
                     if is_consolidado:
                         entity.dxf.invisible = 0
@@ -105,6 +100,10 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                             entity.rgb = (180, 180, 180)  # Color exclusivo mdr_tejidoconsolidado
                         except Exception:
                             pass
+                    elif any(k in layer_name for k in ['tejido', 'edificab', 'volumetria']):
+                        # Ocultar totalmente la capa 'tejido' genérica, alturas y volumetrías que no sean mdr_tejidoconsolidado
+                        entity.dxf.invisible = 1
+                        continue
 
                     # Capa Etiquetas de Calles (calles_etiquetas, nom, calles): Negro Puro (#000000)
                     is_calles = any(k in layer_name for k in ['calle', 'calles', 'nom'])
