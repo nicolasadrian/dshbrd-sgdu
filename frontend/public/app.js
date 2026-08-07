@@ -14744,11 +14744,213 @@ function downloadUploadedLFITrazado(fileType = "draft") {
     window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_trazado?seccion=${encodeURIComponent(activeWorkflowSeccion)}&manzana=${encodeURIComponent(activeWorkflowManzana)}&file_type=${encodeURIComponent(fileType)}&token=${encodeURIComponent(token)}`, '_blank');
 }
 
-function downloadLFIPdf(seccion, manzana) {
-    const s = seccion || activeWorkflowSeccion;
-    const m = manzana || activeWorkflowManzana;
+async function downloadLFIPdf(seccion, manzana) {
+    const s = String(seccion || activeWorkflowSeccion || '').padStart(3, '0');
+    const m = String(manzana || activeWorkflowManzana || '').padStart(3, '0');
     const token = localStorage.getItem('sgdu_token') || localStorage.getItem('authToken') || (typeof authToken !== 'undefined' ? authToken : '');
-    window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_pdf?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`, '_blank');
+
+    if (!s || !m || s === '000' || m === '000') return;
+
+    let modal = document.getElementById('pdf-download-progress-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'pdf-download-progress-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); border: none;">
+            <div class="modal-header" style="background: #7f1d1d; color: white; padding: 1.25rem 1.75rem; border-top-left-radius: 16px; border-top-right-radius: 16px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff;">Generando Ficha Técnica PDF A3</h2>
+                    <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #fecaca; opacity: 0.9;">Sección ${s} — Manzana ${m}</p>
+                </div>
+                <button type="button" onclick="document.getElementById('pdf-download-progress-modal').style.display='none'" style="background: none; border: none; color: #fecaca; cursor: pointer; font-size: 1.25rem; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem 1.75rem 1.75rem 1.75rem; text-align: center; background: #ffffff;">
+                <!-- Minimalist Pristine 3D/PDF Vector Graphic -->
+                <div style="position: relative; width: 200px; height: 140px; margin: 0 auto 1.25rem auto;">
+                    <svg viewBox="0 0 200 150" width="200" height="140" style="overflow: visible;">
+                        <defs>
+                            <style>
+                                .pdf-iso-face {
+                                    fill: none;
+                                    stroke: #dc2626;
+                                    stroke-width: 1.8;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .pdf-iso-sub {
+                                    fill: none;
+                                    stroke: #f87171;
+                                    stroke-width: 1.2;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .pdf-iso-grid {
+                                    fill: none;
+                                    stroke: #cbd5e1;
+                                    stroke-width: 1;
+                                    stroke-dasharray: 4 3;
+                                }
+                                @keyframes pdfIsoFloat1 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-9px); }
+                                }
+                                @keyframes pdfIsoFloat2 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-6px); }
+                                }
+                                @keyframes pdfIsoFloat3 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-11px); }
+                                }
+                            </style>
+                        </defs>
+
+                        <!-- Ground Isometric Grid -->
+                        <g opacity="0.75">
+                            <polygon points="100,140 170,105 100,70 30,105" class="pdf-iso-grid"/>
+                            <polygon points="100,125 145,102.5 100,80 55,102.5" class="pdf-iso-grid"/>
+                        </g>
+
+                        <!-- Block 1: Center High Tower -->
+                        <g style="animation: pdfIsoFloat1 3s ease-in-out infinite;">
+                            <polygon points="100,30 130,45 100,60 70,45" class="pdf-iso-face" />
+                            <polygon points="70,45 100,60 100,110 70,95" class="pdf-iso-face" />
+                            <polygon points="100,60 130,45 130,95 100,110" class="pdf-iso-face" />
+                            <!-- Floor Lines -->
+                            <line x1="70" y1="61.6" x2="100" y2="76.6" class="pdf-iso-sub"/>
+                            <line x1="100" y1="76.6" x2="130" y2="61.6" class="pdf-iso-sub"/>
+                            <line x1="70" y1="78.3" x2="100" y2="93.3" class="pdf-iso-sub"/>
+                            <line x1="100" y1="93.3" x2="130" y2="78.3" class="pdf-iso-sub"/>
+                        </g>
+
+                        <!-- Block 2: Left Wing Block -->
+                        <g style="animation: pdfIsoFloat2 3s ease-in-out infinite 0.5s;">
+                            <polygon points="65,65 90,77.5 65,90 40,77.5" class="pdf-iso-face" />
+                            <polygon points="40,77.5 65,90 65,120 40,107.5" class="pdf-iso-face" />
+                            <polygon points="65,90 90,77.5 90,107.5 65,120" class="pdf-iso-face" />
+                            <line x1="40" y1="92.5" x2="65" y2="105" class="pdf-iso-sub"/>
+                            <line x1="65" y1="105" x2="90" y2="92.5" class="pdf-iso-sub"/>
+                        </g>
+
+                        <!-- Block 3: Right Wing Block -->
+                        <g style="animation: pdfIsoFloat3 3s ease-in-out infinite 1s;">
+                            <polygon points="135,65 160,77.5 135,90 110,77.5" class="pdf-iso-face" />
+                            <polygon points="110,77.5 135,90 135,120 110,107.5" class="pdf-iso-face" />
+                            <polygon points="135,90 160,77.5 160,107.5 135,120" class="pdf-iso-face" />
+                            <line x1="110" y1="92.5" x2="135" y2="105" class="pdf-iso-sub"/>
+                            <line x1="135" y1="105" x2="160" y2="92.5" class="pdf-iso-sub"/>
+                        </g>
+
+                        <!-- Block 4: Front Low Cube -->
+                        <g style="animation: pdfIsoFloat2 3s ease-in-out infinite 1.5s;">
+                            <polygon points="100,95 120,105 100,115 80,105" class="pdf-iso-face" />
+                            <polygon points="80,105 100,115 100,130 80,120" class="pdf-iso-face" />
+                            <polygon points="100,115 120,105 120,120 100,130" class="pdf-iso-face" />
+                        </g>
+                    </svg>
+                </div>
+                <div style="background: #f1f5f9; border-radius: 9999px; height: 10px; padding: 2px; margin: 0 0 1.25rem 0; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="pdf-progress-bar-fill" style="width: 15%; height: 100%; background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%); border-radius: 9999px; transition: width 0.35s ease;"></div>
+                </div>
+                <div id="pdf-progress-status-text" style="font-size: 0.88rem; color: #475569; font-weight: 500; min-height: 2.5em; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="color: #dc2626;"></i>
+                    <span>Iniciando motor PDF y lectura de geometrías GIS...</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+
+    const steps = [
+        { pct: '30%', text: 'Extrayendo límites de parcelas y tejido urbano...' },
+        { pct: '55%', text: 'Procesando capas GIS (LIB, LFI, Troneras y Calles)...' },
+        { pct: '80%', text: 'Renderizando plano matplotlib y armando esquema cartográfico...' },
+        { pct: '92%', text: 'Compilando documento PDF A3 de alta resolución...' }
+    ];
+
+    let stepIdx = 0;
+    const progressInterval = setInterval(() => {
+        if (stepIdx < steps.length) {
+            const fill = document.getElementById('pdf-progress-bar-fill');
+            const status = document.getElementById('pdf-progress-status-text');
+            if (fill) fill.style.width = steps[stepIdx].pct;
+            if (status) {
+                status.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: #dc2626;"></i> <span>${steps[stepIdx].text}</span>`;
+            }
+            stepIdx++;
+        }
+    }, 600);
+
+    try {
+        const url = `${API_BASE}/ciudad3d/manzanas_lfi/download_pdf?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`;
+        const response = await fetch(url, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        clearInterval(progressInterval);
+
+        if (!response.ok) {
+            let errorMsg = 'Error al generar la Ficha Técnica PDF.';
+            try {
+                const errData = await response.json();
+                if (errData && errData.detail) errorMsg = errData.detail;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const blob = await response.blob();
+
+        const fill = document.getElementById('pdf-progress-bar-fill');
+        const status = document.getElementById('pdf-progress-status-text');
+        if (fill) fill.style.width = '100%';
+        if (status) {
+            status.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #16a34a; font-size: 1.1rem;"></i> <span style="color: #16a34a; font-weight: 600;">¡PDF A3 generado con éxito!</span>`;
+        }
+
+        const pdfBlobUrl = window.URL.createObjectURL(blob);
+        const win = window.open(pdfBlobUrl, '_blank');
+        if (!win) {
+            const a = document.createElement('a');
+            a.href = pdfBlobUrl;
+            a.download = `Ficha_Tecnica_LFI_Sec_${s}_Mza_${m}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        setTimeout(() => {
+            if (modal) modal.style.display = 'none';
+        }, 1200);
+
+    } catch (err) {
+        clearInterval(progressInterval);
+        const status = document.getElementById('pdf-progress-status-text');
+        if (status) {
+            status.innerHTML = `
+                <div style="color: #dc2626; text-align: center; width: 100%;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem; margin-bottom: 6px;"></i>
+                    <div style="margin-bottom: 8px;">${err.message || 'Error en la generación del PDF'}</div>
+                    <button onclick="document.getElementById('pdf-download-progress-modal').style.display='none'" style="background: #334155; color: white; border: none; padding: 6px 16px; border-radius: 8px; font-family: inherit; font-size: 0.82rem; cursor: pointer;">Cerrar</button>
+                </div>
+            `;
+        }
+    }
 }
 
 async function reopenLFIFichaManzana() {
