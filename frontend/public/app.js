@@ -137,7 +137,7 @@ function initAuth() {
         if (linkBuzonesAnalisis) linkBuzonesAnalisis.style.display = perms.buzones_analisis ? 'block' : 'none';
 
         // Toggles for Reportes dropdown and its contents
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas || perms.universo_tratas;
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
@@ -161,6 +161,9 @@ function initAuth() {
 
         const linkUniversoTratas = document.getElementById('universo-tratas-link');
         if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
+
+        const linkPlanifNov2026 = document.getElementById('planificacion-nov-2026-link');
+        if (linkPlanifNov2026) linkPlanifNov2026.style.display = perms.planificacion_nov_2026 ? 'block' : 'none';
 
         // Toggles for Analytics dropdown and its contents
         const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_pdl_blanqueo;
@@ -483,6 +486,10 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'universo_tratas') {
         loadUniversoTratas();
+    }
+
+    if (viewId === 'planificacion_nov_2026') {
+        loadPlanificacionNov2026Data();
     }
 
     // Carga de reportes si es una vista de gerencia
@@ -2092,6 +2099,7 @@ const PERMISSION_KEYS = {
     reportes_rrhh: "Reporte RRHH (Visualizar)",
     carga_reportes_rrhh: "Reporte RRHH (Cargar Excel)",
     universo_tratas: "Universo Tratas",
+    planificacion_nov_2026: "Planificación Noviembre 2026",
     admin: "Backlog (Administración)"
 };
 
@@ -2108,7 +2116,8 @@ const PERMISSION_GROUPS = {
         pendientes_asociacion: { label: "Pendientes Asociación", desc: "Expedientes pendientes de asociar a analistas." },
         productividad_analistas: { label: "Productividad Analistas", desc: "Ver rankings, bitácoras y metas de analistas." },
         reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Ver estadísticas de asistencia, cobertura horaria y cumplimiento del personal." },
-        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar la base de datos de RRHH." }
+        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar la base de datos de RRHH." },
+        planificacion_nov_2026: { label: "Planificación Noviembre 2026", desc: "Acceso al reporte de Planificación Noviembre 2026 (stock, subsanaciones e ingresos por año)." }
     },
     "Buzones & Gestión": {
         buscador: { label: "Buscador de Expedientes", desc: "Búsqueda universal de expedientes en el universo SADE." },
@@ -2681,6 +2690,8 @@ function enterBacklogSection(sectionName) {
             subBread.innerText = ' / Analistas por Área';
         } else if (sectionName === 'universo_tratas') {
             subBread.innerText = ' / Universo Tratas';
+        } else if (sectionName === 'planificacion_nov_2026') {
+            subBread.innerText = ' / Planificación Nov. 2026';
         }
         subBread.style.display = 'inline';
     }
@@ -2701,6 +2712,8 @@ function enterBacklogSection(sectionName) {
         loadAdminAnalistas();
     } else if (sectionName === 'universo_tratas') {
         loadBacklogUniversoTratas();
+    } else if (sectionName === 'planificacion_nov_2026') {
+        showView('planificacion_nov_2026');
     }
 }
 
@@ -14282,30 +14295,7 @@ window.expandBarrioTroneras = expandBarrioTroneras;
 window.downloadManzanaDXF = downloadManzanaDXF;
 window.loadCiudad3DManzanasAtipicas = loadCiudad3DManzanasAtipicas;
 window.filterCiudad3DManzanasAtipicas = filterCiudad3DManzanasAtipicas;
-window.assignManzanaLFI = assignManzanaLFI;
 window.openLFIFicha = openLFIFicha;
-// Unified LFI Ficha de Trabajo Handlers
-async function assignManzanaLFI(seccion, manzana) {
-    if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
-    try {
-        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seccion, manzana })
-        });
-        if (res && res.ok) {
-            alert("Manzana LFI asignada con éxito.");
-            await loadCiudad3DTroneras();
-            openLFIFicha(seccion, manzana);
-        } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
-        }
-    } catch (err) {
-        console.error("Error al asignar manzana LFI:", err);
-        alert("Error de conexión con el servidor.");
-    }
-}
 
 async function openLFIFicha(seccion, manzana) {
     activeWorkflowSeccion = seccion;
@@ -16581,47 +16571,907 @@ function renderUniversoTratasTable(data, containerId, isBacklog) {
             <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
         </div>
         <div style="overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit';">
                 ${thead}
                 <tbody>${tbody}</tbody>
             </table>
         </div>`;
 }
 
-// --- Backlog version (admin-tab-universo_tratas) ---
+// ──────────────────────────────────────────────────────────────
+// PLANIFICACIÓN NOVIEMBRE 2026
+// ──────────────────────────────────────────────────────────────
 
-async function loadBacklogUniversoTratas() {
-    const container = document.getElementById('backlog-universo-tratas-container');
-    if (!container) return;
+let _planifData = null;
+let _planifDebounceTimer = null;
+let _planifGerenciaChartInstance = null;
 
-    container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando datos...</p></div>`;
+async function loadPlanificacionNov2026Data() {
+    const targetYearSelect = document.getElementById('planif-filter-year');
+    const targetYear = targetYearSelect ? parseInt(targetYearSelect.value || '2026', 10) : 2026;
+
+    // Update target year labels in UI
+    document.querySelectorAll('.planif-target-year-lbl').forEach(el => {
+        el.innerText = targetYear;
+    });
+
+    const valStockEa = document.getElementById('planif-val-stock-ea');
+    const valSubsEa = document.getElementById('planif-val-subs-ea');
+    const valStockPr = document.getElementById('planif-val-stock-pr');
+    const valSubsPr = document.getElementById('planif-val-subs-pr');
+    const valStockTotal = document.getElementById('planif-val-stock-total');
+    const valSubsTotal = document.getElementById('planif-val-subs-total');
+    const valIngEa = document.getElementById('planif-val-ing-ea');
+    const valIngTotal = document.getElementById('planif-val-ing-total');
+    const gerenciasGrid = document.getElementById('planif-gerencias-grid');
+
+    if (valStockEa) valStockEa.innerText = '...';
+    if (valSubsEa) valSubsEa.innerText = '...';
+    if (valStockPr) valStockPr.innerText = '...';
+    if (valSubsPr) valSubsPr.innerText = '...';
+    if (valStockTotal) valStockTotal.innerText = '...';
+    if (valSubsTotal) valSubsTotal.innerText = '...';
+    if (valIngEa) valIngEa.innerText = '...';
+    if (valIngTotal) valIngTotal.innerText = '...';
+    if (gerenciasGrid) gerenciasGrid.innerHTML = `<div style="padding: 2rem; color: #94a3b8; text-align: center; grid-column: 1 / -1;"><span class="loader"></span><p style="margin-top: 8px;">Cargando métricas de planificación...</p></div>`;
 
     try {
-        const res = await def_fetch(`${API_BASE}/reporte/universo-tratas`);
-        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de conexión'}`);
-        _backlogUniversoTratasData = await res.json();
-        _backlogUniversoTratasSortField = null;
-        _backlogUniversoTratasSortAsc = true;
-        filterBacklogUniversoTratas();
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026?target_year=${targetYear}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        _planifData = await res.json();
+
+        const kpis = _planifData.kpis || {};
+
+        // 1. Render Hero KPI Cards
+        if (valStockEa) valStockEa.innerText = (kpis.stock_este_ano || 0).toLocaleString('es-AR');
+        if (valSubsEa) valSubsEa.innerText = (kpis.subs_este_ano || 0).toLocaleString('es-AR');
+        if (valStockPr) valStockPr.innerText = (kpis.stock_previo || 0).toLocaleString('es-AR');
+        if (valSubsPr) valSubsPr.innerText = (kpis.subs_previo || 0).toLocaleString('es-AR');
+        if (valStockTotal) valStockTotal.innerText = (kpis.stock_total || 0).toLocaleString('es-AR');
+        if (valSubsTotal) valSubsTotal.innerText = (kpis.subs_total || 0).toLocaleString('es-AR');
+        if (valIngEa) valIngEa.innerText = (kpis.ingresos_este_ano || 0).toLocaleString('es-AR');
+        if (valIngTotal) valIngTotal.innerText = (kpis.ingresos_total || 0).toLocaleString('es-AR');
+
+        // Subtitles with percentages
+        const stockPct = kpis.stock_total > 0 ? ((kpis.stock_este_ano / kpis.stock_total) * 100).toFixed(1) : '0';
+        const subsPct = kpis.subs_total > 0 ? ((kpis.subs_este_ano / kpis.subs_total) * 100).toFixed(1) : '0';
+        const stockPrPct = kpis.stock_total > 0 ? ((kpis.stock_previo / kpis.stock_total) * 100).toFixed(1) : '0';
+        const subsPrPct = kpis.subs_total > 0 ? ((kpis.subs_previo / kpis.subs_total) * 100).toFixed(1) : '0';
+
+        const subStockEa = document.getElementById('planif-sub-stock-ea');
+        if (subStockEa) subStockEa.innerText = `${stockPct}% del stock total`;
+        const subSubsEa = document.getElementById('planif-sub-subs-ea');
+        if (subSubsEa) subSubsEa.innerText = `${subsPct}% de subsanaciones totales`;
+        const subStockPr = document.getElementById('planif-sub-stock-pr');
+        if (subStockPr) subStockPr.innerText = `${stockPrPct}% acumulado previo`;
+        const subSubsPr = document.getElementById('planif-sub-subs-pr');
+        if (subSubsPr) subSubsPr.innerText = `${subsPrPct}% acumulado previo`;
+
+        // 2. Render Gerencias Cards Grid
+        renderPlanificacionGerenciasGrid(_planifData.por_gerencia || []);
+
+        // 3. Render Tratas Summary Table
+        applyPlanificacionNov2026Filters();
+
     } catch (e) {
-        container.innerHTML = `<div style="padding: 2rem; text-align: center; color: #ef4444;"><p>Error: ${e.message}</p></div>`;
+        console.error("Error al cargar Planificación Noviembre 2026:", e);
+        if (gerenciasGrid) gerenciasGrid.innerHTML = `<div style="padding: 2rem; color: #ef4444; text-align: center; grid-column: 1 / -1;"><p>No se pudieron cargar los datos del reporte: ${e.message}</p></div>`;
     }
 }
 
-function filterBacklogUniversoTratas() {
-    const searchVal = (document.getElementById('backlog-universo-tratas-search')?.value || '').trim().toLowerCase();
-    let filtered = _backlogUniversoTratasData.filter(d =>
-        !searchVal ||
-        (d.trata || '').toLowerCase().includes(searchVal) ||
-        (d.descripcion_trata || '').toLowerCase().includes(searchVal)
-    );
+function renderPlanificacionGerenciasGrid(gerencias) {
+    const grid = document.getElementById('planif-gerencias-grid');
+    if (!grid) return;
 
-    if (_backlogUniversoTratasSortField) {
-        filtered = _sortUniversoTratas(filtered, _backlogUniversoTratasSortField, _backlogUniversoTratasSortAsc);
+    if (!gerencias || gerencias.length === 0) {
+        grid.innerHTML = `<div style="padding: 2rem; color: #94a3b8; text-align: center; grid-column: 1 / -1;">No hay gerencias configuradas.</div>`;
+        return;
     }
 
-    renderUniversoTratasTable(filtered, 'backlog-universo-tratas-container', true);
+    grid.innerHTML = gerencias.map(g => {
+        const safeGerencia = g.gerencia;
+        const safeNombre = (g.nombre_gerencia || g.gerencia.toUpperCase()).replace(/'/g, "\\'");
+        
+        return `
+            <div class="analyst-card-premium" onclick="openPlanifGerenciaChartModal('${safeGerencia}', '${safeNombre}')"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.1rem; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -2px rgba(0,0,0,0.08)'; this.style.borderColor='var(--primary)'"
+                onmouseout="this.style.transform='none'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.03)'; this.style.borderColor='#e2e8f0'">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0; font-family: 'Outfit'; font-size: 1rem; font-weight: 700; color: #1e293b;">${g.nombre_gerencia || g.gerencia.toUpperCase()}</h4>
+                    <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0284c7; padding: 3px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-chart-line"></i> ${g.gerencia.toUpperCase()}
+                    </span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem; margin-top: 4px;">
+                    <!-- Stock -->
+                    <div style="background: #f0f9ff; border: 1px solid #e0f2fe; padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: #0369a1; font-weight: 700; text-transform: uppercase;">Stock Este Año</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #0c4a6e; font-family: 'Outfit';">${(g.stock_este_ano || 0).toLocaleString('es-AR')}</div>
+                        <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">Previo: <strong>${(g.stock_previo || 0).toLocaleString('es-AR')}</strong></div>
+                    </div>
+
+                    <!-- Subsanaciones -->
+                    <div style="background: #fff7ed; border: 1px solid #ffedd5; padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: #c2410c; font-weight: 700; text-transform: uppercase;">Subs. Este Año</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #7c2d12; font-family: 'Outfit';">${(g.subs_este_ano || 0).toLocaleString('es-AR')}</div>
+                        <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">Previo: <strong>${(g.subs_previo || 0).toLocaleString('es-AR')}</strong></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 4px;">
+                    <span>Total Stock: <strong>${(g.stock_total || 0).toLocaleString('es-AR')}</strong></span>
+                    <span style="color: var(--primary); font-weight: 700;">Ver Gráfico <i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
+
+function applyPlanificacionNov2026Filters() {
+    if (!_planifData) return;
+
+    const gerenciaFilter = document.getElementById('planif-filter-gerencia')?.value || 'ALL';
+    const searchVal = (document.getElementById('planif-search-input')?.value || '').trim().toLowerCase();
+
+    // Filter tratas summary table
+    let tratas = _planifData.por_trata || [];
+    if (gerenciaFilter !== 'ALL') {
+        tratas = tratas.filter(t => (t.gerencia || '').toLowerCase() === gerenciaFilter.toLowerCase());
+    }
+    if (searchVal) {
+        tratas = tratas.filter(t =>
+            (t.trata || '').toLowerCase().includes(searchVal) ||
+            (t.descripcion_trata || '').toLowerCase().includes(searchVal)
+        );
+    }
+
+    renderPlanificacionTratasTable(tratas);
+}
+
+function renderPlanificacionTratasTable(tratas) {
+    const tbody = document.getElementById('planif-tratas-tbody');
+    const badge = document.getElementById('planif-trata-count-badge');
+    if (!tbody) return;
+
+    if (badge) badge.innerText = `${tratas.length} tratas`;
+
+    if (!tratas || tratas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="padding: 2rem; text-align: center; color: #94a3b8;">No hay tratas que coincidan con el filtro.</td></tr>`;
+        return;
+    }
+
+    const GERENCIA_LABELS = {
+        'catastro': 'Catastro',
+        'instalaciones': 'Instalaciones',
+        'regularizacion': 'Conforme a Obra / Regularización',
+        'contable': 'Contable / Derechos',
+        'etapa_proyecto': 'Etapa Proyecto',
+        'morfologia': 'Morfología Urbana',
+        'aph': 'Áreas de Protección Histórica (APH)',
+        'usos': 'Consulta de Usos',
+        'aviso_obra': 'Avisos de Obra'
+    };
+
+    tbody.innerHTML = tratas.map(t => {
+        const gKey = (t.gerencia || '').toLowerCase();
+        const gName = GERENCIA_LABELS[gKey] || (t.gerencia || '-').toUpperCase();
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 10px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${t.trata}</td>
+                <td style="padding: 10px 14px;">
+                    <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; white-space: nowrap;">
+                        ${gName}
+                    </span>
+                </td>
+                <td style="padding: 10px 14px; color: #475569;">${t.descripcion_trata || '-'}</td>
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #0369a1; background: #f0f9ff;">${(t.stock_este_ano || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.stock_previo || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #c2410c; background: #fff7ed;">${(t.subs_este_ano || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.subs_previo || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #15803d; background: #f0fdf4;">${(t.ingresos_este_ano || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.ingresos_previo || 0).toLocaleString('es-AR')}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function debouncePlanifSearch() {
+    if (_planifDebounceTimer) clearTimeout(_planifDebounceTimer);
+    _planifDebounceTimer = setTimeout(() => {
+        applyPlanificacionNov2026Filters();
+    }, 350);
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL POPUP DE GRÁFICO HISTÓRICO CON HITO MARZO 2026
+// ──────────────────────────────────────────────────────────────
+
+async function openPlanifGerenciaChartModal(gerencia, nombreGerencia) {
+    const modal = document.getElementById('planif-chart-modal');
+    const modalTitle = document.getElementById('planif-modal-title');
+    const seriesTbody = document.getElementById('planif-modal-series-tbody');
+
+    if (!modal) return;
+    modal.style.display = 'flex';
+    if (modalTitle) modalTitle.innerText = `${nombreGerencia} - Evolución de Stock y Subsanaciones`;
+    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="3" style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico...</p></div></td></tr>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/historico/${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+
+        const series = data.series || [];
+
+        // Render Chart with dashed line on Marzo 2026
+        renderPlanifGerenciaChart(series, nombreGerencia);
+
+        // Render Series Table
+        if (seriesTbody) {
+            seriesTbody.innerHTML = series.map(s => {
+                const isMarzo = (s.mes_label === '2026-03');
+                const rowStyle = isMarzo 
+                    ? `background: #f0f9ff; font-weight: 700; border-left: 3px solid #0284c7;`
+                    : `border-bottom: 1px solid #f1f5f9;`;
+
+                return `
+                    <tr style="${rowStyle}">
+                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${s.stock.toLocaleString('es-AR')}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${s.subsanaciones.toLocaleString('es-AR')}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+    } catch (e) {
+        console.error("Error cargando histórico de gerencia:", e);
+        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="3" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar datos históricos: ${e.message}</td></tr>`;
+    }
+}
+
+function renderPlanifGerenciaChart(series, nombreGerencia) {
+    const canvas = document.getElementById('planifGerenciaChart');
+    if (!canvas) return;
+
+    if (_planifGerenciaChartInstance) {
+        _planifGerenciaChartInstance.destroy();
+        _planifGerenciaChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = series.map(s => s.mes_label);
+    const stockData = series.map(s => s.stock);
+    const subsData = series.map(s => s.subsanaciones);
+
+    // Inline plugin for vertical dashed line at Marzo 2026 (2026-03)
+    const marzoLinePlugin = {
+        id: 'marzoLinePlugin',
+        afterDraw: (chart) => {
+            const index = chart.data.labels.indexOf('2026-03');
+            if (index !== -1) {
+                const meta = chart.getDatasetMeta(0);
+                if (meta && meta.data[index]) {
+                    const x = meta.data[index].x;
+                    const topY = chart.scales.y.top;
+                    const bottomY = chart.scales.y.bottom;
+                    const chartCtx = chart.ctx;
+
+                    chartCtx.save();
+                    chartCtx.beginPath();
+                    chartCtx.setLineDash([5, 5]);
+                    chartCtx.strokeStyle = '#64748b';
+                    chartCtx.lineWidth = 1.5;
+                    chartCtx.moveTo(x, topY + 16);
+                    chartCtx.lineTo(x, bottomY);
+                    chartCtx.stroke();
+
+                    // Text label at top of dashed line
+                    chartCtx.fillStyle = '#475569';
+                    chartCtx.font = '600 11px Outfit, sans-serif';
+                    chartCtx.textAlign = 'center';
+                    chartCtx.fillText('Marzo 2026', x, topY + 8);
+                    chartCtx.restore();
+                }
+            }
+        }
+    };
+
+    _planifGerenciaChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Stock Propio',
+                    data: stockData,
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#0284c7',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Subsanaciones Abiertas',
+                    data: subsData,
+                    borderColor: '#ea580c',
+                    backgroundColor: 'rgba(234, 88, 12, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ea580c',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                }
+            ]
+        },
+        plugins: [marzoLinePlugin],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { family: 'Outfit', size: 12, weight: 'bold' },
+                        usePointStyle: true
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Outfit', size: 11 },
+                        color: function(context) {
+                            return context.tick && context.tick.label === '2026-03' ? '#0284c7' : '#64748b';
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { family: 'Outfit', size: 11 } }
+                }
+            }
+        }
+    });
+}
+
+function closePlanifChartModal() {
+    const modal = document.getElementById('planif-chart-modal');
+    if (modal) modal.style.display = 'none';
+
+    if (_planifGerenciaChartInstance) {
+        _planifGerenciaChartInstance.destroy();
+        _planifGerenciaChartInstance = null;
+    }
+}
+
+function exportPlanificacionNov2026Data() {
+    if (!_planifData || !_planifData.por_trata) {
+        alert("No hay datos para exportar. Por favor actualice el reporte.");
+        return;
+    }
+
+    let csvContent = "\uFEFF"; // BOM UTF-8
+    csvContent += "TRATA;DESCRIPCION;GERENCIA;STOCK ESTE AÑO;STOCK PREVIO;SUBSANACIONES ESTE AÑO;SUBSANACIONES PREVIAS;INGRESOS ESTE AÑO;INGRESOS PREVIOS\n";
+
+    _planifData.por_trata.forEach(t => {
+        const row = [
+            `"${t.trata || ''}"`,
+            `"${(t.descripcion_trata || '').replace(/"/g, '""')}"`,
+            `"${t.gerencia || ''}"`,
+            t.stock_este_ano || 0,
+            t.stock_previo || 0,
+            t.subs_este_ano || 0,
+            t.subs_previo || 0,
+            t.ingresos_este_ano || 0,
+            t.ingresos_previo || 0
+        ];
+        csvContent += row.join(";") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.getElementById('planif-download-anchor') || document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Planificacion_Noviembre_2026_Reporte.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// ──────────────────────────────────────────────────────────────
+// PLANIFICACIÓN NOVIEMBRE 2026 - PESTAÑAS Y TIEMPOS DE TRAMITACIÓN
+// ──────────────────────────────────────────────────────────────
+
+let _planifActiveTab = 'ingresos';
+let _planifTiemposData = [];
+let _planifMetasV2Data = [];
+let _tiemposTrataChartInstance = null;
+
+function switchPlanifTab(tabName) {
+    _planifActiveTab = tabName;
+
+    const btnIngresos = document.getElementById('tab-btn-planif-ingresos');
+    const btnTiempos = document.getElementById('tab-btn-planif-tiempos');
+    const btnMetasV2 = document.getElementById('tab-btn-planif-metas-v2');
+
+    const contentIngresos = document.getElementById('planif-tab-content-ingresos');
+    const contentTiempos = document.getElementById('planif-tab-content-tiempos');
+    const contentMetasV2 = document.getElementById('planif-tab-content-metas-v2');
+
+    [btnIngresos, btnTiempos, btnMetasV2].forEach(btn => {
+        if (btn) {
+            btn.style.background = 'transparent';
+            btn.style.color = '#64748b';
+            btn.style.borderBottom = '3px solid transparent';
+        }
+    });
+    [contentIngresos, contentTiempos, contentMetasV2].forEach(c => {
+        if (c) c.style.display = 'none';
+    });
+
+    if (tabName === 'ingresos') {
+        if (btnIngresos) {
+            btnIngresos.style.background = 'white';
+            btnIngresos.style.color = 'var(--primary)';
+            btnIngresos.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (contentIngresos) contentIngresos.style.display = 'block';
+    } else if (tabName === 'tiempos') {
+        if (btnTiempos) {
+            btnTiempos.style.background = 'white';
+            btnTiempos.style.color = 'var(--primary)';
+            btnTiempos.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (contentTiempos) contentTiempos.style.display = 'block';
+        loadPlanifTiemposTramitacionData();
+    } else if (tabName === 'metas-v2') {
+        if (btnMetasV2) {
+            btnMetasV2.style.background = 'white';
+            btnMetasV2.style.color = 'var(--primary)';
+            btnMetasV2.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (contentMetasV2) contentMetasV2.style.display = 'block';
+        loadPlanifMetasV2Data();
+    }
+}
+
+async function loadPlanifTiemposTramitacionData() {
+    const gerenciaSelect = document.getElementById('planif-tiempos-filter-gerencia');
+    const gerencia = gerenciaSelect ? gerenciaSelect.value : 'ALL';
+    const grid = document.getElementById('planif-tiempos-grid');
+
+    if (grid) {
+        grid.innerHTML = `<div style="padding: 3rem; text-align: center; color: #64748b; grid-column: 1 / -1; background: white; border-radius: 16px; border: 1px solid #e2e8f0;"><span class="loader"></span><p style="margin-top: 12px; font-weight: 600;">Cargando tiempos de tramitación instantáneos...</p></div>`;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/tiempos-tramitacion?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        _planifTiemposData = data.tratas || [];
+        applyPlanifTiemposFilters();
+    } catch (e) {
+        console.error("Error cargando tiempos de tramitación:", e);
+        if (grid) {
+            grid.innerHTML = `<div style="padding: 2.5rem; text-align: center; color: #ef4444; grid-column: 1 / -1; background: #fef2f2; border-radius: 16px; border: 1px solid #fecaca; font-weight: 600;">Error al cargar datos: ${e.message}</div>`;
+        }
+    }
+}
+
+function applyPlanifTiemposFilters() {
+    const searchInput = document.getElementById('planif-tiempos-search');
+    const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    let filtered = _planifTiemposData;
+    if (q) {
+        filtered = filtered.filter(t => 
+            (t.trata || '').toLowerCase().includes(q) || 
+            (t.descripcion_trata || '').toLowerCase().includes(q)
+        );
+    }
+    renderPlanifTiemposGrid(filtered);
+}
+
+function renderPlanifTiemposGrid(tratas) {
+    const grid = document.getElementById('planif-tiempos-grid');
+    if (!grid) return;
+
+    if (!tratas || tratas.length === 0) {
+        grid.innerHTML = `<div style="padding: 2.5rem; text-align: center; color: #94a3b8; grid-column: 1 / -1;">No se encontraron tratas con los criterios seleccionados.</div>`;
+        return;
+    }
+
+    grid.innerHTML = tratas.map(t => {
+        const descEscaped = (t.descripcion_trata || '').replace(/'/g, "\\'");
+        const mesCerradoLabel = t.ultimo_mes_cerrado || 'Último Mes';
+
+        return `
+            <div onclick="openPlanifTrataTiemposModal('${t.trata}', '${descEscaped}', '${t.gerencia}')" 
+                 style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)';"
+                 onmouseout="this.style.borderColor='#cbd5e1'; this.style.transform='translateY(0)';">
+                
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem;">
+                    <div>
+                        <span style="font-family: 'Courier New', monospace; font-weight: 800; font-size: 0.85rem; color: var(--primary-dark); background: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">
+                            ${t.trata}
+                        </span>
+                        <h4 style="margin: 8px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #0f172a; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            ${t.descripcion_trata}
+                        </h4>
+                    </div>
+                    <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; white-space: nowrap;">
+                        ${t.gerencia}
+                    </span>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase;">
+                        <i class="fa-solid fa-calendar-check" style="color: #0284c7;"></i> Mediana Mes Cerrado (${mesCerradoLabel})
+                    </span>
+                </div>
+
+                <!-- 3 Métricas de Tiempo (Mediana Último Mes Cerrado) -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #f1f5f9; margin-bottom: 0.75rem;">
+                    <div style="text-align: center;">
+                        <span style="font-size: 0.68rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Propio Sector</span>
+                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: #0369a1;">${t.dias_propio_sector} <span style="font-size: 0.75rem; font-weight: 600;">días</span></div>
+                    </div>
+                    <div style="text-align: center; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+                        <span style="font-size: 0.68rem; font-weight: 700; color: #ea580c; text-transform: uppercase;">Subsanación</span>
+                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: #c2410c;">${t.dias_subsanacion} <span style="font-size: 0.75rem; font-weight: 600;">días</span></div>
+                    </div>
+                    <div style="text-align: center;">
+                        <span style="font-size: 0.68rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase;">Intervenciones</span>
+                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: #6d28d9;">${t.dias_intervenciones} <span style="font-size: 0.75rem; font-weight: 600;">días</span></div>
+                    </div>
+                </div>
+
+                <!-- Mediana Total y Mediana Ingresados Este Año -->
+                <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed #e2e8f0; padding-top: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.78rem; font-weight: 600; color: #475569;">
+                            Mediana Total Mes Cerrado (${mesCerradoLabel}):
+                        </span>
+                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #0f172a;">
+                            ${t.dias_totales} <span style="font-size: 0.75rem; font-weight: 600;">días</span>
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: #f0fdf4; padding: 4px 8px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                        <span style="font-size: 0.78rem; font-weight: 700; color: #166534;">
+                            <i class="fa-solid fa-hourglass-half" style="color: #16a34a;"></i> Mediana Ingresados Este Año:
+                        </span>
+                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">
+                            ${t.dias_mediana_ingresados_este_ano} <span style="font-size: 0.75rem; font-weight: 600;">días</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function openPlanifTrataTiemposModal(trata, descripcionTrata, gerencia) {
+    const modal = document.getElementById('tiempos-trata-modal');
+    const modalTitle = document.getElementById('tiempos-modal-title');
+    const modalSub = document.getElementById('tiempos-modal-subtitle');
+    const seriesTbody = document.getElementById('tiempos-modal-series-tbody');
+
+    if (!modal) return;
+    modal.style.display = 'flex';
+    if (modalTitle) modalTitle.innerText = `${trata} - ${descripcionTrata}`;
+    if (modalSub) modalSub.innerText = `Evolución mensual de tiempos de tramitación (Gerencia: ${gerencia.toUpperCase()})`;
+    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico por trata...</p></div></td></tr>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/tiempos-tramitacion/trata/${trata}?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        const series = data.series || [];
+
+        renderPlanifTrataTiemposChart(series);
+
+        if (seriesTbody) {
+            seriesTbody.innerHTML = series.map(s => {
+                const numVal = (v) => typeof v === 'number' ? v : parseFloat(v || 0);
+                const total = (numVal(s.dias_propio_sector) + numVal(s.dias_subsanacion) + numVal(s.dias_intervenciones)).toFixed(1);
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${s.dias_propio_sector} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${s.dias_subsanacion} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #8b5cf6; font-weight: 700;">${s.dias_intervenciones} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0f172a; font-weight: 800; background: #f8fafc;">${total} d</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (e) {
+        console.error("Error cargando detalle mensual de trata:", e);
+        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar histórico: ${e.message}</td></tr>`;
+    }
+}
+
+function renderPlanifTrataTiemposChart(series) {
+    const canvas = document.getElementById('tiemposTrataChart');
+    if (!canvas) return;
+
+    if (_tiemposTrataChartInstance) {
+        _tiemposTrataChartInstance.destroy();
+        _tiemposTrataChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = series.map(s => s.mes_label);
+    const numVal = (v) => typeof v === 'number' ? v : parseFloat(v || 0);
+    const propioData = series.map(s => numVal(s.dias_propio_sector));
+    const subsData = series.map(s => numVal(s.dias_subsanacion));
+    const intervData = series.map(s => numVal(s.dias_intervenciones));
+    const totalData = series.map(s => parseFloat((numVal(s.dias_propio_sector) + numVal(s.dias_subsanacion) + numVal(s.dias_intervenciones)).toFixed(1)));
+
+    _tiemposTrataChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Tiempo Total Promedio (días)',
+                    data: totalData,
+                    borderColor: '#065f46',
+                    borderWidth: 2.5,
+                    backgroundColor: 'rgba(6, 95, 70, 0.06)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#065f46',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Propio Sector (días)',
+                    data: propioData,
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#0284c7',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Subsanación TAD (días)',
+                    data: subsData,
+                    borderColor: '#ea580c',
+                    backgroundColor: 'rgba(234, 88, 12, 0.08)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ea580c',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Intervenciones Externas (días)',
+                    data: intervData,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#8b5cf6',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { family: 'Outfit', size: 12, weight: 'bold' }, usePointStyle: true }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Outfit', size: 10 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { family: 'Outfit', size: 11 } },
+                    title: { display: true, text: 'Días Promedio', font: { family: 'Outfit', size: 11, weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function closePlanifTrataTiemposModal() {
+    const modal = document.getElementById('tiempos-trata-modal');
+    if (modal) modal.style.display = 'none';
+
+    if (_tiemposTrataChartInstance) {
+        _tiemposTrataChartInstance.destroy();
+        _tiemposTrataChartInstance = null;
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// PLANIFICACIÓN NOVIEMBRE 2026 - METAS VERSIÓN 2
+// ──────────────────────────────────────────────────────────────
+
+async function loadPlanifMetasV2Data() {
+    const gerenciaSelect = document.getElementById('planif-metas-v2-filter-gerencia');
+    const gerencia = gerenciaSelect ? gerenciaSelect.value : 'ALL';
+    const tbody = document.getElementById('planif-metas-v2-tbody');
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="10" style="padding: 2.5rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando modelo Metas Versión 2...</p></td></tr>`;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/metas-v2?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        _planifMetasV2Data = data.tratas || [];
+        applyPlanifMetasV2Filters();
+    } catch (e) {
+        console.error("Error cargando Metas V2:", e);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="10" style="padding: 2.5rem; text-align: center; color: #ef4444;">Error al cargar datos: ${e.message}</td></tr>`;
+        }
+    }
+}
+
+function applyPlanifMetasV2Filters() {
+    const searchInput = document.getElementById('planif-metas-v2-search');
+    const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    let filtered = _planifMetasV2Data;
+    if (q) {
+        filtered = filtered.filter(t => 
+            (t.trata || '').toLowerCase().includes(q) || 
+            (t.descripcion_trata || '').toLowerCase().includes(q)
+        );
+    }
+    renderPlanifMetasV2Table(filtered);
+}
+
+function renderPlanifMetasV2Table(tratas) {
+    const tbody = document.getElementById('planif-metas-v2-tbody');
+    const escSelect = document.getElementById('planif-metas-v2-filter-escenario');
+    const escKey = escSelect ? escSelect.value : 'esc1';
+
+    const kpiEstancado = document.getElementById('planif-v2-kpi-estancado');
+    const kpiFlujo = document.getElementById('planif-v2-kpi-flujo');
+    const kpiMetaTotal = document.getElementById('planif-v2-kpi-meta-total');
+
+    if (!tbody) return;
+
+    if (!tratas || tratas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="padding: 2.5rem; text-align: center; color: #94a3b8;">No se encontraron tratas con los criterios seleccionados.</td></tr>`;
+        if (kpiEstancado) kpiEstancado.innerText = '0';
+        if (kpiFlujo) kpiFlujo.innerText = '0';
+        if (kpiMetaTotal) kpiMetaTotal.innerText = '0';
+        return;
+    }
+
+    let totEstancado = 0;
+    let totFlujo = 0;
+    let totMetaPeriodo = 0;
+
+    const rowsHtml = tratas.map(t => {
+        totEstancado += t.stock_propio_estancado || 0;
+        totFlujo += t.stock_flujo || 0;
+
+        const esc = t[escKey] || { ago: 0, sep: 0, oct: 0, nov: 0 };
+        const metaTrata = (esc.ago || 0) + (esc.sep || 0) + (esc.oct || 0) + (esc.nov || 0);
+        totMetaPeriodo += metaTrata;
+
+        const v_ago = t.stock_flujo || 0;
+        const v_sep = esc.ing_sep || 0;
+        const v_oct = esc.ing_oct || 0;
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-family: 'Courier New', monospace; font-weight: 800; font-size: 0.8rem; color: var(--primary-dark); background: #f0f9ff; padding: 2px 7px; border-radius: 5px; border: 1px solid #bae6fd;">
+                            ${t.trata}
+                        </span>
+                        <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #475569;">
+                            ${t.gerencia}
+                        </span>
+                    </div>
+                    <div style="font-weight: 600; font-size: 0.88rem; color: #0f172a; margin-top: 4px;">
+                        ${t.descripcion_trata}
+                    </div>
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: #334155;">
+                    ${t.stock_total.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #c2410c; background: #fff7ed;">
+                    ${t.stock_propio_estancado.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #0369a1; background: #f0f9ff;">
+                    ${t.stock_flujo.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: #475569;">
+                    ${t.dias_tramitacion_base} <span style="font-size: 0.72rem; font-weight: 600;">días</span>
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #1d4ed8; background: #eff6ff;">
+                    ${esc.ing_ago.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
+                    ${esc.ago.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
+                    ${esc.sep.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
+                    ${esc.oct.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #047857; background: #dcfce7; border-left: 1px solid #bbf7d0;">
+                    ${esc.nov.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div style="display: inline-flex; gap: 6px; align-items: center; background: #f8fafc; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.75rem;">
+                        <span style="color: #dc2626; font-weight: 700;" title="Stock Flujo Activo vence en Agosto">Ago: ${v_ago.toLocaleString('es-AR')}</span> | 
+                        <span style="color: #d97706; font-weight: 700;" title="Flujo proyectado vence en Septiembre">Sep: ${v_sep.toLocaleString('es-AR')}</span> | 
+                        <span style="color: #2563eb; font-weight: 700;" title="Flujo proyectado vence en Octubre">Oct: ${v_oct.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+
+    if (kpiEstancado) kpiEstancado.innerText = totEstancado.toLocaleString('es-AR');
+    if (kpiFlujo) kpiFlujo.innerText = totFlujo.toLocaleString('es-AR');
+    if (kpiMetaTotal) kpiMetaTotal.innerText = totMetaPeriodo.toLocaleString('es-AR');
+}
+
+
 
 
 

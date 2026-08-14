@@ -4365,3 +4365,721 @@ async def get_universo_tratas(current_user: User = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Error en universo-tratas: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ──────────────────────────────────────────────────────────────
+# PLANIFICACIÓN NOVIEMBRE 2026
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/api/reporte/planificacion-nov-2026")
+async def get_planificacion_nov_2026(
+    target_year: int = 2026,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna métricas consolidadas para la Planificación Noviembre 2026:
+    - Stock total desglosado en ingresados en target_year vs previos.
+    - Subsanaciones abiertas desglosadas en ingresadas en target_year vs previas.
+    - Número de ingresos (target_year vs previos).
+    - Desglose por gerencia y por trata.
+    """
+    from config import TRAMITES_CONFIG
+
+    try:
+        with engine.connect() as conn:
+            stock_este_ano = 0
+            stock_previo = 0
+            subs_este_ano = 0
+            subs_previo = 0
+            ingresos_este_ano = 0
+            ingresos_previo = 0
+
+            gerencia_metrics = {}
+            trata_metrics = {}
+
+            # Nombres amigables de gerencias
+            NOMBRES_GERENCIAS = {
+                "dgiur": "DGIUR - Interpretaciones / Usos",
+                "dgroc": "DGROC - Obras / Catastro",
+                "instalaciones": "Instalaciones",
+                "interpretaciones": "Interpretaciones Urbanísticas",
+                "regularizacion": "Conforme a Obra / Regularización",
+                "contable": "Contable / Derechos",
+                "etapa_proyecto": "Etapa Proyecto",
+                "morfologia": "Morfología Urbana",
+                "aph": "Áreas de Protección Histórica",
+                "usos": "DGIUR - Usos",
+                "aviso_obra": "Avisos de Obra",
+                "copua": "COPUA",
+                "publico_privado": "Público Privado"
+            }
+
+            for g, g_cfg in TRAMITES_CONFIG.items():
+                g_clean = g.lower()
+                tratas_oficiales = [t for t in g_cfg.keys() if t != 'INTERVENCIONES']
+                
+                # Pre-initialize ONLY configured official tratas + INTERVENCIONES for this gerencia
+                for t_code in tratas_oficiales:
+                    t_desc = g_cfg[t_code].get('nombre', t_code)
+                    key = (g_clean, t_code)
+                    trata_metrics[key] = {
+                        "trata": t_code,
+                        "descripcion_trata": t_desc,
+                        "gerencia": g_clean,
+                        "stock_este_ano": 0, "stock_previo": 0,
+                        "subs_este_ano": 0, "subs_previo": 0,
+                        "ingresos_este_ano": 0, "ingresos_previo": 0
+                    }
+
+                key_int = (g_clean, "INTERVENCIONES")
+                trata_metrics[key_int] = {
+                    "trata": "INTERVENCIONES",
+                    "descripcion_trata": "Intervenciones del Sector",
+                    "gerencia": g_clean,
+                    "stock_este_ano": 0, "stock_previo": 0,
+                    "subs_este_ano": 0, "subs_previo": 0,
+                    "ingresos_este_ano": 0, "ingresos_previo": 0
+                }
+
+                g_stock_ea = 0
+                g_stock_pr = 0
+                g_subs_ea = 0
+                g_subs_pr = 0
+                g_ing_ea = 0
+                g_ing_pr = 0
+
+                # 1. Stock Propio (Oficiales)
+                try:
+                    sql_stock_p = f"""
+                        SELECT 
+                            sp.trata,
+                            sp.descripcion_trata,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sp.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sp.expediente, '-', 2)) = 4 THEN SPLIT_PART(sp.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) = :y THEN 1 END) as este_ano,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sp.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sp.expediente, '-', 2)) = 4 THEN SPLIT_PART(sp.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) < :y THEN 1 END) as previo
+                        FROM mv_{g_clean}_stock_propio sp
+                        LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = sp.id_expediente
+                        WHERE TRIM(sp.trata) = ANY(:tratas)
+                        GROUP BY sp.trata, sp.descripcion_trata
+                    """
+                    rows = conn.execute(text(sql_stock_p), {"y": target_year, "tratas": tratas_oficiales}).fetchall()
+                    for r in rows:
+                        ea = int(r[2] or 0)
+                        pr = int(r[3] or 0)
+                        t_code = (r[0] or "OTRO").strip().upper()
+                        t_desc = r[1] or t_code
+
+                        g_stock_ea += ea
+                        g_stock_pr += pr
+                        stock_este_ano += ea
+                        stock_previo += pr
+
+                        key = (g_clean, t_code)
+                        if key in trata_metrics:
+                            trata_metrics[key]["stock_este_ano"] += ea
+                            trata_metrics[key]["stock_previo"] += pr
+                except Exception as e:
+                    logger.warning(f"Error stock propio en {g_clean}: {e}")
+
+                # 1b. Stock Intervenciones
+                try:
+                    sql_stock_i = f"""
+                        SELECT 
+                            'INTERVENCIONES' as trata,
+                            'Intervenciones del Sector' as descripcion_trata,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sp.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sp.expediente, '-', 2)) = 4 THEN SPLIT_PART(sp.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) = :y THEN 1 END) as este_ano,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sp.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sp.expediente, '-', 2)) = 4 THEN SPLIT_PART(sp.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) < :y THEN 1 END) as previo
+                        FROM mv_{g_clean}_intervenciones_stock sp
+                        LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = sp.id_expediente
+                    """
+                    r = conn.execute(text(sql_stock_i), {"y": target_year}).fetchone()
+                    if r and (r[2] or r[3]):
+                        ea = int(r[2] or 0)
+                        pr = int(r[3] or 0)
+
+                        g_stock_ea += ea
+                        g_stock_pr += pr
+                        stock_este_ano += ea
+                        stock_previo += pr
+
+                        key = (g_clean, "INTERVENCIONES")
+                        if key in trata_metrics:
+                            trata_metrics[key]["stock_este_ano"] += ea
+                            trata_metrics[key]["stock_previo"] += pr
+                except Exception as e:
+                    logger.warning(f"Error stock intervenciones en {g_clean}: {e}")
+
+                # 2. Subsanaciones Abiertas (Oficiales)
+                try:
+                    sql_subs_p = f"""
+                        SELECT 
+                            sub.trata,
+                            sub.descripcion_trata,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sub.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sub.expediente, '-', 2)) = 4 THEN SPLIT_PART(sub.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) = :y THEN 1 END) as este_ano,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sub.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sub.expediente, '-', 2)) = 4 THEN SPLIT_PART(sub.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) < :y THEN 1 END) as previo
+                        FROM mv_{g_clean}_subsanaciones sub
+                        LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = sub.id_expediente
+                        WHERE TRIM(sub.trata) = ANY(:tratas)
+                        GROUP BY sub.trata, sub.descripcion_trata
+                    """
+                    rows = conn.execute(text(sql_subs_p), {"y": target_year, "tratas": tratas_oficiales}).fetchall()
+                    for r in rows:
+                        ea = int(r[2] or 0)
+                        pr = int(r[3] or 0)
+                        t_code = (r[0] or "OTRO").strip().upper()
+
+                        g_subs_ea += ea
+                        g_subs_pr += pr
+                        subs_este_ano += ea
+                        subs_previo += pr
+
+                        key = (g_clean, t_code)
+                        if key in trata_metrics:
+                            trata_metrics[key]["subs_este_ano"] += ea
+                            trata_metrics[key]["subs_previo"] += pr
+                except Exception as e:
+                    logger.warning(f"Error subs propio en {g_clean}: {e}")
+
+                # 2b. Subsanaciones Intervenciones
+                try:
+                    sql_subs_i = f"""
+                        SELECT 
+                            'INTERVENCIONES' as trata,
+                            'Intervenciones del Sector' as descripcion_trata,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sub.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sub.expediente, '-', 2)) = 4 THEN SPLIT_PART(sub.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) = :y THEN 1 END) as este_ano,
+                            COUNT(CASE WHEN (
+                                CASE 
+                                    WHEN sub.expediente LIKE 'EX-%' AND LENGTH(SPLIT_PART(sub.expediente, '-', 2)) = 4 THEN SPLIT_PART(sub.expediente, '-', 2)::integer
+                                    WHEN ext.fecha_creacion IS NOT NULL THEN EXTRACT(YEAR FROM ext.fecha_creacion)::integer
+                                    ELSE 1900
+                                END
+                            ) < :y THEN 1 END) as previo
+                        FROM mv_{g_clean}_intervenciones_subs sub
+                        LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = sub.id_expediente
+                    """
+                    r = conn.execute(text(sql_subs_i), {"y": target_year}).fetchone()
+                    if r and (r[2] or r[3]):
+                        ea = int(r[2] or 0)
+                        pr = int(r[3] or 0)
+
+                        g_subs_ea += ea
+                        g_subs_pr += pr
+                        subs_este_ano += ea
+                        subs_previo += pr
+
+                        key = (g_clean, "INTERVENCIONES")
+                        if key in trata_metrics:
+                            trata_metrics[key]["subs_este_ano"] += ea
+                            trata_metrics[key]["subs_previo"] += pr
+                except Exception as e:
+                    logger.warning(f"Error subs intervenciones en {g_clean}: {e}")
+
+                # 3. Ingresos (Oficiales)
+                try:
+                    sql_ing = f"""
+                        SELECT 
+                            trata,
+                            descripcion_trata,
+                            COUNT(CASE WHEN EXTRACT(YEAR FROM fecha_ingreso) = :y THEN 1 END) as este_ano,
+                            COUNT(CASE WHEN EXTRACT(YEAR FROM fecha_ingreso) < :y THEN 1 END) as previo
+                        FROM mv_{g_clean}_ingresos_eventos
+                        WHERE TRIM(trata) = ANY(:tratas)
+                        GROUP BY trata, descripcion_trata
+                    """
+                    rows = conn.execute(text(sql_ing), {"y": target_year, "tratas": tratas_oficiales}).fetchall()
+                    for r in rows:
+                        ea = int(r[2] or 0)
+                        pr = int(r[3] or 0)
+                        t_code = (r[0] or "OTRO").strip().upper()
+
+                        g_ing_ea += ea
+                        g_ing_pr += pr
+                        ingresos_este_ano += ea
+                        ingresos_previo += pr
+
+                        key = (g_clean, t_code)
+                        if key in trata_metrics:
+                            trata_metrics[key]["ingresos_este_ano"] += ea
+                            trata_metrics[key]["ingresos_previo"] += pr
+                except Exception as e:
+                    logger.warning(f"Error ingresos en {g_clean}: {e}")
+
+                # 3b. Ingresos Intervenciones
+                try:
+                    sql_ing_i = f"""
+                        SELECT 
+                            'INTERVENCIONES' as trata,
+                            'Intervenciones del Sector' as descripcion_trata,
+                            COUNT(CASE WHEN EXTRACT(YEAR FROM fecha_ingreso) = :y THEN 1 END) as este_ano,
+                            COUNT(CASE WHEN EXTRACT(YEAR FROM fecha_ingreso) < :y THEN 1 END) as previo
+                        FROM mv_{g_clean}_ingresos_eventos
+                        WHERE NOT (TRIM(trata) = ANY(:tratas))
+                    """
+                    r = conn.execute(text(sql_ing_i), {"y": target_year, "tratas": tratas_oficiales}).fetchone()
+                    if r and (r[2] or r[3]):
+                        ea = int(r[2] or 0)
+                        pr = int(r[3] or 0)
+
+                        g_ing_ea += ea
+                        g_ing_pr += pr
+                        ingresos_este_ano += ea
+                        ingresos_previo += pr
+
+                        key = (g_clean, "INTERVENCIONES")
+                        if key in trata_metrics:
+                            trata_metrics[key]["ingresos_este_ano"] += ea
+                            trata_metrics[key]["ingresos_previo"] += pr
+                except Exception as e:
+                    logger.warning(f"Error ingresos intervenciones en {g_clean}: {e}")
+
+                gerencia_metrics[g_clean] = {
+                    "gerencia": g_clean,
+                    "nombre_gerencia": NOMBRES_GERENCIAS.get(g_clean, g_clean.upper()),
+                    "stock_este_ano": g_stock_ea,
+                    "stock_previo": g_stock_pr,
+                    "stock_total": g_stock_ea + g_stock_pr,
+                    "subs_este_ano": g_subs_ea,
+                    "subs_previo": g_subs_pr,
+                    "subs_total": g_subs_ea + g_subs_pr,
+                    "ingresos_este_ano": g_ing_ea,
+                    "ingresos_previo": g_ing_pr,
+                    "ingresos_total": g_ing_ea + g_ing_pr
+                }
+
+            return {
+                "target_year": target_year,
+                "kpis": {
+                    "stock_total": stock_este_ano + stock_previo,
+                    "stock_este_ano": stock_este_ano,
+                    "stock_previo": stock_previo,
+                    "subs_total": subs_este_ano + subs_previo,
+                    "subs_este_ano": subs_este_ano,
+                    "subs_previo": subs_previo,
+                    "ingresos_total": ingresos_este_ano + ingresos_previo,
+                    "ingresos_este_ano": ingresos_este_ano,
+                    "ingresos_previo": ingresos_previo
+                },
+                "por_gerencia": list(gerencia_metrics.values()),
+                "por_trata": sorted(list(trata_metrics.values()), key=lambda x: x["stock_este_ano"] + x["stock_previo"], reverse=True)
+            }
+    except Exception as e:
+        logger.error(f"Error en planificacion-nov-2026: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/planificacion-nov-2026/expedientes")
+async def get_planificacion_nov_2026_expedientes(
+    target_year: int = 2026,
+    gerencia: Optional[str] = None,
+    trata: Optional[str] = None,
+    categoria: Optional[str] = 'TODOS',
+    periodo: Optional[str] = 'TODOS',
+    q: Optional[str] = None,
+    limit: int = 200,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna la lista detallada de expedientes para la Planificación Noviembre 2026.
+    """
+    from config import TRAMITES_CONFIG
+
+    try:
+        with engine.connect() as conn:
+            expedientes = []
+            g_list = [gerencia.lower()] if (gerencia and gerencia.lower() in TRAMITES_CONFIG) else list(TRAMITES_CONFIG.keys())
+
+            for g in g_list:
+                g_clean = g.lower()
+                
+                # Fetch stock
+                if categoria in ['TODOS', 'STOCK']:
+                    for view_name in [f"mv_{g_clean}_stock_propio", f"mv_{g_clean}_intervenciones_stock"]:
+                        try:
+                            sql = f"""
+                                SELECT 
+                                    sp.id_expediente,
+                                    sp.expediente,
+                                    sp.trata,
+                                    sp.descripcion_trata,
+                                    sp.analista,
+                                    sp.dias_en_poder_actual,
+                                    sp.dias_en_gerencia,
+                                    ext.fecha_creacion
+                                FROM {view_name} sp
+                                LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = sp.id_expediente
+                            """
+                            rows = conn.execute(text(sql)).fetchall()
+                            for r in rows:
+                                fc = r[7]
+                                yr = fc.year if fc and hasattr(fc, 'year') else None
+                                is_target = (yr == target_year)
+                                p_type = 'ESTE_ANO' if is_target else 'PREVIO'
+
+                                if periodo != 'TODOS' and periodo != p_type:
+                                    continue
+                                if trata and r[2] and trata.upper() not in r[2].upper():
+                                    continue
+                                if q:
+                                    q_l = q.lower()
+                                    exp_str = (r[1] or '').lower()
+                                    tr_str = (r[2] or '').lower()
+                                    an_str = (r[4] or '').lower()
+                                    if q_l not in exp_str and q_l not in tr_str and q_l not in an_str:
+                                        continue
+
+                                expedientes.append({
+                                    "id_expediente": r[0],
+                                    "expediente": r[1],
+                                    "trata": r[2],
+                                    "descripcion_trata": r[3] or r[2],
+                                    "gerencia": g_clean.upper(),
+                                    "categoria": "STOCK",
+                                    "periodo": p_type,
+                                    "fecha_creacion": fc.strftime("%Y-%m-%d %H:%M:%S") if fc and hasattr(fc, "strftime") else (str(fc)[:19] if fc else None),
+                                    "anio_creacion": yr,
+                                    "analista": r[4] or "-",
+                                    "dias_en_poder": int(r[5] or 0),
+                                    "dias_en_gerencia": int(r[6] or 0)
+                                })
+                        except Exception:
+                            pass
+
+                # Fetch subsanaciones
+                if categoria in ['TODOS', 'SUBSANACION']:
+                    for view_name in [f"mv_{g_clean}_subsanaciones", f"mv_{g_clean}_intervenciones_subs"]:
+                        try:
+                            sql = f"""
+                                SELECT 
+                                    sub.id_expediente,
+                                    sub.expediente,
+                                    sub.trata,
+                                    sub.descripcion_trata,
+                                    sub.analista,
+                                    sub.dias_en_poder_actual,
+                                    sub.dias_en_gerencia,
+                                    ext.fecha_creacion
+                                FROM {view_name} sub
+                                LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = sub.id_expediente
+                            """
+                            rows = conn.execute(text(sql)).fetchall()
+                            for r in rows:
+                                fc = r[7]
+                                yr = fc.year if fc and hasattr(fc, 'year') else None
+                                is_target = (yr == target_year)
+                                p_type = 'ESTE_ANO' if is_target else 'PREVIO'
+
+                                if periodo != 'TODOS' and periodo != p_type:
+                                    continue
+                                if trata and r[2] and trata.upper() not in r[2].upper():
+                                    continue
+                                if q:
+                                    q_l = q.lower()
+                                    exp_str = (r[1] or '').lower()
+                                    tr_str = (r[2] or '').lower()
+                                    an_str = (r[4] or '').lower()
+                                    if q_l not in exp_str and q_l not in tr_str and q_l not in an_str:
+                                        continue
+
+                                expedientes.append({
+                                    "id_expediente": r[0],
+                                    "expediente": r[1],
+                                    "trata": r[2],
+                                    "descripcion_trata": r[3] or r[2],
+                                    "gerencia": g_clean.upper(),
+                                    "categoria": "SUBSANACION",
+                                    "periodo": p_type,
+                                    "fecha_creacion": fc.strftime("%Y-%m-%d %H:%M:%S") if fc and hasattr(fc, "strftime") else (str(fc)[:19] if fc else None),
+                                    "anio_creacion": yr,
+                                    "analista": r[4] or "-",
+                                    "dias_en_poder": int(r[5] or 0),
+                                    "dias_en_gerencia": int(r[6] or 0)
+                                })
+                        except Exception:
+                            pass
+
+            total_count = len(expedientes)
+            expedientes_paginated = expedientes[offset:offset + limit]
+
+            return {
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+                "expedientes": expedientes_paginated
+            }
+    except Exception as e:
+        logger.error(f"Error en planificacion-nov-2026/expedientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/planificacion-nov-2026/historico/{gerencia}")
+async def get_planificacion_nov_2026_historico(
+    gerencia: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna la evolución mensual histórica de Stock y Subsanaciones Abiertas para una gerencia específica,
+    con marca en Marzo 2026 (2026-03).
+    """
+    from config import TRAMITES_CONFIG
+
+    g_clean = gerencia.lower()
+    if g_clean not in TRAMITES_CONFIG and g_clean not in ["dgiur", "dgroc", "copua", "publico_privado"]:
+        raise HTTPException(status_code=404, detail="Gerencia no válida")
+
+    NOMBRES_GERENCIAS = {
+        "dgiur": "DGIUR - Interpretaciones / Usos",
+        "dgroc": "DGROC - Obras / Catastro",
+        "catastro": "DGROC - Catastro",
+        "instalaciones": "Instalaciones",
+        "interpretaciones": "Interpretaciones Urbanísticas",
+        "regularizacion": "Conforme a Obra / Regularización",
+        "contable": "Contable / Derechos",
+        "etapa_proyecto": "Etapa Proyecto",
+        "morfologia": "Morfología Urbana",
+        "aph": "Áreas de Protección Histórica",
+        "usos": "DGIUR - Usos",
+        "aviso_obra": "Avisos de Obra",
+        "copua": "COPUA",
+        "publico_privado": "Público Privado"
+    }
+
+    try:
+        with engine.connect() as conn:
+            curr_month = datetime.now().strftime("%Y-%m")
+            sql = f"""
+                SELECT 
+                    mes_label,
+                    SUM(CASE WHEN categoria = 'STOCK_PROPIO' THEN cant_expedientes ELSE 0 END) as stock,
+                    SUM(CASE WHEN categoria = 'SUBSANACION' THEN cant_expedientes ELSE 0 END) as subsanaciones
+                FROM mv_{g_clean}_stock_historico
+                WHERE mes_label < '{curr_month}'
+                GROUP BY mes_label
+                ORDER BY mes_label ASC
+            """
+            rows = conn.execute(text(sql)).mappings().fetchall()
+
+            series = []
+            for r in rows:
+                m_label = r["mes_label"]
+                st_val = int(r["stock"] or 0)
+                sub_val = int(r["subsanaciones"] or 0)
+
+                series.append({
+                    "mes_label": m_label,
+                    "stock": st_val,
+                    "subsanaciones": sub_val,
+                    "is_hito": (m_label == "2026-03")
+                })
+
+            return {
+                "gerencia": g_clean,
+                "nombre_gerencia": NOMBRES_GERENCIAS.get(g_clean, g_clean.upper()),
+                "hito_mes": "2026-03",
+                "series": series
+            }
+    except Exception as e:
+        logger.error(f"Error en planificacion-nov-2026/historico/{gerencia}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ──────────────────────────────────────────────────────────────
+# PLANIFICACIÓN NOVIEMBRE 2026 - TIEMPOS DE TRAMITACIÓN
+# ──────────────────────────────────────────────────────────────
+
+@router.get("/api/reporte/planificacion-nov-2026/tiempos-tramitacion")
+async def get_planificacion_tiempos_tramitacion(
+    gerencia: Optional[str] = "ALL",
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna instantáneamente el detalle por Trata de los tiempos de tramitación
+    (mediana del último mes cerrado y mediana de trámites ingresados este año)
+    desde la tabla pre-agregada planificacion_tiempos_tramitacion_resumen.
+    """
+    g_clean = (gerencia or "ALL").lower()
+
+    results = []
+    try:
+        with engine.connect() as conn:
+            where_clause = "" if g_clean == "all" else "WHERE gerencia = :g"
+            sql = f"""
+                SELECT gerencia, trata, descripcion_trata, dias_propio_sector, dias_subsanacion, dias_intervenciones, dias_totales, dias_mediana_ingresados_este_ano, ultimo_mes_cerrado
+                FROM planificacion_tiempos_tramitacion_resumen
+                {where_clause}
+                ORDER BY gerencia ASC, trata ASC
+            """
+            params = {} if g_clean == "all" else {"g": g_clean}
+            rows = conn.execute(text(sql), params).mappings().fetchall()
+
+            for r in rows:
+                results.append({
+                    "gerencia": r["gerencia"],
+                    "trata": r["trata"],
+                    "descripcion_trata": r["descripcion_trata"],
+                    "dias_propio_sector": float(r["dias_propio_sector"] or 0),
+                    "dias_subsanacion": float(r["dias_subsanacion"] or 0),
+                    "dias_intervenciones": float(r["dias_intervenciones"] or 0),
+                    "dias_totales": float(r["dias_totales"] or 0),
+                    "dias_mediana_ingresados_este_ano": float(r["dias_mediana_ingresados_este_ano"] or 0),
+                    "ultimo_mes_cerrado": r["ultimo_mes_cerrado"] or ""
+                })
+
+        return {"gerencia": gerencia, "tratas": results, "total": len(results)}
+    except Exception as e:
+        logger.error(f"Error en planificacion-nov-2026/tiempos-tramitacion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/planificacion-nov-2026/tiempos-tramitacion/trata/{trata}")
+async def get_planificacion_tiempos_tramitacion_trata_historico(
+    trata: str,
+    gerencia: Optional[str] = "catastro",
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna instantáneamente la evolución mensual de los tiempos de tramitación para una trata específica
+    desde la tabla pre-agregada planificacion_tiempos_trata_historico.
+    """
+    g_clean = (gerencia or "catastro").lower()
+
+    try:
+        with engine.connect() as conn:
+            curr_month = datetime.now().strftime("%Y-%m")
+            sql = """
+                SELECT mes_label, dias_propio_sector, dias_subsanacion, dias_intervenciones
+                FROM planificacion_tiempos_trata_historico
+                WHERE trata = :trata AND (:g IS NULL OR gerencia = :g) AND mes_label < :curr_m
+                ORDER BY mes_label DESC
+                LIMIT 12
+            """
+            rows = list(conn.execute(text(sql), {"trata": trata, "g": g_clean, "curr_m": curr_month}).mappings().fetchall())
+
+            series = []
+            for r in reversed(rows):
+                series.append({
+                    "mes_label": r["mes_label"],
+                    "dias_propio_sector": float(r["dias_propio_sector"] or 0),
+                    "dias_subsanacion": float(r["dias_subsanacion"] or 0),
+                    "dias_intervenciones": float(r["dias_intervenciones"] or 0)
+                })
+
+            return {"trata": trata, "gerencia": g_clean, "series": series}
+    except Exception as e:
+        logger.error(f"Error en planificacion-nov-2026/tiempos-tramitacion/trata/{trata}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/planificacion-nov-2026/metas-v2")
+async def get_planificacion_metas_v2(
+    gerencia: Optional[str] = "ALL",
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna instantáneamente la simulación de Metas V2 (Escenario 1 Interanual vs Escenario 2 Mes Anterior,
+    desglose de Stock Propio vs Stock Flujo y Vencimientos) para las tratas oficiales.
+    """
+    g_clean = (gerencia or "ALL").lower()
+
+    try:
+        with engine.connect() as conn:
+            where_clause = "" if g_clean == "all" else "WHERE gerencia = :g"
+            sql = f"""
+                SELECT *
+                FROM planificacion_metas_v2_resumen
+                {where_clause}
+                ORDER BY gerencia ASC, trata ASC
+            """
+            params = {} if g_clean == "all" else {"g": g_clean}
+            rows = conn.execute(text(sql), params).mappings().fetchall()
+
+            results = []
+            for r in rows:
+                results.append({
+                    "gerencia": r["gerencia"],
+                    "trata": r["trata"],
+                    "descripcion_trata": r["descripcion_trata"],
+                    "stock_total": int(r["stock_total"] or 0),
+                    "dias_tramitacion_base": float(r["dias_tramitacion_base"] or 0),
+                    "stock_propio_estancado": int(r["stock_propio_estancado"] or 0),
+                    "stock_flujo": int(r["stock_flujo"] or 0),
+                    "cuota_stock_propio_mensual": float(r["cuota_stock_propio_mensual"] or 0),
+                    "esc1": {
+                        "ago": int(r["esc1_ago"] or 0),
+                        "sep": int(r["esc1_sep"] or 0),
+                        "oct": int(r["esc1_oct"] or 0),
+                        "nov": int(r["esc1_nov"] or 0),
+                        "ing_ago": int(r["ing_esc1_ago"] or 0),
+                        "ing_sep": int(r["ing_esc1_sep"] or 0),
+                        "ing_oct": int(r["ing_esc1_oct"] or 0),
+                        "ing_nov": int(r["ing_esc1_nov"] or 0)
+                    },
+                    "esc2": {
+                        "ago": int(r["esc2_ago"] or 0),
+                        "sep": int(r["esc2_sep"] or 0),
+                        "oct": int(r["esc2_oct"] or 0),
+                        "nov": int(r["esc2_nov"] or 0),
+                        "ing_ago": int(r["ing_esc2_ago"] or 0),
+                        "ing_sep": int(r["ing_esc2_sep"] or 0),
+                        "ing_oct": int(r["ing_esc2_oct"] or 0),
+                        "ing_nov": int(r["ing_esc2_nov"] or 0)
+                    },
+                    "vencimientos": {
+                        "agosto": int(r["vence_agosto"] or 0),
+                        "septiembre": int(r["vence_septiembre"] or 0),
+                        "octubre": int(r["vence_octubre"] or 0)
+                    }
+                })
+
+            return {"gerencia": gerencia, "tratas": results, "total": len(results)}
+    except Exception as e:
+        logger.error(f"Error en planificacion-nov-2026/metas-v2: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
+
