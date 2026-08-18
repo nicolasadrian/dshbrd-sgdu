@@ -4499,6 +4499,19 @@ async def get_universo_trata_detalle(
             exp_rows = conn.execute(exp_sql, {"t": trata_clean}).fetchall()
 
             # 3. Agrupar por buzón / usuario
+            # Consultar mapa de nombres desde datos_usuario
+            nombres_sql = conn.execute(text("""
+                SELECT 
+                    UPPER(TRIM(usuario)) as u,
+                    UPPER(TRIM(COALESCE(
+                        NULLIF(TRIM(apellido_nombre), ''),
+                        NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')
+                    ))) as nombre_apellido
+                FROM datos_usuario
+                WHERE usuario IS NOT NULL
+            """)).fetchall()
+            nombres_map = {r[0]: r[1] for r in nombres_sql if r[0] and r[1]}
+
             buzones_dict = {}
             kpis = {
                 "total_buzones": 0,
@@ -4526,8 +4539,11 @@ async def get_universo_trata_detalle(
                     elif dest_upper in buzones_ingreso_set:
                         rol_tablero = "Buzón de Ingreso"
                     
+                    nombre_ap = nombres_map.get(dest_upper) or ""
+                    
                     buzones_dict[dest] = {
                         "destinatario": dest,
+                        "nombre_apellido": nombre_ap,
                         "tipo": "Buzón" if es_buzon else "Usuario",
                         "rol_tablero": rol_tablero,
                         "cant_total": 0,
@@ -4581,8 +4597,8 @@ async def get_universo_trata_detalle(
 
             return {
                 "trata": trata_clean,
-                "descripcion_trata": trata_row[1] or "",
-                "cant_expedientes": len(exp_rows),
+                "descripcion_trata": desc_trata,
+                "cant_expedientes": cant_exp_total,
                 "alta_en_tablero": alta_en_tablero,
                 "kpis": kpis,
                 "buzones": buzones_list
@@ -4598,6 +4614,7 @@ async def get_universo_buzones(current_user: User = Depends(get_current_user)):
     """
     Retorna el universo completo de buzones y usuarios analistas en posesión de expedientes SGDU con métricas:
     - destinatario: nombre de usuario o buzón
+    - nombre_apellido: nombre y apellido obtenido de datos_usuario SADE
     - tipo: 'Usuario' o 'Buzón'
     - rol_tablero: 'Analista' / 'Buzón de Ingreso' / 'Analista y Buzón Ingreso' / 'Sin Configurar'
     - cant_expedientes: total de expedientes en su poder
@@ -4626,6 +4643,19 @@ async def get_universo_buzones(current_user: User = Depends(get_current_user)):
                 for ao in cr[1]:
                     if ao:
                         analistas_oficiales_set.add(ao)
+
+            # Consultar mapa de nombres desde datos_usuario
+            nombres_sql = conn.execute(text("""
+                SELECT 
+                    UPPER(TRIM(usuario)) as u,
+                    UPPER(TRIM(COALESCE(
+                        NULLIF(TRIM(apellido_nombre), ''),
+                        NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')
+                    ))) as nombre_apellido
+                FROM datos_usuario
+                WHERE usuario IS NOT NULL
+            """)).fetchall()
+            nombres_map = {r[0]: r[1] for r in nombres_sql if r[0] and r[1]}
 
             sql = text("""
                 WITH base_exp AS (
@@ -4673,8 +4703,8 @@ async def get_universo_buzones(current_user: User = Depends(get_current_user)):
 
             resultado = []
             for r in rows:
-                dest = r[0] or "SIN_DESTINATARIO"
-                dest_upper = dest.upper().strip()
+                dest = (r[0] or "SIN_DESTINATARIO").strip()
+                dest_upper = dest.upper()
                 es_buzon = dest_upper.startswith('B_') or dest_upper.startswith('BS_') or '/' in dest or '-' in dest or dest_upper.startswith('SECTOR_') or dest_upper.startswith('REPARTICION')
                 
                 rol_tablero = "Sin Configurar"
@@ -4685,8 +4715,11 @@ async def get_universo_buzones(current_user: User = Depends(get_current_user)):
                 elif dest_upper in buzones_ingreso_set:
                     rol_tablero = "Buzón de Ingreso"
 
+                nombre_ap = (nombres_map.get(dest_upper) or "").upper().strip()
+
                 resultado.append({
-                    "destinatario": dest,
+                    "destinatario": dest_upper,
+                    "nombre_apellido": nombre_ap,
                     "tipo": "Buzón" if es_buzon else "Usuario",
                     "rol_tablero": rol_tablero,
                     "cant_expedientes": int(r[1] or 0),
@@ -4805,6 +4838,19 @@ async def get_universo_buzon_detalle(
             elif dest_upper in buzones_ingreso_set:
                 rol_tablero = "Buzón de Ingreso"
 
+            # Consultar nombre_apellido desde datos_usuario
+            nombres_sql = conn.execute(text("""
+                SELECT 
+                    UPPER(TRIM(COALESCE(
+                        NULLIF(TRIM(apellido_nombre), ''),
+                        NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')
+                    ))) as nombre_apellido
+                FROM datos_usuario
+                WHERE UPPER(TRIM(usuario)) = :u
+                LIMIT 1
+            """), {"u": dest_upper}).fetchone()
+            nombre_ap = ((nombres_sql[0] if nombres_sql else "") or "").upper().strip()
+
             # Agrupar por trata
             tratas_dict = {}
             kpis = {
@@ -4875,6 +4921,7 @@ async def get_universo_buzon_detalle(
 
             return {
                 "destinatario": dest_clean,
+                "nombre_apellido": nombre_ap,
                 "tipo": "Buzón" if es_buzon else "Usuario",
                 "rol_tablero": rol_tablero,
                 "kpis": kpis,

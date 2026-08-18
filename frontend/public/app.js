@@ -16805,10 +16805,19 @@ function renderUniversoTrataDetailTable(buzones) {
             `;
         }).join('');
 
+        const bNomText = ((b.nombre_apellido || '').toUpperCase()).trim();
+        const bDestText = ((b.destinatario || 'SIN_DESTINATARIO').toUpperCase()).trim();
+        const bNombreHtml = bNomText
+            ? `<div style="display: flex; flex-direction: column; gap: 2px; font-family: 'Outfit', sans-serif;">
+                 <span style="font-weight: 700; color: #1e293b; font-size: 0.88rem; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${bNomText}</span>
+                 <span style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${bDestText}</span>
+               </div>`
+            : `<span style="font-weight: 700; color: #1e293b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${bDestText}</span>`;
+
         return `
             <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}; font-family: 'Outfit', sans-serif;">
-                <td style="${tdStyle} font-weight: 700; color: #1e293b; font-family: 'Outfit', sans-serif;">
-                    ${b.destinatario || 'SIN_DESTINATARIO'}
+                <td style="${tdStyle} font-family: 'Outfit', sans-serif;">
+                    ${bNombreHtml}
                 </td>
                 <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">${tipoBadge}</td>
                 <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">${rolBadge}</td>
@@ -16886,7 +16895,7 @@ function exportUniversoTrataDetailCSV() {
     if (!_currentTrataDetail || !_currentTrataDetail.buzones) return;
 
     const rows = [
-        ["TRATA", "DESCRIPCION_TRATA", "DESTINATARIO", "TIPO", "ROL_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
+        ["TRATA", "DESCRIPCION_TRATA", "DESTINATARIO", "NOMBRE_APELLIDO", "TIPO", "ROL_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
     ];
 
     const trata = _currentTrataDetail.trata || '';
@@ -16894,6 +16903,7 @@ function exportUniversoTrataDetailCSV() {
 
     for (const b of _currentTrataDetail.buzones) {
         const dest = (b.destinatario || '').replace(/"/g, '""');
+        const nomAp = (b.nombre_apellido || '').replace(/"/g, '""');
         const tipo = b.tipo || '';
         const rol = b.rol_tablero || 'Sin Configurar';
         const stock = b.cant_stock_propio || 0;
@@ -16908,6 +16918,7 @@ function exportUniversoTrataDetailCSV() {
                     `"${trata}"`,
                     `"${desc}"`,
                     `"${dest}"`,
+                    `"${nomAp}"`,
                     `"${tipo}"`,
                     `"${rol}"`,
                     stock,
@@ -16926,6 +16937,7 @@ function exportUniversoTrataDetailCSV() {
                 `"${trata}"`,
                 `"${desc}"`,
                 `"${dest}"`,
+                `"${nomAp}"`,
                 `"${tipo}"`,
                 `"${rol}"`,
                 stock,
@@ -17115,7 +17127,9 @@ function filterUniversoBuzones() {
     const tipoFilter = document.getElementById('universo-buzones-filter-tipo')?.value || '';
 
     let filtered = _universoBuzonesData.filter(d => {
-        const matchSearch = !searchVal || (d.destinatario || '').toLowerCase().includes(searchVal);
+        const matchSearch = !searchVal || 
+            (d.destinatario || '').toLowerCase().includes(searchVal) ||
+            (d.nombre_apellido || '').toLowerCase().includes(searchVal);
         
         let matchTipo = true;
         if (tipoFilter === 'Usuario') matchTipo = d.tipo === 'Usuario';
@@ -17151,7 +17165,7 @@ function _sortUniversoBuzonesBy(field) {
         _universoBuzonesSortAsc = !_universoBuzonesSortAsc;
     } else {
         _universoBuzonesSortField = field;
-        _universoBuzonesSortAsc = field === 'destinatario' || field === 'tipo' || field === 'rol_tablero';
+        _universoBuzonesSortAsc = field === 'destinatario' || field === 'nombre_apellido' || field === 'tipo' || field === 'rol_tablero';
     }
     filterUniversoBuzones();
 }
@@ -17166,7 +17180,7 @@ function renderUniversoBuzonesTable(data) {
     }
 
     const cols = [
-        { key: 'destinatario', label: 'BUZÓN / USUARIO' },
+        { key: 'destinatario', label: 'BUZÓN / ANALISTA' },
         { key: 'tipo', label: 'TIPO' },
         { key: 'rol_tablero', label: 'ROL EN TABLERO' },
         { key: 'cant_tratas', label: 'TRATAS DISTINTAS' },
@@ -17202,13 +17216,22 @@ function renderUniversoBuzonesTable(data) {
         const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
         const destEsc = (d.destinatario || '').replace(/'/g, "\\'");
 
+        const dNomText = ((d.nombre_apellido || '').toUpperCase()).trim();
+        const dDestText = ((d.destinatario || '').toUpperCase()).trim();
+        const nombreHtml = dNomText
+            ? `<div style="display: flex; flex-direction: column; gap: 2px; font-family: 'Outfit', sans-serif;">
+                 <span style="font-weight: 700; color: #1e293b; font-size: 0.88rem; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${dNomText}</span>
+                 <span style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${dDestText}</span>
+               </div>`
+            : `<span style="font-weight: 700; color: #1e293b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${dDestText}</span>`;
+
         return `<tr style="background: ${rowBg}; cursor: pointer; transition: all 0.15s;" 
                     onclick="openUniversoBuzonDetail('${destEsc}')"
                     onmouseover="this.style.background='#f0f9ff'; this.style.color='var(--primary)'" 
                     onmouseout="this.style.background='${rowBg}'; this.style.color='inherit'">
-            <td style="${tdStyle} font-weight: 700; color: var(--primary-dark); display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-folder-tree" style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;"></i>
-                <span style="text-decoration: underline; text-decoration-color: #cbd5e1;">${d.destinatario || ''}</span>
+            <td style="${tdStyle} display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid ${d.tipo === 'Usuario' ? 'fa-user-tie' : 'fa-folder-tree'}" style="font-size: 0.95rem; color: var(--primary); opacity: 0.85;"></i>
+                ${nombreHtml}
             </td>
             <td style="${tdStyle} text-align: center;">${tipoBadge}</td>
             <td style="${tdStyle} text-align: center;">${rolBadge}</td>
@@ -17244,7 +17267,7 @@ async function openUniversoBuzonDetail(destinatario) {
 
     modal.style.display = 'flex';
 
-    document.getElementById('modal-ub-dest-name').innerText = destinatario;
+    document.getElementById('modal-ub-dest-name').innerText = (destinatario || '').toUpperCase();
     document.getElementById('modal-ub-badge-tipo').innerHTML = `<span class="loader" style="width:14px;height:14px;"></span>`;
     document.getElementById('modal-ub-kpis').innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 1rem;"><span class="loader"></span></div>`;
     document.getElementById('modal-ub-table-container').innerHTML = `
@@ -17264,7 +17287,15 @@ async function openUniversoBuzonDetail(destinatario) {
         _currentBuzonDetail = await res.json();
 
         // 1. Header info
-        document.getElementById('modal-ub-dest-name').innerText = _currentBuzonDetail.destinatario;
+        const destNameEl = document.getElementById('modal-ub-dest-name');
+        const ubNomText = ((_currentBuzonDetail.nombre_apellido || '').toUpperCase()).trim();
+        const ubDestText = ((_currentBuzonDetail.destinatario || '').toUpperCase()).trim();
+        if (ubNomText) {
+            destNameEl.innerHTML = `<span style="font-family: 'Outfit', sans-serif; text-transform: uppercase;">${ubNomText}</span> <span style="font-size: 0.95rem; font-weight: 500; color: #64748b; margin-left: 6px; font-family: 'Outfit', sans-serif; text-transform: uppercase;">(${ubDestText})</span>`;
+        } else {
+            destNameEl.innerText = ubDestText;
+        }
+
         const badgeTipo = document.getElementById('modal-ub-badge-tipo');
         const rolBadgeHtml = _getRolTableroBadge(_currentBuzonDetail.rol_tablero);
         
@@ -17487,10 +17518,11 @@ function exportUniversoBuzonDetailCSV() {
     if (!_currentBuzonDetail || !_currentBuzonDetail.tratas) return;
 
     const rows = [
-        ["DESTINATARIO", "TIPO_DESTINATARIO", "ROL_TABLERO", "TRATA", "DESCRIPCION_TRATA", "ALTA_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
+        ["DESTINATARIO", "NOMBRE_APELLIDO", "TIPO_DESTINATARIO", "ROL_TABLERO", "TRATA", "DESCRIPCION_TRATA", "ALTA_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
     ];
 
     const dest = _currentBuzonDetail.destinatario || '';
+    const nomAp = (_currentBuzonDetail.nombre_apellido || '').replace(/"/g, '""');
     const tipo = _currentBuzonDetail.tipo || '';
     const rol = _currentBuzonDetail.rol_tablero || 'Sin Configurar';
 
@@ -17508,6 +17540,7 @@ function exportUniversoBuzonDetailCSV() {
             for (const e of t.expedientes) {
                 rows.push([
                     `"${dest}"`,
+                    `"${nomAp}"`,
                     `"${tipo}"`,
                     `"${rol}"`,
                     `"${trata}"`,
@@ -17527,6 +17560,7 @@ function exportUniversoBuzonDetailCSV() {
         } else {
             rows.push([
                 `"${dest}"`,
+                `"${nomAp}"`,
                 `"${tipo}"`,
                 `"${rol}"`,
                 `"${trata}"`,
