@@ -4367,6 +4367,525 @@ async def get_universo_tratas(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/reporte/universo-tratas/detalle")
+async def get_universo_trata_detalle(
+    trata: str = Query(..., description="Código de la trata a consultar"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna el desglose de buzones y usuarios que poseen expedientes de la trata especificada,
+    indicando cuántos expedientes tienen en Stock Propio, Subsanación Abierta (TAD), Guarda Temporal y Archivo.
+    """
+    try:
+        trata_clean = trata.strip().upper()
+        with engine.connect() as conn:
+            # 1. Obtener datos descriptivos de la trata y si está en tablero
+            trata_info_sql = text("""
+                SELECT 
+                    TRIM(e.trata) as trata,
+                    MAX(e.descripcion_trata) as descripcion_trata,
+                    COUNT(DISTINCT e.id_expediente) as cant_expedientes,
+                    EXISTS(
+                        SELECT 1 FROM cfg_gestion_metas cfg
+                        WHERE TRIM(UPPER(cfg.trata_reporte)) = TRIM(UPPER(:t))
+                           OR TRIM(UPPER(:t)) = ANY(
+                                SELECT TRIM(UPPER(inc)) FROM unnest(cfg.tratas_incluidas) inc
+                           )
+                    ) AS alta_en_tablero
+                FROM mvw_expedientes_tratas_secgdu e
+                WHERE TRIM(UPPER(e.trata)) = :t
+                GROUP BY TRIM(e.trata)
+            """)
+            trata_row = conn.execute(trata_info_sql, {"t": trata_clean}).fetchone()
+            if not trata_row:
+                return {
+                    "trata": trata_clean,
+                    "descripcion_trata": "",
+                    "cant_expedientes": 0,
+                    "alta_en_tablero": False,
+                    "buzones": [],
+                    "kpis": {
+                        "total_buzones": 0,
+                        "total_expedientes": 0,
+                        "total_stock": 0,
+                        "total_subsanacion": 0,
+                        "total_guarda": 0,
+                        "total_archivo": 0
+                    }
+                }
+
+            desc_trata = trata_row[1] or ""
+            cant_exp_total = int(trata_row[2] or 0)
+            alta_en_tablero = bool(trata_row[3])
+
+            # Obtener configuración de tratas, analistas oficiales y buzones de ingreso (excluyendo intervenciones)
+            cfg_rows = conn.execute(text("""
+                SELECT 
+                    TRIM(UPPER(trata_reporte)) as trata_reporte,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(t)) FROM unnest(tratas_incluidas) t), ARRAY[]::text[]) as tratas_incluidas,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(b)) FROM unnest(buzones_ingreso) b), ARRAY[]::text[]) as buzones_ingreso,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(a)) FROM unnest(analistas_oficiales) a), ARRAY[]::text[]) as analistas_oficiales
+                FROM cfg_gestion_metas
+            """)).fetchall()
+
+            tratas_en_tablero = set()
+            buzones_ingreso_set = set()
+            analistas_oficiales_set = set()
+            for cr in cfg_rows:
+                if cr[0]:
+                    tratas_en_tablero.add(cr[0])
+                for inc in cr[1]:
+                    if inc:
+                        tratas_en_tablero.add(inc)
+                for bi in cr[2]:
+                    if bi:
+                        buzones_ingreso_set.add(bi)
+                for ao in cr[3]:
+                    if ao:
+                        analistas_oficiales_set.add(ao)
+
+            alta_en_tablero = trata_clean.upper() in tratas_en_tablero
+
+            # 2. Consultar expedientes de la trata cruzando con último pase y subsanaciones abiertas
+            exp_sql = text("""
+                WITH base_exp AS (
+                    SELECT 
+                        e.id_expediente,
+                        e.expediente,
+                        TRIM(e.trata) as trata,
+                        e.estado,
+                        e.descripcion,
+                        e.caratula,
+                        e.fecha_creacion,
+                        COALESCE(NULLIF(TRIM(up.destinatario_actual), ''), 'SIN_DESTINATARIO') AS destinatario_actual,
+                        up.fecha_ultimo_pase,
+                        up.usuario_remitente
+                    FROM mvw_expedientes_tratas_secgdu e
+                    LEFT JOIN mv_ultimo_pase up ON up.id_expediente = e.id_expediente
+                    WHERE TRIM(e.trata) = :t
+                ),
+                subs_pendientes AS (
+                    SELECT DISTINCT id_expediente, usuario_alta, fecha_alta
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE estado = 'PENDIENTE' 
+                      AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                )
+                SELECT 
+                    b.id_expediente,
+                    b.expediente,
+                    b.trata,
+                    b.estado,
+                    b.descripcion,
+                    b.caratula,
+                    b.fecha_creacion,
+                    b.destinatario_actual,
+                    b.fecha_ultimo_pase,
+                    b.usuario_remitente,
+                    (sp.id_expediente IS NOT NULL) AS tiene_subsanacion,
+                    sp.fecha_alta AS fecha_subsanacion,
+                    CASE 
+                        WHEN UPPER(COALESCE(b.estado, '')) LIKE '%ARCHIVO%' THEN 'ARCHIVO'
+                        WHEN UPPER(COALESCE(b.estado, '')) LIKE '%GUARDA%' THEN 'GUARDA_TEMPORAL'
+                        WHEN sp.id_expediente IS NOT NULL THEN 'SUBSANACION'
+                        ELSE 'STOCK_PROPIO'
+                    END AS clasificacion
+                FROM base_exp b
+                LEFT JOIN subs_pendientes sp 
+                       ON sp.id_expediente = b.id_expediente 
+                      AND (sp.usuario_alta = b.destinatario_actual OR b.destinatario_actual LIKE 'B_%' OR b.destinatario_actual LIKE 'BS_%')
+                ORDER BY b.fecha_ultimo_pase DESC NULLS LAST
+            """)
+
+            exp_rows = conn.execute(exp_sql, {"t": trata_clean}).fetchall()
+
+            # 3. Agrupar por buzón / usuario
+            buzones_dict = {}
+            kpis = {
+                "total_buzones": 0,
+                "total_expedientes": len(exp_rows),
+                "total_stock": 0,
+                "total_subsanacion": 0,
+                "total_guarda": 0,
+                "total_archivo": 0
+            }
+
+            for row in exp_rows:
+                r = row._mapping
+                dest = r["destinatario_actual"]
+                clasif = r["clasificacion"]
+
+                if dest not in buzones_dict:
+                    dest_upper = dest.upper().strip()
+                    es_buzon = dest_upper.startswith('B_') or dest_upper.startswith('BS_') or '/' in dest or '-' in dest or dest_upper.startswith('SECTOR_') or dest_upper.startswith('REPARTICION')
+                    
+                    rol_tablero = "Sin Configurar"
+                    if dest_upper in analistas_oficiales_set and dest_upper in buzones_ingreso_set:
+                        rol_tablero = "Analista y Buzón Ingreso"
+                    elif dest_upper in analistas_oficiales_set:
+                        rol_tablero = "Analista"
+                    elif dest_upper in buzones_ingreso_set:
+                        rol_tablero = "Buzón de Ingreso"
+                    
+                    buzones_dict[dest] = {
+                        "destinatario": dest,
+                        "tipo": "Buzón" if es_buzon else "Usuario",
+                        "rol_tablero": rol_tablero,
+                        "cant_total": 0,
+                        "cant_stock_propio": 0,
+                        "cant_subsanacion": 0,
+                        "cant_guarda": 0,
+                        "cant_archivo": 0,
+                        "expedientes": []
+                    }
+
+                b = buzones_dict[dest]
+                b["cant_total"] += 1
+
+                if clasif == "STOCK_PROPIO":
+                    b["cant_stock_propio"] += 1
+                    kpis["total_stock"] += 1
+                elif clasif == "SUBSANACION":
+                    b["cant_subsanacion"] += 1
+                    kpis["total_subsanacion"] += 1
+                elif clasif == "GUARDA_TEMPORAL":
+                    b["cant_guarda"] += 1
+                    kpis["total_guarda"] += 1
+                elif clasif == "ARCHIVO":
+                    b["cant_archivo"] += 1
+                    kpis["total_archivo"] += 1
+
+                # Agregar expediente al listado del buzón (guardando información útil para drill-down)
+                f_pase = r["fecha_ultimo_pase"].strftime("%Y-%m-%d %H:%M") if r["fecha_ultimo_pase"] else None
+                f_crea = r["fecha_creacion"].strftime("%Y-%m-%d") if r["fecha_creacion"] else None
+                f_subs = r["fecha_subsanacion"].strftime("%Y-%m-%d %H:%M") if r["fecha_subsanacion"] else None
+
+                b["expedientes"].append({
+                    "id_expediente": r["id_expediente"],
+                    "expediente": r["expediente"],
+                    "estado": r["estado"] or "",
+                    "clasificacion": clasif,
+                    "fecha_ultimo_pase": f_pase,
+                    "fecha_creacion": f_crea,
+                    "fecha_subsanacion": f_subs,
+                    "remitente": r["usuario_remitente"] or "",
+                    "descripcion": r["descripcion"] or r["caratula"] or ""
+                })
+
+            # Convertir a lista y ordenar por cant_total descendente
+            buzones_list = sorted(
+                buzones_dict.values(),
+                key=lambda x: (x["cant_stock_propio"] + x["cant_subsanacion"], x["cant_total"]),
+                reverse=True
+            )
+            kpis["total_buzones"] = len(buzones_list)
+
+            return {
+                "trata": trata_clean,
+                "descripcion_trata": trata_row[1] or "",
+                "cant_expedientes": len(exp_rows),
+                "alta_en_tablero": alta_en_tablero,
+                "kpis": kpis,
+                "buzones": buzones_list
+            }
+
+    except Exception as e:
+        logger.error(f"Error en universo-tratas/detalle para trata '{trata}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/universo-buzones")
+async def get_universo_buzones(current_user: User = Depends(get_current_user)):
+    """
+    Retorna el universo completo de buzones y usuarios analistas en posesión de expedientes SGDU con métricas:
+    - destinatario: nombre de usuario o buzón
+    - tipo: 'Usuario' o 'Buzón'
+    - rol_tablero: 'Analista' / 'Buzón de Ingreso' / 'Analista y Buzón Ingreso' / 'Sin Configurar'
+    - cant_expedientes: total de expedientes en su poder
+    - cant_tratas: cantidad de tratas distintas que tramita
+    - cant_en_stock: expedientes en stock propio activo
+    - cant_subsanacion: expedientes con solicitud de subsanación TAD pendiente
+    - cant_guarda: expedientes en guarda temporal
+    - cant_archivo: expedientes archivados
+    """
+    try:
+        with engine.connect() as conn:
+            # Obtener configuraciones de analistas oficiales y buzones de ingreso
+            cfg_rows = conn.execute(text("""
+                SELECT 
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(b)) FROM unnest(buzones_ingreso) b), ARRAY[]::text[]) as buzones_ingreso,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(a)) FROM unnest(analistas_oficiales) a), ARRAY[]::text[]) as analistas_oficiales
+                FROM cfg_gestion_metas
+            """)).fetchall()
+
+            buzones_ingreso_set = set()
+            analistas_oficiales_set = set()
+            for cr in cfg_rows:
+                for bi in cr[0]:
+                    if bi:
+                        buzones_ingreso_set.add(bi)
+                for ao in cr[1]:
+                    if ao:
+                        analistas_oficiales_set.add(ao)
+
+            sql = text("""
+                WITH base_exp AS (
+                    SELECT 
+                        e.id_expediente,
+                        TRIM(e.trata) as trata,
+                        e.estado,
+                        COALESCE(NULLIF(TRIM(up.destinatario_actual), ''), 'SIN_DESTINATARIO') AS destinatario_actual
+                    FROM mvw_expedientes_tratas_secgdu e
+                    LEFT JOIN mv_ultimo_pase up ON up.id_expediente = e.id_expediente
+                    WHERE e.trata IS NOT NULL AND TRIM(e.trata) != ''
+                ),
+                subs_pendientes AS (
+                    SELECT DISTINCT id_expediente, usuario_alta
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE estado = 'PENDIENTE' 
+                      AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                )
+                SELECT 
+                    b.destinatario_actual,
+                    COUNT(DISTINCT b.id_expediente) as cant_expedientes,
+                    COUNT(DISTINCT b.trata) as cant_tratas,
+                    COUNT(DISTINCT CASE 
+                        WHEN UPPER(COALESCE(b.estado, '')) NOT LIKE '%ARCHIVO%' 
+                         AND UPPER(COALESCE(b.estado, '')) NOT LIKE '%GUARDA%' 
+                         AND sp.id_expediente IS NULL 
+                        THEN b.id_expediente END) as cant_en_stock,
+                    COUNT(DISTINCT CASE 
+                        WHEN sp.id_expediente IS NOT NULL 
+                        THEN b.id_expediente END) as cant_subsanacion,
+                    COUNT(DISTINCT CASE 
+                        WHEN UPPER(COALESCE(b.estado, '')) LIKE '%GUARDA%' 
+                        THEN b.id_expediente END) as cant_guarda,
+                    COUNT(DISTINCT CASE 
+                        WHEN UPPER(COALESCE(b.estado, '')) LIKE '%ARCHIVO%' 
+                        THEN b.id_expediente END) as cant_archivo
+                FROM base_exp b
+                LEFT JOIN subs_pendientes sp 
+                       ON sp.id_expediente = b.id_expediente 
+                      AND (sp.usuario_alta = b.destinatario_actual OR b.destinatario_actual LIKE 'B_%' OR b.destinatario_actual LIKE 'BS_%')
+                GROUP BY b.destinatario_actual
+                ORDER BY cant_expedientes DESC
+            """)
+            rows = conn.execute(sql).fetchall()
+
+            resultado = []
+            for r in rows:
+                dest = r[0] or "SIN_DESTINATARIO"
+                dest_upper = dest.upper().strip()
+                es_buzon = dest_upper.startswith('B_') or dest_upper.startswith('BS_') or '/' in dest or '-' in dest or dest_upper.startswith('SECTOR_') or dest_upper.startswith('REPARTICION')
+                
+                rol_tablero = "Sin Configurar"
+                if dest_upper in analistas_oficiales_set and dest_upper in buzones_ingreso_set:
+                    rol_tablero = "Analista y Buzón Ingreso"
+                elif dest_upper in analistas_oficiales_set:
+                    rol_tablero = "Analista"
+                elif dest_upper in buzones_ingreso_set:
+                    rol_tablero = "Buzón de Ingreso"
+
+                resultado.append({
+                    "destinatario": dest,
+                    "tipo": "Buzón" if es_buzon else "Usuario",
+                    "rol_tablero": rol_tablero,
+                    "cant_expedientes": int(r[1] or 0),
+                    "cant_tratas": int(r[2] or 0),
+                    "cant_en_stock": int(r[3] or 0),
+                    "cant_subsanacion_abierta": int(r[4] or 0),
+                    "cant_guarda_temporal": int(r[5] or 0),
+                    "cant_archivo": int(r[6] or 0),
+                })
+
+            return resultado
+
+    except Exception as e:
+        logger.error(f"Error en universo-buzones: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/universo-buzones/detalle")
+async def get_universo_buzon_detalle(
+    destinatario: str = Query(..., description="Buzón o usuario analista a consultar"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna el desglose de tratas que posee el buzón/usuario especificado con sus expedientes clasificados.
+    """
+    try:
+        dest_clean = destinatario.strip()
+        dest_upper = dest_clean.upper()
+        es_buzon = dest_upper.startswith('B_') or dest_upper.startswith('BS_') or '/' in dest_clean or '-' in dest_clean or dest_upper.startswith('SECTOR_') or dest_upper.startswith('REPARTICION')
+
+        with engine.connect() as conn:
+            exp_sql = text("""
+                WITH base_exp AS (
+                    SELECT 
+                        e.id_expediente,
+                        e.expediente,
+                        TRIM(e.trata) as trata,
+                        e.descripcion_trata,
+                        e.estado,
+                        e.descripcion,
+                        e.caratula,
+                        e.fecha_creacion,
+                        COALESCE(NULLIF(TRIM(up.destinatario_actual), ''), 'SIN_DESTINATARIO') AS destinatario_actual,
+                        up.fecha_ultimo_pase,
+                        up.usuario_remitente
+                    FROM mvw_expedientes_tratas_secgdu e
+                    LEFT JOIN mv_ultimo_pase up ON up.id_expediente = e.id_expediente
+                    WHERE COALESCE(NULLIF(TRIM(up.destinatario_actual), ''), 'SIN_DESTINATARIO') = :d
+                      AND e.trata IS NOT NULL AND TRIM(e.trata) != ''
+                ),
+                subs_pendientes AS (
+                    SELECT DISTINCT id_expediente, usuario_alta, fecha_alta
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE estado = 'PENDIENTE' 
+                      AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                )
+                SELECT 
+                    b.id_expediente,
+                    b.expediente,
+                    b.trata,
+                    b.descripcion_trata,
+                    b.estado,
+                    b.descripcion,
+                    b.caratula,
+                    b.fecha_creacion,
+                    b.fecha_ultimo_pase,
+                    b.usuario_remitente,
+                    (sp.id_expediente IS NOT NULL) AS tiene_subsanacion,
+                    sp.fecha_alta AS fecha_subsanacion,
+                    CASE 
+                        WHEN UPPER(COALESCE(b.estado, '')) LIKE '%ARCHIVO%' THEN 'ARCHIVO'
+                        WHEN UPPER(COALESCE(b.estado, '')) LIKE '%GUARDA%' THEN 'GUARDA_TEMPORAL'
+                        WHEN sp.id_expediente IS NOT NULL THEN 'SUBSANACION'
+                        ELSE 'STOCK_PROPIO'
+                    END AS clasificacion
+                FROM base_exp b
+                LEFT JOIN subs_pendientes sp 
+                       ON sp.id_expediente = b.id_expediente 
+                      AND (sp.usuario_alta = b.destinatario_actual OR b.destinatario_actual LIKE 'B_%' OR b.destinatario_actual LIKE 'BS_%')
+                ORDER BY b.trata, b.fecha_ultimo_pase DESC NULLS LAST
+            """)
+
+            exp_rows = conn.execute(exp_sql, {"d": dest_clean}).fetchall()
+
+            # Obtener configuración de tratas, analistas oficiales y buzones de ingreso (excluyendo intervenciones)
+            cfg_rows = conn.execute(text("""
+                SELECT 
+                    TRIM(UPPER(trata_reporte)) as trata_reporte,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(t)) FROM unnest(tratas_incluidas) t), ARRAY[]::text[]) as tratas_incluidas,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(b)) FROM unnest(buzones_ingreso) b), ARRAY[]::text[]) as buzones_ingreso,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(a)) FROM unnest(analistas_oficiales) a), ARRAY[]::text[]) as analistas_oficiales
+                FROM cfg_gestion_metas
+            """)).fetchall()
+
+            tratas_en_tablero = set()
+            buzones_ingreso_set = set()
+            analistas_oficiales_set = set()
+            for cr in cfg_rows:
+                if cr[0]:
+                    tratas_en_tablero.add(cr[0])
+                for inc in cr[1]:
+                    if inc:
+                        tratas_en_tablero.add(inc)
+                for bi in cr[2]:
+                    if bi:
+                        buzones_ingreso_set.add(bi)
+                for ao in cr[3]:
+                    if ao:
+                        analistas_oficiales_set.add(ao)
+
+            rol_tablero = "Sin Configurar"
+            if dest_upper in analistas_oficiales_set and dest_upper in buzones_ingreso_set:
+                rol_tablero = "Analista y Buzón Ingreso"
+            elif dest_upper in analistas_oficiales_set:
+                rol_tablero = "Analista"
+            elif dest_upper in buzones_ingreso_set:
+                rol_tablero = "Buzón de Ingreso"
+
+            # Agrupar por trata
+            tratas_dict = {}
+            kpis = {
+                "total_tratas": 0,
+                "total_expedientes": len(exp_rows),
+                "total_stock": 0,
+                "total_subsanacion": 0,
+                "total_guarda": 0,
+                "total_archivo": 0
+            }
+
+            for row in exp_rows:
+                r = row._mapping
+                trata_key = r["trata"]
+                clasif = r["clasificacion"]
+
+                if trata_key not in tratas_dict:
+                    tratas_dict[trata_key] = {
+                        "trata": trata_key,
+                        "descripcion_trata": r["descripcion_trata"] or "",
+                        "alta_en_tablero": trata_key.upper() in tratas_en_tablero,
+                        "cant_total": 0,
+                        "cant_stock_propio": 0,
+                        "cant_subsanacion": 0,
+                        "cant_guarda": 0,
+                        "cant_archivo": 0,
+                        "expedientes": []
+                    }
+
+                t = tratas_dict[trata_key]
+                t["cant_total"] += 1
+
+                if clasif == "STOCK_PROPIO":
+                    t["cant_stock_propio"] += 1
+                    kpis["total_stock"] += 1
+                elif clasif == "SUBSANACION":
+                    t["cant_subsanacion"] += 1
+                    kpis["total_subsanacion"] += 1
+                elif clasif == "GUARDA_TEMPORAL":
+                    t["cant_guarda"] += 1
+                    kpis["total_guarda"] += 1
+                elif clasif == "ARCHIVO":
+                    t["cant_archivo"] += 1
+                    kpis["total_archivo"] += 1
+
+                f_pase = r["fecha_ultimo_pase"].strftime("%Y-%m-%d %H:%M") if r["fecha_ultimo_pase"] else None
+                f_crea = r["fecha_creacion"].strftime("%Y-%m-%d") if r["fecha_creacion"] else None
+                f_subs = r["fecha_subsanacion"].strftime("%Y-%m-%d %H:%M") if r["fecha_subsanacion"] else None
+
+                t["expedientes"].append({
+                    "id_expediente": r["id_expediente"],
+                    "expediente": r["expediente"],
+                    "estado": r["estado"] or "",
+                    "clasificacion": clasif,
+                    "fecha_ultimo_pase": f_pase,
+                    "fecha_creacion": f_crea,
+                    "fecha_subsanacion": f_subs,
+                    "remitente": r["usuario_remitente"] or "",
+                    "descripcion": r["descripcion"] or r["caratula"] or ""
+                })
+
+            tratas_list = sorted(
+                tratas_dict.values(),
+                key=lambda x: (x["cant_stock_propio"] + x["cant_subsanacion"], x["cant_total"]),
+                reverse=True
+            )
+            kpis["total_tratas"] = len(tratas_list)
+
+            return {
+                "destinatario": dest_clean,
+                "tipo": "Buzón" if es_buzon else "Usuario",
+                "rol_tablero": rol_tablero,
+                "kpis": kpis,
+                "tratas": tratas_list
+            }
+
+    except Exception as e:
+        logger.error(f"Error en universo-buzones/detalle para destinatario '{destinatario}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ──────────────────────────────────────────────────────────────
 # PLANIFICACIÓN NOVIEMBRE 2026
 # ──────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
     ? 'http://127.0.0.1:8000/api' 
-    : 'https://api.geo-epesege.com.ar/api';
-window.API_BASE = API_BASE; // Expose globally so Vite modules use the absolute URL (prevents Vercel from stripping Authorization headers on rewrites)
+    : (window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) ? `${window.location.origin}/api` : 'https://api.geo-epesege.com.ar/api');
+window.API_BASE = API_BASE;
 
 // --- ESTADO DE AUTENTICACIÓN ---
 let authToken = localStorage.getItem('sgdu_token');
@@ -485,7 +485,11 @@ function showView(viewId, updateHash = true) {
     }
 
     if (viewId === 'universo_tratas') {
-        loadUniversoTratas();
+        if (_universoCurrentTab === 'buzones') {
+            loadUniversoBuzones();
+        } else {
+            loadUniversoTratas();
+        }
     }
 
     if (viewId === 'planificacion_nov_2026') {
@@ -16552,22 +16556,30 @@ function renderUniversoTratasTable(data, containerId, isBacklog) {
         const numCell = (val) => `<span style="font-variant-numeric: tabular-nums; font-weight: 600;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
 
         const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
-        return `<tr style="background: ${rowBg}; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
-            <td style="${tdStyle} font-family: 'Courier New', monospace; font-weight: 700; color: var(--primary-dark);">${d.trata || ''}</td>
-            <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.35;">${d.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}</td>
-            <td style="${tdStyle} text-align: center;">${altaBadge}</td>
-            <td style="${tdStyle} text-align: right;">${egresadosCell}</td>
-            <td style="${tdStyle} text-align: right;">${subsCell}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_guarda_temporal)}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_archivo)}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_en_stock)}</td>
-            <td style="${tdStyle} text-align: right;">${numCell(d.cant_expedientes)}</td>
+        const trataEsc = (d.trata || '').replace(/'/g, "\\'");
+        
+        return `<tr style="background: ${rowBg}; cursor: pointer; transition: all 0.15s;" 
+                    onclick="openUniversoTrataDetail('${trataEsc}')"
+                    onmouseover="this.style.background='#f0f9ff'; this.style.color='var(--primary)'" 
+                    onmouseout="this.style.background='${rowBg}'; this.style.color='inherit'">
+            <td style="${tdStyle} font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--primary-dark); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;"></i>
+                <span style="text-decoration: underline; text-decoration-color: #cbd5e1;">${d.trata || ''}</span>
+            </td>
+            <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.35; font-family: 'Outfit', sans-serif;">${d.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}</td>
+            <td style="${tdStyle} text-align: center; font-family: 'Outfit', sans-serif;">${altaBadge}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${egresadosCell}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${subsCell}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${numCell(d.cant_guarda_temporal)}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${numCell(d.cant_en_stock)}</td>
+            <td style="${tdStyle} text-align: right; font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif;">${numCell(d.cant_expedientes)}</td>
         </tr>`;
     }).join('');
 
     container.innerHTML = `
         <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center;">
-            <span><strong style="color: #334155;">${data.length.toLocaleString('es-AR')}</strong> tratas encontradas</span>
+            <span><strong style="color: #334155;">${data.length.toLocaleString('es-AR')}</strong> tratas encontradas — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de buzones y usuarios</em></span>
             <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
         </div>
         <div style="overflow-x: auto;">
@@ -16577,6 +16589,979 @@ function renderUniversoTratasTable(data, containerId, isBacklog) {
             </table>
         </div>`;
 }
+
+// ──────────────────────────────────────────────────────────────
+// MODAL DETALLE DE TRATA (BUZONES Y USUARIOS)
+// ──────────────────────────────────────────────────────────────
+
+let _currentTrataDetail = null;
+
+async function openUniversoTrataDetail(trata) {
+    console.log("Abriendo detalle para trata:", trata);
+    const modal = document.getElementById('universo-trata-detail-modal');
+    if (!modal) {
+        console.error("Modal #universo-trata-detail-modal no encontrado en el DOM");
+        return;
+    }
+
+    modal.style.display = 'flex';
+
+    // Reset components & placeholders
+    document.getElementById('modal-ut-trata-code').innerText = trata;
+    document.getElementById('modal-ut-badge-alta').innerHTML = `<span class="loader" style="width:14px;height:14px;"></span>`;
+    document.getElementById('modal-ut-trata-desc').innerText = 'Cargando información de la trata...';
+    document.getElementById('modal-ut-kpis').innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 1rem;"><span class="loader"></span></div>`;
+    document.getElementById('modal-ut-table-container').innerHTML = `
+        <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+            <span class="loader"></span>
+            <p style="margin-top: 8px;">Consultando buzones, usuarios y subsanaciones...</p>
+        </div>`;
+
+    const searchInput = document.getElementById('modal-ut-search');
+    if (searchInput) searchInput.value = '';
+    const filterSelect = document.getElementById('modal-ut-filter-tipo');
+    if (filterSelect) filterSelect.value = 'ALL';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-tratas/detalle?trata=${encodeURIComponent(trata)}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red al consultar detalle'}`);
+        _currentTrataDetail = await res.json();
+
+        // 1. Header info
+        document.getElementById('modal-ut-trata-code').innerText = _currentTrataDetail.trata;
+        document.getElementById('modal-ut-trata-desc').innerText = _currentTrataDetail.descripcion_trata || 'Sin descripción oficial';
+        
+        const badgeAlta = document.getElementById('modal-ut-badge-alta');
+        if (_currentTrataDetail.alta_en_tablero) {
+            badgeAlta.style.background = '#ecfdf5';
+            badgeAlta.style.color = '#059669';
+            badgeAlta.innerHTML = '✅ Configurada en Tablero';
+        } else {
+            badgeAlta.style.background = '#fef2f2';
+            badgeAlta.style.color = '#dc2626';
+            badgeAlta.innerHTML = '❌ No configurada';
+        }
+
+        // 2. KPIs Strip
+        const kpis = _currentTrataDetail.kpis || {};
+        const kpisEl = document.getElementById('modal-ut-kpis');
+        if (kpisEl) {
+            const kpiItems = [
+                { label: 'Buzones / Usuarios', val: kpis.total_buzones, color: '#6366f1', bg: '#eef2ff', icon: 'fa-users' },
+                { label: 'Stock Activo', val: kpis.total_stock, color: '#0284c7', bg: '#f0f9ff', icon: 'fa-inbox' },
+                { label: 'En Subsanación', val: kpis.total_subsanacion, color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+                { label: 'Guarda Temporal', val: kpis.total_guarda, color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+                { label: 'En Archivo', val: kpis.total_archivo, color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+                { label: 'Total Expedientes', val: kpis.total_expedientes, color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' }
+            ];
+
+            kpisEl.innerHTML = kpiItems.map(k => `
+                <div style="background: ${k.bg}; border: 1px solid ${k.color}20; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 6px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                        <i class="fa-solid ${k.icon}"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase;">${k.label}</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #1e293b; font-family: 'Outfit';">${Number(k.val || 0).toLocaleString('es-AR')}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 3. Render table
+        filterUniversoTrataDetail();
+
+    } catch (e) {
+        console.error("Error al cargar detalle de trata:", e);
+        document.getElementById('modal-ut-table-container').innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #ef4444;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">Error al consultar el detalle: ${e.message}</p>
+                <button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="openUniversoTrataDetail('${trata}')">Reintentar</button>
+            </div>`;
+    }
+}
+
+function closeUniversoTrataDetailModal() {
+    const modal = document.getElementById('universo-trata-detail-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function filterUniversoTrataDetail() {
+    if (!_currentTrataDetail || !_currentTrataDetail.buzones) return;
+
+    const searchVal = (document.getElementById('modal-ut-search')?.value || '').trim().toLowerCase();
+    const tipoVal = document.getElementById('modal-ut-filter-tipo')?.value || 'ALL';
+
+    const filtered = _currentTrataDetail.buzones.filter(b => {
+        // Filtro tipo / rol
+        if (tipoVal === 'Usuario' && b.tipo !== 'Usuario') return false;
+        if (tipoVal === 'Buzón' && b.tipo !== 'Buzón') return false;
+        if (tipoVal === 'rol_analista' && (b.rol_tablero || '') !== 'Analista' && (b.rol_tablero || '') !== 'Analista y Buzón Ingreso') return false;
+        if (tipoVal === 'rol_buzon' && (b.rol_tablero || '') !== 'Buzón de Ingreso' && (b.rol_tablero || '') !== 'Analista y Buzón Ingreso') return false;
+        if (tipoVal === 'con_subs' && (b.cant_subsanacion || 0) <= 0) return false;
+        if (tipoVal === 'con_stock' && (b.cant_stock_propio || 0) <= 0) return false;
+
+        // Búsqueda texto (nombre buzón/usuario o expedientes dentro)
+        if (!searchVal) return true;
+        const matchName = (b.destinatario || '').toLowerCase().includes(searchVal);
+        const matchExp = (b.expedientes || []).some(e => 
+            (e.expediente || '').toLowerCase().includes(searchVal) ||
+            (e.descripcion || '').toLowerCase().includes(searchVal)
+        );
+        return matchName || matchExp;
+    });
+
+    renderUniversoTrataDetailTable(filtered);
+}
+
+function _getRolTableroBadge(rol) {
+    if (rol === 'Analista' || rol === 'Analista Oficial') {
+        return `<span style="background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-user-check"></i> Analista</span>`;
+    } else if (rol === 'Buzón de Ingreso') {
+        return `<span style="background: #eff6ff; color: #2563eb; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-inbox"></i> Buzón de Ingreso</span>`;
+    } else if (rol === 'Analista y Buzón Ingreso') {
+        return `<span style="background: #fdf4ff; color: #9333ea; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-layer-group"></i> Analista & Ingreso</span>`;
+    }
+    return `<span style="background: #f8fafc; color: #94a3b8; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">— Sin Configurar</span>`;
+}
+
+function renderUniversoTrataDetailTable(buzones) {
+    const container = document.getElementById('modal-ut-table-container');
+    if (!container) return;
+
+    if (!buzones || buzones.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+                <i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">No se encontraron buzones o usuarios con los filtros aplicados.</p>
+            </div>`;
+        return;
+    }
+
+    const thStyle = `padding: 10px 12px; font-weight: 700; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; white-space: nowrap;`;
+    const tdStyle = `padding: 10px 12px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9;`;
+
+    const thead = `<thead><tr>
+        <th style="${thStyle}">Buzón / Usuario Destinatario</th>
+        <th style="${thStyle}; text-align: center; width: 100px;">Tipo</th>
+        <th style="${thStyle}; text-align: center; width: 140px;">Rol en Tablero</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Stock Activo</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Subsanación</th>
+        <th style="${thStyle}; text-align: right; width: 100px;">Guarda Temp.</th>
+        <th style="${thStyle}; text-align: right; width: 90px;">Archivo</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Total Posesión</th>
+        <th style="${thStyle}; text-align: center; width: 120px;">Acción</th>
+    </tr></thead>`;
+
+    const tbody = buzones.map((b, idx) => {
+        const buzonId = `ut-buzon-${idx}`;
+        const tipoBadge = b.tipo === 'Usuario'
+            ? `<span style="background: #e0e7ff; color: #4338ca; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-user"></i> Usuario</span>`
+            : `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-building"></i> Buzón</span>`;
+
+        const rolBadge = _getRolTableroBadge(b.rol_tablero);
+
+        const subsCell = (b.cant_subsanacion || 0) > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 3px 10px; border-radius: 6px; font-weight: 700;">${b.cant_subsanacion.toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const stockCell = (b.cant_stock_propio || 0) > 0
+            ? `<strong style="color: #0284c7;">${b.cant_stock_propio.toLocaleString('es-AR')}</strong>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const totalCell = `<strong style="font-size: 0.95rem; color: #0f172a;">${(b.cant_total || 0).toLocaleString('es-AR')}</strong>`;
+
+        // Render subtable with individual expedientes
+        const exps = b.expedientes || [];
+        const expRows = exps.map(e => {
+            let badgeClasif = '';
+            if (e.clasificacion === 'STOCK_PROPIO') badgeClasif = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Stock Propio</span>`;
+            else if (e.clasificacion === 'SUBSANACION') badgeClasif = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+            else if (e.clasificacion === 'GUARDA_TEMPORAL') badgeClasif = `<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Guarda Temporal</span>`;
+            else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Archivo</span>`;
+
+            const rawExp = (e.expediente || '').replace(/'/g, "\\'");
+
+            return `
+                <tr style="font-size: 0.82rem; background: white; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                    <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap; font-family: 'Outfit', sans-serif;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span>${e.expediente}</span>
+                            <button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" 
+                                title="Copiar número de expediente"
+                                style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                                onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
+                                onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; white-space: nowrap; font-family: 'Outfit', sans-serif;">${badgeClasif}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.fecha_ultimo_pase || '—'}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.remitente || '—'}</td>
+                    <td style="padding: 8px 12px; color: #475569; line-height: 1.35; font-family: 'Outfit', sans-serif;">${e.descripcion || '—'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}; font-family: 'Outfit', sans-serif;">
+                <td style="${tdStyle} font-weight: 700; color: #1e293b; font-family: 'Outfit', sans-serif;">
+                    ${b.destinatario || 'SIN_DESTINATARIO'}
+                </td>
+                <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">${tipoBadge}</td>
+                <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">${rolBadge}</td>
+                <td style="${tdStyle}; text-align: right; font-family: 'Outfit', sans-serif;">${stockCell}</td>
+                <td style="${tdStyle}; text-align: right; font-family: 'Outfit', sans-serif;">${subsCell}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b; font-family: 'Outfit', sans-serif;">${(b.cant_guarda || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b; font-family: 'Outfit', sans-serif;">${(b.cant_archivo || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right; font-family: 'Outfit', sans-serif;">${totalCell}</td>
+                <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">
+                    <button type="button" onclick="toggleBuzonExpedientes('${buzonId}')" 
+                        style="padding: 5px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;"
+                        onmouseover="this.style.borderColor='var(--primary)'; this.style.background='#eff6ff'"
+                        onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='white'">
+                        <i id="${buzonId}-icon" class="fa-solid fa-chevron-down"></i> ${exps.length} exp.
+                    </button>
+                </td>
+            </tr>
+            <tr id="${buzonId}" style="display: none; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td colspan="9" style="padding: 12px 16px; border-bottom: 2px solid #e2e8f0;">
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 280px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
+                            <thead style="position: sticky; top: 0; z-index: 1;">
+                                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 8px 12px; width: 260px; font-family: 'Outfit', sans-serif;">Expediente</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Estado Clasificado</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Fecha Último Pase</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Usuario Remitente</th>
+                                    <th style="padding: 8px 12px; font-family: 'Outfit', sans-serif;">Descripción / Carátula</th>
+                                </tr>
+                            </thead>
+                            <tbody>${expRows}</tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="max-height: 480px; overflow-y: auto; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; min-width: 900px;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>
+    `;
+
+    const footerInfo = document.getElementById('modal-ut-footer-info');
+    if (footerInfo) {
+        footerInfo.innerHTML = `Mostrando <strong>${buzones.length}</strong> buzones/usuarios en posesión de expedientes de esta trata.`;
+    }
+}
+
+function toggleBuzonExpedientes(buzonId) {
+    const el = document.getElementById(buzonId);
+    const icon = document.getElementById(`${buzonId}-icon`);
+    if (!el) return;
+
+    if (el.style.display === 'none') {
+        el.style.display = 'table-row';
+        if (icon) {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+        }
+    } else {
+        el.style.display = 'none';
+        if (icon) {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+        }
+    }
+}
+
+function exportUniversoTrataDetailCSV() {
+    if (!_currentTrataDetail || !_currentTrataDetail.buzones) return;
+
+    const rows = [
+        ["TRATA", "DESCRIPCION_TRATA", "DESTINATARIO", "TIPO", "ROL_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
+    ];
+
+    const trata = _currentTrataDetail.trata || '';
+    const desc = (_currentTrataDetail.descripcion_trata || '').replace(/"/g, '""');
+
+    for (const b of _currentTrataDetail.buzones) {
+        const dest = (b.destinatario || '').replace(/"/g, '""');
+        const tipo = b.tipo || '';
+        const rol = b.rol_tablero || 'Sin Configurar';
+        const stock = b.cant_stock_propio || 0;
+        const subs = b.cant_subsanacion || 0;
+        const guarda = b.cant_guarda || 0;
+        const arch = b.cant_archivo || 0;
+        const tot = b.cant_total || 0;
+
+        if (b.expedientes && b.expedientes.length > 0) {
+            for (const e of b.expedientes) {
+                rows.push([
+                    `"${trata}"`,
+                    `"${desc}"`,
+                    `"${dest}"`,
+                    `"${tipo}"`,
+                    `"${rol}"`,
+                    stock,
+                    subs,
+                    guarda,
+                    arch,
+                    tot,
+                    `"${e.expediente || ''}"`,
+                    `"${e.clasificacion || ''}"`,
+                    `"${e.fecha_ultimo_pase || ''}"`,
+                    `"${(e.remitente || '').replace(/"/g, '""')}"`
+                ]);
+            }
+        } else {
+            rows.push([
+                `"${trata}"`,
+                `"${desc}"`,
+                `"${dest}"`,
+                `"${tipo}"`,
+                `"${rol}"`,
+                stock,
+                subs,
+                guarda,
+                arch,
+                tot,
+                "", "", "", ""
+            ]);
+        }
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(r => r.join(";")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `universo_trata_${trata}_buzones.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function copyExpedienteToClipboard(text, btnElement) {
+    if (!text) return;
+    
+    // Copy using clipboard API with fallback
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showSuccess).catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
+
+    function showSuccess() {
+        if (!btnElement) return;
+        const originalHtml = btnElement.innerHTML;
+        btnElement.innerHTML = `<i class="fa-solid fa-check" style="color: #059669;"></i>`;
+        btnElement.style.borderColor = '#059669';
+        btnElement.style.background = '#ecfdf5';
+        
+        setTimeout(() => {
+            btnElement.innerHTML = originalHtml;
+            btnElement.style.borderColor = '#cbd5e1';
+            btnElement.style.background = '#f1f5f9';
+        }, 1500);
+    }
+
+    function fallbackCopy(str) {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = str;
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
+        document.body.appendChild(tempInput);
+        tempInput.focus();
+        tempInput.select();
+        try {
+            document.execCommand('copy');
+            showSuccess();
+        } catch (err) {
+            console.error('Error al copiar texto:', err);
+        }
+        document.body.removeChild(tempInput);
+    }
+}
+
+window.openUniversoTrataDetail = openUniversoTrataDetail;
+window.closeUniversoTrataDetailModal = closeUniversoTrataDetailModal;
+window.filterUniversoTrataDetail = filterUniversoTrataDetail;
+window.renderUniversoTrataDetailTable = renderUniversoTrataDetailTable;
+window.toggleBuzonExpedientes = toggleBuzonExpedientes;
+window.exportUniversoTrataDetailCSV = exportUniversoTrataDetailCSV;
+window.copyExpedienteToClipboard = copyExpedienteToClipboard;
+
+// ──────────────────────────────────────────────────────────────
+// UNIVERSO BUZONES Y USUARIOS + CONTROL DE PESTAÑAS
+// ──────────────────────────────────────────────────────────────
+
+let _universoCurrentTab = 'tratas';
+let _universoBuzonesData = [];
+let _universoBuzonesSortField = null;
+let _universoBuzonesSortAsc = true;
+let _currentBuzonDetail = null;
+
+function switchUniversoTab(tab) {
+    _universoCurrentTab = tab;
+    const btnTratas = document.getElementById('tab-btn-universo-tratas');
+    const btnBuzones = document.getElementById('tab-btn-universo-buzones');
+    const contentTratas = document.getElementById('universo-tab-content-tratas');
+    const contentBuzones = document.getElementById('universo-tab-content-buzones');
+
+    if (tab === 'tratas') {
+        if (btnTratas) {
+            btnTratas.style.background = 'white';
+            btnTratas.style.color = 'var(--primary)';
+            btnTratas.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (btnBuzones) {
+            btnBuzones.style.background = 'transparent';
+            btnBuzones.style.color = '#64748b';
+            btnBuzones.style.borderBottom = '3px solid transparent';
+        }
+        if (contentTratas) contentTratas.style.display = 'block';
+        if (contentBuzones) contentBuzones.style.display = 'none';
+
+        if (!_universoTratasData || _universoTratasData.length === 0) {
+            loadUniversoTratas();
+        }
+    } else {
+        if (btnBuzones) {
+            btnBuzones.style.background = 'white';
+            btnBuzones.style.color = 'var(--primary)';
+            btnBuzones.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (btnTratas) {
+            btnTratas.style.background = 'transparent';
+            btnTratas.style.color = '#64748b';
+            btnTratas.style.borderBottom = '3px solid transparent';
+        }
+        if (contentBuzones) contentBuzones.style.display = 'block';
+        if (contentTratas) contentTratas.style.display = 'none';
+
+        if (!_universoBuzonesData || _universoBuzonesData.length === 0) {
+            loadUniversoBuzones();
+        }
+    }
+}
+
+async function loadUniversoBuzones() {
+    const container = document.getElementById('universo-buzones-table-container');
+    const kpisEl = document.getElementById('universo-buzones-kpis');
+    if (!container) return;
+
+    container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando universo de buzones y analistas...</p></div>`;
+    if (kpisEl) kpisEl.innerHTML = '';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-buzones`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de conexión'}`);
+        _universoBuzonesData = await res.json();
+
+        _universoBuzonesSortField = null;
+        _universoBuzonesSortAsc = true;
+
+        renderUniversoBuzonesKPIs(_universoBuzonesData, kpisEl);
+        filterUniversoBuzones();
+    } catch (e) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #ef4444;"><i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i><p style="margin-top: 8px;">Error al cargar datos: ${e.message}</p><button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="loadUniversoBuzones()">Reintentar</button></div>`;
+    }
+}
+
+function renderUniversoBuzonesKPIs(data, el) {
+    if (!el) return;
+    const totalDest = data.length;
+    const totalUsuarios = data.filter(d => d.tipo === 'Usuario').length;
+    const totalBuzones = data.filter(d => d.tipo === 'Buzón').length;
+    const totalExp = data.reduce((s, d) => s + (d.cant_expedientes || 0), 0);
+    const totalStock = data.reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalSubs = data.reduce((s, d) => s + (d.cant_subsanacion_abierta || 0), 0);
+    const totalGuarda = data.reduce((s, d) => s + (d.cant_guarda_temporal || 0), 0);
+    const totalArchivo = data.reduce((s, d) => s + (d.cant_archivo || 0), 0);
+
+    const kpis = [
+        { label: 'Destinatarios Totales', value: totalDest.toLocaleString('es-AR'), color: '#6366f1', bg: '#eef2ff', icon: 'fa-address-book' },
+        { label: 'Usuarios / Analistas', value: totalUsuarios.toLocaleString('es-AR'), color: '#4f46e5', bg: '#e0e7ff', icon: 'fa-user' },
+        { label: 'Buzones de Sector', value: totalBuzones.toLocaleString('es-AR'), color: '#0ea5e9', bg: '#f0f9ff', icon: 'fa-building' },
+        { label: 'Total Expedientes', value: totalExp.toLocaleString('es-AR'), color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' },
+        { label: 'Stock Activo', value: totalStock.toLocaleString('es-AR'), color: '#0284c7', bg: '#e0f2fe', icon: 'fa-inbox' },
+        { label: 'En Subsanación', value: totalSubs.toLocaleString('es-AR'), color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+        { label: 'Guarda Temporal', value: totalGuarda.toLocaleString('es-AR'), color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+        { label: 'En Archivo', value: totalArchivo.toLocaleString('es-AR'), color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+    ];
+
+    el.innerHTML = kpis.map(k => `
+        <div style="background: ${k.bg}; border: 1px solid ${k.color}22; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 150px; font-family: 'Outfit', sans-serif;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid ${k.icon}"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
+                <div style="font-size: 1.2rem; font-weight: 800; color: #1e293b;">${k.value}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterUniversoBuzones() {
+    const searchVal = (document.getElementById('universo-buzones-search')?.value || '').trim().toLowerCase();
+    const tipoFilter = document.getElementById('universo-buzones-filter-tipo')?.value || '';
+
+    let filtered = _universoBuzonesData.filter(d => {
+        const matchSearch = !searchVal || (d.destinatario || '').toLowerCase().includes(searchVal);
+        
+        let matchTipo = true;
+        if (tipoFilter === 'Usuario') matchTipo = d.tipo === 'Usuario';
+        else if (tipoFilter === 'Buzón') matchTipo = d.tipo === 'Buzón';
+        else if (tipoFilter === 'rol_analista') matchTipo = d.rol_tablero === 'Analista' || d.rol_tablero === 'Analista Oficial' || d.rol_tablero === 'Analista y Buzón Ingreso';
+        else if (tipoFilter === 'rol_buzon') matchTipo = d.rol_tablero === 'Buzón de Ingreso' || d.rol_tablero === 'Analista y Buzón Ingreso';
+        else if (tipoFilter === 'rol_no_cfg') matchTipo = d.rol_tablero === 'Sin Configurar';
+        else if (tipoFilter === 'con_subs') matchTipo = (d.cant_subsanacion_abierta || 0) > 0;
+        else if (tipoFilter === 'con_stock') matchTipo = (d.cant_en_stock || 0) > 0;
+
+        return matchSearch && matchTipo;
+    });
+
+    if (_universoBuzonesSortField) {
+        filtered = _sortUniversoBuzones(filtered, _universoBuzonesSortField, _universoBuzonesSortAsc);
+    }
+
+    renderUniversoBuzonesTable(filtered);
+}
+
+function _sortUniversoBuzones(arr, field, asc) {
+    return [...arr].sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (va === null || va === undefined) va = -1;
+        if (vb === null || vb === undefined) vb = -1;
+        if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return asc ? va - vb : vb - va;
+    });
+}
+
+function _sortUniversoBuzonesBy(field) {
+    if (_universoBuzonesSortField === field) {
+        _universoBuzonesSortAsc = !_universoBuzonesSortAsc;
+    } else {
+        _universoBuzonesSortField = field;
+        _universoBuzonesSortAsc = field === 'destinatario' || field === 'tipo' || field === 'rol_tablero';
+    }
+    filterUniversoBuzones();
+}
+
+function renderUniversoBuzonesTable(data) {
+    const container = document.getElementById('universo-buzones-table-container');
+    if (!container) return;
+
+    if (!data || data.length === 0) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i><p style="margin-top: 8px;">No se encontraron destinatarios con los filtros actuales.</p></div>`;
+        return;
+    }
+
+    const cols = [
+        { key: 'destinatario', label: 'BUZÓN / USUARIO' },
+        { key: 'tipo', label: 'TIPO' },
+        { key: 'rol_tablero', label: 'ROL EN TABLERO' },
+        { key: 'cant_tratas', label: 'TRATAS DISTINTAS' },
+        { key: 'cant_subsanacion_abierta', label: 'SUBSANACIÓN' },
+        { key: 'cant_guarda_temporal', label: 'GUARDA TEMPORAL' },
+        { key: 'cant_archivo', label: 'ARCHIVO' },
+        { key: 'cant_en_stock', label: 'EN STOCK' },
+        { key: 'cant_expedientes', label: 'TOTAL EXPEDIENTES' },
+    ];
+
+    const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc; font-family: 'Outfit', sans-serif;`;
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; white-space: nowrap; font-family: 'Outfit', sans-serif;`;
+
+    const thead = `<thead><tr style="border-bottom: 2px solid #e2e8f0;">
+        ${cols.map(c => `<th style="${thStyle}" onclick="_sortUniversoBuzonesBy('${c.key}')">
+            ${c.label} ${_sortIcon(c.key, _universoBuzonesSortField, _universoBuzonesSortAsc)}
+        </th>`).join('')}
+    </tr></thead>`;
+
+    const tbody = data.map((d, i) => {
+        const tipoBadge = d.tipo === 'Usuario'
+            ? `<span style="background: #e0e7ff; color: #4338ca; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-user"></i> Usuario</span>`
+            : `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-building"></i> Buzón</span>`;
+
+        const rolBadge = _getRolTableroBadge(d.rol_tablero);
+
+        const subsCell = (d.cant_subsanacion_abierta || 0) > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 2px 8px; border-radius: 6px; font-weight: 700;">${Number(d.cant_subsanacion_abierta).toLocaleString('es-AR')}</span>`
+            : `<span style="font-weight: 600; color: #64748b;">0</span>`;
+
+        const numCell = (val) => `<span style="font-variant-numeric: tabular-nums; font-weight: 600;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
+
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const destEsc = (d.destinatario || '').replace(/'/g, "\\'");
+
+        return `<tr style="background: ${rowBg}; cursor: pointer; transition: all 0.15s;" 
+                    onclick="openUniversoBuzonDetail('${destEsc}')"
+                    onmouseover="this.style.background='#f0f9ff'; this.style.color='var(--primary)'" 
+                    onmouseout="this.style.background='${rowBg}'; this.style.color='inherit'">
+            <td style="${tdStyle} font-weight: 700; color: var(--primary-dark); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-folder-tree" style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;"></i>
+                <span style="text-decoration: underline; text-decoration-color: #cbd5e1;">${d.destinatario || ''}</span>
+            </td>
+            <td style="${tdStyle} text-align: center;">${tipoBadge}</td>
+            <td style="${tdStyle} text-align: center;">${rolBadge}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_tratas)}</td>
+            <td style="${tdStyle} text-align: right;">${subsCell}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_guarda_temporal)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right; color: #0284c7; font-weight: 700;">${numCell(d.cant_en_stock)}</td>
+            <td style="${tdStyle} text-align: right; font-weight: 700; color: #0f172a;">${numCell(d.cant_expedientes)}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; font-family: 'Outfit', sans-serif;">
+            <span><strong style="color: #334155;">${data.length.toLocaleString('es-AR')}</strong> buzones/usuarios encontrados — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de tratas y expedientes</em></span>
+            <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL DETALLE DE BUZÓN (TRATAS Y EXPEDIENTES)
+// ──────────────────────────────────────────────────────────────
+
+async function openUniversoBuzonDetail(destinatario) {
+    const modal = document.getElementById('universo-buzon-detail-modal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+
+    document.getElementById('modal-ub-dest-name').innerText = destinatario;
+    document.getElementById('modal-ub-badge-tipo').innerHTML = `<span class="loader" style="width:14px;height:14px;"></span>`;
+    document.getElementById('modal-ub-kpis').innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 1rem;"><span class="loader"></span></div>`;
+    document.getElementById('modal-ub-table-container').innerHTML = `
+        <div style="padding: 3rem; text-align: center; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+            <span class="loader"></span>
+            <p style="margin-top: 8px;">Consultando tratas y expedientes en poder del buzón...</p>
+        </div>`;
+
+    const searchInput = document.getElementById('modal-ub-search');
+    if (searchInput) searchInput.value = '';
+    const filterSelect = document.getElementById('modal-ub-filter-alta');
+    if (filterSelect) filterSelect.value = 'ALL';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-buzones/detalle?destinatario=${encodeURIComponent(destinatario)}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red al consultar detalle del buzón'}`);
+        _currentBuzonDetail = await res.json();
+
+        // 1. Header info
+        document.getElementById('modal-ub-dest-name').innerText = _currentBuzonDetail.destinatario;
+        const badgeTipo = document.getElementById('modal-ub-badge-tipo');
+        const rolBadgeHtml = _getRolTableroBadge(_currentBuzonDetail.rol_tablero);
+        
+        if (_currentBuzonDetail.tipo === 'Usuario') {
+            badgeTipo.style.background = '#e0e7ff';
+            badgeTipo.style.color = '#4338ca';
+            badgeTipo.innerHTML = `<i class="fa-solid fa-user" style="margin-right:3px;"></i> Usuario / Analista &nbsp; ${rolBadgeHtml}`;
+        } else {
+            badgeTipo.style.background = '#f1f5f9';
+            badgeTipo.style.color = '#475569';
+            badgeTipo.innerHTML = `<i class="fa-solid fa-building" style="margin-right:3px;"></i> Buzón de Sector &nbsp; ${rolBadgeHtml}`;
+        }
+
+        // 2. KPIs Strip
+        const kpis = _currentBuzonDetail.kpis || {};
+        const kpisEl = document.getElementById('modal-ub-kpis');
+        if (kpisEl) {
+            const kpiItems = [
+                { label: 'Tratas Distintas', val: kpis.total_tratas, color: '#6366f1', bg: '#eef2ff', icon: 'fa-tags' },
+                { label: 'Stock Activo', val: kpis.total_stock, color: '#0284c7', bg: '#f0f9ff', icon: 'fa-inbox' },
+                { label: 'En Subsanación', val: kpis.total_subsanacion, color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+                { label: 'Guarda Temporal', val: kpis.total_guarda, color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+                { label: 'En Archivo', val: kpis.total_archivo, color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+                { label: 'Total Expedientes', val: kpis.total_expedientes, color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' }
+            ];
+
+            kpisEl.innerHTML = kpiItems.map(k => `
+                <div style="background: ${k.bg}; border: 1px solid ${k.color}20; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-family: 'Outfit', sans-serif;">
+                    <div style="width: 32px; height: 32px; border-radius: 6px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                        <i class="fa-solid ${k.icon}"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase;">${k.label}</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #1e293b;">${Number(k.val || 0).toLocaleString('es-AR')}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 3. Render Table
+        filterUniversoBuzonDetail();
+
+    } catch (e) {
+        console.error("Error al cargar detalle de buzón:", e);
+        document.getElementById('modal-ub-table-container').innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">Error al consultar el detalle: ${e.message}</p>
+                <button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="openUniversoBuzonDetail('${destinatario}')">Reintentar</button>
+            </div>`;
+    }
+}
+
+function closeUniversoBuzonDetailModal() {
+    const modal = document.getElementById('universo-buzon-detail-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function filterUniversoBuzonDetail() {
+    if (!_currentBuzonDetail || !_currentBuzonDetail.tratas) return;
+
+    const searchVal = (document.getElementById('modal-ub-search')?.value || '').trim().toLowerCase();
+    const altaVal = document.getElementById('modal-ub-filter-alta')?.value || 'ALL';
+
+    const filtered = _currentBuzonDetail.tratas.filter(t => {
+        if (altaVal === 'true' && !t.alta_en_tablero) return false;
+        if (altaVal === 'false' && t.alta_en_tablero) return false;
+        if (altaVal === 'con_subs' && (t.cant_subsanacion || 0) <= 0) return false;
+        if (altaVal === 'con_stock' && (t.cant_stock_propio || 0) <= 0) return false;
+
+        if (!searchVal) return true;
+        const matchTrata = (t.trata || '').toLowerCase().includes(searchVal) ||
+                           (t.descripcion_trata || '').toLowerCase().includes(searchVal);
+        const matchExp = (t.expedientes || []).some(e => 
+            (e.expediente || '').toLowerCase().includes(searchVal) ||
+            (e.descripcion || '').toLowerCase().includes(searchVal)
+        );
+        return matchTrata || matchExp;
+    });
+
+    renderUniversoBuzonDetailTable(filtered);
+}
+
+function renderUniversoBuzonDetailTable(tratas) {
+    const container = document.getElementById('modal-ub-table-container');
+    if (!container) return;
+
+    if (!tratas || tratas.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">No se encontraron tratas con los filtros aplicados.</p>
+            </div>`;
+        return;
+    }
+
+    const thStyle = `padding: 10px 12px; font-weight: 700; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; white-space: nowrap; font-family: 'Outfit', sans-serif;`;
+    const tdStyle = `padding: 10px 12px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;`;
+
+    const thead = `<thead><tr>
+        <th style="${thStyle}">Trata</th>
+        <th style="${thStyle}">Descripción</th>
+        <th style="${thStyle}; text-align: center; width: 110px;">En Tablero</th>
+        <th style="${thStyle}; text-align: right; width: 120px;">Stock Activo</th>
+        <th style="${thStyle}; text-align: right; width: 120px;">Subsanación</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Guarda Temp.</th>
+        <th style="${thStyle}; text-align: right; width: 100px;">Archivo</th>
+        <th style="${thStyle}; text-align: right; width: 120px;">Total Posesión</th>
+        <th style="${thStyle}; text-align: center; width: 130px;">Acción</th>
+    </tr></thead>`;
+
+    const tbody = tratas.map((t, idx) => {
+        const trataId = `ub-trata-${idx}`;
+        const altaBadge = t.alta_en_tablero
+            ? `<span style="background: #ecfdf5; color: #059669; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">✅ Sí</span>`
+            : `<span style="background: #fef2f2; color: #dc2626; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">❌ No</span>`;
+
+        const subsCell = (t.cant_subsanacion || 0) > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 3px 10px; border-radius: 6px; font-weight: 700;">${t.cant_subsanacion.toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const stockCell = (t.cant_stock_propio || 0) > 0
+            ? `<strong style="color: #0284c7;">${t.cant_stock_propio.toLocaleString('es-AR')}</strong>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const totalCell = `<strong style="font-size: 0.95rem; color: #0f172a;">${(t.cant_total || 0).toLocaleString('es-AR')}</strong>`;
+
+        const exps = t.expedientes || [];
+        const expRows = exps.map(e => {
+            let badgeClasif = '';
+            if (e.clasificacion === 'STOCK_PROPIO') badgeClasif = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Stock Propio</span>`;
+            else if (e.clasificacion === 'SUBSANACION') badgeClasif = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+            else if (e.clasificacion === 'GUARDA_TEMPORAL') badgeClasif = `<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Guarda Temporal</span>`;
+            else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Archivo</span>`;
+
+            const rawExp = (e.expediente || '').replace(/'/g, "\\'");
+
+            return `
+                <tr style="font-size: 0.82rem; background: white; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                    <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span>${e.expediente}</span>
+                            <button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" 
+                                title="Copiar número de expediente"
+                                style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                                onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
+                                onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; white-space: nowrap;">${badgeClasif}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap;">${e.fecha_ultimo_pase || '—'}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap;">${e.remitente || '—'}</td>
+                    <td style="padding: 8px 12px; color: #475569; line-height: 1.35;">${e.descripcion || '—'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}; font-family: 'Outfit', sans-serif;">
+                <td style="${tdStyle} font-weight: 700; color: var(--primary-dark);">
+                    ${t.trata || ''}
+                </td>
+                <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.3;">
+                    ${t.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}
+                </td>
+                <td style="${tdStyle}; text-align: center;">${altaBadge}</td>
+                <td style="${tdStyle}; text-align: right;">${stockCell}</td>
+                <td style="${tdStyle}; text-align: right;">${subsCell}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b;">${(t.cant_guarda || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b;">${(t.cant_archivo || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right;">${totalCell}</td>
+                <td style="${tdStyle}; text-align: center;">
+                    <button type="button" onclick="toggleBuzonExpedientes('${trataId}')" 
+                        style="padding: 5px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;"
+                        onmouseover="this.style.borderColor='var(--primary)'; this.style.background='#eff6ff'"
+                        onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='white'">
+                        <i id="${trataId}-icon" class="fa-solid fa-chevron-down"></i> ${exps.length} exp.
+                    </button>
+                </td>
+            </tr>
+            <tr id="${trataId}" style="display: none; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td colspan="9" style="padding: 12px 16px; border-bottom: 2px solid #e2e8f0;">
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 280px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
+                            <thead style="position: sticky; top: 0; z-index: 1;">
+                                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569;">
+                                    <th style="padding: 8px 12px; width: 260px;">Expediente</th>
+                                    <th style="padding: 8px 12px; width: 140px;">Estado Clasificado</th>
+                                    <th style="padding: 8px 12px; width: 140px;">Fecha Último Pase</th>
+                                    <th style="padding: 8px 12px; width: 140px;">Usuario Remitente</th>
+                                    <th style="padding: 8px 12px;">Descripción / Carátula</th>
+                                </tr>
+                            </thead>
+                            <tbody>${expRows}</tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="max-height: 480px; overflow-y: auto; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif; min-width: 900px;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>
+    `;
+
+    const footerInfo = document.getElementById('modal-ub-footer-info');
+    if (footerInfo) {
+        footerInfo.innerHTML = `Mostrando <strong>${tratas.length}</strong> tratas con expedientes en este buzón/usuario.`;
+    }
+}
+
+function exportUniversoBuzonDetailCSV() {
+    if (!_currentBuzonDetail || !_currentBuzonDetail.tratas) return;
+
+    const rows = [
+        ["DESTINATARIO", "TIPO_DESTINATARIO", "ROL_TABLERO", "TRATA", "DESCRIPCION_TRATA", "ALTA_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
+    ];
+
+    const dest = _currentBuzonDetail.destinatario || '';
+    const tipo = _currentBuzonDetail.tipo || '';
+    const rol = _currentBuzonDetail.rol_tablero || 'Sin Configurar';
+
+    for (const t of _currentBuzonDetail.tratas) {
+        const trata = (t.trata || '').replace(/"/g, '""');
+        const desc = (t.descripcion_trata || '').replace(/"/g, '""');
+        const alta = t.alta_en_tablero ? "SI" : "NO";
+        const stock = t.cant_stock_propio || 0;
+        const subs = t.cant_subsanacion || 0;
+        const guarda = t.cant_guarda || 0;
+        const arch = t.cant_archivo || 0;
+        const tot = t.cant_total || 0;
+
+        if (t.expedientes && t.expedientes.length > 0) {
+            for (const e of t.expedientes) {
+                rows.push([
+                    `"${dest}"`,
+                    `"${tipo}"`,
+                    `"${rol}"`,
+                    `"${trata}"`,
+                    `"${desc}"`,
+                    `"${alta}"`,
+                    stock,
+                    subs,
+                    guarda,
+                    arch,
+                    tot,
+                    `"${e.expediente || ''}"`,
+                    `"${e.clasificacion || ''}"`,
+                    `"${e.fecha_ultimo_pase || ''}"`,
+                    `"${(e.remitente || '').replace(/"/g, '""')}"`
+                ]);
+            }
+        } else {
+            rows.push([
+                `"${dest}"`,
+                `"${tipo}"`,
+                `"${rol}"`,
+                `"${trata}"`,
+                `"${desc}"`,
+                `"${alta}"`,
+                stock,
+                subs,
+                guarda,
+                arch,
+                tot,
+                "", "", "", ""
+            ]);
+        }
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(r => r.join(";")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `universo_buzon_${dest}_tratas.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+window.switchUniversoTab = switchUniversoTab;
+window.loadUniversoBuzones = loadUniversoBuzones;
+window.filterUniversoBuzones = filterUniversoBuzones;
+window._sortUniversoBuzonesBy = _sortUniversoBuzonesBy;
+window.renderUniversoBuzonesTable = renderUniversoBuzonesTable;
+window.openUniversoBuzonDetail = openUniversoBuzonDetail;
+window.closeUniversoBuzonDetailModal = closeUniversoBuzonDetailModal;
+window.filterUniversoBuzonDetail = filterUniversoBuzonDetail;
+window.renderUniversoBuzonDetailTable = renderUniversoBuzonDetailTable;
+window.exportUniversoBuzonDetailCSV = exportUniversoBuzonDetailCSV;
 
 // ──────────────────────────────────────────────────────────────
 // PLANIFICACIÓN NOVIEMBRE 2026
