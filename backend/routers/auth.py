@@ -3,7 +3,7 @@ import json
 import logging
 import bcrypt
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import text
 
@@ -402,6 +402,46 @@ async def delete_buzon_acceso(nombre_sujeto: str, current_user: User = Depends(g
             conn.execute(text("DELETE FROM public.cfg_buzones_analisis_acceso WHERE nombre_sujeto = :name"), {"name": nombre_sujeto})
             return {"status": "ok", "message": "Acceso personalizado eliminado"}
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Búsqueda de Usuarios SADE (Autocompletado Admin) ---
+
+@router.get("/api/admin/sade_users/search")
+async def search_sade_users(
+    q: str = Query(..., min_length=2, description="Texto de búsqueda para usuario o apellido/nombre"),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        query_text = f"%{q.strip()}%"
+        with engine.connect() as conn:
+            sql = text("""
+                SELECT 
+                    UPPER(TRIM(usuario)) as usuario,
+                    UPPER(TRIM(COALESCE(
+                        NULLIF(TRIM(apellido_nombre), ''),
+                        NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), ''),
+                        usuario
+                    ))) as apellido_nombre,
+                    COALESCE(codigo_sector_interno, '') as codigo_sector_interno,
+                    COALESCE(mail, '') as mail
+                FROM public.datos_usuario
+                WHERE usuario IS NOT NULL 
+                  AND (usuario ILIKE :q OR apellido_nombre ILIKE :q OR CONCAT(nombre, ' ', apellido) ILIKE :q)
+                ORDER BY usuario
+                LIMIT 20
+            """)
+            rows = conn.execute(sql, {"q": query_text}).fetchall()
+            return [
+                {
+                    "usuario": r[0],
+                    "apellido_nombre": r[1],
+                    "codigo_sector_interno": r[2],
+                    "mail": r[3]
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        logger.error(f"Error buscando usuarios SADE: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Endpoints de Analistas (Admin) ---
