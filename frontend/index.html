@@ -170,10 +170,6 @@
                     <div class="dropdown-content">
                         <a href="#/buzones/dgroc" id="link-buzones-dgroc">DGROC</a>
                         <a href="#/buzones/dgiur" id="link-buzones-dgiur">DGIUR</a>
-                        <a href="#/buzones/publico_privado" id="link-buzones-publico-privado">Público Privado</a>
-                        <a href="#/buzones/copua" id="link-buzones-copua">COPUA</a>
-                        <a href="#/buzones/secgdu" id="link-buzones-secgdu">SECGDU</a>
-                        <a href="#/buzones/analisis" id="link-buzones-analisis">Análisis</a>
                     </div>
                 </div>
 
@@ -1976,9 +1972,11 @@
 
                         <div style="display: flex; flex-direction: column; gap: 4px;">
                             <label style="font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase;">Modelo de Escenario</label>
-                            <select id="planif-metas-v2-filter-escenario" onchange="applyPlanifMetasV2Filters()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #0284c7; font-family: 'Outfit'; font-size: 0.88rem; font-weight: 700; color: #0369a1; min-width: 280px; background: #f0f9ff;">
-                                <option value="esc1">📌 Escenario 1: Ingresos Interanuales + Stock Propio</option>
-                                <option value="esc2">⚡ Escenario 2: Ingresos Mes Anterior + Stock Propio</option>
+                            <select id="planif-metas-v2-filter-escenario" onchange="applyPlanifMetasV2Filters()" style="padding: 8px 12px; border-radius: 8px; border: 1px solid #0284c7; font-family: 'Outfit'; font-size: 0.88rem; font-weight: 700; color: #0369a1; min-width: 380px; background: #f0f9ff;">
+                                <option value="esc1">📌 Escenario 1: Ingresos Interanuales + Stock Estancado (Mes Cerrado)</option>
+                                <option value="esc2">⚡ Escenario 2: Ingresos Mes Anterior + Stock Estancado (Mes Cerrado)</option>
+                                <option value="esc3">🌱 Escenario 3: Ingresos Interanuales + Stock Estancado (Ingresados Este Año)</option>
+                                <option value="esc4">🚀 Escenario 4: Ingresos Mes Anterior + Stock Estancado (Ingresados Este Año)</option>
                             </select>
                         </div>
 
@@ -2127,8 +2125,8 @@
                         <h3
                             style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
                             Buzones para Análisis</h3>
-                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Configurar el
-                            acceso a buzones específicos de Buzones Análisis a nivel de rol y de usuario.</p>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Configurar los
+                            analistas y buzones que se visualizan en cada gerencia en la sección de Buzones.</p>
                     </div>
                     <div
                         style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
@@ -2736,7 +2734,7 @@
                 </div>
             </div>
 
-            <!-- Contenido Pestaña 4: Configuración de Acceso a Buzones -->
+            <!-- Contenido Pestaña 4: Configuración de Buzones para Análisis por Gerencia -->
             <div id="admin-tab-buzones_acceso" class="admin-tab-content" style="display: none; margin-top: 1rem;">
                 <button type="button" onclick="showBacklogMenu()"
                     style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
@@ -2744,86 +2742,82 @@
                 </button>
                 <div class="admin-grid"
                     style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
-                    <!-- Crear/Editar Acceso Form Card -->
+                    <!-- Panel Agregar Analista / Buzón Adicional -->
                     <div class="admin-card"
                         style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                         <h3
-                            style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
-                            Configurar Acceso Especial</h3>
-                        <form id="buzon-acceso-form" onsubmit="saveBuzonAcceso(event)"
-                            style="display: flex; flex-direction: column; gap: 1.2rem;">
-                            <div class="form-group">
-                                <label
-                                    style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Tipo
-                                    de Sujeto</label>
-                                <select id="buzon-tipo-sujeto" onchange="onBuzonTipoSujetoChange()"
-                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none;">
-                                    <option value="usuario">Usuario</option>
-                                    <option value="rol">Rol</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label id="buzon-nombre-sujeto-label"
-                                    style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Seleccionar
-                                    Usuario</label>
-                                <select id="buzon-nombre-sujeto"
-                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none;">
-                                    <!-- Se llenará dinámicamente -->
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label
-                                    style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Buzones
-                                    Permitidos</label>
-                                <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Selecciona a qué
-                                    buzones de análisis tendrá acceso exclusivo.</p>
+                            style="margin-top: 0; margin-bottom: 6px; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Buzones y Analistas por Gerencia</h3>
+                        <p style="margin: 0 0 1.25rem 0; font-size: 0.82rem; color: #64748b; line-height: 1.4;">
+                            Define qué analistas o buzones se visualizan en cada área de la sección <strong>Buzones</strong>. Los configurados en las tratas están activos por default.
+                        </p>
 
-                                <!-- Filtro de Búsqueda -->
-                                <input type="text" id="admin-buzon-search" oninput="filterAdminBuzones()"
-                                    placeholder="Buscar buzón..."
-                                    style="width: 100%; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none;">
+                        <div class="form-group" style="margin-bottom: 1.2rem;">
+                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Seleccionar Área / Gerencia</label>
+                            <select id="admin-buzon-gerencia-select" onchange="onAdminBuzonGerenciaChange()"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none; font-weight: 700; color: var(--primary-dark);">
+                                <!-- Cargado dinámicamente -->
+                            </select>
+                        </div>
 
-                                <!-- Acciones Rápidas -->
-                                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
-                                    <button type="button" onclick="selectAllBuzones(true)"
-                                        style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; transition: background 0.2s;">
-                                        <i class="fa-solid fa-check-double"></i> Seleccionar Todos
-                                    </button>
-                                    <button type="button" onclick="selectAllBuzones(false)"
-                                        style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; transition: background 0.2s;">
-                                        <i class="fa-solid fa-square"></i> Desmarcar Todos
-                                    </button>
-                                </div>
-
-                                <div id="buzones-checkboxes-container"
-                                    style="max-height: 250px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: #f8fafc;">
-                                    <!-- Se llenará dinámicamente -->
-                                </div>
+                        <div class="form-group" style="position: relative; margin-bottom: 1.2rem;">
+                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Agregar Analista o Buzón Adicional</label>
+                            <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">
+                                Puedes escribir el nombre de un usuario SADE o el código de un buzón especial (ej. <em>DGIUR-03</em>, <em>ALANDAZURI</em>, etc.).
+                            </p>
+                            <div style="position: relative;">
+                                <input type="text" id="admin-buzon-user-search"
+                                    oninput="searchSadeUsersForBuzonAdicional(this.value)"
+                                    placeholder="Buscar usuario SADE o escribir código..."
+                                    style="width: 100%; padding: 10px 14px 10px 35px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"
+                                    autocomplete="off">
+                                <i class="fa-solid fa-search"
+                                    style="position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 0.9rem;"></i>
+                                <button type="button" onclick="clearAdminBuzonUserSearch()"
+                                    style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;"
+                                    id="btn-clear-buzon-search">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
                             </div>
-                            <button type="submit" class="btn-primary"
-                                style="padding: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: 'Outfit'; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                                <i class="fa-solid fa-save"></i> Guardar Regla de Acceso
-                            </button>
-                        </form>
+                            <!-- Sugerencias SADE -->
+                            <div id="admin-buzon-search-results"
+                                style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 100; margin-top: 5px;">
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="addCustomBuzonCodeFromInput()" class="btn-primary"
+                            style="padding: 10px 16px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Outfit'; font-size: 0.9rem; width: 100%;">
+                            <i class="fa-solid fa-plus"></i> Agregar como Buzón / Usuario
+                        </button>
                     </div>
 
-                    <!-- Configured Rules List -->
+                    <!-- Lista de Analistas y Buzones Asignados -->
                     <div class="admin-card"
                         style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h3
-                            style="margin-top: 0; margin-bottom: 6px; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">
-                            Reglas Activas</h3>
-                        <p style="margin: 0 0 1.5rem 0; font-size: 0.85rem; color: #64748b;">Si un rol o usuario no
-                            figura en la lista, tendrá acceso a todos los buzones por defecto.</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;" id="admin-buzones-table-title">Analistas y Buzones Visibles</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #64748b;" id="admin-buzones-table-subtitle">Cargando...</p>
+                            </div>
+                            <input type="text" id="admin-buzones-table-search" oninput="filterAdminBuzonesTable()"
+                                placeholder="Filtrar por nombre o usuario..."
+                                style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
+                        </div>
 
-                        <!-- Buscador de Reglas -->
-                        <input type="text" id="admin-reglas-search" oninput="filterAdminReglas()"
-                            placeholder="Filtrar reglas por nombre de sujeto..."
-                            style="width: 100%; padding: 8px 12px; margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none;">
-
-                        <div id="buzon-accesos-list-container"
-                            style="display: flex; flex-direction: column; gap: 1rem;">
-                            <!-- Se llenará dinámicamente -->
+                        <div class="table-container" style="overflow-x: auto; max-height: 480px;">
+                            <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc; position: sticky; top: 0; z-index: 10;">
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Usuario / Buzón</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Nombre y Apellido</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center;">Origen</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center; width: 110px;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-buzones-table-body">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -3992,111 +3986,141 @@
         <!-- Vista: Buzones -->
         <section id="buzones" class="view-container" style="display: none;">
             <div class="breadcrumbs">
-                <span onclick="showView('landing')">Inicio</span> / Buzones / <span
-                    id="buzones-breadcrumbs-area">-</span>
+                <span onclick="showView('landing')">Inicio</span> / Buzones / <span id="buzones-breadcrumbs-area">-</span>
             </div>
 
-            <div
-                style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
                 <div>
                     <h1 class="landing-title" id="buzones-title" style="margin-bottom: 0.25rem;">Buzones</h1>
-                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;" id="buzones-subtitle">Stock actual de
-                        expedientes distribuido por analistas oficiales e intervenciones.</p>
+                    <p style="color: #64748b; margin: 0; font-size: 0.9rem;" id="buzones-subtitle">Stock actual de expedientes distribuido por analistas oficiales e intervenciones.</p>
                 </div>
-                <!-- Contenedor Filtros -->
-                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                    <!-- Buscador de Analistas -->
-                    <div style="position: relative; width: 260px; font-family: 'Outfit';">
-                        <span
-                            style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.9rem;">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </span>
-                        <input type="text" id="buzones-analyst-search" placeholder="Buscar analista por nombre..."
+                <!-- Contenedor Filtros y Acciones -->
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <div style="position: relative; width: 280px; font-family: 'Outfit';">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+                        <input type="text" id="buzones-analyst-search" placeholder="Buscar por analista o usuario..."
                             oninput="filterBuzonesAnalysts()"
-                            style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;"
+                            style="width: 100%; padding: 9px 12px 9px 35px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;"
                             onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
                     </div>
-                    <!-- Filtro por Días de Stock -->
                     <div style="display: flex; align-items: center; gap: 8px; font-family: 'Outfit';">
-                        <label
-                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; white-space: nowrap; text-transform: uppercase;">Días
-                            Stock ≥</label>
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; white-space: nowrap; text-transform: uppercase;">Días Stock ≥</label>
                         <input type="number" id="buzones-dias-filter" min="0" placeholder="0"
                             oninput="onBuzonesDiasFilterChange()"
-                            style="width: 90px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;"
+                            style="width: 80px; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.88rem; outline: none; transition: border-color 0.2s; background: white;"
                             onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
                     </div>
+                    <button id="buzones-refresh-btn" onclick="loadBuzonesData(currentBuzonesGerencia)"
+                        style="padding: 9px 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-rotate-right"></i> Actualizar
+                    </button>
                 </div>
             </div>
 
             <!-- Tabs de Gerencias/Areas -->
             <div class="buzones-tabs-container" id="buzones-tabs"
-                style="margin-bottom: 2rem; display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">
+                style="display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem; flex-wrap: wrap;">
                 <!-- Se llenará dinámicamente -->
             </div>
 
+            <!-- Metrics Cards Strip (Universo Style) -->
+            <div id="buzones-metrics-container" style="display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap;">
+                <!-- KPIs generados dinámicamente -->
+            </div>
+
             <!-- Loader -->
-            <div id="buzones-loader" style="display: none; text-align: center; padding: 3rem;">
+            <div id="buzones-loader" style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <span class="loader"></span>
-                <p style="color: #64748b; margin-top: 1rem; font-family: 'Outfit';">Cargando stock de analistas...</p>
+                <p style="color: #64748b; margin-top: 1rem; font-family: 'Outfit'; font-weight: 600;">Cargando stock de analistas...</p>
             </div>
 
             <!-- Empty State -->
             <div id="buzones-empty-state"
-                style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow);">
-                <div style="font-size: 3rem; margin-bottom: 1rem; color: #94a3b8;"><i class="fa-regular fa-user"></i>
-                </div>
-                <h3 style="color: #64748b; margin: 0; font-family: 'Outfit';">No hay stock activo en esta gerencia</h3>
-                <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Todos los trámites se encuentran
-                    finalizados o egresados.</p>
+                style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                <div style="font-size: 3rem; margin-bottom: 1rem; color: #94a3b8;"><i class="fa-solid fa-inbox"></i></div>
+                <h3 style="color: #64748b; margin: 0; font-family: 'Outfit'; font-weight: 700;">No hay stock activo en esta gerencia</h3>
+                <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Todos los trámites se encuentran finalizados o no coinciden con los filtros aplicados.</p>
             </div>
 
-            <!-- Metrics Cards -->
-            <div id="buzones-metrics-container" class="summary-cards-container"
-                style="display: none; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-                <!-- Total -->
-                <div class="summary-card" style="align-items: flex-start; padding: 1.25rem 1.5rem; position: relative;">
-                    <span class="summary-label"
-                        style="font-size: 0.8rem; font-weight: 700; color: #64748b; font-family: 'Outfit';">Expedientes
-                        Totales</span>
-                    <span id="buzones-metric-total-expedientes" class="summary-value"
-                        style="color: var(--primary); font-size: 2.2rem; font-weight: 800; font-family: 'Outfit'; margin-top: 0.5rem;">0</span>
+            <!-- Banner / Aviso de Buzones con Stock Cero -->
+            <div id="buzones-zero-stock-banner"
+                style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #6366f1; border-radius: 8px; padding: 12px 16px; margin-bottom: 1.25rem; font-family: 'Outfit', sans-serif; font-size: 0.88rem; color: #475569; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-circle-info" style="color: #6366f1; font-size: 1.1rem;"></i>
+                    <span id="buzones-zero-stock-text">
+                        Hay analistas o buzones configurados en esta área que no figuran en la lista porque no poseen expedientes en su poder actualmente.
+                    </span>
                 </div>
-                <!-- Buzones Totales -->
-                <div class="summary-card" style="align-items: flex-start; padding: 1.25rem 1.5rem; position: relative;">
-                    <span class="summary-label"
-                        style="font-size: 0.8rem; font-weight: 700; color: #0284c7; font-family: 'Outfit';">Buzones
-                        Totales</span>
-                    <span id="buzones-metric-total-mailboxes" class="summary-value"
-                        style="color: #0284c7; font-size: 2.2rem; font-weight: 800; font-family: 'Outfit'; margin-top: 0.5rem;">0</span>
-                </div>
+                <button type="button" onclick="showZeroStockBuzonesModal()"
+                    style="background: white; border: 1px solid #cbd5e1; color: #4338ca; padding: 6px 14px; border-radius: 6px; font-weight: 700; font-family: inherit; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;"
+                    onmouseover="this.style.borderColor='#818cf8'; this.style.background='#f5f3ff';"
+                    onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='white';">
+                    <i class="fa-solid fa-list-check"></i> <span id="buzones-zero-stock-btn-text">Ver buzones sin expedientes</span>
+                </button>
             </div>
 
-            <!-- Analyst Table List -->
-            <div id="buzones-analysts-table-container" class="matrix-table-container"
-                style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+            <!-- Analyst Table Container -->
+            <div id="buzones-analysts-table-container"
+                style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 3rem;">
+                <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; font-family: 'Outfit', sans-serif;">
+                    <span id="buzones-table-info"><strong style="color: #334155;">0</strong> analistas/buzones con stock activo — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de expedientes</em></span>
+                    <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
+                </div>
                 <div style="overflow-x: auto; width: 100%;">
-                    <table class="matrix-table" style="margin-top: 0; width: 100%;">
+                    <table class="matrix-table" style="margin-top: 0; width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
                         <thead>
-                            <tr>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">
-                                    Analista Asignado</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">
-                                    Usuario SADE</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">
-                                    Mediana Días Stock</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">
-                                    Cantidad de Expedientes</th>
+                            <tr style="border-bottom: 2px solid #e2e8f0;">
+                                <!-- Encabezados dinámicos con sort -->
                             </tr>
                         </thead>
                         <tbody id="buzones-analysts-tbody">
                             <!-- Se llenará dinámicamente -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Modal: Buzones y Analistas sin Expedientes (Stock 0) -->
+            <div id="buzones-zero-stock-modal" class="modal" style="display: none; align-items: center; justify-content: center; z-index: 10000; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px);">
+                <div class="modal-content"
+                    style="max-width: 580px; width: 92%; padding: 25px; background: white; border-radius: 16px; display: flex; flex-direction: column; font-family: 'Outfit', sans-serif; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); max-height: 85vh;">
+                    <div class="modal-header"
+                        style="background: white !important; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: #eef2ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                                <i class="fa-solid fa-inbox"></i>
+                            </div>
+                            <div>
+                                <h3 id="buzones-zero-stock-modal-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">
+                                    Buzones sin Expedientes</h3>
+                                <p id="buzones-zero-stock-modal-subtitle" style="color: #64748b; font-size: 0.82rem; margin: 2px 0 0 0;">
+                                    Analistas y buzones asignados a esta área que registran 0 expedientes en su poder.
+                                </p>
+                            </div>
+                        </div>
+                        <span class="close-modal" onclick="closeModal('buzones-zero-stock-modal')"
+                            style="cursor: pointer; font-size: 1.8rem; color: #94a3b8; line-height: 1;">&times;</span>
+                    </div>
+
+                    <!-- Buscador interno en el popup -->
+                    <div style="margin-bottom: 12px; position: relative;">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+                        <input type="text" id="buzones-zero-modal-search" placeholder="Filtrar por nombre o usuario..."
+                            oninput="filterZeroStockModalList()"
+                            style="width: 100%; padding: 8px 12px 8px 34px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; outline: none;">
+                    </div>
+
+                    <!-- Lista con scroll -->
+                    <div id="buzones-zero-stock-list-container" style="overflow-y: auto; max-height: 380px; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafbfc;">
+                        <!-- Dinámico -->
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                        <button type="button" onclick="closeModal('buzones-zero-stock-modal')"
+                            style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-family: 'Outfit'; font-weight: 700; font-size: 0.88rem;">
+                            Cerrar
+                        </button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -4111,84 +4135,91 @@
                     id="buzon-analista-breadcrumbs-name">-</span>
             </div>
 
-            <div style="margin-bottom: 2rem; display: flex; flex-direction: column; gap: 1rem;">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div style="margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                     <button onclick="backToBuzonGerencia()" class="btn-primary"
                         style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #64748b; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700;">
                         <i class="fa-solid fa-arrow-left"></i> Volver al Listado
                     </button>
-                    <button onclick="exportBuzonAnalistaExcel()" class="btn-primary"
-                        style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #16a34a; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700; transition: background 0.2s;"
-                        onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
-                        <i class="fa-regular fa-file-excel"></i> Descargar Excel
-                    </button>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="exportBuzonAnalistaExcel()" class="btn-primary"
+                            style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #059669; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700; transition: background 0.2s;">
+                            <i class="fa-solid fa-file-excel"></i> Descargar Excel
+                        </button>
+                    </div>
                 </div>
 
-                <div
-                    style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <h2 id="buzon-analista-header-name"
-                            style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.5rem;">
-                            Nombre del Analista</h2>
-                        <p id="buzon-analista-header-sade"
-                            style="margin: 4px 0 0 0; font-size: 0.95rem; color: #64748b;">Usuario SADE: @username</p>
+                <!-- Header Card -->
+                <div style="background: white; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.04); padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(14, 165, 233, 0.1); color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-user-tie"></i>
+                        </div>
+                        <div>
+                            <h2 id="buzon-analista-header-name"
+                                style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.4rem;">
+                                Nombre del Analista</h2>
+                            <p id="buzon-analista-header-sade"
+                                style="margin: 3px 0 0 0; font-size: 0.9rem; color: #64748b; font-family: 'Outfit';">Usuario SADE: @username</p>
+                        </div>
                     </div>
                     <div style="text-align: right;">
                         <span id="buzon-analista-header-count" class="badge-status-propio"
-                            style="font-weight: 800; font-size: 1rem; padding: 8px 16px; border-radius: 20px; display: inline-block;">0
-                            Expedientes en Stock</span>
+                            style="font-weight: 800; font-size: 0.95rem; padding: 6px 14px; border-radius: 20px; display: inline-block; background: #e0f2fe; color: #0284c7;">0 Expedientes en Stock</span>
                     </div>
                 </div>
             </div>
 
             <!-- Controles de Filtros para Detalle de Buzón -->
-            <div class="filter-controls-container"
-                style="background: white; padding: 1.25rem 1.5rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; margin-top: 1.5rem;">
-                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+            <div style="background: white; padding: 1rem 1.25rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.04); display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1rem; flex-grow: 1; align-items: center;">
                     <!-- Búsqueda -->
-                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
-                        <label
-                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscador</label>
+                    <div style="position: relative; min-width: 280px; flex-grow: 1;">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
                         <input type="text" id="buzon-detalle-search" class="form-input"
-                            placeholder="Buscar por expediente, código, descripción, motivo de pase..."
+                            placeholder="Buscar por expediente, código, descripción, motivo..."
                             oninput="filterAndRenderBuzonDetalle()"
-                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                            style="width: 100%; padding: 9px 12px 9px 35px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none;">
+                    </div>
+                    <!-- Filtro Estado SADE -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Estado:</label>
+                        <select id="buzon-detalle-filter-estado" onchange="filterAndRenderBuzonDetalle()"
+                            style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; background: white; outline: none;">
+                            <option value="ALL">Todos los estados</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
             <!-- Analyst Detail Table -->
-            <div class="matrix-table-container"
-                style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+            <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.04); margin-bottom: 3rem; overflow: hidden;">
+                <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; font-family: 'Outfit', sans-serif;">
+                    <span id="buzon-detalle-table-info">Mostrando expedientes</span>
+                    <span style="font-size: 0.75rem; color: #94a3b8;"><i class="fa-regular fa-bookmark" style="color: var(--primary);"></i> Hacé clic en la estrella para marcar como favorito</span>
+                </div>
                 <div style="overflow-x: auto; width: 100%;">
-                    <table class="matrix-table" style="margin-top: 0; width: 100%;">
+                    <table class="matrix-table" style="margin-top: 0; width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
                         <thead>
-                            <tr>
-                                <th
-                                    style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 80px;">
-                                    <i class="fa-solid fa-bookmark"></i>
+                            <tr style="border-bottom: 2px solid #e2e8f0; background: #f8fafc;">
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.78rem; font-weight: 700; color: #475569; width: 60px;">
+                                    <i class="fa-solid fa-bookmark" title="Favorito"></i>
                                 </th>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.78rem; font-weight: 700; color: #475569; width: 250px; text-transform: uppercase; letter-spacing: 0.5px;">
                                     Expediente</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">
-                                    Código Trámite</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.78rem; font-weight: 700; color: #475569; width: 150px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Tipo Stock</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.78rem; font-weight: 700; color: #475569; width: 140px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Trata</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.78rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
                                     Detalle Trámite</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 120px;">
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.78rem; font-weight: 700; color: #475569; width: 110px; text-transform: uppercase; letter-spacing: 0.5px;">
                                     Días Stock</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 150px;">
-                                    Días en Gerencia</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 190px;">
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.78rem; font-weight: 700; color: #475569; width: 130px; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Días Gerencia</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.78rem; font-weight: 700; color: #475569; width: 160px; text-transform: uppercase; letter-spacing: 0.5px;">
                                     Último Pase</th>
-                                <th
-                                    style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 200px;">
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.78rem; font-weight: 700; color: #475569; width: 220px; text-transform: uppercase; letter-spacing: 0.5px;">
                                     Motivo del Último Pase</th>
                             </tr>
                         </thead>
@@ -6784,7 +6815,7 @@
 
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
-    <script src="/app.js?v=19"></script>
+    <script src="/app.js?v=20"></script>
     <script type="module" src="/src/main.js"></script>
 </body>
 

@@ -114,7 +114,7 @@ function initAuth() {
         if (linkFamily) linkFamily.style.display = perms.family ? 'block' : 'none';
 
         // Toggles for Buzones dropdown and its contents
-        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || perms.publico_privado || perms.copua || perms.seguimiento;
+        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.seguimiento;
         const navBuzones = document.getElementById('nav-dropdown-buzones');
         if (navBuzones) navBuzones.style.display = hasBuzonesAccess ? 'inline-block' : 'none';
 
@@ -122,19 +122,7 @@ function initAuth() {
         if (linkBuzonesDgroc) linkBuzonesDgroc.style.display = perms.dgroc ? 'block' : 'none';
 
         const linkBuzonesDgiur = document.getElementById('link-buzones-dgiur');
-        if (linkBuzonesDgiur) linkBuzonesDgiur.style.display = perms.dgiur ? 'block' : 'none';
-
-        const linkBuzonesPublicoPrivado = document.getElementById('link-buzones-publico-privado');
-        if (linkBuzonesPublicoPrivado) linkBuzonesPublicoPrivado.style.display = (perms.publico_privado || perms.seguimiento) ? 'block' : 'none';
-
-        const linkBuzonesCopua = document.getElementById('link-buzones-copua');
-        if (linkBuzonesCopua) linkBuzonesCopua.style.display = (perms.copua || perms.seguimiento) ? 'block' : 'none';
-
-        const linkBuzonesSecgdu = document.getElementById('link-buzones-secgdu');
-        if (linkBuzonesSecgdu) linkBuzonesSecgdu.style.display = perms.secgdu ? 'block' : 'none';
-
-        const linkBuzonesAnalisis = document.getElementById('link-buzones-analisis');
-        if (linkBuzonesAnalisis) linkBuzonesAnalisis.style.display = perms.buzones_analisis ? 'block' : 'none';
+        if (linkBuzonesDgiur) linkBuzonesDgiur.style.display = (perms.dgiur || perms.publico_privado || perms.copua || perms.seguimiento) ? 'block' : 'none';
 
         // Toggles for Reportes dropdown and its contents
         const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026;
@@ -5966,9 +5954,13 @@ function updateFavoriteStars(expediente) {
     stars.forEach(star => {
         if (isFav) {
             star.classList.add('active');
+            star.style.color = '#eab308';
+            star.title = 'Quitar de favoritos';
             star.innerHTML = '<i class="fa-solid fa-bookmark"></i>';
         } else {
             star.classList.remove('active');
+            star.style.color = '#cbd5e1';
+            star.title = 'Marcar como favorito';
             star.innerHTML = '<i class="fa-regular fa-bookmark"></i>';
         }
     });
@@ -8006,6 +7998,8 @@ let currentBuzonesArea = '';
 let currentBuzonesGerencia = '';
 let currentBuzonesData = [];
 let currentActiveBuzonAnalyst = null;
+let _buzonesSortField = null;
+let _buzonesSortAsc = true;
 
 const BUZONES_GERENCIAS = {
     dgroc: [
@@ -8019,24 +8013,26 @@ const BUZONES_GERENCIAS = {
     dgiur: [
         { id: 'morfologia', label: 'Morfología' },
         { id: 'aph', label: 'APH' },
-        { id: 'usos', label: 'Usos' }
-    ],
-    publico_privado: [
-        { id: 'publico_privado', label: 'Público Privado' }
-    ],
-    copua: [
-        { id: 'copua', label: 'COPUA' }
-    ],
-    analisis: [
-        { id: 'analisis_archivo', label: 'Buzones de Archivo' }
-    ],
-    secgdu: [
-        { id: 'secgdu_todos', label: 'Todos los Buzones' }
+        { id: 'usos', label: 'Usos' },
+        { id: 'publico_privado', label: 'Público Privado' },
+        { id: 'copua', label: 'COPUA' },
+        { id: 'privada', label: 'Privada' }
     ]
 };
 
 async function showBuzonesView(area, updateHash = true) {
-    currentBuzonesArea = area.toLowerCase();
+    let targetArea = (area || 'dgiur').toLowerCase();
+    let initialGerencia = null;
+
+    // Si entran por URL a sub-áreas directas de DGIUR, ubicarlos en DGIUR
+    if (['publico_privado', 'copua', 'privada'].includes(targetArea)) {
+        initialGerencia = targetArea;
+        targetArea = 'dgiur';
+    } else if (targetArea !== 'dgroc' && targetArea !== 'dgiur') {
+        targetArea = 'dgiur';
+    }
+
+    currentBuzonesArea = targetArea;
     const titleEl = document.getElementById('buzones-title');
     const subtitleEl = document.getElementById('buzones-subtitle');
     const breadcrumbArea = document.getElementById('buzones-breadcrumbs-area');
@@ -8053,23 +8049,19 @@ async function showBuzonesView(area, updateHash = true) {
     if (metricsContainer) metricsContainer.style.display = 'none';
 
     // Set title and breadcrumbs based on area
-    const areaLabels = {
-        analisis: 'Análisis',
-        publico_privado: 'Público Privado',
-        copua: 'COPUA',
-        secgdu: 'SECGDU',
-        dgroc: 'DGROC',
-        dgiur: 'DGIUR'
-    };
-    const uppercaseArea = areaLabels[area] || area.toUpperCase();
+    const uppercaseArea = currentBuzonesArea.toUpperCase();
     titleEl.innerText = `Buzones ${uppercaseArea}`;
     breadcrumbArea.innerText = uppercaseArea;
 
     // Render Gerencias Tabs
     const gerencias = BUZONES_GERENCIAS[currentBuzonesArea] || [];
+    const activeGerenciaId = initialGerencia && gerencias.some(g => g.id === initialGerencia) 
+        ? initialGerencia 
+        : (gerencias.length > 0 ? gerencias[0].id : null);
+
     let tabsHtml = '';
-    gerencias.forEach((g, idx) => {
-        const activeClass = idx === 0 ? 'active' : '';
+    gerencias.forEach((g) => {
+        const activeClass = g.id === activeGerenciaId ? 'active' : '';
         tabsHtml += `
             <button class="buzones-tab-btn ${activeClass}" data-gerencia="${g.id}" onclick="loadBuzonesData('${g.id}')">
                 ${g.label}
@@ -8085,14 +8077,16 @@ async function showBuzonesView(area, updateHash = true) {
         window.location.hash = `#/buzones/${currentBuzonesArea}`;
     }
 
-    // Load first gerencia by default
-    if (gerencias.length > 0) {
-        await loadBuzonesData(gerencias[0].id);
+    // Load initial gerencia
+    if (activeGerenciaId) {
+        await loadBuzonesData(activeGerenciaId);
     }
 }
 
 async function loadBuzonesData(gerencia) {
     currentBuzonesGerencia = gerencia;
+    _buzonesSortField = null;
+    _buzonesSortAsc = true;
     
     // Clear analyst search input
     const searchInput = document.getElementById('buzones-analyst-search');
@@ -8127,74 +8121,9 @@ async function loadBuzonesData(gerencia) {
             currentBuzonesEgresadoFilter = null;
             const diasFilterInput = document.getElementById('buzones-dias-filter');
             if (diasFilterInput) diasFilterInput.value = '';
-            const cardEgr = document.getElementById('buzones-card-egresados');
-            const cardNoEgr = document.getElementById('buzones-card-no-egresados');
-            const cardFuera = document.getElementById('buzones-card-fuera-tablero');
-            
-            if (cardEgr) {
-                cardEgr.style.borderColor = '#e2e8f0';
-                cardEgr.style.backgroundColor = 'white';
-                cardEgr.style.boxShadow = '';
-                const ind = cardEgr.querySelector('.filter-indicator');
-                if (ind) ind.style.display = 'none';
-            }
-            if (cardNoEgr) {
-                cardNoEgr.style.borderColor = '#e2e8f0';
-                cardNoEgr.style.backgroundColor = 'white';
-                cardNoEgr.style.boxShadow = '';
-                const ind = cardNoEgr.querySelector('.filter-indicator');
-                if (ind) ind.style.display = 'none';
-            }
-            if (cardFuera) {
-                cardFuera.style.borderColor = '#e2e8f0';
-                cardFuera.style.backgroundColor = 'white';
-                cardFuera.style.boxShadow = '';
-                const ind = cardFuera.querySelector('.filter-indicator');
-                if (ind) ind.style.display = 'none';
-            }
 
-            // Calculate metrics for loaded dataset
-            let totalExpedientes = 0;
-            let totalEgresados = 0;
-            let totalNoEgresados = 0;
-            let totalFueraTablero = 0;
-            let totalMailboxes = currentBuzonesData.length;
-
-            currentBuzonesData.forEach(an => {
-                const exps = an.expedientes || [];
-                totalExpedientes += (an.count || 0);
-                exps.forEach(exp => {
-                    if (exp.estado_tablero === 'FUERA DE TABLERO') {
-                        totalFueraTablero++;
-                    } else if (exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO')) {
-                        totalEgresados++;
-                    } else {
-                        totalNoEgresados++;
-                    }
-                });
-            });
-
-            const metricsContainer = document.getElementById('buzones-metrics-container');
-            if (metricsContainer) {
-                const totalExpsEl = document.getElementById('buzones-metric-total-expedientes');
-                if (totalExpsEl) totalExpsEl.innerText = totalExpedientes;
-                
-                const egresadosEl = document.getElementById('buzones-metric-egresados');
-                if (egresadosEl) egresadosEl.innerText = totalEgresados;
-                
-                const noEgresadosEl = document.getElementById('buzones-metric-no-egresados');
-                if (noEgresadosEl) noEgresadosEl.innerText = totalNoEgresados;
-                
-                const fueraTableroEl = document.getElementById('buzones-metric-fuera-tablero');
-                if (fueraTableroEl) fueraTableroEl.innerText = totalFueraTablero;
-                
-                const totalMailsEl = document.getElementById('buzones-metric-total-mailboxes');
-                if (totalMailsEl) totalMailsEl.innerText = totalMailboxes;
-                
-                metricsContainer.style.display = 'grid';
-            }
-
-            renderBuzonesAnalysts(currentBuzonesData, gerencia);
+            renderBuzonesKPIs(currentBuzonesData);
+            filterBuzonesAnalysts();
         } else {
             throw new Error("No se pudo obtener el stock de analistas.");
         }
@@ -8202,7 +8131,7 @@ async function loadBuzonesData(gerencia) {
         console.error("Error loading buzones data:", e);
         const tbody = document.getElementById('buzones-analysts-tbody');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ef4444; padding: 2rem; font-weight: 600;">Error al cargar datos: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 2rem; font-weight: 600;">Error al cargar datos: ${e.message}</td></tr>`;
         }
         if (tableContainer) tableContainer.style.display = 'block';
     } finally {
@@ -8210,11 +8139,60 @@ async function loadBuzonesData(gerencia) {
     }
 }
 
+function renderBuzonesKPIs(data) {
+    const el = document.getElementById('buzones-metrics-container');
+    if (!el) return;
+
+    let totalExpedientes = 0;
+    let totalStockPropio = 0;
+    let totalSubs = 0;
+    const totalConfigurados = data.length;
+    const activosCount = data.filter(an => (an.count || 0) > 0).length;
+
+    data.forEach(an => {
+        totalExpedientes += (an.count || 0);
+        const stockP = an.stock_propio ?? (an.count - (an.stock_subs || 0));
+        totalStockPropio += stockP;
+        totalSubs += (an.stock_subs || 0);
+    });
+
+    const kpiList = [
+        { label: 'Buzones con Stock', value: `${activosCount.toLocaleString('es-AR')} <span style="font-size: 0.85rem; font-weight: 500; color: #64748b;">/ ${totalConfigurados}</span>`, color: '#6366f1', bg: '#eef2ff', icon: 'fa-user-tie' },
+        { label: 'Stock Propio Activo', value: totalStockPropio.toLocaleString('es-AR'), color: '#2563eb', bg: '#eff6ff', icon: 'fa-inbox' },
+        { label: 'En Subsanación TAD', value: totalSubs.toLocaleString('es-AR'), color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+        { label: 'Total Expedientes', value: totalExpedientes.toLocaleString('es-AR'), color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' },
+    ];
+
+    el.innerHTML = kpiList.map(k => `
+        <div style="background: ${k.bg}; border: 1px solid ${k.color}22; border-radius: 12px; padding: 12px 18px; display: flex; align-items: center; gap: 14px; min-width: 170px; font-family: 'Outfit', sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="width: 38px; height: 38px; border-radius: 9px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0;">
+                <i class="fa-solid ${k.icon}"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
+                <div style="font-size: 1.35rem; font-weight: 800; color: #1e293b; line-height: 1.2;">${k.value}</div>
+            </div>
+        </div>
+    `).join('');
+    
+    el.style.display = 'flex';
+}
+
+function _sortBuzonesAnalystsBy(field) {
+    if (_buzonesSortField === field) {
+        _buzonesSortAsc = !_buzonesSortAsc;
+    } else {
+        _buzonesSortField = field;
+        _buzonesSortAsc = field === 'name' || field === 'username';
+    }
+    filterBuzonesAnalysts();
+}
+
 function renderBuzonesAnalysts(analysts, gerencia) {
     const tableContainer = document.getElementById('buzones-analysts-table-container');
     const emptyState = document.getElementById('buzones-empty-state');
     const tbody = document.getElementById('buzones-analysts-tbody');
-    const metricsContainer = document.getElementById('buzones-metrics-container');
+    const tableInfo = document.getElementById('buzones-table-info');
     
     if (!tableContainer || !emptyState || !tbody) return;
     
@@ -8229,63 +8207,55 @@ function renderBuzonesAnalysts(analysts, gerencia) {
     tableContainer.style.display = 'block';
     emptyState.style.display = 'none';
 
-    // Update table headers dynamically
-    const tableHeader = document.querySelector('#buzones-analysts-table-container thead tr');
-    if (tableHeader) {
-        if (currentBuzonesArea === 'secgdu') {
-            tableHeader.innerHTML = `
-                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Buzón / Destinatario</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Egresados Efectivos</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Egresados No Ef.</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Pendientes Actividad</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Total Stock</th>
-            `;
-        } else {
-            tableHeader.innerHTML = `
-                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Analista Asignado</th>
-                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Usuario SADE</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #2563eb; width: 160px;">Stock Propio</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #d97706; width: 160px;">Subs. Abierta</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 160px;">Total</th>
-            `;
-        }
+    if (tableInfo) {
+        tableInfo.innerHTML = `<strong style="color: #334155;">${analysts.length.toLocaleString('es-AR')}</strong> analistas/buzones con stock activo — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de expedientes y favoritos</em>`;
     }
 
-    analysts.forEach(an => {
+    const sf = _buzonesSortField;
+    const sa = _buzonesSortAsc;
+    const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc; font-family: 'Outfit', sans-serif;`;
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; white-space: nowrap; font-family: 'Outfit', sans-serif;`;
+
+    // Update table headers dynamically
+    const theadTr = document.querySelector('#buzones-analysts-table-container thead tr');
+    if (theadTr) {
+        theadTr.innerHTML = `
+            <th style="${thStyle}" onclick="_sortBuzonesAnalystsBy('name')">Analista Asignado ${_sortIcon('name', sf, sa)}</th>
+            <th style="${thStyle}; width: 220px;" onclick="_sortBuzonesAnalystsBy('username')">Usuario SADE ${_sortIcon('username', sf, sa)}</th>
+            <th style="${thStyle}; text-align: right; width: 150px; color: #2563eb;" onclick="_sortBuzonesAnalystsBy('stock_propio')">Stock Propio ${_sortIcon('stock_propio', sf, sa)}</th>
+            <th style="${thStyle}; text-align: right; width: 150px; color: #d97706;" onclick="_sortBuzonesAnalystsBy('stock_subs')">Subs. Abierta ${_sortIcon('stock_subs', sf, sa)}</th>
+            <th style="${thStyle}; text-align: right; width: 150px;" onclick="_sortBuzonesAnalystsBy('count')">Total Stock ${_sortIcon('count', sf, sa)}</th>
+        `;
+    }
+
+    analysts.forEach((an, idx) => {
         const tr = document.createElement('tr');
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        tr.style.background = rowBg;
         tr.style.cursor = 'pointer';
-        tr.style.transition = 'background-color 0.15s ease';
-        tr.onmouseover = () => { tr.style.backgroundColor = '#f8fafc'; };
-        tr.onmouseout = () => { tr.style.backgroundColor = ''; };
+        tr.style.transition = 'all 0.15s ease';
+        tr.onmouseover = () => { tr.style.background = '#f0f9ff'; tr.style.color = 'var(--primary)'; };
+        tr.onmouseout = () => { tr.style.background = rowBg; tr.style.color = 'inherit'; };
         tr.onclick = () => showBuzonAnalystDetail(an.username);
         
-        if (currentBuzonesArea === 'secgdu') {
-            tr.innerHTML = `
-                <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
-                    <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
-                        ${(an.name || 'SIN ASIGNAR').toUpperCase()}
-                    </span>
-                </td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #10b981; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.egresados_efectivos ?? 0}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #ef4444; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.egresados_no_efectivos ?? 0}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #f59e0b; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.pendientes_actividad ?? 0}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
-            `;
-        } else {
-            const stockPropio = an.stock_propio ?? (an.count - (an.stock_subs ?? 0));
-            const stockSubs = an.stock_subs ?? 0;
-            tr.innerHTML = `
-                <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
-                    <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
-                        ${(an.name || 'SIN ASIGNAR').toUpperCase()}
-                    </span>
-                </td>
-                <td style="padding: 18px 20px; color: #64748b; font-family: 'Outfit'; line-height: 1.5;">@${an.username}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #2563eb; font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${stockPropio}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #d97706; font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${stockSubs}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
-            `;
-        }
+        const numCell = (val, color = 'inherit') => `<span style="font-variant-numeric: tabular-nums; font-weight: 700; color: ${color}; font-family: 'Outfit', sans-serif;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
+
+        const stockPropio = an.stock_propio ?? (an.count - (an.stock_subs ?? 0));
+        const stockSubs = an.stock_subs ?? 0;
+        const subsBadge = stockSubs > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-family: 'Outfit', sans-serif;">${stockSubs.toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8; font-weight: 600; font-family: 'Outfit', sans-serif;">0</span>`;
+
+        tr.innerHTML = `
+            <td style="${tdStyle}; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-tie" style="color: var(--primary); opacity: 0.85; font-size: 0.95rem;"></i>
+                <span style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 1px;">${(an.name || 'SIN ASIGNAR').toUpperCase()}</span>
+            </td>
+            <td style="${tdStyle}; color: #64748b; font-weight: 500;">@${an.username}</td>
+            <td style="${tdStyle}; text-align: right;">${numCell(stockPropio, '#2563eb')}</td>
+            <td style="${tdStyle}; text-align: right;">${subsBadge}</td>
+            <td style="${tdStyle}; text-align: right;">${numCell(an.count, '#0f172a')}</td>
+        `;
         tbody.appendChild(tr);
     });
 }
@@ -8303,23 +8273,22 @@ async function showBuzonAnalystDetail(username) {
     
     if (bcArea) bcArea.innerText = currentBuzonesArea.toUpperCase();
     if (bcGerencia) {
-        // Resolve gerencia label
         const gerenciasList = BUZONES_GERENCIAS[currentBuzonesArea] || [];
         const gObj = gerenciasList.find(g => g.id === currentBuzonesGerencia);
         bcGerencia.innerText = gObj ? gObj.label : currentBuzonesGerencia.toUpperCase();
     }
     if (bcName) bcName.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
  
-     // Set Presentation Block
-     const nameHeader = document.getElementById('buzon-analista-header-name');
-     const sadeHeader = document.getElementById('buzon-analista-header-sade');
-     const countBadge = document.getElementById('buzon-analista-header-count');
- 
-     if (nameHeader) nameHeader.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
-     if (sadeHeader) sadeHeader.innerText = `Usuario SADE: @${analyst.username}`;
-     if (countBadge) {
-         countBadge.innerText = `${analyst.count} ${analyst.count === 1 ? 'Expediente en Stock' : 'Expedientes en Stock'}`;
-     }
+    // Set Presentation Block
+    const nameHeader = document.getElementById('buzon-analista-header-name');
+    const sadeHeader = document.getElementById('buzon-analista-header-sade');
+    const countBadge = document.getElementById('buzon-analista-header-count');
+
+    if (nameHeader) nameHeader.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
+    if (sadeHeader) sadeHeader.innerText = `Usuario SADE: @${analyst.username}`;
+    if (countBadge) {
+        countBadge.innerText = `${analyst.count} ${analyst.count === 1 ? 'Expediente en Stock' : 'Expedientes en Stock'}`;
+    }
 
     // Reset filters
     const searchInput = document.getElementById('buzon-detalle-search');
@@ -8327,21 +8296,6 @@ async function showBuzonAnalystDetail(username) {
 
     // Switch View
     showView('buzon-analista-detalle');
-
-    // On-demand load for secgdu if not loaded
-    if (currentBuzonesArea === 'secgdu' && (!analyst.expedientes || analyst.expedientes.length === 0) && analyst.count > 0) {
-        const tbody = document.getElementById('buzon-analista-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 10px; color: #64748b; font-weight: 500;">Cargando expedientes...</p></td></tr>';
-        
-        try {
-            const res = await def_fetch(`${API_BASE}/reporte/secgdu/buzones/${encodeURIComponent(username)}/expedientes`);
-            if (res && res.ok) {
-                analyst.expedientes = await res.json();
-            }
-        } catch (e) {
-            console.error("Error loading mailbox details:", e);
-        }
-    }
 
     // Populate SADE state filter dropdown
     const selectEstado = document.getElementById('buzon-detalle-filter-estado');
@@ -8351,7 +8305,7 @@ async function showBuzonAnalystDetail(username) {
             const status = exp.estado_tablero || 'STOCK PROPIO';
             states.add(status);
         });
-        let selectHtml = '<option value="ALL">Todos</option>';
+        let selectHtml = '<option value="ALL">Todos los estados</option>';
         [...states].sort().forEach(st => {
             selectHtml += `<option value="${st}">${st}</option>`;
         });
@@ -8396,37 +8350,59 @@ function filterAndRenderBuzonDetalle() {
         countBadge.innerText = `${filtered.length} ${filtered.length === 1 ? 'Expediente' : 'Expedientes'} (Filtrados)`;
     }
 
+    const tableInfo = document.getElementById('buzon-detalle-table-info');
+    if (tableInfo) {
+        tableInfo.innerHTML = `Mostrando <strong style="color: #334155;">${filtered.length.toLocaleString('es-AR')}</strong> expedientes en poder de este analista/buzón.`;
+    }
+
     // Render table rows
     tbody.innerHTML = '';
-    filtered.forEach(exp => {
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2.5rem; color: #94a3b8; font-family: 'Outfit';"><i class="fa-solid fa-circle-info" style="font-size: 1.5rem; margin-bottom: 6px; display: block;"></i>No se encontraron expedientes con los filtros aplicados.</td></tr>`;
+        return;
+    }
+
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;`;
+
+    filtered.forEach((exp, idx) => {
         const tr = document.createElement('tr');
+        tr.style.background = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        tr.style.transition = 'background-color 0.15s ease';
+        tr.onmouseover = () => { tr.style.backgroundColor = '#f0f9ff'; };
+        tr.onmouseout = () => { tr.style.backgroundColor = idx % 2 === 0 ? '#ffffff' : '#fafbfc'; };
         
         const isFav = userFavorites.has(exp.expediente);
-        const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.1rem; transition: transform 0.15s ease; display: inline-block; user-select: none;">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
+        const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.15rem; color: ${isFav ? '#eab308' : '#cbd5e1'}; transition: transform 0.15s ease; display: inline-block; user-select: none;" title="${isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
         
-        const expLink = `<a href="#" style="font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onclick="event.preventDefault(); openDetalleExpedienteModal('${exp.expediente}')"> ${exp.expediente}</a>`;
-        const copySpan = `<span onclick="copyToClipboard('${exp.expediente}', this)" style="cursor: pointer; margin-left: 6px; font-size: 0.85rem; color: #94a3b8; transition: color 0.2s; display: inline-block; vertical-align: middle;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#94a3b8'" title="Copiar Expediente"><i class="fa-regular fa-copy"></i></span>`;
+        const rawExp = (exp.expediente || '').replace(/'/g, "\\'");
+        const expLink = `<span onclick="openDetalleExpedienteModal('${rawExp}')" style="cursor: pointer; font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#1e293b'">${exp.expediente}</span>`;
+        const copySpan = `<button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" title="Copiar número de expediente" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 2px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; margin-left: 6px; transition: all 0.15s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'"><i class="fa-regular fa-copy"></i></button>`;
         
-        const catStyle = exp.estado_tablero === 'SUBSANACION'
-            ? 'color:#d97706; font-weight:700; background:#fffbeb; border-radius:4px; padding:2px 8px; font-size:0.82rem;'
-            : 'color:#2563eb; font-weight:700; background:#eff6ff; border-radius:4px; padding:2px 8px; font-size:0.82rem;';
-        const catLabel = exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO');
+        let catBadge = '';
+        if (exp.estado_tablero === 'SUBSANACION') {
+            catBadge = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+        } else if (exp.estado_tablero === 'FUERA DE TABLERO') {
+            catBadge = `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">Fuera de Tablero</span>`;
+        } else {
+            catBadge = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">Stock Propio</span>`;
+        }
         
         tr.innerHTML = `
-            <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">${starSpan}</td>
-            <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5; white-space: nowrap;">${expLink}${copySpan}</td>
-            <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5;"><span style="${catStyle}">${catLabel}</span></td>
-            <td style="padding: 16px 20px; font-weight: 600; color: #475569; vertical-align: middle; line-height: 1.5;">${exp.trata}</td>
-            <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.9rem; line-height: 1.5;">${exp.descripcion_trata}</td>
-            <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias}d</td>
-            <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: #6366f1; vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias_en_gerencia}d</td>
-            <td style="padding: 16px 20px; color: #64748b; vertical-align: middle; font-size: 0.85rem; line-height: 1.5;">${exp.fecha_ultimo_pase || '-'}</td>
-            <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.88rem; line-height: 1.5; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${exp.motivo_pase || 'Sin Motivo'}">${exp.motivo_pase || 'Sin Motivo'}</td>
+            <td style="${tdStyle}; text-align: center; vertical-align: middle;">${starSpan}</td>
+            <td style="${tdStyle}; vertical-align: middle; white-space: nowrap;">
+                <div style="display: inline-flex; align-items: center;">${expLink}${copySpan}</div>
+            </td>
+            <td style="${tdStyle}; text-align: center; vertical-align: middle;">${catBadge}</td>
+            <td style="${tdStyle}; font-weight: 700; color: var(--primary-dark); vertical-align: middle; white-space: nowrap;">${exp.trata || ''}</td>
+            <td style="${tdStyle}; color: #475569; vertical-align: middle; font-size: 0.85rem; line-height: 1.35; max-width: 280px;">${exp.descripcion_trata || '—'}</td>
+            <td style="${tdStyle}; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; white-space: nowrap;">${exp.dias || 0}d</td>
+            <td style="${tdStyle}; text-align: center; font-weight: 800; color: #6366f1; vertical-align: middle; font-size: 0.95rem; white-space: nowrap;">${exp.dias_en_gerencia || 0}d</td>
+            <td style="${tdStyle}; color: #64748b; vertical-align: middle; font-size: 0.8rem; white-space: nowrap;">${exp.fecha_ultimo_pase || '—'}</td>
+            <td style="${tdStyle}; color: #475569; vertical-align: middle; font-size: 0.85rem; line-height: 1.3; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${exp.motivo_pase || 'Sin Motivo'}">${exp.motivo_pase || 'Sin Motivo'}</td>
         `;
         tbody.appendChild(tr);
     });
 }
-
 
 function backToBuzonGerencia() {
     showView('buzones');
@@ -8434,150 +8410,146 @@ function backToBuzonGerencia() {
 
 let currentBuzonesEgresadoFilter = null;
 
-function toggleBuzonEgresadoFilter(type) {
-    const cardEgr = document.getElementById('buzones-card-egresados');
-    const cardNoEgr = document.getElementById('buzones-card-no-egresados');
-    const cardFuera = document.getElementById('buzones-card-fuera-tablero');
-    
-    if (currentBuzonesEgresadoFilter === type) {
-        currentBuzonesEgresadoFilter = null;
-    } else {
-        currentBuzonesEgresadoFilter = type;
-    }
-    
-    if (cardEgr) {
-        const ind = cardEgr.querySelector('.filter-indicator');
-        if (currentBuzonesEgresadoFilter === 'egresado') {
-            cardEgr.style.borderColor = '#10b981';
-            cardEgr.style.backgroundColor = '#f0fdf4';
-            cardEgr.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.2)';
-            if (ind) ind.style.display = 'block';
-        } else {
-            cardEgr.style.borderColor = '#e2e8f0';
-            cardEgr.style.backgroundColor = 'white';
-            cardEgr.style.boxShadow = '';
-            if (ind) ind.style.display = 'none';
-        }
-    }
-    
-    if (cardNoEgr) {
-        const ind = cardNoEgr.querySelector('.filter-indicator');
-        if (currentBuzonesEgresadoFilter === 'no_egresado') {
-            cardNoEgr.style.borderColor = '#f59e0b';
-            cardNoEgr.style.backgroundColor = '#fffbeb';
-            cardNoEgr.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.2)';
-            if (ind) ind.style.display = 'block';
-        } else {
-            cardNoEgr.style.borderColor = '#e2e8f0';
-            cardNoEgr.style.backgroundColor = 'white';
-            cardNoEgr.style.boxShadow = '';
-            if (ind) ind.style.display = 'none';
-        }
-    }
-
-    if (cardFuera) {
-        const ind = cardFuera.querySelector('.filter-indicator');
-        if (currentBuzonesEgresadoFilter === 'fuera_tablero') {
-            cardFuera.style.borderColor = '#64748b';
-            cardFuera.style.backgroundColor = '#f8fafc';
-            cardFuera.style.boxShadow = '0 0 12px rgba(100, 116, 139, 0.2)';
-            if (ind) ind.style.display = 'block';
-        } else {
-            cardFuera.style.borderColor = '#e2e8f0';
-            cardFuera.style.backgroundColor = 'white';
-            cardFuera.style.boxShadow = '';
-            if (ind) ind.style.display = 'none';
-        }
-    }
-    
-    filterBuzonesAnalysts();
-}
-
 function onBuzonesDiasFilterChange() {
-    updateBuzonesMetrics();
     filterBuzonesAnalysts();
 }
 
-function updateBuzonesMetrics() {
-    const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
-    
-    let totalExpedientes = 0;
-    let totalEgresados = 0;
-    let totalNoEgresados = 0;
-    let totalFueraTablero = 0;
-    
-    currentBuzonesData.forEach(an => {
-        const exps = an.expedientes || [];
-        exps.forEach(exp => {
-            const days = exp.dias || 0;
-            if (days >= diasVal) {
-                totalExpedientes++;
-                if (exp.estado_tablero === 'FUERA DE TABLERO') {
-                    totalFueraTablero++;
-                } else if (exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO')) {
-                    totalEgresados++;
-                } else {
-                    totalNoEgresados++;
-                }
-            }
-        });
-    });
-
-    const totalExpEl = document.getElementById('buzones-metric-total-expedientes');
-    const egrEl = document.getElementById('buzones-metric-egresados');
-    const noEgrEl = document.getElementById('buzones-metric-no-egresados');
-    const fueraEl = document.getElementById('buzones-metric-fuera-tablero');
-
-    if (totalExpEl) totalExpEl.innerText = totalExpedientes;
-    if (egrEl) egrEl.innerText = totalEgresados;
-    if (noEgrEl) noEgrEl.innerText = totalNoEgresados;
-    if (fueraEl) fueraEl.innerText = totalFueraTablero;
-}
+let currentZeroStockAnalysts = [];
 
 function filterBuzonesAnalysts() {
     const searchInput = document.getElementById('buzones-analyst-search');
-    if (!searchInput) return;
-    const query = searchInput.value.toLowerCase().trim();
+    const query = (searchInput?.value || '').toLowerCase().trim();
     const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
     
-    let filtered = currentBuzonesData;
-    
-    // Map analysts with filtered expedientes list to adjust counts
-    filtered = filtered.map(an => {
+    // Procesar todos los analistas asignados
+    let processed = currentBuzonesData.map(an => {
         const filteredExps = (an.expedientes || []).filter(exp => (exp.dias || 0) >= diasVal);
+        const stockSubs = filteredExps.filter(e => e.estado_tablero === 'SUBSANACION').length;
+        const stockPropio = filteredExps.length - stockSubs;
         return {
             ...an,
             filteredExpedientes: filteredExps,
-            count: filteredExps.length
+            count: filteredExps.length,
+            stock_propio: stockPropio,
+            stock_subs: stockSubs
         };
     });
 
-    if (diasVal > 0) {
-        filtered = filtered.filter(an => an.count > 0);
+    // Separar analistas con stock 0 de los que tienen stock > 0
+    currentZeroStockAnalysts = processed.filter(an => an.count === 0);
+    let activeAnalysts = processed.filter(an => an.count > 0);
+
+    // Actualizar el banner informativo de buzones con stock cero
+    const banner = document.getElementById('buzones-zero-stock-banner');
+    const bannerText = document.getElementById('buzones-zero-stock-text');
+    const bannerBtnText = document.getElementById('buzones-zero-stock-btn-text');
+
+    if (banner) {
+        if (currentZeroStockAnalysts.length > 0) {
+            banner.style.display = 'flex';
+            if (bannerText) {
+                bannerText.innerHTML = `Se ocultan <strong>${currentZeroStockAnalysts.length}</strong> buzones/analistas de esta área por no poseer expedientes en stock actualmente.`;
+            }
+            if (bannerBtnText) {
+                bannerBtnText.innerText = `Ver los ${currentZeroStockAnalysts.length} buzones sin stock`;
+            }
+        } else {
+            banner.style.display = 'none';
+        }
     }
-    
+
+    // Filtrar la lista activa por búsqueda de texto
     if (query) {
-        filtered = filtered.filter(an => 
+        activeAnalysts = activeAnalysts.filter(an => 
             (an.name && an.name.toLowerCase().includes(query)) || 
             (an.username && an.username.toLowerCase().includes(query))
         );
     }
     
-    if (currentBuzonesEgresadoFilter === 'egresado') {
-        filtered = filtered.filter(an => 
-            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO'))
-        );
-    } else if (currentBuzonesEgresadoFilter === 'no_egresado') {
-        filtered = filtered.filter(an => 
-            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero && !exp.estado_tablero.startsWith('EGRESADO') && exp.estado_tablero !== 'FUERA DE TABLERO')
-        );
-    } else if (currentBuzonesEgresadoFilter === 'fuera_tablero') {
-        filtered = filtered.filter(an => 
-            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero === 'FUERA DE TABLERO')
-        );
+    // Ordenar lista activa
+    if (_buzonesSortField) {
+        activeAnalysts = [...activeAnalysts].sort((a, b) => {
+            let va = a[_buzonesSortField], vb = b[_buzonesSortField];
+            if (va === null || va === undefined) va = -1;
+            if (vb === null || vb === undefined) vb = -1;
+            if (typeof va === 'string') return _buzonesSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            return _buzonesSortAsc ? va - vb : vb - va;
+        });
     }
     
-    renderBuzonesAnalysts(filtered, currentBuzonesGerencia);
+    renderBuzonesAnalysts(activeAnalysts, currentBuzonesGerencia);
+}
+
+// --- POPUP / MODAL PARA BUZONES CON STOCK CERO ---
+function showZeroStockBuzonesModal() {
+    const modal = document.getElementById('buzones-zero-stock-modal');
+    const title = document.getElementById('buzones-zero-stock-modal-title');
+    const subtitle = document.getElementById('buzones-zero-stock-modal-subtitle');
+    const searchInput = document.getElementById('buzones-zero-modal-search');
+    
+    if (!modal) return;
+
+    if (searchInput) searchInput.value = '';
+
+    const gerenciasList = BUZONES_GERENCIAS[currentBuzonesArea] || [];
+    const gObj = gerenciasList.find(g => g.id === currentBuzonesGerencia);
+    const areaName = gObj ? gObj.label : currentBuzonesGerencia.toUpperCase();
+
+    if (title) title.innerText = `Buzones sin Expedientes — ${areaName}`;
+    if (subtitle) {
+        subtitle.innerHTML = `Se encontraron <strong>${currentZeroStockAnalysts.length}</strong> analistas/buzones asignados a <strong>${areaName}</strong> que no poseen expedientes activos.`;
+    }
+
+    renderZeroStockModalList(currentZeroStockAnalysts);
+    modal.style.display = 'flex';
+}
+
+function filterZeroStockModalList() {
+    const query = (document.getElementById('buzones-zero-modal-search')?.value || '').toLowerCase().trim();
+    if (!query) {
+        renderZeroStockModalList(currentZeroStockAnalysts);
+        return;
+    }
+    const filtered = currentZeroStockAnalysts.filter(an => 
+        (an.name && an.name.toLowerCase().includes(query)) || 
+        (an.username && an.username.toLowerCase().includes(query))
+    );
+    renderZeroStockModalList(filtered);
+}
+
+function renderZeroStockModalList(list) {
+    const container = document.getElementById('buzones-zero-stock-list-container');
+    if (!container) return;
+
+    if (!list || list.length === 0) {
+        container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #94a3b8; font-family: \'Outfit\';"><i class="fa-solid fa-inbox" style="font-size: 1.5rem; margin-bottom: 6px; display: block;"></i>No se encontraron buzones.</div>';
+        return;
+    }
+
+    let html = '<div style="display: flex; flex-direction: column;">';
+    list.forEach((an, idx) => {
+        html += `
+            <div style="padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 6px; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: #1e293b; font-size: 0.88rem; font-family: 'Outfit';">${(an.name || an.username).toUpperCase()}</div>
+                        <div style="color: #64748b; font-size: 0.78rem; font-family: 'Outfit';">@${an.username}</div>
+                    </div>
+                </div>
+                <div>
+                    <span style="background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-family: 'Outfit';">
+                        0 Expedientes
+                    </span>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
 }
 
 window.showBuzonesView = showBuzonesView;
@@ -8586,8 +8558,10 @@ window.showBuzonAnalystDetail = showBuzonAnalystDetail;
 window.backToBuzonGerencia = backToBuzonGerencia;
 window.filterBuzonesAnalysts = filterBuzonesAnalysts;
 window.filterAndRenderBuzonDetalle = filterAndRenderBuzonDetalle;
-window.toggleBuzonEgresadoFilter = toggleBuzonEgresadoFilter;
 window.onBuzonesDiasFilterChange = onBuzonesDiasFilterChange;
+window._sortBuzonesAnalystsBy = _sortBuzonesAnalystsBy;
+window.showZeroStockBuzonesModal = showZeroStockBuzonesModal;
+window.filterZeroStockModalList = filterZeroStockModalList;
 
 function exportBuzonAnalistaExcel() {
     if (!currentActiveBuzonAnalyst || !currentActiveBuzonAnalyst.expedientes || currentActiveBuzonAnalyst.expedientes.length === 0) {
@@ -12158,227 +12132,271 @@ window.switchAvisoSubTab = switchAvisoSubTab;
 window.downloadAvisosObraDataset = downloadAvisosObraDataset;
 window.toggleAvisoMapLayer = toggleAvisoMapLayer;
 
-// --- ACCESO A BUZONES (ADMIN BACKLOG) ---
-let allBuzonesCatalogo = [];
-let allBuzonesAccesos = [];
+// --- CONFIGURACIÓN DE BUZONES / ANALISTAS POR GERENCIA (ADMIN BACKLOG) ---
+let allAdminGerenciasBuzonesData = [];
+
+const ADMIN_GERENCIAS_LABELS = {
+    catastro: 'DGROC - Catastro',
+    instalaciones: 'DGROC - Instalaciones',
+    conforme: 'DGROC - Conforme',
+    contable: 'DGROC - Contable',
+    etapa_proyecto: 'DGROC - Etapa Proyecto',
+    aviso_obra: 'DGROC - Aviso de Obra',
+    morfologia: 'DGIUR - Morfología',
+    aph: 'DGIUR - APH',
+    usos: 'DGIUR - Usos',
+    publico_privado: 'DGIUR - Público Privado',
+    copua: 'DGIUR - COPUA',
+    privada: 'DGIUR - Privada'
+};
 
 async function loadBuzonesAccesoConfig() {
-    const checkboxesContainer = document.getElementById('buzones-checkboxes-container');
-    const accesosContainer = document.getElementById('buzon-accesos-list-container');
-    if (!checkboxesContainer || !accesosContainer) return;
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    const tableBody = document.getElementById('admin-buzones-table-body');
+    const subtitle = document.getElementById('admin-buzones-table-subtitle');
+    if (!select || !tableBody) return;
 
-    checkboxesContainer.innerHTML = '<div style="padding: 10px; text-align: center;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b; font-size:0.85rem;">Cargando catálogo...</p></div>';
-    accesosContainer.innerHTML = '<div style="padding: 10px; text-align: center;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b; font-size:0.85rem;">Cargando reglas...</p></div>';
+    tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2.5rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando configuración de analistas y buzones...</p></td></tr>';
+    if (subtitle) subtitle.innerText = 'Cargando datos...';
 
     try {
-        if (allBuzonesCatalogo.length === 0) {
-            const catResp = await def_fetch(`${API_BASE}/admin/buzones-analisis/catalogo`);
-            if (catResp && catResp.ok) {
-                allBuzonesCatalogo = await catResp.json();
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones`);
+        if (res && res.ok) {
+            allAdminGerenciasBuzonesData = await res.json();
+
+            // Populate dropdown preserving selection
+            const currentSelVal = select.value;
+            let optionsHtml = '';
+            allAdminGerenciasBuzonesData.forEach(item => {
+                const label = ADMIN_GERENCIAS_LABELS[item.gerencia] || item.gerencia.toUpperCase();
+                optionsHtml += `<option value="${item.gerencia}">${label} (${item.total_analistas})</option>`;
+            });
+            select.innerHTML = optionsHtml;
+
+            if (currentSelVal && allAdminGerenciasBuzonesData.some(x => x.gerencia === currentSelVal)) {
+                select.value = currentSelVal;
+            } else if (allAdminGerenciasBuzonesData.length > 0) {
+                select.value = allAdminGerenciasBuzonesData[0].gerencia;
             }
-        }
 
-        let cbHtml = '';
-        allBuzonesCatalogo.forEach(mb => {
-            cbHtml += `
-                <label class="admin-buzon-checkbox-label" style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select:none; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:2px;">
-                    <input type="checkbox" class="buzon-checkbox" value="${mb}" id="chk-buzon-${mb}" style="accent-color: var(--primary); width:16px; height:16px;" onchange="styleCheckedBuzonLabel(this.parentNode)">
-                    <span style="color:#334155; line-height:1.2;"><strong>${mb}</strong></span>
-                </label>
-            `;
-        });
-        checkboxesContainer.innerHTML = cbHtml;
-
-        if (allAdminRoles.length === 0) {
-            const rResp = await def_fetch(`${API_BASE}/admin/roles`);
-            if (rResp && rResp.ok) allAdminRoles = await rResp.json();
-        }
-        if (allAdminUsers.length === 0) {
-            const uResp = await def_fetch(`${API_BASE}/admin/users`);
-            if (uResp && uResp.ok) allAdminUsers = await uResp.json();
-        }
-
-        onBuzonTipoSujetoChange();
-
-        const accResp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`);
-        if (accResp && accResp.ok) {
-            allBuzonesAccesos = await accResp.json();
-            renderBuzonAccesosList();
-        }
-
-    } catch (err) {
-        console.error(err);
-        checkboxesContainer.innerHTML = '<p style="color: #ef4444; padding: 10px;">Error al cargar datos.</p>';
-    }
-}
-
-function onBuzonTipoSujetoChange() {
-    const tipo = document.getElementById('buzon-tipo-sujeto').value;
-    const selectSujeto = document.getElementById('buzon-nombre-sujeto');
-    const labelSujeto = document.getElementById('buzon-nombre-sujeto-label');
-    if (!selectSujeto) return;
-
-    let html = '';
-    if (tipo === 'usuario') {
-        labelSujeto.innerText = 'Seleccionar Usuario';
-        allAdminUsers.forEach(u => {
-            html += `<option value="${u.username}">${u.apellido_nombre || u.username} (${u.username})</option>`;
-        });
-    } else {
-        labelSujeto.innerText = 'Seleccionar Rol';
-        allAdminRoles.forEach(r => {
-            html += `<option value="${r.role_name}">${r.role_name.toUpperCase()}</option>`;
-        });
-    }
-    selectSujeto.innerHTML = html;
-}
-
-function styleCheckedBuzonLabel(labelElement) {
-    if (!labelElement) return;
-    const checkbox = labelElement.querySelector('input[type="checkbox"]');
-    if (checkbox && checkbox.checked) {
-        labelElement.style.background = '#f0fdf4';
-        labelElement.style.borderColor = '#bbf7d0';
-    } else {
-        labelElement.style.background = '#ffffff';
-        labelElement.style.borderColor = '#e2e8f0';
-    }
-}
-
-function filterAdminBuzones() {
-    const query = (document.getElementById('admin-buzon-search').value || '').toLowerCase().trim();
-    const labels = document.querySelectorAll('.admin-buzon-checkbox-label');
-    labels.forEach(label => {
-        const text = label.textContent.toLowerCase();
-        if (text.includes(query)) {
-            label.style.display = 'flex';
+            onAdminBuzonGerenciaChange();
         } else {
-            label.style.display = 'none';
+            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar datos del servidor.</td></tr>';
         }
-    });
+    } catch (err) {
+        console.error("Error loading gerencias buzones config:", err);
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
+    }
 }
 
-function selectAllBuzones(checked) {
-    const checkboxes = document.querySelectorAll('.buzon-checkbox');
-    checkboxes.forEach(cb => {
-        const label = cb.parentNode;
-        if (label && label.style.display !== 'none') {
-            cb.checked = checked;
-            styleCheckedBuzonLabel(label);
-        }
-    });
-}
+function onAdminBuzonGerenciaChange() {
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    const tableBody = document.getElementById('admin-buzones-table-body');
+    const title = document.getElementById('admin-buzones-table-title');
+    const subtitle = document.getElementById('admin-buzones-table-subtitle');
+    if (!select || !tableBody) return;
 
-function renderBuzonAccesosList() {
-    const container = document.getElementById('buzon-accesos-list-container');
-    if (!container) return;
+    const gerencia = select.value;
+    const item = allAdminGerenciasBuzonesData.find(x => x.gerencia === gerencia);
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
 
-    if (allBuzonesAccesos.length === 0) {
-        container.innerHTML = '<p style="color: #64748b; font-style: italic; text-align: center; padding: 1rem;">No hay accesos especiales configurados.</p>';
+    if (title) title.innerText = `Analistas y Buzones en ${label}`;
+    
+    if (!item) {
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay información disponible.</td></tr>';
+        return;
+    }
+
+    const defaultList = item.default_analistas || [];
+    const adicList = item.adicionales_analistas || [];
+    const totalCount = defaultList.length + adicList.length;
+
+    if (subtitle) {
+        subtitle.innerHTML = `Total: <strong>${totalCount}</strong> configurados (<span style="color: #059669; font-weight: 700;">${defaultList.length} de tratas por default</span> + <span style="color: #2563eb; font-weight: 700;">${adicList.length} adicionales</span>).`;
+    }
+
+    if (totalCount === 0) {
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas configurados para esta área.</td></tr>';
         return;
     }
 
     let html = '';
-    allBuzonesAccesos.forEach(acc => {
-        const typeBadge = acc.tipo_sujeto === 'usuario' 
-            ? '<span style="background: #eff6ff; color: #1d4ed8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #bfdbfe;">Usuario</span>'
-            : '<span style="background: #f3e8ff; color: #a855f7; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #e9d5ff;">Rol</span>';
-        
-        const buzonesChips = acc.buzones.map(b => 
-            `<span style="background: #f8fafc; color: #1e293b; font-size: 0.78rem; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: 'Outfit'; font-weight: 600; display: inline-block;">${b}</span>`
-        ).join(' ');
 
+    // Render Defaults
+    defaultList.forEach(a => {
         html += `
-            <div class="admin-buzon-regla-card" data-sujeto="${acc.nombre_sujeto.toLowerCase()}" style="padding: 20px; border: 1px solid #cbd5e1; border-radius: 12px; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.05rem;">${acc.nombre_sujeto.toUpperCase()}</h4>
-                        ${typeBadge}
-                    </div>
-                    <button onclick="deleteBuzonAcceso('${acc.nombre_sujeto}')" class="btn-action-delete" style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-trash"></i> Eliminar Regla
-                    </button>
-                </div>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px; background: #fafafa; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                    ${buzonesChips}
-                </div>
-            </div>
+            <tr class="admin-buzon-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.nombre || a.usuario}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-lock"></i> Default Trata
+                    </span>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <span style="color: #94a3b8; font-size: 0.8rem; font-style: italic;" title="Configurado en las tratas de la gerencia">—</span>
+                </td>
+            </tr>
         `;
     });
-    container.innerHTML = html;
+
+    // Render Adicionales
+    adicList.forEach(a => {
+        const uEsc = a.usuario.replace(/'/g, "\\'");
+        html += `
+            <tr class="admin-buzon-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 14px; font-weight: 700; color: #2563eb; font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.nombre || a.usuario}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-plus-circle"></i> Adicional Buzones
+                    </span>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <button type="button" onclick="deleteBuzonAdicionalFromGerencia('${gerencia}', '${uEsc}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Quitar de esta gerencia">
+                        <i class="fa-solid fa-trash"></i> Quitar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
 }
 
-function filterAdminReglas() {
-    const query = (document.getElementById('admin-reglas-search').value || '').toLowerCase().trim();
-    const cards = document.querySelectorAll('.admin-buzon-regla-card');
-    cards.forEach(card => {
-        const sujeto = card.getAttribute('data-sujeto') || '';
-        if (sujeto.includes(query)) {
-            card.style.display = 'block';
+function filterAdminBuzonesTable() {
+    const query = (document.getElementById('admin-buzones-table-search').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#admin-buzones-table-body .admin-buzon-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = 'table-row';
         } else {
-            card.style.display = 'none';
+            row.style.display = 'none';
         }
     });
 }
 
-async function saveBuzonAcceso(event) {
-    if (event) event.preventDefault();
-    const tipo_sujeto = document.getElementById('buzon-tipo-sujeto').value;
-    const nombre_sujeto = document.getElementById('buzon-nombre-sujeto').value;
-    
-    const checkedBoxes = document.querySelectorAll('.buzon-checkbox:checked');
-    const buzones = Array.from(checkedBoxes).map(cb => cb.value);
+async function searchSadeUsersForBuzonAdicional(q) {
+    const resultsPanel = document.getElementById('admin-buzon-search-results');
+    const clearBtn = document.getElementById('btn-clear-buzon-search');
+    if (!resultsPanel) return;
 
-    if (buzones.length === 0) {
-        alert('Debes seleccionar al menos un buzón.');
+    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
+
+    if (q.trim().length < 2) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
         return;
     }
 
-    const data = {
-        tipo_sujeto,
-        nombre_sujeto,
-        buzones
-    };
-
     try {
-        const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
+        if (res && res.ok) {
+            const users = await res.json();
+            if (users.length === 0) {
+                resultsPanel.innerHTML = '<div style="padding: 12px; color: #64748b; font-style: italic; font-size: 0.85rem; text-align: center;">No se encontraron usuarios SADE. Podés agregarlo directamente con el botón inferior.</div>';
+                resultsPanel.style.display = 'block';
+                return;
+            }
 
-        if (resp && resp.ok) {
-            alert('Regla de acceso guardada correctamente');
-            loadBuzonesAccesoConfig();
-        } else {
-            const err = await resp.json();
-            alert('Error: ' + err.detail);
+            let html = '';
+            users.forEach(u => {
+                const uEsc = u.usuario.replace(/'/g, "\\'");
+                html += `
+                    <div class="search-result-item" onclick="addBuzonAdicionalToGerencia('${uEsc}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'">
+                        <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
+                        <span style="color: #64748b; font-size: 0.8rem;">${u.apellido_nombre || ""}</span>
+                    </div>
+                `;
+            });
+            resultsPanel.innerHTML = html;
+            resultsPanel.style.display = 'block';
         }
     } catch (err) {
-        console.error(err);
-        alert('Error al guardar la regla de acceso.');
+        console.error("Error searching SADE users:", err);
     }
 }
 
-async function deleteBuzonAcceso(nombreSujeto) {
-    if (!confirm(`¿Seguro que deseas eliminar la regla para "${nombreSujeto}"? Volverá al acceso general.`)) return;
+function clearAdminBuzonUserSearch() {
+    const input = document.getElementById('admin-buzon-user-search');
+    const resultsPanel = document.getElementById('admin-buzon-search-results');
+    const clearBtn = document.getElementById('btn-clear-buzon-search');
+    if (input) input.value = '';
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+}
+
+function addCustomBuzonCodeFromInput() {
+    const input = document.getElementById('admin-buzon-user-search');
+    const val = (input?.value || '').trim().toUpperCase();
+    if (!val) {
+        alert('Por favor ingresa un código de usuario o buzón.');
+        return;
+    }
+    addBuzonAdicionalToGerencia(val);
+}
+
+async function addBuzonAdicionalToGerencia(usernameOrBuzon) {
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    if (!select) return;
+    const gerencia = select.value;
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    
+    if (!confirm(`¿Desea agregar "${usernameOrBuzon.toUpperCase()}" a la visualización de buzones de ${label}?`)) return;
 
     try {
-        const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos/${nombreSujeto}`, {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/${encodeURIComponent(gerencia)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario_buzon: usernameOrBuzon })
+        });
+
+        if (res && res.ok) {
+            clearAdminBuzonUserSearch();
+            await loadBuzonesAccesoConfig();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo agregar."}`);
+        }
+    } catch (err) {
+        console.error("Error adding buzon adicional:", err);
+        alert("Error de red al agregar.");
+    }
+}
+
+async function deleteBuzonAdicionalFromGerencia(gerencia, usernameOrBuzon) {
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    if (!confirm(`¿Está seguro de que desea remover a "${usernameOrBuzon.toUpperCase()}" de ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/${encodeURIComponent(gerencia)}/${encodeURIComponent(usernameOrBuzon)}`, {
             method: 'DELETE'
         });
-        if (resp && resp.ok) {
-            alert('Regla eliminada correctamente');
-            loadBuzonesAccesoConfig();
+
+        if (res && res.ok) {
+            await loadBuzonesAccesoConfig();
         } else {
-            const err = await resp.json();
-            alert('Error: ' + err.detail);
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo remover."}`);
         }
     } catch (err) {
-        console.error(err);
-        alert('Error al intentar eliminar la regla.');
+        console.error("Error deleting buzon adicional:", err);
+        alert("Error de red al remover.");
     }
 }
+
+window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
+window.onAdminBuzonGerenciaChange = onAdminBuzonGerenciaChange;
+window.filterAdminBuzonesTable = filterAdminBuzonesTable;
+window.searchSadeUsersForBuzonAdicional = searchSadeUsersForBuzonAdicional;
+window.clearAdminBuzonUserSearch = clearAdminBuzonUserSearch;
+window.addCustomBuzonCodeFromInput = addCustomBuzonCodeFromInput;
+window.addBuzonAdicionalToGerencia = addBuzonAdicionalToGerencia;
+window.deleteBuzonAdicionalFromGerencia = deleteBuzonAdicionalFromGerencia;
 
 // --- PRODUCTIVIDAD ANALISTAS ---
 let selectedAnalystUser = null;
@@ -12822,9 +12840,6 @@ window.toggleAllUserPerms = toggleAllUserPerms;
 window.toggleRolePermission = toggleRolePermission;
 window.deleteRole = deleteRole;
 window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
-window.onBuzonTipoSujetoChange = onBuzonTipoSujetoChange;
-window.selectAllBuzones = selectAllBuzones;
-window.deleteBuzonAcceso = deleteBuzonAcceso;
 window.loadProductividadAnalistasView = loadProductividadAnalistasView;
 window.selectProductividadSector = selectProductividadSector;
 window.backToProdSectors = backToProdSectors;
@@ -16782,12 +16797,15 @@ function renderUniversoTrataDetailTable(buzones) {
             else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Archivo</span>`;
 
             const rawExp = (e.expediente || '').replace(/'/g, "\\'");
+            const isFav = userFavorites.has(e.expediente);
+            const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${e.expediente}" onclick="event.stopPropagation(); toggleFavorite('${e.expediente}')" style="cursor: pointer; font-size: 1.05rem; color: ${isFav ? '#eab308' : '#cbd5e1'}; transition: transform 0.15s ease; display: inline-block; user-select: none;" title="${isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
 
             return `
                 <tr style="font-size: 0.82rem; background: white; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                    <td style="padding: 8px 10px; text-align: center; width: 45px;">${starSpan}</td>
                     <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap; font-family: 'Outfit', sans-serif;">
                         <div style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span>${e.expediente}</span>
+                            <span onclick="openDetalleExpedienteModal('${rawExp}')" style="cursor: pointer; color: #1e293b; border-bottom: 1px dashed #cbd5e1;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#1e293b'">${e.expediente}</span>
                             <button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" 
                                 title="Copiar número de expediente"
                                 style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
@@ -16841,6 +16859,7 @@ function renderUniversoTrataDetailTable(buzones) {
                         <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
                             <thead style="position: sticky; top: 0; z-index: 1;">
                                 <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 8px 10px; width: 45px; text-align: center;"><i class="fa-solid fa-bookmark"></i></th>
                                     <th style="padding: 8px 12px; width: 260px; font-family: 'Outfit', sans-serif;">Expediente</th>
                                     <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Estado Clasificado</th>
                                     <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Fecha Último Pase</th>
@@ -17426,18 +17445,21 @@ function renderUniversoBuzonDetailTable(tratas) {
         const exps = t.expedientes || [];
         const expRows = exps.map(e => {
             let badgeClasif = '';
-            if (e.clasificacion === 'STOCK_PROPIO') badgeClasif = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Stock Propio</span>`;
-            else if (e.clasificacion === 'SUBSANACION') badgeClasif = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
-            else if (e.clasificacion === 'GUARDA_TEMPORAL') badgeClasif = `<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Guarda Temporal</span>`;
-            else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;">Archivo</span>`;
+            if (e.clasificacion === 'STOCK_PROPIO') badgeClasif = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Stock Propio</span>`;
+            else if (e.clasificacion === 'SUBSANACION') badgeClasif = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+            else if (e.clasificacion === 'GUARDA_TEMPORAL') badgeClasif = `<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Guarda Temporal</span>`;
+            else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Archivo</span>`;
 
             const rawExp = (e.expediente || '').replace(/'/g, "\\'");
+            const isFav = userFavorites.has(e.expediente);
+            const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${e.expediente}" onclick="event.stopPropagation(); toggleFavorite('${e.expediente}')" style="cursor: pointer; font-size: 1.05rem; color: ${isFav ? '#eab308' : '#cbd5e1'}; transition: transform 0.15s ease; display: inline-block; user-select: none;" title="${isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
 
             return `
                 <tr style="font-size: 0.82rem; background: white; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
-                    <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap;">
+                    <td style="padding: 8px 10px; text-align: center; width: 45px;">${starSpan}</td>
+                    <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap; font-family: 'Outfit', sans-serif;">
                         <div style="display: inline-flex; align-items: center; gap: 8px;">
-                            <span>${e.expediente}</span>
+                            <span onclick="openDetalleExpedienteModal('${rawExp}')" style="cursor: pointer; color: #1e293b; border-bottom: 1px dashed #cbd5e1;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#1e293b'">${e.expediente}</span>
                             <button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" 
                                 title="Copiar número de expediente"
                                 style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
@@ -17447,10 +17469,10 @@ function renderUniversoBuzonDetailTable(tratas) {
                             </button>
                         </div>
                     </td>
-                    <td style="padding: 8px 12px; white-space: nowrap;">${badgeClasif}</td>
-                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap;">${e.fecha_ultimo_pase || '—'}</td>
-                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap;">${e.remitente || '—'}</td>
-                    <td style="padding: 8px 12px; color: #475569; line-height: 1.35;">${e.descripcion || '—'}</td>
+                    <td style="padding: 8px 12px; white-space: nowrap; font-family: 'Outfit', sans-serif;">${badgeClasif}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.fecha_ultimo_pase || '—'}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.remitente || '—'}</td>
+                    <td style="padding: 8px 12px; color: #475569; line-height: 1.35; font-family: 'Outfit', sans-serif;">${e.descripcion || '—'}</td>
                 </tr>
             `;
         }).join('');
@@ -17483,12 +17505,13 @@ function renderUniversoBuzonDetailTable(tratas) {
                     <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 280px; overflow-y: auto;">
                         <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
                             <thead style="position: sticky; top: 0; z-index: 1;">
-                                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569;">
-                                    <th style="padding: 8px 12px; width: 260px;">Expediente</th>
-                                    <th style="padding: 8px 12px; width: 140px;">Estado Clasificado</th>
-                                    <th style="padding: 8px 12px; width: 140px;">Fecha Último Pase</th>
-                                    <th style="padding: 8px 12px; width: 140px;">Usuario Remitente</th>
-                                    <th style="padding: 8px 12px;">Descripción / Carátula</th>
+                                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 8px 10px; width: 45px; text-align: center;"><i class="fa-solid fa-bookmark"></i></th>
+                                    <th style="padding: 8px 12px; width: 260px; font-family: 'Outfit', sans-serif;">Expediente</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Estado Clasificado</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Fecha Último Pase</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Usuario Remitente</th>
+                                    <th style="padding: 8px 12px; font-family: 'Outfit', sans-serif;">Descripción / Carátula</th>
                                 </tr>
                             </thead>
                             <tbody>${expRows}</tbody>
@@ -18389,6 +18412,7 @@ function renderPlanifMetasV2Table(tratas) {
     const tbody = document.getElementById('planif-metas-v2-tbody');
     const escSelect = document.getElementById('planif-metas-v2-filter-escenario');
     const escKey = escSelect ? escSelect.value : 'esc1';
+    const isEsteAnoModel = (escKey === 'esc3' || escKey === 'esc4');
 
     const kpiEstancado = document.getElementById('planif-v2-kpi-estancado');
     const kpiFlujo = document.getElementById('planif-v2-kpi-flujo');
@@ -18397,7 +18421,7 @@ function renderPlanifMetasV2Table(tratas) {
     if (!tbody) return;
 
     if (!tratas || tratas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" style="padding: 2.5rem; text-align: center; color: #94a3b8;">No se encontraron tratas con los criterios seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="padding: 2.5rem; text-align: center; color: #94a3b8;">No se encontraron tratas con los criterios seleccionados.</td></tr>`;
         if (kpiEstancado) kpiEstancado.innerText = '0';
         if (kpiFlujo) kpiFlujo.innerText = '0';
         if (kpiMetaTotal) kpiMetaTotal.innerText = '0';
@@ -18409,14 +18433,18 @@ function renderPlanifMetasV2Table(tratas) {
     let totMetaPeriodo = 0;
 
     const rowsHtml = tratas.map(t => {
-        totEstancado += t.stock_propio_estancado || 0;
-        totFlujo += t.stock_flujo || 0;
+        const estancado = isEsteAnoModel ? (t.stock_propio_estancado_este_ano || 0) : (t.stock_propio_estancado || 0);
+        const flujo = isEsteAnoModel ? (t.stock_flujo_este_ano || 0) : (t.stock_flujo || 0);
+        const diasTramitacion = isEsteAnoModel ? (t.dias_tramitacion_este_ano || 0) : (t.dias_tramitacion_base || 0);
 
-        const esc = t[escKey] || { ago: 0, sep: 0, oct: 0, nov: 0 };
+        totEstancado += estancado;
+        totFlujo += flujo;
+
+        const esc = t[escKey] || { ago: 0, sep: 0, oct: 0, nov: 0, ing_ago: 0, ing_sep: 0, ing_oct: 0, ing_nov: 0 };
         const metaTrata = (esc.ago || 0) + (esc.sep || 0) + (esc.oct || 0) + (esc.nov || 0);
         totMetaPeriodo += metaTrata;
 
-        const v_ago = t.stock_flujo || 0;
+        const v_ago = flujo;
         const v_sep = esc.ing_sep || 0;
         const v_oct = esc.ing_oct || 0;
 
@@ -18437,39 +18465,39 @@ function renderPlanifMetasV2Table(tratas) {
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: #334155;">
-                    ${t.stock_total.toLocaleString('es-AR')}
+                    ${(t.stock_total || 0).toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #c2410c; background: #fff7ed;">
-                    ${t.stock_propio_estancado.toLocaleString('es-AR')}
+                    ${estancado.toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #0369a1; background: #f0f9ff;">
-                    ${t.stock_flujo.toLocaleString('es-AR')}
+                    ${flujo.toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: #475569;">
-                    ${t.dias_tramitacion_base} <span style="font-size: 0.72rem; font-weight: 600;">días</span>
+                    ${diasTramitacion} <span style="font-size: 0.72rem; font-weight: 600;">días</span>
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #1d4ed8; background: #eff6ff;">
-                    ${esc.ing_ago.toLocaleString('es-AR')}
+                    ${(esc.ing_ago || 0).toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
-                    ${esc.ago.toLocaleString('es-AR')}
+                    ${(esc.ago || 0).toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
-                    ${esc.sep.toLocaleString('es-AR')}
+                    ${(esc.sep || 0).toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
-                    ${esc.oct.toLocaleString('es-AR')}
+                    ${(esc.oct || 0).toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #047857; background: #dcfce7; border-left: 1px solid #bbf7d0;">
-                    ${esc.nov.toLocaleString('es-AR')}
+                    ${(esc.nov || 0).toLocaleString('es-AR')}
                 </td>
 
                 <td style="padding: 12px 16px; text-align: center;">

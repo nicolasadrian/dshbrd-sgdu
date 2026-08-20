@@ -3,6 +3,8 @@ import json
 import logging
 import bcrypt
 from typing import List, Dict, Any, Optional
+from collections import defaultdict
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import text
@@ -346,62 +348,166 @@ async def delete_admin_familia(nombre: str, current_user: User = Depends(get_cur
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/admin/buzones-analisis/catalogo")
-async def get_buzones_catalogo(current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
-    requested_mailboxes = [
-        'ARCHIVODGTAL', 'DGIUR-PREARCHIVO', 'DGIUR-SGUI', 'DGROC-ANTECEDENTESRLM', 'DGROC-APTOSGRYCO', 
-        'DGROC-ARCHIVO', 'DGROC-ARI', 'DGROC-CIC', 'DGROC-CONTABLE', 'DGROC-COPIAPLANO', 
-        'DGROC-DCATAT', 'DGROC-DCATDES', 'DGROC-DCATPOL', 'DGROC-DCATRUD', 'DGROC-DCATTIT', 
-        'DGROC-DCG', 'DGROC-DCIDITI', 'DGROC-DCOBAAYFO', 'DGROC-DCOBLEG', 'DGROC-DCOBREG', 
-        'DGROC-DCOBREGD', 'DGROC-DESCARGOS', 'DGROC-DGROCARI', 'DGROC-DGROCDES', 'DGROC-DGROCRRHH', 
-        'DGROC-DTACONT', 'DGROC-DTADES', 'DGROC-DTARPS', 'DGROC-ELEVADORES', 'DGROC-ESPERAINSTALACIONES', 
-        'DGROC-FICHA_PARCELARIA', 'DGROC-GO', 'DGROC-LEGAJOS', 'DGROC-LEGAJOSAUTOMAT', 'DGROC-LEY104', 
-        'DGROC-MESADES', 'DGROC-MESAMIDI', 'DGROC-MESAMIDINST', 'DGROC-MESAMIDINSTINCENDIO', 
-        'DGROC-MESAMIPVO', 'DGROC-OBRASADMIN', 'DGROC-OBRASENCURSO', 'DGROC-OBRASTECNICA', 'DGROC-OBSINCENDIO', 
-        'DGROC-OBSOBRAPREARCHIVO', 'DGROC-OBSPREARCHAYFO', 'DGROC-OBSREGISTRO', 'DGROC-PENDIENTESDEPAGO', 
-        'DGROC-RECHAZADOSLEGAJOS', 'DGROC-REVISIONCONTABLE', 'DGROC-SEDR', 'DGROC-SEDRI', 'DGROC-SGUI', 
-        'DGROC-TERMICAS', 'DGSOCAI-ARCHIVO', 'MGEYA-ARCHIVO', 'MGEYA-DCG', 'PG-ARCHIVO', 
-        'SECGDU-ARCHIVODESPACHO', 'SECLYT-ARCHIVO', 'SSGDU-ARCHIVODESPACHO', 'SSGU-ARCHIVODESPACHO'
-    ]
-    return sorted(requested_mailboxes)
+# --- Configuración de Buzones / Analistas por Gerencia (Admin Buzones para Análisis) ---
 
-@router.get("/api/admin/buzones-analisis/accesos")
-async def list_buzones_accesos(current_user: User = Depends(get_current_user)):
-    if current_user.role.lower() not in ['admin', 'administrador']:
-        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(text("SELECT id, tipo_sujeto, nombre_sujeto, buzones FROM public.cfg_buzones_analisis_acceso ORDER BY tipo_sujeto, nombre_sujeto"))
-            return [dict(r._mapping) for r in result.fetchall()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def _ensure_buzones_adicionales_table(conn):
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.cfg_gerencias_buzones_adicionales (
+            id SERIAL PRIMARY KEY,
+            gerencia VARCHAR(100) NOT NULL,
+            usuario_buzon VARCHAR(150) NOT NULL,
+            creado_el TIMESTAMP DEFAULT NOW(),
+            CONSTRAINT uq_gerencia_usuario UNIQUE (gerencia, usuario_buzon)
+        )
+    """))
 
-@router.put("/api/admin/buzones-analisis/accesos")
-async def save_buzon_acceso(data: BuzonAccesoUpdate, current_user: User = Depends(get_current_user)):
+class GerenciaBuzonAdicionalRequest(BaseModel):
+    usuario_buzon: str
+
+@router.get("/api/admin/gerencias-buzones")
+async def list_gerencias_buzones_config(current_user: User = Depends(get_current_user)):
     if current_user.role.lower() not in ['admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         with engine.begin() as conn:
-            conn.execute(text("DELETE FROM public.cfg_buzones_analisis_acceso WHERE nombre_sujeto = :name"), {"name": data.nombre_sujeto})
+            _ensure_buzones_adicionales_table(conn)
+            
+            # Obtener analistas oficiales y buzones de ingreso por gerencia desde cfg_gestion_metas (Default)
+            cfg_rows = conn.execute(text("""
+                SELECT 
+                    LOWER(TRIM(gerencia)) as gerencia,
+                    COALESCE(ARRAY(SELECT UPPER(TRIM(b)) FROM unnest(buzones_ingreso) b), ARRAY[]::text[]) as buzones_ingreso,
+                    COALESCE(ARRAY(SELECT UPPER(TRIM(a)) FROM unnest(analistas_oficiales) a), ARRAY[]::text[]) as analistas_oficiales
+                FROM cfg_gestion_metas
+            """)).fetchall()
+
+            defaults_by_gerencia = defaultdict(set)
+            for cr in cfg_rows:
+                g = cr[0]
+                # Si en cfg_gestion_metas figura como 'regularizacion', mapearla también a 'conforme'
+                target_keys = [g]
+                if g == 'regularizacion':
+                    target_keys.append('conforme')
+                elif g == 'conforme':
+                    target_keys.append('regularizacion')
+
+                for tk in target_keys:
+                    for b in cr[1]:
+                        if b:
+                            defaults_by_gerencia[tk].add(b)
+                    for a in cr[2]:
+                        if a:
+                            defaults_by_gerencia[tk].add(a)
+
+            # Obtener buzones/analistas adicionales configurados en cfg_gerencias_buzones_adicionales
+            adic_rows = conn.execute(text("""
+                SELECT LOWER(TRIM(gerencia)), UPPER(TRIM(usuario_buzon))
+                FROM public.cfg_gerencias_buzones_adicionales
+            """)).fetchall()
+
+            adicionales_by_gerencia = defaultdict(set)
+            for ar in adic_rows:
+                g = ar[0]
+                target_keys = [g]
+                if g == 'regularizacion':
+                    target_keys.append('conforme')
+                elif g == 'conforme':
+                    target_keys.append('regularizacion')
+                for tk in target_keys:
+                    adicionales_by_gerencia[tk].add(ar[1])
+
+            # Mapa de nombres desde datos_usuario
+            nombres_sql = conn.execute(text("""
+                SELECT UPPER(TRIM(usuario)) as u, 
+                       UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
+                FROM datos_usuario
+            """)).fetchall()
+            nombres_map = {r[0]: r[1] for r in nombres_sql if r[0] and r[1]}
+
+            # Lista consolidada de gerencias
+            all_gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada']
+            
+            result = []
+            for g in all_gerencias:
+                def_set = defaults_by_gerencia.get(g, set())
+                adic_set = adicionales_by_gerencia.get(g, set())
+
+                def_list = [{
+                    "usuario": u,
+                    "nombre": nombres_map.get(u, u),
+                    "es_default": True
+                } for u in sorted(def_set)]
+
+                adic_list = [{
+                    "usuario": u,
+                    "nombre": nombres_map.get(u, u),
+                    "es_default": False
+                } for u in sorted(adic_set)]
+
+                result.append({
+                    "gerencia": g,
+                    "default_analistas": def_list,
+                    "adicionales_analistas": adic_list,
+                    "total_analistas": len(def_set.union(adic_set))
+                })
+
+            return result
+    except Exception as e:
+        logger.error(f"Error en list_gerencias_buzones_config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/admin/gerencias-buzones/{gerencia}")
+async def add_gerencia_buzon_adicional(
+    gerencia: str, 
+    data: GerenciaBuzonAdicionalRequest, 
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    g_clean = gerencia.strip().lower()
+    if g_clean == 'conforme':
+        g_clean = 'regularizacion'
+    u_clean = data.usuario_buzon.strip().upper()
+    if not u_clean:
+        raise HTTPException(status_code=400, detail="Debe ingresar un usuario o buzón válido.")
+    
+    try:
+        with engine.begin() as conn:
+            _ensure_buzones_adicionales_table(conn)
             conn.execute(text("""
-                INSERT INTO public.cfg_buzones_analisis_acceso (tipo_sujeto, nombre_sujeto, buzones)
-                VALUES (:t, :n, :b)
-            """), {"t": data.tipo_sujeto, "n": data.nombre_sujeto, "b": data.buzones})
-            return {"status": "ok", "message": "Acceso a buzones guardado correctamente"}
+                INSERT INTO public.cfg_gerencias_buzones_adicionales (gerencia, usuario_buzon)
+                VALUES (:g, :u)
+                ON CONFLICT (gerencia, usuario_buzon) DO NOTHING
+            """), {"g": g_clean, "u": u_clean})
+            return {"status": "ok", "message": f"Buzón/Analista {u_clean} agregado a la gerencia {g_clean.upper()}."}
     except Exception as e:
+        logger.error(f"Error adding gerencia buzon adicional: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/api/admin/buzones-analisis/accesos/{nombre_sujeto}")
-async def delete_buzon_acceso(nombre_sujeto: str, current_user: User = Depends(get_current_user)):
+@router.delete("/api/admin/gerencias-buzones/{gerencia}/{usuario_buzon}")
+async def delete_gerencia_buzon_adicional(
+    gerencia: str, 
+    usuario_buzon: str, 
+    current_user: User = Depends(get_current_user)
+):
     if current_user.role.lower() not in ['admin', 'administrador']:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    g_clean = gerencia.strip().lower()
+    if g_clean == 'conforme':
+        g_clean = 'regularizacion'
+    u_clean = usuario_buzon.strip().upper()
     try:
         with engine.begin() as conn:
-            conn.execute(text("DELETE FROM public.cfg_buzones_analisis_acceso WHERE nombre_sujeto = :name"), {"name": nombre_sujeto})
-            return {"status": "ok", "message": "Acceso personalizado eliminado"}
+            _ensure_buzones_adicionales_table(conn)
+            conn.execute(text("""
+                DELETE FROM public.cfg_gerencias_buzones_adicionales 
+                WHERE (LOWER(TRIM(gerencia)) = :g OR (LOWER(TRIM(gerencia)) = 'conforme' AND :g = 'regularizacion')) AND UPPER(TRIM(usuario_buzon)) = :u
+            """), {"g": g_clean, "u": u_clean})
+            return {"status": "ok", "message": f"Buzón/Analista {u_clean} removido de {g_clean.upper()}."}
     except Exception as e:
+        logger.error(f"Error deleting gerencia buzon adicional: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Búsqueda de Usuarios SADE (Autocompletado Admin) ---

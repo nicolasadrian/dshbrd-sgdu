@@ -2601,72 +2601,169 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             logger.error(f"Error en get_gerencia_buzones (analisis_archivo): {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    valid_gerencias = list(TRAMITES_CONFIG.keys()) + ['copua', 'publico_privado']
+    valid_gerencias = list(TRAMITES_CONFIG.keys()) + ['copua', 'publico_privado', 'privada']
     if gerencia_clean not in valid_gerencias:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
         
     try:
         with engine.connect() as conn:
-            sub_sqls = []
-            for t_suffix, u_name in [
-                ("stock_propio", "STOCK PROPIO"),
-                ("intervenciones_stock", "INTERVENCION"),
-                ("subsanaciones", "SUBSANACION")
-            ]:
-                view_name = f"mv_{gerencia_clean}_{t_suffix}"
-                try:
-                    conn.execute(text(f"SELECT 1 FROM {view_name} LIMIT 1"))
-                    sub_sqls.append(f"SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia, fecha_recepcion_analista, dias_en_poder_actual, analista, trata, '{u_name}' as ubicacion FROM {view_name}")
-                except Exception:
-                    pass
-
-            if not sub_sqls:
-                return []
-
-            union_sql = " UNION ALL ".join(sub_sqls)
-            sql = f"""
+            # Obtener configuración de tratas y analistas para la gerencia
+            cfg_rows = conn.execute(text("""
                 SELECT 
-                    s.id_expediente, 
-                    s.expediente, 
-                    s.fecha_primer_ingreso_gerencia, 
-                    s.fecha_recepcion_analista, 
-                    s.dias_en_poder_actual, 
-                    s.analista, 
-                    COALESCE(du.apellido_nombre, s.analista) as analista_nombre, 
-                    s.trata, 
-                    ext.fecha_creacion,
-                    COALESCE(
-                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = s.trata AND gerencia = :g LIMIT 1),
-                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE s.trata = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
-                        ext.descripcion_trata
-                    ) as descripcion_trata, 
-                    ext.descripcion, 
-                    ext.estado as estado_expediente,
-                    (CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date) as dias_en_gerencia,
-                    s.ubicacion
-                FROM (
-                    {union_sql}
-                ) s
-                LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = s.id_expediente
-                LEFT JOIN datos_usuario du ON s.analista = du.usuario
-            """
-            result = conn.execute(text(sql), {"g": gerencia_clean})
-            rows = [dict(r._mapping) for r in result.fetchall()]
+                    TRIM(UPPER(trata_reporte)) as trata_reporte,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(t)) FROM unnest(tratas_incluidas) t), ARRAY[]::text[]) as tratas_incluidas,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(b)) FROM unnest(buzones_ingreso) b), ARRAY[]::text[]) as buzones_ingreso,
+                    COALESCE(ARRAY(SELECT TRIM(UPPER(a)) FROM unnest(analistas_oficiales) a), ARRAY[]::text[]) as analistas_oficiales
+                FROM cfg_gestion_metas
+                WHERE gerencia = :g
+            """), {"g": gerencia_clean}).fetchall()
+
+            gerencia_tratas = set()
+            gerencia_analistas = set()
+            gerencia_buzones = set()
+            for cr in cfg_rows:
+                if cr[0]:
+                    gerencia_tratas.add(cr[0])
+                for inc in cr[1]:
+                    if inc:
+                        gerencia_tratas.add(inc)
+                for bi in cr[2]:
+                    if bi:
+                        gerencia_buzones.add(bi)
+                for ao in cr[3]:
+                    if ao:
+                        gerencia_analistas.add(ao)
+
+            # Fallback de tratas desde TRAMITES_CONFIG si la tabla de metas no tiene configuradas
+            if not gerencia_tratas and gerencia_clean in TRAMITES_CONFIG:
+                gerencia_tratas = set(k.upper() for k in TRAMITES_CONFIG[gerencia_clean].keys() if k != 'INTERVENCIONES')
+
+            # Obtener buzones/analistas adicionales configurados en cfg_gerencias_buzones_adicionales
+            try:
+                adic_rows = conn.execute(text("""
+                    SELECT UPPER(TRIM(usuario_buzon))
+                    FROM public.cfg_gerencias_buzones_adicionales
+                    WHERE LOWER(TRIM(gerencia)) = :g
+                """), {"g": gerencia_clean}).fetchall()
+                for ar in adic_rows:
+                    if ar[0]:
+                        gerencia_analistas.add(ar[0])
+            except Exception:
+                pass
+
+            # Lista total de analistas/buzones asignados a la gerencia (tratas por defecto + adicionales de análisis)
+            target_users = gerencia_analistas.union(gerencia_buzones)
+
+            # Traer todos los expedientes cuyo ÚLTIMO PASE (mv_ultimo_pase) está actualmente en poder de un analista/buzón de esta gerencia
+            # y/o pertenecen a las tratas de la gerencia en posesión de su equipo
+            sql = text("""
+                WITH base_exp AS (
+                    SELECT 
+                        e.id_expediente, 
+                        e.expediente, 
+                        TRIM(e.trata) as trata,
+                        e.descripcion_trata,
+                        e.descripcion,
+                        e.estado as estado_expediente,
+                        e.caratula,
+                        e.fecha_creacion,
+                        COALESCE(NULLIF(TRIM(up.destinatario_actual), ''), 'SIN_DESTINATARIO') AS analista,
+                        up.fecha_ultimo_pase,
+                        up.usuario_remitente,
+                        (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_poder_actual,
+                        (CURRENT_DATE - e.fecha_creacion::date) as dias_en_gerencia
+                    FROM mv_ultimo_pase up
+                    JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = up.id_expediente
+                    WHERE (
+                        (:has_targets = TRUE AND UPPER(TRIM(up.destinatario_actual)) = ANY(:targets))
+                        OR (:has_tratas = TRUE AND UPPER(TRIM(e.trata)) = ANY(:tratas) AND (:has_targets = FALSE OR UPPER(TRIM(up.destinatario_actual)) = ANY(:targets)))
+                    )
+                ),
+                subs_pendientes AS (
+                    SELECT DISTINCT id_expediente, usuario_alta, fecha_alta
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE estado = 'PENDIENTE' 
+                      AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                )
+                SELECT 
+                    b.id_expediente, 
+                    b.expediente, 
+                    b.trata, 
+                    b.descripcion_trata, 
+                    b.descripcion, 
+                    b.estado_expediente, 
+                    b.caratula, 
+                    b.fecha_creacion, 
+                    b.analista, 
+                    COALESCE(du.apellido_nombre, b.analista) as analista_nombre,
+                    b.fecha_ultimo_pase, 
+                    b.usuario_remitente, 
+                    b.dias_en_poder_actual, 
+                    b.dias_en_gerencia,
+                    CASE 
+                        WHEN UPPER(COALESCE(b.estado_expediente, '')) LIKE '%ARCHIVO%' THEN 'ARCHIVO'
+                        WHEN UPPER(COALESCE(b.estado_expediente, '')) LIKE '%GUARDA%' THEN 'GUARDA_TEMPORAL'
+                        WHEN sp.id_expediente IS NOT NULL THEN 'SUBSANACION'
+                        ELSE 'STOCK PROPIO'
+                    END AS estado_tablero
+                FROM base_exp b
+                LEFT JOIN subs_pendientes sp 
+                       ON sp.id_expediente = b.id_expediente 
+                      AND (sp.usuario_alta = b.analista OR b.analista LIKE 'B_%' OR b.analista LIKE 'BS_%')
+                LEFT JOIN datos_usuario du ON b.analista = du.usuario
+                WHERE UPPER(COALESCE(b.estado_expediente, '')) NOT LIKE '%ARCHIVO%'
+                  AND UPPER(COALESCE(b.estado_expediente, '')) NOT LIKE '%GUARDA%'
+                ORDER BY b.analista, b.fecha_ultimo_pase DESC NULLS LAST
+            """)
+
+            target_list = list(target_users)
+            tratas_list = list(gerencia_tratas)
             
+            result = conn.execute(sql, {
+                "has_targets": len(target_list) > 0,
+                "targets": target_list if target_list else ['__NONE__'],
+                "has_tratas": len(tratas_list) > 0,
+                "tratas": tratas_list if tratas_list else ['__NONE__']
+            })
+            rows = [dict(r._mapping) for r in result.fetchall()]
+
+            # Si target_users contiene analistas de la gerencia, aseguramos que aparezcan en la lista aunque tengan 0 expedientes
             by_analyst = {}
+            for u in target_users:
+                u_clean = u.strip().upper()
+                by_analyst[u_clean] = {
+                    "username": u_clean,
+                    "name": u_clean,
+                    "count": 0,
+                    "stock_propio": 0,
+                    "stock_subs": 0,
+                    "expedientes": []
+                }
+
+            # Map user names if available
+            nombres_sql = conn.execute(text("""
+                SELECT UPPER(TRIM(usuario)) as u, 
+                       UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
+                FROM datos_usuario
+            """)).fetchall()
+            nombres_map = {r[0]: r[1] for r in nombres_sql if r[0] and r[1]}
+
+            for u in by_analyst:
+                if u in nombres_map:
+                    by_analyst[u]["name"] = nombres_map[u]
+
             for r in rows:
-                username = r["analista"] or "SIN_ASIGNAR"
-                name = r["analista_nombre"] or "Sin Asignar"
-                ubicacion = r["ubicacion"]
+                username = (r["analista"] or "SIN_ASIGNAR").strip().upper()
+                name = r["analista_nombre"] or nombres_map.get(username) or username
+                ubicacion = r["estado_tablero"]
                 
-                fecha_ing = r["fecha_primer_ingreso_gerencia"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_primer_ingreso_gerencia"] and hasattr(r["fecha_primer_ingreso_gerencia"], "strftime") else (str(r["fecha_primer_ingreso_gerencia"])[:19] if r["fecha_primer_ingreso_gerencia"] else None)
-                fecha_pase = r["fecha_recepcion_analista"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_recepcion_analista"] and hasattr(r["fecha_recepcion_analista"], "strftime") else (str(r["fecha_recepcion_analista"])[:19] if r["fecha_recepcion_analista"] else None)
+                fecha_pase = r["fecha_ultimo_pase"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_ultimo_pase"] and hasattr(r["fecha_ultimo_pase"], "strftime") else (str(r["fecha_ultimo_pase"])[:19] if r["fecha_ultimo_pase"] else None)
                 caratula = r["fecha_creacion"].strftime("%Y-%m-%d %H:%M:%S") if r["fecha_creacion"] and hasattr(r["fecha_creacion"], "strftime") else (str(r["fecha_creacion"])[:19] if r["fecha_creacion"] else None)
                 
                 exp_item = {
                     "id_expediente": r["id_expediente"],
                     "expediente": r["expediente"],
-                    "fecha_ing": fecha_ing,
+                    "fecha_ing": fecha_pase,
                     "fecha_ultimo_pase": fecha_pase,
                     "dias": r["dias_en_poder_actual"] if r["dias_en_poder_actual"] is not None else 0,
                     "trata": r["trata"],
@@ -2674,7 +2771,8 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     "descripcion_trata": r["descripcion_trata"] or r["descripcion"] or "S/D",
                     "estado_expediente": r["estado_expediente"] or "S/D",
                     "dias_en_gerencia": r["dias_en_gerencia"] if r["dias_en_gerencia"] is not None else 0,
-                    "estado_tablero": ubicacion
+                    "estado_tablero": ubicacion,
+                    "motivo_pase": r.get("usuario_remitente") or "Sin Motivo"
                 }
                 
                 if username not in by_analyst:
@@ -5611,6 +5709,10 @@ async def get_planificacion_metas_v2(
                     "stock_propio_estancado": int(r["stock_propio_estancado"] or 0),
                     "stock_flujo": int(r["stock_flujo"] or 0),
                     "cuota_stock_propio_mensual": float(r["cuota_stock_propio_mensual"] or 0),
+                    "dias_tramitacion_este_ano": float(r["dias_tramitacion_este_ano"] or 0),
+                    "stock_propio_estancado_este_ano": int(r["stock_propio_estancado_este_ano"] or 0),
+                    "stock_flujo_este_ano": int(r["stock_flujo_este_ano"] or 0),
+                    "cuota_stock_propio_mensual_este_ano": float(r["cuota_stock_propio_mensual_este_ano"] or 0),
                     "esc1": {
                         "ago": int(r["esc1_ago"] or 0),
                         "sep": int(r["esc1_sep"] or 0),
@@ -5631,10 +5733,35 @@ async def get_planificacion_metas_v2(
                         "ing_oct": int(r["ing_esc2_oct"] or 0),
                         "ing_nov": int(r["ing_esc2_nov"] or 0)
                     },
+                    "esc3": {
+                        "ago": int(r["esc3_ago"] or 0),
+                        "sep": int(r["esc3_sep"] or 0),
+                        "oct": int(r["esc3_oct"] or 0),
+                        "nov": int(r["esc3_nov"] or 0),
+                        "ing_ago": int(r["ing_esc3_ago"] or 0),
+                        "ing_sep": int(r["ing_esc3_sep"] or 0),
+                        "ing_oct": int(r["ing_esc3_oct"] or 0),
+                        "ing_nov": int(r["ing_esc3_nov"] or 0)
+                    },
+                    "esc4": {
+                        "ago": int(r["esc4_ago"] or 0),
+                        "sep": int(r["esc4_sep"] or 0),
+                        "oct": int(r["esc4_oct"] or 0),
+                        "nov": int(r["esc4_nov"] or 0),
+                        "ing_ago": int(r["ing_esc4_ago"] or 0),
+                        "ing_sep": int(r["ing_esc4_sep"] or 0),
+                        "ing_oct": int(r["ing_esc4_oct"] or 0),
+                        "ing_nov": int(r["ing_esc4_nov"] or 0)
+                    },
                     "vencimientos": {
                         "agosto": int(r["vence_agosto"] or 0),
                         "septiembre": int(r["vence_septiembre"] or 0),
                         "octubre": int(r["vence_octubre"] or 0)
+                    },
+                    "vencimientos_este_ano": {
+                        "agosto": int(r["vence_agosto_este_ano"] or 0),
+                        "septiembre": int(r["vence_septiembre_este_ano"] or 0),
+                        "octubre": int(r["vence_octubre_este_ano"] or 0)
                     }
                 })
 
