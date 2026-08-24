@@ -3214,16 +3214,70 @@ async def upload_trazado_lfi(
         with engine.begin() as conn:
             conn.execute(text("""
                 UPDATE public.manzanas_lfi_workflow
-                SET estado = 'Para revisión', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
+                SET estado = 'En curso', archivo_trazado = :f, updated_at = CURRENT_TIMESTAMP
                 WHERE seccion = :s AND manzana = :m
             """), {"s": real_sec, "m": real_man, "f": safe_filename})
             
-        return {"status": "ok", "estado": "Para revisión", "archivo_trazado": safe_filename}
+        return {"status": "ok", "estado": "En curso", "archivo_trazado": safe_filename}
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception(f"Error inesperado en upload_trazado_lfi: {exc}")
         raise HTTPException(status_code=500, detail=f"Error inesperado en el servidor: {str(exc)}")
+
+@router.post("/api/ciudad3d/manzanas_lfi/send_to_review")
+async def send_to_review_lfi(
+    seccion: str = Form(...),
+    manzana: str = Form(...),
+    current_user: User = Depends(get_current_user)
+):
+    if not current_user.permissions.get("lfi_dibujar"):
+        raise HTTPException(status_code=403, detail="No tiene permisos de dibujo de LFI ('lfi_dibujar') para enviar trazados a revisión.")
+        
+    sec_clean = seccion.strip()
+    man_clean = manzana.strip()
+    
+    with engine.begin() as conn:
+        existing = conn.execute(text("""
+            SELECT estado, analista_asignado, archivo_trazado 
+            FROM public.manzanas_lfi_workflow
+            WHERE (TRIM(seccion) IN (:s, :s_unpadded, :s_padded))
+              AND (TRIM(manzana) IN (:m, :m_unpadded, :m_padded))
+        """), {
+            "s": sec_clean, "s_unpadded": sec_clean.lstrip('0') or '0', "s_padded": sec_clean.zfill(3),
+            "m": man_clean, "m_unpadded": man_clean.lstrip('0') or '0', "m_padded": man_clean.zfill(3)
+        }).fetchone()
+        
+        if not existing:
+            raise HTTPException(status_code=400, detail="La manzana no fue encontrada en el flujo de trabajo.")
+            
+        assigned_user = (existing[1] or "").strip().lower()
+        current_username = (current_user.username or "").strip().lower()
+        user_role = (current_user.role or "").lower()
+        
+        if assigned_user and assigned_user != current_username and user_role not in ['admin', 'administrador']:
+            raise HTTPException(status_code=403, detail=f"Esta manzana está asignada a {existing[1]}, no puede enviarla a revisión.")
+            
+        if not existing[2]:
+            raise HTTPException(status_code=400, detail="Debe subir un archivo de borrador (.dxf / .dwg) antes de enviar a revisión.")
+            
+        conn.execute(text("""
+            UPDATE public.manzanas_lfi_workflow
+            SET estado = 'Para revisión', updated_at = CURRENT_TIMESTAMP
+            WHERE (TRIM(seccion) IN (:s, :s_unpadded, :s_padded))
+              AND (TRIM(manzana) IN (:m, :m_unpadded, :m_padded))
+        """), {
+            "s": sec_clean, "s_unpadded": sec_clean.lstrip('0') or '0', "s_padded": sec_clean.zfill(3),
+            "m": man_clean, "m_unpadded": man_clean.lstrip('0') or '0', "m_padded": man_clean.zfill(3)
+        })
+        
+        note_text = f"*** ENVIADO A REVISIÓN ***: Trazado borrador enviado para revisión por {current_user.username}"
+        conn.execute(text("""
+            INSERT INTO public.manzanas_lfi_notes (seccion, manzana, username, nota, created_at)
+            VALUES (:s, :m, :u, :n, CURRENT_TIMESTAMP)
+        """), {"s": sec_clean, "m": man_clean, "u": current_user.username, "n": note_text})
+        
+    return {"status": "ok", "estado": "Para revisión"}
 
 @router.post("/api/ciudad3d/manzanas_lfi/review")
 async def review_manzana_lfi(

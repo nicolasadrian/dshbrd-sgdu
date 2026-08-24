@@ -14447,16 +14447,36 @@ async function openLFIFicha(seccion, manzana) {
     const isAssignee = ((row.analista_asignado || '').trim().toLowerCase() === (uName || '').trim().toLowerCase() || uRole === 'admin' || uRole === 'administrador');
     
     if (row.estado === 'En curso' && canManageTroneras && isAssignee) {
+        const hasDraft = !!row.archivo_trazado;
         actionsContainer.innerHTML = `
             <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-cloud-arrow-up" style="color: #f59e0b;"></i> Subir Borrador de Trazado
+                <i class="fa-solid fa-cloud-arrow-up" style="color: #f59e0b;"></i> ${hasDraft ? 'Actualizar Borrador de Trazado' : 'Subir Borrador de Trazado'}
             </h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748b; font-weight: 500;">
+                Suba el archivo de trabajo para visualizarlo en PDF o descargarlo. La manzana seguirá "En curso" hasta que decida enviarla a revisión.
+            </p>
             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
                 <input type="file" id="c3d-lfi-ficha-upload-file" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #f8fafc; width: 100%; box-sizing: border-box;">
                 <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #f59e0b; color: white; font-size: 0.88rem;">
-                    <i class="fa-solid fa-upload"></i> Subir Trazado Preliminar (.dxf / .dwg)
+                    <i class="fa-solid fa-upload"></i> ${hasDraft ? 'Reemplazar Borrador (.dxf / .dwg)' : 'Guardar Borrador (.dxf / .dwg)'}
                 </button>
             </div>
+            
+            ${hasDraft ? `
+                <div style="margin-top: 10px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.83rem; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 8px;">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+                            <i class="fa-solid fa-circle-check"></i> Borrador cargado en el sistema
+                        </span>
+                        <button onclick="downloadLFIPdf('${seccion}', '${manzana}')" style="background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                            <i class="fa-solid fa-file-pdf"></i> Ver PDF A3
+                        </button>
+                    </div>
+                    <button onclick="sendLFIFichaToReview()" class="btn-primary" style="margin-top: 4px; padding: 11px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #2563eb; color: white; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+                        <i class="fa-solid fa-paper-plane"></i> Enviar a Revisión
+                    </button>
+                </div>
+            ` : ''}
         `;
     } else if (row.estado === 'Para revisión' && canReviewTroneras) {
         actionsContainer.innerHTML = `
@@ -14676,7 +14696,7 @@ async function uploadLFIFichaTrazado() {
             body: formData
         });
         if (res && res.ok) {
-            alert("Trazado LFI subido correctamente.");
+            alert("Borrador de trazado LFI guardado correctamente. Puede previsualizarlo en PDF o descargarlo. Cuando esté conforme, pulse 'Enviar a Revisión'.");
             await loadCiudad3DTroneras();
             openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
         } else if (res) {
@@ -14695,6 +14715,43 @@ async function uploadLFIFichaTrazado() {
     } catch (err) {
         console.error("Error al subir archivo LFI:", err);
         alert(`Error al subir archivo: ${err.message || err}`);
+    }
+}
+
+async function sendLFIFichaToReview() {
+    if (!confirm("¿Está seguro de enviar este trazado a revisión? La manzana pasará al estado 'Para revisión'.")) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', activeWorkflowSeccion);
+    formData.append('manzana', activeWorkflowManzana);
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/send_to_review`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res && res.ok) {
+            alert("Trazado LFI enviado a revisión exitosamente.");
+            await loadCiudad3DTroneras();
+            openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo enviar a revisión.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
+        } else {
+            alert("Error de conexión al servidor.");
+        }
+    } catch (err) {
+        console.error("Error al enviar trazado a revisión:", err);
+        alert(`Error: ${err.message || err}`);
     }
 }
 
@@ -15005,6 +15062,7 @@ async function reopenLFIFichaManzana() {
 
 window.downloadLFIPdf = downloadLFIPdf;
 window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
+window.sendLFIFichaToReview = sendLFIFichaToReview;
 window.submitLFIFichaReview = submitLFIFichaReview;
 window.reopenLFIFichaManzana = reopenLFIFichaManzana;
 window.downloadUploadedLFITrazado = downloadUploadedLFITrazado;
