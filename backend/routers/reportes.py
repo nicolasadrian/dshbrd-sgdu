@@ -2657,33 +2657,47 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             # Traer todos los expedientes cuyo ÚLTIMO PASE (mv_ultimo_pase) está actualmente en poder de un analista/buzón de esta gerencia
             # y/o pertenecen a las tratas de la gerencia en posesión de su equipo
             sql = text("""
-                WITH base_exp AS (
+                WITH base_up AS (
                     SELECT 
-                        e.id_expediente, 
-                        e.expediente, 
-                        TRIM(e.trata) as trata,
-                        e.descripcion_trata,
-                        e.descripcion,
-                        e.estado as estado_expediente,
-                        e.caratula,
-                        e.fecha_creacion,
-                        COALESCE(NULLIF(TRIM(up.destinatario_actual), ''), 'SIN_DESTINATARIO') AS analista,
+                        up.id_expediente, 
+                        up.destinatario_actual,
                         up.fecha_ultimo_pase,
                         up.usuario_remitente,
-                        (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_poder_actual,
-                        (CURRENT_DATE - e.fecha_creacion::date) as dias_en_gerencia
+                        up.estado_en_pase
                     FROM mv_ultimo_pase up
-                    JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = up.id_expediente
                     WHERE (
                         (:has_targets = TRUE AND UPPER(TRIM(up.destinatario_actual)) = ANY(:targets))
-                        OR (:has_tratas = TRUE AND UPPER(TRIM(e.trata)) = ANY(:tratas) AND (:has_targets = FALSE OR UPPER(TRIM(up.destinatario_actual)) = ANY(:targets)))
+                        OR :has_targets = FALSE
+                    )
+                ),
+                base_exp AS (
+                    SELECT 
+                        b.id_expediente, 
+                        COALESCE(e.expediente, 'S/D') as expediente, 
+                        TRIM(COALESCE(e.trata, 'SIN_TRATA')) as trata,
+                        COALESCE(e.descripcion_trata, 'S/D') as descripcion_trata,
+                        COALESCE(e.descripcion, 'S/D') as descripcion,
+                        COALESCE(e.estado, b.estado_en_pase, 'Tramitación') as estado_expediente,
+                        e.caratula,
+                        COALESCE(e.fecha_creacion, b.fecha_ultimo_pase) as fecha_creacion,
+                        COALESCE(NULLIF(TRIM(b.destinatario_actual), ''), 'SIN_DESTINATARIO') AS analista,
+                        b.fecha_ultimo_pase,
+                        b.usuario_remitente,
+                        (CURRENT_DATE - b.fecha_ultimo_pase::date) as dias_en_poder_actual,
+                        (CURRENT_DATE - COALESCE(e.fecha_creacion, b.fecha_ultimo_pase)::date) as dias_en_gerencia
+                    FROM base_up b
+                    LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = b.id_expediente
+                    WHERE (
+                        (:has_targets = TRUE AND UPPER(TRIM(b.destinatario_actual)) = ANY(:targets))
+                        OR (:has_tratas = TRUE AND UPPER(TRIM(e.trata)) = ANY(:tratas))
                     )
                 ),
                 subs_pendientes AS (
-                    SELECT DISTINCT id_expediente, usuario_alta, fecha_alta
+                    SELECT DISTINCT id_expediente, usuario_alta
                     FROM mvw_ee_actividades_secgdu
                     WHERE estado = 'PENDIENTE' 
                       AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                      AND id_expediente IN (SELECT id_expediente FROM base_exp)
                 )
                 SELECT 
                     b.id_expediente, 
@@ -2803,18 +2817,18 @@ async def get_secgdu_buzon_expedientes(username: str, current_user: User = Depen
             sql = """
                 SELECT 
                     up.id_expediente, 
-                    ext.expediente, 
+                    COALESCE(ext.expediente, 'S/D') as expediente, 
                     up.fecha_ultimo_pase as fecha_recepcion_analista,
                     up.fecha_ultimo_pase as fecha_primer_ingreso_gerencia, 
                     (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_poder_actual, 
-                    ext.trata, 
-                    ext.fecha_creacion,
-                    ext.descripcion_trata, 
-                    ext.descripcion, 
-                    ext.estado as estado_expediente,
+                    COALESCE(ext.trata, 'SIN_TRATA') as trata, 
+                    COALESCE(ext.fecha_creacion, up.fecha_ultimo_pase) as fecha_creacion,
+                    COALESCE(ext.descripcion_trata, 'S/D') as descripcion_trata, 
+                    COALESCE(ext.descripcion, 'S/D') as descripcion, 
+                    COALESCE(ext.estado, up.estado_en_pase, 'Tramitación') as estado_expediente,
                     (CURRENT_DATE - up.fecha_ultimo_pase::date) as dias_en_gerencia
                 FROM mv_ultimo_pase up
-                JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
+                LEFT JOIN mvw_expedientes_tratas_secgdu ext ON ext.id_expediente = up.id_expediente
                 WHERE up.destinatario_actual = :u
             """
             result = conn.execute(text(sql), {"u": username})
