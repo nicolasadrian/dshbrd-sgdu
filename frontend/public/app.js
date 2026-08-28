@@ -1,6 +1,6 @@
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
     ? 'http://127.0.0.1:8000/api' 
-    : `${window.location.origin}/api`;
+    : (window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) ? `${window.location.origin}/api` : 'https://api.geo-epesege.com.ar/api');
 window.API_BASE = API_BASE;
 
 // --- ESTADO DE AUTENTICACIÓN ---
@@ -13024,8 +13024,7 @@ function _getLFIToken() {
 
 function _lfiWmsTileUrl(layerName, tileSize) {
     const sz = tileSize || 512;
-    const base = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') ? 'https://geo-epesege.com.ar' : window.location.origin;
-    return `${base}/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=${sz}&height=${sz}&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
+    return `https://geo-epesege.com.ar/geoserver/GEO-MDR/wms?service=WMS&version=1.1.1&request=GetMap&layers=${encodeURIComponent(layerName)}&bbox={bbox-epsg-3857}&width=${sz}&height=${sz}&srs=EPSG:3857&styles=&format=image/png&transparent=true`;
 }
 
 function _updateWmsSources() {

@@ -10,11 +10,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "http://34.136.69.128/api/$1"
-    },
-    {
-      "src": "/geoserver/(.*)",
-      "dest": "http://34.136.69.128/geoserver/$1"
+      "dest": "http://api.geo-epesege.com.ar/api/$1"
     },
     {
       "src": "/(.*)",
