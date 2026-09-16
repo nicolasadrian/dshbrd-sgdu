@@ -623,6 +623,14 @@ async def move_gerencia_buzon_analista(
     if orig_clean == dest_clean:
         raise HTTPException(status_code=400, detail="El área de origen y destino deben ser distintas.")
 
+    orig_keys = [orig_clean]
+    if orig_clean == 'conforme':
+        orig_keys.append('regularizacion')
+    elif orig_clean == 'regularizacion':
+        orig_keys.append('conforme')
+
+    dest_key = 'regularizacion' if dest_clean == 'conforme' else dest_clean
+
     try:
         with engine.begin() as conn:
             _ensure_buzones_adicionales_table(conn)
@@ -631,25 +639,28 @@ async def move_gerencia_buzon_analista(
             # a) En cfg_gerencias_buzones_adicionales
             conn.execute(text("""
                 DELETE FROM public.cfg_gerencias_buzones_adicionales 
-                WHERE (LOWER(TRIM(gerencia)) = :g OR (LOWER(TRIM(gerencia)) = 'conforme' AND :g = 'regularizacion')) AND UPPER(TRIM(usuario_buzon)) = :u
-            """), {"g": orig_clean, "u": u_clean})
+                WHERE LOWER(TRIM(gerencia)) IN :g_list AND UPPER(TRIM(usuario_buzon)) = :u
+            """), {"g_list": tuple(orig_keys), "u": u_clean})
 
             # b) En cfg_analistas_areas
             conn.execute(text("""
                 DELETE FROM public.cfg_analistas_areas 
-                WHERE TRIM(LOWER(gerencia)) = :g AND TRIM(UPPER(usuario_sade)) = :u
-            """), {"g": orig_clean, "u": u_clean})
+                WHERE LOWER(TRIM(gerencia)) IN :g_list AND UPPER(TRIM(usuario_sade)) = :u
+            """), {"g_list": tuple(orig_keys), "u": u_clean})
 
             # c) En cfg_gestion_metas (remover de analistas_oficiales y buzones_ingreso del origen)
-            rows = conn.execute(text("SELECT id, analistas_oficiales, buzones_ingreso FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": orig_clean}).fetchall()
-            for r in rows:
-                c_analysts = [a for a in (r[1] or []) if a and a.strip().upper() != u_clean]
-                c_buzones = [b for b in (r[2] or []) if b and b.strip().upper() != u_clean]
-                conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a, buzones_ingreso = :b WHERE id = :id"), {"a": c_analysts, "b": c_buzones, "id": r[0]})
+            for ok in orig_keys:
+                rows = conn.execute(text("SELECT id, analistas_oficiales, buzones_ingreso FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": ok}).fetchall()
+                for r in rows:
+                    c_analysts = [a for a in (r[1] or []) if a and a.strip().upper() != u_clean]
+                    c_buzones = [b for b in (r[2] or []) if b and b.strip().upper() != u_clean]
+                    conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a, buzones_ingreso = :b WHERE id = :id"), {"a": c_analysts, "b": c_buzones, "id": r[0]})
 
             # 2. Agregar a gerencia destino
             # Determinar dirección de destino
-            dest_dir = conn.execute(text("SELECT direccion FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": dest_clean}).scalar() or "DGROC"
+            dest_dir = conn.execute(text("SELECT direccion FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": dest_clean}).scalar()
+            if not dest_dir:
+                dest_dir = 'DGROC' if dest_clean in DGROC_GERENCIAS else ('DGIUR' if dest_clean in DGIUR_GERENCIAS else 'DGROC')
             
             # a) Insertar en cfg_gerencias_buzones_adicionales
             conn.execute(text("""
@@ -665,7 +676,7 @@ async def move_gerencia_buzon_analista(
                 FROM public.datos_usuario 
                 WHERE TRIM(UPPER(usuario)) = :u
             """), {"u": u_clean}).fetchone()
-            nombre_completo = user_row.nom if user_row and user_row.nom else u_clean
+            nombre_completo = user_row[1] if (user_row and user_row[1]) else u_clean
             tipo = 'buzon' if ('-' in u_clean or u_clean.startswith('DG') or u_clean.startswith('SEC')) else 'analista'
 
             conn.execute(text("""
