@@ -27,6 +27,29 @@ def format_capital(val):
 
 # --- Endpoints de RRHH ---
 
+GERENCIA_ALIASES = {
+    'regularizacion': 'conforme',
+    'conforme': 'conforme',
+    'morfologia_urbana': 'morfologia',
+    'area_de_proteccion_historica': 'aph',
+    'usos_del_suelo': 'usos',
+    'proyectos_publico_privado': 'publico_privado',
+    'comision_copua': 'copua',
+    'avisos_obra': 'aviso_obra',
+    'avisos_de_obra': 'aviso_obra',
+}
+
+def normalize_gerencia_key(g: str) -> str:
+    if not g:
+        return 'otros'
+    clean = g.strip().lower().replace(' ', '_')
+    return GERENCIA_ALIASES.get(clean, clean)
+
+def normalize_cuil(c: str) -> str:
+    if not c:
+        return ""
+    return str(c).replace("-", "").replace(".", "").strip()
+
 def _user_can_access_rrhh(user: User) -> bool:
     if user.role.lower() in ['admin', 'administrador']:
         return True
@@ -41,8 +64,8 @@ def _user_can_access_gerencia(user: User, gerencia: str) -> bool:
     perms = user.permissions or {}
     if perms.get("reportes_rrhh"):
         return True
-    g_clean = gerencia.lower().replace(" ", "_")
-    return bool(perms.get(f"rrhh_{g_clean}"))
+    g_clean = normalize_gerencia_key(gerencia)
+    return bool(perms.get(f"rrhh_{g_clean}") or perms.get(f"rrhh_{gerencia.lower().replace(' ', '_')}"))
 
 @router.get("/api/rrhh/reporte")
 async def get_rrhh_reporte(
@@ -66,23 +89,16 @@ async def get_rrhh_reporte(
                 )
             """)).scalar()
 
-            if not table_exists:
-                return {
-                    "month": month or (date.today().replace(day=1) - __import__('datetime').timedelta(days=1)).strftime("%Y-%m"),
-                    "available_months": [],
-                    "sectores": {},
-                    "message": "La tabla reportes_rrhh aún no existe. Por favor suba un Excel desde la pestaña 'Carga de Excel'."
-                }
-
             # Fetch distinct available months from the database
             available_months = []
-            try:
-                m_rows = conn.execute(text("SELECT DISTINCT TO_CHAR(fecha, 'YYYY-MM') as m FROM public.reportes_rrhh WHERE fecha IS NOT NULL ORDER BY m DESC")).fetchall()
-                available_months = [r[0] for r in m_rows if r[0]]
-            except Exception:
-                pass
+            if table_exists:
+                try:
+                    m_rows = conn.execute(text("SELECT DISTINCT TO_CHAR(fecha, 'YYYY-MM') as m FROM public.reportes_rrhh WHERE fecha IS NOT NULL ORDER BY m DESC")).fetchall()
+                    available_months = [r[0] for r in m_rows if r[0]]
+                except Exception:
+                    pass
 
-            # If month is not provided, default to the last complete month
+            # If month is not provided, default to the last complete month (or latest available)
             if not month:
                 from datetime import timedelta
                 today = date.today()
@@ -101,132 +117,196 @@ async def get_rrhh_reporte(
             y_val = int(year_str)
             m_val = int(month_str)
 
-            # Query all records for this month with SADE user matching and dual gerencia lookup
-            sql = text("""
-                SELECT r.cuil, r.nombreyapellido, r.fecha, r.feriado, r.convocado,
-                       r.hora_ingreso, r.hora_salida, r.cant_horas, r.estado_incidencia, r.estado,
-                       du.usuario, du.apellido, du.nombre,
-                       COALESCE(
-                           (SELECT UPPER(a.gerencia) FROM public.cfg_analistas_areas a WHERE UPPER(a.usuario_sade) = UPPER(du.usuario) AND a.activo = true LIMIT 1),
-                           (SELECT UPPER(c.gerencia) FROM public.cfg_gestion_metas c WHERE du.usuario = ANY(c.analistas_oficiales) LIMIT 1),
-                           'OTROS'
-                       ) as gerencia
-                FROM public.reportes_rrhh r
-                LEFT JOIN public.datos_usuario du ON REPLACE(du.numero_cuit, '-', '') = REPLACE(r.cuil, '-', '')
-                WHERE EXTRACT(YEAR FROM r.fecha) = :year AND EXTRACT(MONTH FROM r.fecha) = :month
-                ORDER BY r.fecha, r.nombreyapellido
-            """)
-            result = conn.execute(sql, {"year": y_val, "month": m_val}).fetchall()
-
-            if not result:
-                return {"month": month, "available_months": available_months, "sectores": {}, "message": "No hay datos para este mes"}
-
-            # Process records
+            # 1. Pre-populate all sectors and active registered analysts from cfg_analistas_areas
             sectores = {}
-            for r in result:
-                sec = (r[13] or "OTROS").strip().upper() # gerencia
-                cuil = r[0]
-                nombre_comp = r[1]
-                fecha = r[2].strftime("%Y-%m-%d") if r[2] else None
-                feriado = (r[3] or "").strip().upper() == "SI"
-                convocado = (r[4] or "").strip().upper() == "SI"
-                
-                h_ingreso = r[5] # time object
-                h_salida = r[6] # time object
-                c_horas = r[7] # time object
-                incidencia = r[8] or ""
-                est = r[9] or ""
+            cuil_to_agent = {}
+            user_to_agent = {}
 
-                if sec not in sectores:
-                    sectores[sec] = {
-                        "gerencia": sec,
-                        "earliest_ingreso": None,
-                        "latest_salida": None,
-                        "dias_laborados": 0,
-                        "dias_presentes_total": 0,
-                        "dias_a_tiempo": 0,
-                        "agentes": {},
-                        "hourly_coverage": {f"{h:02d}:00": 0 for h in range(7, 20)}
-                    }
-
-                s_data = sectores[sec]
-
-                # Analista key
-                agente_key = cuil
-                if agente_key not in s_data["agentes"]:
-                    s_data["agentes"][agente_key] = {
-                        "cuil": cuil,
-                        "nombre": nombre_comp,
-                        "usuario": r[10] or "N/A",
+            sql_cfg = text("""
+                SELECT a.usuario_sade, a.nombre_completo, a.gerencia, du.numero_cuit, du.nombre, du.apellido
+                FROM public.cfg_analistas_areas a
+                LEFT JOIN public.datos_usuario du ON UPPER(du.usuario) = UPPER(a.usuario_sade)
+                WHERE a.activo = true
+                ORDER BY a.gerencia, a.nombre_completo
+            """)
+            try:
+                cfg_rows = conn.execute(sql_cfg).fetchall()
+                for r in cfg_rows:
+                    sec = normalize_gerencia_key(r[2])
+                    if sec not in sectores:
+                        sectores[sec] = {
+                            "gerencia": sec,
+                            "earliest_ingreso": None,
+                            "latest_salida": None,
+                            "dias_laborados": 0,
+                            "dias_presentes_total": 0,
+                            "dias_a_tiempo": 0,
+                            "agentes": {},
+                            "hourly_coverage": {f"{h:02d}:00": 0 for h in range(7, 20)}
+                        }
+                    
+                    user_sade = (r[0] or "").strip().upper()
+                    cuit_raw = (r[3] or "").strip()
+                    cuit_norm = normalize_cuil(cuit_raw)
+                    nom = r[1] or (f"{r[5] or ''}, {r[4] or ''}".strip(", ")) or user_sade
+                    
+                    ag_key = cuit_norm or user_sade
+                    ag_data = {
+                        "cuil": cuit_raw,
+                        "nombre": nom,
+                        "usuario": user_sade,
                         "presentes": 0,
                         "ausentes": 0,
                         "total_convocado": 0,
-                        "asistencia_pct": 0,
+                        "asistencia_pct": "--",
                         "total_minutos_horas": 0,
                         "dias_con_horas": 0,
-                        "promedio_horas": "--"
+                        "promedio_horas": "--",
+                        "tiene_registros": False
                     }
-                ag_data = s_data["agentes"][agente_key]
+                    sectores[sec]["agentes"][ag_key] = ag_data
+                    
+                    if cuit_norm:
+                        cuil_to_agent[cuit_norm] = (sec, ag_key)
+                    if user_sade:
+                        user_to_agent[user_sade] = (sec, ag_key)
+            except Exception as e:
+                logger.warning(f"Could not load cfg_analistas_areas: {e}")
 
-                # Registros con hora_ingreso = 00:00 son agentes no presentes
+            # 2. Query attendance records from reportes_rrhh if table exists
+            if table_exists:
+                sql_rrhh = text("""
+                    SELECT r.cuil, r.nombreyapellido, r.fecha, r.feriado, r.convocado,
+                           r.hora_ingreso, r.hora_salida, r.cant_horas, r.estado_incidencia, r.estado,
+                           du.usuario, du.apellido, du.nombre,
+                           COALESCE(
+                               (SELECT a.gerencia FROM public.cfg_analistas_areas a WHERE UPPER(a.usuario_sade) = UPPER(du.usuario) AND a.activo = true LIMIT 1),
+                               (SELECT c.gerencia FROM public.cfg_gestion_metas c WHERE du.usuario = ANY(c.analistas_oficiales) LIMIT 1),
+                               'otros'
+                           ) as gerencia
+                    FROM public.reportes_rrhh r
+                    LEFT JOIN public.datos_usuario du ON REPLACE(du.numero_cuit, '-', '') = REPLACE(r.cuil, '-', '')
+                    WHERE EXTRACT(YEAR FROM r.fecha) = :year AND EXTRACT(MONTH FROM r.fecha) = :month
+                    ORDER BY r.fecha, r.nombreyapellido
+                """)
+                rrhh_rows = conn.execute(sql_rrhh, {"year": y_val, "month": m_val}).fetchall()
+
                 from datetime import time as _time
-                ingreso_es_valido = h_ingreso is not None and h_ingreso != _time(0, 0)
 
-                # Presence / attendance check
-                is_present = ("PRESENTE" in est.upper()) or ingreso_es_valido
-                if convocado:
-                    ag_data["total_convocado"] += 1
-                    if is_present:
-                        ag_data["presentes"] += 1
-                        s_data["dias_presentes_total"] += 1
+                for r in rrhh_rows:
+                    cuil_raw = (r[0] or "").strip()
+                    cuil_norm = normalize_cuil(cuil_raw)
+                    nombre_comp = r[1]
+                    convocado = (r[4] or "").strip().upper() == "SI"
+                    h_ingreso = r[5]
+                    h_salida = r[6]
+                    c_horas = r[7]
+                    est = r[9] or ""
+                    user_sade = (r[10] or "").strip().upper()
+
+                    sec = None
+                    ag_key = None
+                    if cuil_norm and cuil_norm in cuil_to_agent:
+                        sec, ag_key = cuil_to_agent[cuil_norm]
+                    elif user_sade and user_sade in user_to_agent:
+                        sec, ag_key = user_to_agent[user_sade]
                     else:
-                        ag_data["ausentes"] += 1
+                        sec = normalize_gerencia_key(r[13])
+                        ag_key = cuil_norm or user_sade or nombre_comp
 
-                # Daily check-in / check-out bounds — sólo para registros con ingreso válido (no 00:00)
-                if ingreso_es_valido:
-                    h_str = h_ingreso.strftime("%H:%M")
-                    if not s_data["earliest_ingreso"] or h_str < s_data["earliest_ingreso"]:
-                        s_data["earliest_ingreso"] = h_str
+                    if sec not in sectores:
+                        sectores[sec] = {
+                            "gerencia": sec,
+                            "earliest_ingreso": None,
+                            "latest_salida": None,
+                            "dias_laborados": 0,
+                            "dias_presentes_total": 0,
+                            "dias_a_tiempo": 0,
+                            "agentes": {},
+                            "hourly_coverage": {f"{h:02d}:00": 0 for h in range(7, 20)}
+                        }
 
-                    # Hourly coverage matrix (determinar turnos)
-                    start_h = h_ingreso.hour
-                    end_h = h_salida.hour if (h_salida and h_salida != _time(0, 0)) else 18
-                    for hour in range(start_h, min(end_h + 1, 20)):
-                        h_key = f"{hour:02d}:00"
-                        if h_key in s_data["hourly_coverage"]:
-                            s_data["hourly_coverage"][h_key] += 1
+                    s_data = sectores[sec]
+                    if ag_key not in s_data["agentes"]:
+                        s_data["agentes"][ag_key] = {
+                            "cuil": cuil_raw,
+                            "nombre": nombre_comp,
+                            "usuario": user_sade or "N/A",
+                            "presentes": 0,
+                            "ausentes": 0,
+                            "total_convocado": 0,
+                            "asistencia_pct": "--",
+                            "total_minutos_horas": 0,
+                            "dias_con_horas": 0,
+                            "promedio_horas": "--",
+                            "tiene_registros": True
+                        }
 
-                    # Acumular horas trabajadas (cant_horas) — excluir 00:00
-                    c_horas = r[7]  # cant_horas
-                    if c_horas and c_horas != _time(0, 0):
-                        minutos = c_horas.hour * 60 + c_horas.minute
-                        ag_data["total_minutos_horas"] += minutos
-                        ag_data["dias_con_horas"] += 1
+                    ag_data = s_data["agentes"][ag_key]
+                    ag_data["tiene_registros"] = True
+                    if not ag_data.get("cuil") and cuil_raw:
+                        ag_data["cuil"] = cuil_raw
+                    if ag_data.get("usuario") in ["N/A", ""] and user_sade:
+                        ag_data["usuario"] = user_sade
 
-                if h_salida:
-                    s_str = h_salida.strftime("%H:%M")
-                    if not s_data["latest_salida"] or s_str > s_data["latest_salida"]:
-                        s_data["latest_salida"] = s_str
+                    ingreso_es_valido = h_ingreso is not None and h_ingreso != _time(0, 0)
+                    is_present = ("PRESENTE" in est.upper()) or ingreso_es_valido
 
-            # Finalize averages & percents
+                    if convocado:
+                        ag_data["total_convocado"] += 1
+                        if is_present:
+                            ag_data["presentes"] += 1
+                            s_data["dias_presentes_total"] += 1
+                        else:
+                            ag_data["ausentes"] += 1
+
+                    if ingreso_es_valido:
+                        h_str = h_ingreso.strftime("%H:%M")
+                        if not s_data["earliest_ingreso"] or h_str < s_data["earliest_ingreso"]:
+                            s_data["earliest_ingreso"] = h_str
+
+                        start_h = h_ingreso.hour
+                        end_h = h_salida.hour if (h_salida and h_salida != _time(0, 0)) else 18
+                        for hour in range(start_h, min(end_h + 1, 20)):
+                            h_key = f"{hour:02d}:00"
+                            if h_key in s_data["hourly_coverage"]:
+                                s_data["hourly_coverage"][h_key] += 1
+
+                        if c_horas and c_horas != _time(0, 0):
+                            minutos = c_horas.hour * 60 + c_horas.minute
+                            ag_data["total_minutos_horas"] += minutos
+                            ag_data["dias_con_horas"] += 1
+
+                    if h_salida and h_salida != _time(0, 0):
+                        s_str = h_salida.strftime("%H:%M")
+                        if not s_data["latest_salida"] or s_str > s_data["latest_salida"]:
+                            s_data["latest_salida"] = s_str
+
+            # Finalize averages & percents for all agents in all sectors
             for sec, s_data in list(sectores.items()):
                 for ag_key, ag_data in s_data["agentes"].items():
                     tot = ag_data["total_convocado"]
                     if tot > 0:
                         ag_data["asistencia_pct"] = round((ag_data["presentes"] / tot) * 100)
-                    else:
+                    elif ag_data.get("tiene_registros"):
                         ag_data["asistencia_pct"] = 100
+                    else:
+                        ag_data["asistencia_pct"] = "--"
+
                     dias_h = ag_data["dias_con_horas"]
                     if dias_h > 0:
                         prom_min = ag_data["total_minutos_horas"] // dias_h
                         ag_data["promedio_horas"] = f"{prom_min // 60:02d}:{prom_min % 60:02d}"
                     else:
                         ag_data["promedio_horas"] = "--"
-                    del ag_data["total_minutos_horas"]
-                    del ag_data["dias_con_horas"]
+                    
+                    if "total_minutos_horas" in ag_data:
+                        del ag_data["total_minutos_horas"]
+                    if "dias_con_horas" in ag_data:
+                        del ag_data["dias_con_horas"]
 
-                # Convert agents dict to list
-                s_data["agentes_list"] = list(s_data["agentes"].values())
+                # Convert agents dict to list sorted by name
+                s_data["agentes_list"] = sorted(list(s_data["agentes"].values()), key=lambda x: x.get("nombre", ""))
                 del s_data["agentes"]
 
             # Filter sectors based on user permissions
@@ -237,10 +317,10 @@ async def get_rrhh_reporte(
 
             # If a specific gerencia was requested, filter to that one
             if gerencia:
-                g_req = gerencia.strip().upper().replace(" ", "_")
+                g_req = normalize_gerencia_key(gerencia)
                 final_sectores = {}
                 for sec_key, sec_val in filtered_sectores.items():
-                    norm_k = sec_key.strip().upper().replace(" ", "_")
+                    norm_k = normalize_gerencia_key(sec_key)
                     if norm_k == g_req:
                         final_sectores[sec_key] = sec_val
                 filtered_sectores = final_sectores

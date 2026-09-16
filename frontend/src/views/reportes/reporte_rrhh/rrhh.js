@@ -224,9 +224,13 @@ function renderHubCards(data, perms, hasGlobal) {
         let secAsistencia = 0;
         let secMinutos = 0;
         let secDiasH = 0;
+        let conAsistenciaCount = 0;
         if (sData && sData.agentes_list) {
             sData.agentes_list.forEach(a => {
-                secAsistencia += a.asistencia_pct;
+                if (a.asistencia_pct !== '--' && typeof a.asistencia_pct === 'number') {
+                    secAsistencia += a.asistencia_pct;
+                    conAsistenciaCount++;
+                }
                 if (a.promedio_horas && a.promedio_horas !== '--') {
                     const parts = a.promedio_horas.split(':');
                     secMinutos += parseInt(parts[0]) * 60 + parseInt(parts[1]);
@@ -234,15 +238,20 @@ function renderHubCards(data, perms, hasGlobal) {
                 }
             });
         }
-        const pctAsist = agentesCount > 0 ? Math.round(secAsistencia / agentesCount) : 100;
-        const promHs = secDiasH > 0
-            ? (() => { const m = Math.round(secMinutos / secDiasH); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; })()
+        const pctAsistText = conAsistenciaCount > 0 ? `${Math.round(secAsistencia / conAsistenciaCount)}%` : 'Sin planilla';
+        const promHsText = secDiasH > 0
+            ? (() => { const m = Math.round(secMinutos / secDiasH); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')} hs`; })()
             : '--';
         const franja = (sData && sData.earliest_ingreso && sData.latest_salida) ? `${sData.earliest_ingreso} - ${sData.latest_salida}` : '08:00 - 18:00';
 
         let colorAsist = '#10b981';
-        if (pctAsist < 80) colorAsist = '#ef4444';
-        else if (pctAsist < 90) colorAsist = '#f59e0b';
+        if (conAsistenciaCount > 0) {
+            const num = Math.round(secAsistencia / conAsistenciaCount);
+            if (num < 80) colorAsist = '#ef4444';
+            else if (num < 90) colorAsist = '#f59e0b';
+        } else {
+            colorAsist = '#94a3b8';
+        }
 
         return `
             <div class="admin-card nav-card-rrhh" onclick="window.location.hash='#/reportes_rrhh/${gKey}'" style="background: white; border-radius: 14px; border: 1px solid #cbd5e1; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); cursor: pointer; transition: all 0.25s ease; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;"
@@ -272,11 +281,11 @@ function renderHubCards(data, perms, hasGlobal) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; background: #f8fafc; border: 1px solid #f1f5f9; padding: 10px 12px; border-radius: 8px;">
                         <div>
                             <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; display: block;">Asistencia</span>
-                            <strong style="font-size: 1rem; color: ${colorAsist}; font-family: 'Outfit';">${pctAsist}%</strong>
+                            <strong style="font-size: 0.95rem; color: ${colorAsist}; font-family: 'Outfit';">${pctAsistText}</strong>
                         </div>
                         <div>
                             <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; display: block;">Promedio Hs.</span>
-                            <strong style="font-size: 1rem; color: #334155; font-family: 'Outfit';">${promHs} hs</strong>
+                            <strong style="font-size: 0.95rem; color: #334155; font-family: 'Outfit';">${promHsText}</strong>
                         </div>
                     </div>
                 </div>
@@ -375,13 +384,17 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
             const cleanEnd = sData.latest_salida || "18:00";
 
             if (franjaText) franjaText.innerText = `${cleanStart} - ${cleanEnd}`;
-            if (countEl) countEl.innerText = `${agentesList.length} ${agentesList.length === 1 ? 'analista evaluado' : 'analistas evaluados'} en este período.`;
+            if (countEl) countEl.innerText = `${agentesList.length} ${agentesList.length === 1 ? 'analista asignado' : 'analistas asignados'} a esta gerencia.`;
 
             let secAsistencia = 0;
             let secMinutos = 0;
             let secDiasH = 0;
+            let conAsistenciaCount = 0;
             agentesList.forEach(a => {
-                secAsistencia += a.asistencia_pct;
+                if (a.asistencia_pct !== '--' && typeof a.asistencia_pct === 'number') {
+                    secAsistencia += a.asistencia_pct;
+                    conAsistenciaCount++;
+                }
                 if (a.promedio_horas && a.promedio_horas !== '--') {
                     const parts = a.promedio_horas.split(':');
                     secMinutos += parseInt(parts[0]) * 60 + parseInt(parts[1]);
@@ -389,9 +402,9 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
                 }
             });
 
-            const avgAsistencia = agentesList.length > 0 ? Math.round(secAsistencia / agentesList.length) : 100;
-            const avgPromHoras = secDiasH > 0
-                ? (() => { const m = Math.round(secMinutos / secDiasH); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; })()
+            const avgAsistenciaText = conAsistenciaCount > 0 ? `${Math.round(secAsistencia / conAsistenciaCount)}%` : 'Sin planilla';
+            const avgPromHorasText = secDiasH > 0
+                ? (() => { const m = Math.round(secMinutos / secDiasH); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')} hs`; })()
                 : '--';
 
             if (cardsContainer) {
@@ -407,14 +420,14 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
                         <div style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-calendar-check"></i></div>
                         <div>
                             <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Asistencia del Área</span>
-                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #10b981;">${avgAsistencia}%</h3>
+                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #10b981;">${avgAsistenciaText}</h3>
                         </div>
                     </div>
                     <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
                         <div style="width: 50px; height: 50px; border-radius: 12px; background: #fff7ed; color: #f97316; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-hourglass-half"></i></div>
                         <div>
                             <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Promedio Horas Área</span>
-                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #f97316;">${avgPromHoras} hs</h3>
+                            <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #f97316;">${avgPromHorasText}</h3>
                         </div>
                     </div>
                 `;
@@ -445,7 +458,9 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
             let agentsRows = '';
             agentesList.forEach(a => {
                 let horasColor = '#94a3b8';
+                let promHsDisplay = '--';
                 if (a.promedio_horas && a.promedio_horas !== '--') {
+                    promHsDisplay = `${a.promedio_horas} hs`;
                     const [hh, mm] = a.promedio_horas.split(':').map(Number);
                     const totalMin = hh * 60 + mm;
                     if (totalMin >= 420)       horasColor = '#10b981';
@@ -453,16 +468,32 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
                     else                       horasColor = '#ef4444';
                 }
 
+                let asistDisplay = '<span style="color: #94a3b8; font-size: 0.8rem; font-style: italic;">Sin planilla</span>';
+                if (a.asistencia_pct !== '--' && typeof a.asistencia_pct === 'number') {
+                    asistDisplay = `<span style="color: #10b981; font-weight: 800; font-size: 0.95rem;">${a.asistencia_pct}%</span>`;
+                }
+
+                let btnAction = `
+                    <button type="button" disabled style="padding: 6px 12px; background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 600; cursor: not-allowed; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-regular fa-clock"></i> Sin registros
+                    </button>
+                `;
+                if (a.tiene_registros && a.cuil) {
+                    btnAction = `
+                        <button type="button" onclick="openRRHHAgentPage('${a.cuil}', '${encodeURIComponent(a.nombre)}', '${cleanKey}')" class="btn-action-view" style="padding: 7px 14px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-calendar-days"></i> Ver Bitácora
+                        </button>
+                    `;
+                }
+
                 agentsRows += `
                     <tr class="rrhh-${cleanKey}-row" data-search="${(a.usuario + ' ' + a.nombre).toLowerCase()}" style="border-bottom: 1px solid #f1f5f9;">
                         <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${(a.usuario || 'N/A').toUpperCase()}</td>
                         <td style="padding: 12px 14px; color: #334155; font-weight: 600;">${a.nombre}</td>
-                        <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: #10b981; font-family: 'Outfit'; font-size: 0.95rem;">${a.asistencia_pct}%</td>
-                        <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: ${horasColor}; font-family: 'Outfit'; font-size: 0.95rem;">${a.promedio_horas} hs</td>
+                        <td style="padding: 12px 14px; text-align: center; font-family: 'Outfit';">${asistDisplay}</td>
+                        <td style="padding: 12px 14px; text-align: center; font-weight: 700; color: ${horasColor}; font-family: 'Outfit'; font-size: 0.95rem;">${promHsDisplay}</td>
                         <td style="padding: 12px 14px; text-align: center;">
-                            <button type="button" onclick="openRRHHAgentPage('${a.cuil}', '${encodeURIComponent(a.nombre)}', '${cleanKey}')" class="btn-action-view" style="padding: 7px 14px; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: 'Outfit'; font-weight: 700; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;">
-                                <i class="fa-solid fa-calendar-days"></i> Ver Bitácora
-                            </button>
+                            ${btnAction}
                         </td>
                     </tr>
                 `;
