@@ -14418,9 +14418,11 @@ async function handleCreateBuzonAreaSubmit(event) {
                 select.value = data.gerencia;
                 onAdminBuzonGerenciaChange();
             }
-        } else {
-            const err = await res.json();
+        } else if (res) {
+            const err = await res.json().catch(() => ({}));
             alert(`Error: ${err.detail || "No se pudo crear el área."}`);
+        } else {
+            alert("Error de red o conexión con el servidor.");
         }
     } catch (err) {
         console.error("Error creating buzon area:", err);
@@ -14443,9 +14445,11 @@ async function deleteCurrentBuzonArea() {
 
         if (res && res.ok) {
             await loadBuzonesAccesoConfig();
-        } else {
-            const err = await res.json();
+        } else if (res) {
+            const err = await res.json().catch(() => ({}));
             alert(`Error: ${err.detail || "No se pudo eliminar el área."}`);
+        } else {
+            alert("Error de red al eliminar el área.");
         }
     } catch (err) {
         console.error("Error deleting buzon area:", err);
@@ -14508,9 +14512,11 @@ async function confirmMoveBuzon() {
         if (res && res.ok) {
             closeMoveBuzonModal();
             await loadBuzonesAccesoConfig();
-        } else {
-            const err = await res.json();
+        } else if (res) {
+            const err = await res.json().catch(() => ({}));
             alert(`Error: ${err.detail || "No se pudo trasladar el usuario."}`);
+        } else {
+            alert("Error de red al trasladar el usuario.");
         }
     } catch (err) {
         console.error("Error moving buzon/analyst:", err);
@@ -14529,9 +14535,11 @@ async function deleteBuzonFromGerencia(gerencia, usernameOrBuzon) {
 
         if (res && res.ok) {
             await loadBuzonesAccesoConfig();
-        } else {
-            const err = await res.json();
+        } else if (res) {
+            const err = await res.json().catch(() => ({}));
             alert(`Error: ${err.detail || "No se pudo remover."}`);
+        } else {
+            alert("Error de red al remover.");
         }
     } catch (err) {
         console.error("Error deleting buzon:", err);
