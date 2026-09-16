@@ -1,0 +1,69 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <strong>Productividad Analistas</strong>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+    <div>
+        <h1 class="landing-title" style="margin: 0;">Productividad Analistas — Hub Central</h1>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.92rem;">Monitoreo de tareas, tiempos de resolución, stock de expedientes y actividad SADE por gerencia.</p>
+    </div>
+</div>
+
+<!-- Resumen/Indicadores Globales -->
+<div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;" id="prod-hub-global-cards">
+    <!-- Generado dinámicamente -->
+</div>
+
+<!-- Grid de Gerencias DGROC -->
+<div style="margin-bottom: 2.5rem;" id="prod-hub-section-dgroc">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                <i class="fa-solid fa-building-user"></i>
+            </div>
+            <div>
+                <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">Dirección General DGROC</h2>
+                <span style="font-size: 0.8rem; color: #64748b;">Registro de Obras y Catastro — Seleccione una gerencia para ver la productividad de sus analistas</span>
+            </div>
+        </div>
+    </div>
+    <div class="gerencias-grid" id="prod-hub-cards-dgroc" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Dinámico -->
+    </div>
+</div>
+
+<!-- Grid de Gerencias DGIUR -->
+<div style="margin-bottom: 2.5rem;" id="prod-hub-section-dgiur">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                <i class="fa-solid fa-city"></i>
+            </div>
+            <div>
+                <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">Dirección General DGIUR</h2>
+                <span style="font-size: 0.8rem; color: #64748b;">Interpretación Urbanística — Seleccione una gerencia para ver la productividad de sus analistas</span>
+            </div>
+        </div>
+    </div>
+    <div class="gerencias-grid" id="prod-hub-cards-dgiur" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Dinámico -->
+    </div>
+</div>
+
+<!-- Grid de Otras Áreas -->
+<div style="margin-bottom: 2.5rem; display: none;" id="prod-hub-section-otros">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #f8fafc; color: #64748b; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                <i class="fa-solid fa-folder-tree"></i>
+            </div>
+            <div>
+                <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">Otras Áreas / General</h2>
+                <span style="font-size: 0.8rem; color: #64748b;">Analistas y personal técnico no categorizado en gerencias operativas principales</span>
+            </div>
+        </div>
+    </div>
+    <div class="gerencias-grid" id="prod-hub-cards-otros" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Dinámico -->
+    </div>
+</div>

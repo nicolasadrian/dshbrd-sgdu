@@ -2543,28 +2543,48 @@ async def get_analytics_pdl_blanqueo(
 
 @router.get("/api/productividad/sectores-analistas")
 async def get_sectores_analistas(current_user: User = Depends(get_current_user)):
-    if not current_user.permissions.get("productividad_analistas"):
+    perms = current_user.permissions or {}
+    is_admin = current_user.role.lower() in ['admin', 'administrador']
+    has_global = is_admin or bool(perms.get("productividad_analistas"))
+    
+    # Check if user has at least one productivity or gerencia permission
+    has_any_access = has_global or any(perms.get(f"productividad_{k}") for k in [
+        'catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra',
+        'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'otros'
+    ])
+    if not has_any_access:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
         with engine.connect() as conn:
             query = text("""
-                WITH analysts AS (
-                    SELECT DISTINCT gerencia, unnest(analistas_oficiales) as analista
-                    FROM cfg_gestion_metas
-                )
-                SELECT a.gerencia, a.analista, COALESCE(du.apellido_nombre, a.analista) as apellido_nombre
-                FROM analysts a
-                LEFT JOIN datos_usuario du ON a.analista = du.usuario
-                ORDER BY a.gerencia, apellido_nombre
+                SELECT ca.gerencia, ca.usuario_sade, 
+                       COALESCE(NULLIF(TRIM(du.apellido_nombre), ''), NULLIF(TRIM(ca.nombre_completo), ''), ca.usuario_sade) as nombre
+                FROM cfg_analistas_areas ca
+                LEFT JOIN datos_usuario du ON TRIM(UPPER(ca.usuario_sade)) = TRIM(UPPER(du.usuario))
+                WHERE ca.activo = true
+                ORDER BY ca.gerencia, nombre
             """)
             result = conn.execute(query)
             rows = result.fetchall()
             
+            alias_map = {
+                'regularizacion': 'conforme',
+                'morfologia_urbana': 'morfologia',
+                'auditoria': 'otros'
+            }
+            
             sectores = {}
             for r in rows:
-                sec = r[0]
+                raw_sec = (r[0] or '').lower().strip()
+                sec = alias_map.get(raw_sec, raw_sec)
                 user = r[1]
                 name = r[2] or user
+                
+                # Filter by permissions if not global
+                if not has_global:
+                    if not (perms.get(f"productividad_{sec}") or (sec == 'conforme' and perms.get('productividad_conforme')) or (sec == 'otros' and perms.get('productividad_otros'))):
+                        continue
+
                 if sec not in sectores:
                     sectores[sec] = []
                 if not any(x["usuario"] == user for x in sectores[sec]):
@@ -2577,7 +2597,12 @@ async def get_sectores_analistas(current_user: User = Depends(get_current_user))
 
 @router.get("/api/productividad/analista/{username}")
 async def get_analista_productividad(username: str, date_from: Optional[str] = None, date_to: Optional[str] = None, current_user: User = Depends(get_current_user)):
-    if not current_user.permissions.get("productividad_analistas"):
+    perms = current_user.permissions or {}
+    is_admin = current_user.role.lower() in ['admin', 'administrador']
+    has_global = is_admin or bool(perms.get("productividad_analistas"))
+    
+    has_any = has_global or any(perms.get(k) for k in perms if k.startswith('productividad_'))
+    if not has_any:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
         try:
@@ -2593,7 +2618,11 @@ async def get_analista_productividad(username: str, date_from: Optional[str] = N
 
 @router.get("/api/productividad/pdf/individual")
 async def get_pdf_individual(username: str, date_from: Optional[str] = None, date_to: Optional[str] = None, token: Optional[str] = Query(None), current_user: User = Depends(get_current_user_from_param_or_header)):
-    if not current_user.permissions.get("productividad_analistas"):
+    perms = current_user.permissions or {}
+    is_admin = current_user.role.lower() in ['admin', 'administrador']
+    has_global = is_admin or bool(perms.get("productividad_analistas"))
+    has_any = has_global or any(perms.get(k) for k in perms if k.startswith('productividad_'))
+    if not has_any:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
         try:
@@ -2612,7 +2641,14 @@ async def get_pdf_individual(username: str, date_from: Optional[str] = None, dat
 
 @router.get("/api/productividad/pdf/comparativo")
 async def get_pdf_comparativo(sector: str, date_from: Optional[str] = None, date_to: Optional[str] = None, token: Optional[str] = Query(None), current_user: User = Depends(get_current_user_from_param_or_header)):
-    if not current_user.permissions.get("productividad_analistas"):
+    perms = current_user.permissions or {}
+    is_admin = current_user.role.lower() in ['admin', 'administrador']
+    has_global = is_admin or bool(perms.get("productividad_analistas"))
+    sec_clean = sector.lower().strip()
+    if sec_clean == 'conforme':
+        sec_clean = 'regularizacion'
+    has_perm = has_global or bool(perms.get(f"productividad_{sector.lower()}")) or bool(perms.get(f"productividad_{sec_clean}"))
+    if not has_perm:
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
         try:

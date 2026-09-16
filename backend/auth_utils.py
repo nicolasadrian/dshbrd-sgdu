@@ -72,6 +72,8 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
             "buzon_dgiur", "buzon_morfologia", "buzon_aph", "buzon_usos", "buzon_publico_privado", "buzon_copua", "buzon_privada",
             # Reportes
             "seguimiento", "cierre", "sla", "subsanaciones", "productividad_analistas", "universo_tratas", "planificacion_nov_2026",
+            "productividad_catastro", "productividad_instalaciones", "productividad_conforme", "productividad_contable", "productividad_etapa_proyecto", "productividad_aviso_obra",
+            "productividad_morfologia", "productividad_aph", "productividad_usos", "productividad_publico_privado", "productividad_copua", "productividad_privada", "productividad_otros",
             # Reportes RRHH
             "reportes_rrhh", "carga_reportes_rrhh",
             "rrhh_catastro", "rrhh_instalaciones", "rrhh_conforme", "rrhh_contable", "rrhh_etapa_proyecto", "rrhh_aviso_obra",

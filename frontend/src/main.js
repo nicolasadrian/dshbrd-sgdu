@@ -9,6 +9,16 @@ import {
     openRRHHAgentPage, 
     closeRRHHAgentPage 
 } from './views/reportes/reporte_rrhh/rrhh.js';
+import {
+    loadProductividadHubView,
+    loadProductividadGerenciaView,
+    filterProductividadGerenciaTable,
+    openProductividadModal,
+    closeProductividadModal,
+    loadProductividadAnalistaData,
+    downloadIndividualPDF,
+    downloadSectorComparativePDF
+} from './views/reportes/productividad_analistas/productividad.js';
 
 // Exponer en window para interoperabilidad total
 window.renderLandingView = renderLandingView;
@@ -19,6 +29,16 @@ window.filterRRHHGerenciaTable = filterRRHHGerenciaTable;
 window.initRRHHCargaView = initRRHHCargaView;
 window.openRRHHAgentPage = openRRHHAgentPage;
 window.closeRRHHAgentPage = closeRRHHAgentPage;
+
+window.loadProductividadHubView = loadProductividadHubView;
+window.loadProductividadGerenciaView = loadProductividadGerenciaView;
+window.filterProductividadGerenciaTable = filterProductividadGerenciaTable;
+window.openProductividadModal = openProductividadModal;
+window.closeProductividadModal = closeProductividadModal;
+window.loadProductividadAnalistaData = loadProductividadAnalistaData;
+window.downloadIndividualPDF = downloadIndividualPDF;
+window.downloadSectorComparativePDF = downloadSectorComparativePDF;
+
 window.mountView = mountView;
 
 // Sincronizar estado con variables globales del layout heredado (app.js)

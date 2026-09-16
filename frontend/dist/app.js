@@ -481,6 +481,10 @@ async function showView(viewId, updateHash = true) {
             window.location.hash = `#/reportes_rrhh/carga`;
         } else if (viewId.startsWith('reportes_rrhh_')) {
             window.location.hash = `#/reportes_rrhh/${viewId.replace('reportes_rrhh_', '')}`;
+        } else if (viewId === 'productividad_analistas') {
+            window.location.hash = `#/productividad_analistas`;
+        } else if (viewId.startsWith('productividad_analistas_')) {
+            window.location.hash = `#/productividad_analistas/${viewId.replace('productividad_analistas_', '')}`;
         } else if (viewId === 'c3d_extensiones_todas' || viewId === 'ciudad3d_troneras') {
             window.location.hash = `#/ciudad3d/extensiones/todas`;
         } else if (viewId === 'c3d_extensiones_mis_trazados') {
@@ -955,6 +959,9 @@ async function handleRouting() {
         } else if (first === 'reportes_rrhh') {
             // Formato: #/reportes_rrhh/dgroc/catastro
             await showView(`reportes_rrhh_${third}`, false);
+        } else if (first === 'productividad_analistas' || first === 'productividad') {
+            // Formato: #/productividad_analistas/dgroc/catastro
+            await showView(`productividad_analistas_${third}`, false);
         } else if (first === 'ciudad3d' && second === 'extensiones') {
             // Formato: #/ciudad3d/extensiones/todas, mis-trazados, revision, equipo, mapa
             if (third === 'mis-trazados' || third === 'mis_trazados') {
@@ -986,6 +993,9 @@ async function handleRouting() {
         } else if (first === 'reportes_rrhh') {
             // Formato: #/reportes_rrhh/morfologia o #/reportes_rrhh/catastro o #/reportes_rrhh/carga
             await showView(`reportes_rrhh_${second}`, false);
+        } else if (first === 'productividad_analistas' || first === 'productividad') {
+            // Formato: #/productividad_analistas/morfologia o #/productividad_analistas/catastro
+            await showView(`productividad_analistas_${second}`, false);
         } else if (first === 'ciudad3d' && second === 'extensiones') {
             await showView('c3d_extensiones_todas', false);
         } else if (first === 'dgiur' || first === 'dgroc') {
@@ -3907,11 +3917,27 @@ const PERMISSION_KEYS = {
     buzon_privada: "Buzón: Privada",
 
     // Reportes
+    // Productividad Analistas (Granular por Gerencia)
+    productividad_analistas: "Productividad Analistas (Hub / Completo)",
+    productividad_catastro: "Productividad: Catastro (DGROC)",
+    productividad_instalaciones: "Productividad: Instalaciones (DGROC)",
+    productividad_conforme: "Productividad: Conforme (DGROC)",
+    productividad_contable: "Productividad: Contable (DGROC)",
+    productividad_etapa_proyecto: "Productividad: Etapa Proyecto (DGROC)",
+    productividad_aviso_obra: "Productividad: Aviso de Obra (DGROC)",
+    productividad_morfologia: "Productividad: Morfología (DGIUR)",
+    productividad_aph: "Productividad: APH (DGIUR)",
+    productividad_usos: "Productividad: Usos (DGIUR)",
+    productividad_publico_privado: "Productividad: Público Privado (DGIUR)",
+    productividad_copua: "Productividad: COPUA (DGIUR)",
+    productividad_privada: "Productividad: Privada (DGIUR)",
+    productividad_otros: "Productividad: Otros / General",
+
+    // Reportes & Gestión
     seguimiento: "Reportes: Metas",
     cierre: "Reportes: Cierre de Mes",
     sla: "Reportes: Tiempos de tramitación (SLA)",
     subsanaciones: "Reportes: Subsanaciones",
-    productividad_analistas: "Reportes: Productividad Analistas",
     universo_tratas: "Reportes: Universo Tratas y Buzones",
     planificacion_nov_2026: "Reportes: Planificación Noviembre 2026",
 
@@ -4006,12 +4032,27 @@ const PERMISSION_GROUPS = {
         buzon_copua: { label: "Buzón COPUA", desc: "Bandeja de stock y analistas de COPUA." },
         buzon_privada: { label: "Buzón Privada", desc: "Bandeja de stock y analistas de Privada." }
     },
+    "Productividad Analistas": {
+        productividad_analistas: { label: "Productividad (Hub / Completo)", desc: "Acceso total a la productividad de todas las gerencias." },
+        productividad_catastro: { label: "Prod: Catastro (DGROC)", desc: "Productividad y rankings de analistas de Catastro." },
+        productividad_instalaciones: { label: "Prod: Instalaciones (DGROC)", desc: "Productividad y rankings de analistas de Instalaciones." },
+        productividad_conforme: { label: "Prod: Conforme (DGROC)", desc: "Productividad y rankings de analistas de Conforme." },
+        productividad_contable: { label: "Prod: Contable (DGROC)", desc: "Productividad y rankings de analistas de Contable." },
+        productividad_etapa_proyecto: { label: "Prod: Etapa Proyecto (DGROC)", desc: "Productividad y rankings de analistas de Etapa Proyecto." },
+        productividad_aviso_obra: { label: "Prod: Aviso de Obra (DGROC)", desc: "Productividad y rankings de analistas de Aviso de Obra." },
+        productividad_morfologia: { label: "Prod: Morfología (DGIUR)", desc: "Productividad y rankings de analistas de Morfología." },
+        productividad_aph: { label: "Prod: APH (DGIUR)", desc: "Productividad y rankings de analistas de APH." },
+        productividad_usos: { label: "Prod: Usos (DGIUR)", desc: "Productividad y rankings de analistas de Usos." },
+        productividad_publico_privado: { label: "Prod: Público Privado (DGIUR)", desc: "Productividad y rankings de analistas de Público Privado." },
+        productividad_copua: { label: "Prod: COPUA (DGIUR)", desc: "Productividad y rankings de analistas de COPUA." },
+        productividad_privada: { label: "Prod: Privada (DGIUR)", desc: "Productividad y rankings de analistas de Privada." },
+        productividad_otros: { label: "Prod: Otros / General", desc: "Productividad de analistas de otras áreas o sin gerencia." }
+    },
     "Reportes & Gestión": {
         seguimiento: { label: "Reporte Metas", desc: "Informe consolidado de cumplimiento de metas." },
         cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
-        productividad_analistas: { label: "Productividad Analistas", desc: "Rankings, bitácoras y metas de analistas." },
         universo_tratas: { label: "Universo Tratas y Buzones", desc: "Listado completo de tratas y buzones de la secretaría." },
         planificacion_nov_2026: { label: "Planificación Noviembre 2026", desc: "Reporte de proyección y stock Noviembre 2026." }
     },

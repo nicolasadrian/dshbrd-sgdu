@@ -12,7 +12,10 @@ T_SUBSANACION = "OBSERVACIÓN EN SUBSANACIÓN"
 T_SUSPENSION = "SUSPENSIÓN DE EXPEDIENTE"
 T_EXCLUIDO = "EXCLUIDO"
 
-GERENCIAS = ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos']
+GERENCIAS = [
+    'catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 
+    'aviso_obra', 'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'auditoria'
+]
 
 def classify_action(ref, tipo_origen, tipo_actividad):
     ref_upper = (ref or "").upper().strip()

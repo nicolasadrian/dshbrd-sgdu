@@ -37,7 +37,20 @@ const VIEW_ROUTES = {
     'cierre': () => import('./views/reportes/cierre_mes/cierre.html?raw'),
     'sla': () => import('./views/reportes/tiempos_tramitacion/sla.html?raw'),
     'subsanaciones': () => import('./views/reportes/subsanaciones/subsanaciones.html?raw'),
-    'productividad_analistas': () => import('./views/reportes/productividad_analistas/productividad_analistas.html?raw'),
+    'productividad_analistas': () => import('./views/reportes/productividad_analistas/productividad_hub.html?raw'),
+    'productividad_analistas_catastro': () => import('./views/reportes/productividad_analistas/catastro.html?raw'),
+    'productividad_analistas_instalaciones': () => import('./views/reportes/productividad_analistas/instalaciones.html?raw'),
+    'productividad_analistas_conforme': () => import('./views/reportes/productividad_analistas/conforme.html?raw'),
+    'productividad_analistas_contable': () => import('./views/reportes/productividad_analistas/contable.html?raw'),
+    'productividad_analistas_etapa_proyecto': () => import('./views/reportes/productividad_analistas/etapa_proyecto.html?raw'),
+    'productividad_analistas_aviso_obra': () => import('./views/reportes/productividad_analistas/aviso_obra.html?raw'),
+    'productividad_analistas_morfologia': () => import('./views/reportes/productividad_analistas/morfologia.html?raw'),
+    'productividad_analistas_aph': () => import('./views/reportes/productividad_analistas/aph.html?raw'),
+    'productividad_analistas_usos': () => import('./views/reportes/productividad_analistas/usos.html?raw'),
+    'productividad_analistas_publico_privado': () => import('./views/reportes/productividad_analistas/publico_privado.html?raw'),
+    'productividad_analistas_copua': () => import('./views/reportes/productividad_analistas/copua.html?raw'),
+    'productividad_analistas_privada': () => import('./views/reportes/productividad_analistas/privada.html?raw'),
+    'productividad_analistas_otros': () => import('./views/reportes/productividad_analistas/otros.html?raw'),
     'reportes_rrhh': () => import('./views/reportes/reporte_rrhh/rrhh_hub.html?raw'),
     'reportes_rrhh_carga': () => import('./views/reportes/reporte_rrhh/carga.html?raw'),
     'reportes_rrhh_catastro': () => import('./views/reportes/reporte_rrhh/catastro.html?raw'),
@@ -181,8 +194,17 @@ function triggerViewInit(viewId) {
         window.loadSLAReporte();
     } else if (viewId === 'subsanaciones' && typeof window.loadSubsanacionesReport === 'function') {
         window.loadSubsanacionesReport();
-    } else if (viewId === 'productividad_analistas' && typeof window.loadProductividadAnalistasView === 'function') {
-        window.loadProductividadAnalistasView();
+    } else if (viewId === 'productividad_analistas') {
+        if (typeof window.loadProductividadHubView === 'function') {
+            window.loadProductividadHubView();
+        } else if (typeof window.loadProductividadAnalistasView === 'function') {
+            window.loadProductividadAnalistasView();
+        }
+    } else if (viewId.startsWith('productividad_analistas_')) {
+        const gKey = viewId.replace('productividad_analistas_', '');
+        if (typeof window.loadProductividadGerenciaView === 'function') {
+            window.loadProductividadGerenciaView(gKey);
+        }
     } else if (viewId === 'reportes_rrhh') {
         if (typeof window.loadRRHHHubView === 'function') {
             window.loadRRHHHubView();

@@ -103,7 +103,7 @@
             transition: opacity 0.3s;
         }
     </style>
-  <script type="module" crossorigin src="/assets/index-CZPP3SrG.js"></script>
+  <script type="module" crossorigin src="/assets/index-BZbUzrKl.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-SzwzawCq.css">
 </head>
 
@@ -243,7 +243,52 @@
                         <a href="#" id="cierre-link" onclick="event.preventDefault(); showView('cierre')">Cierre de Mes</a>
                         <a href="#" id="sla-link" onclick="event.preventDefault(); showView('sla')">Tiempos de Tramitacion</a>
                         <a href="#" onclick="event.preventDefault(); showView('subsanaciones')">Subsanaciones</a>
-                        <a href="#" id="productividad-link" onclick="event.preventDefault(); showView('productividad_analistas')">Productividad Analistas</a>
+                        <!-- Productividad Analistas Submenu -->
+                        <div class="dropdown-submenu" id="menu-sub-productividad">
+                            <a href="#/productividad_analistas" class="submenu-trigger" id="productividad-link" onclick="event.preventDefault(); showView('productividad_analistas');">
+                                <span>Productividad Analistas</span>
+                                <span class="submenu-chevron">▶</span>
+                            </a>
+                            <div class="submenu-content" style="min-width: 440px; padding: 12px 16px; top: -80px; max-height: calc(100vh - 100px); overflow-y: auto; box-shadow: 0 15px 35px rgba(0,45,71,0.18);">
+                                <!-- Top Quick Links -->
+                                <div style="display: flex; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                    <a href="#/productividad_analistas" id="link-prod-hub" onclick="event.preventDefault(); showView('productividad_analistas');" style="flex: 1; padding: 7px 10px; background: #eff6ff; color: #1d4ed8; border-radius: 8px; font-weight: 700; text-align: center; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                        <i class="fa-solid fa-chart-pie"></i> Hub Productividad
+                                    </a>
+                                </div>
+
+                                <!-- 2-Column Grid -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                                    <!-- Column DGROC -->
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #2563eb; padding: 4px 8px; text-transform: uppercase; font-family: 'Outfit'; border-bottom: 1px solid #dbeafe; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-building-user"></i> DGROC
+                                        </div>
+                                        <a href="#/productividad_analistas/catastro" id="link-prod-catastro" onclick="event.preventDefault(); showView('productividad_analistas_catastro');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Catastro</a>
+                                        <a href="#/productividad_analistas/instalaciones" id="link-prod-instalaciones" onclick="event.preventDefault(); showView('productividad_analistas_instalaciones');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Instalaciones</a>
+                                        <a href="#/productividad_analistas/conforme" id="link-prod-conforme" onclick="event.preventDefault(); showView('productividad_analistas_conforme');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Conforme</a>
+                                        <a href="#/productividad_analistas/contable" id="link-prod-contable" onclick="event.preventDefault(); showView('productividad_analistas_contable');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Contable</a>
+                                        <a href="#/productividad_analistas/etapa_proyecto" id="link-prod-etapa_proyecto" onclick="event.preventDefault(); showView('productividad_analistas_etapa_proyecto');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Etapa Proyecto</a>
+                                        <a href="#/productividad_analistas/aviso_obra" id="link-prod-aviso_obra" onclick="event.preventDefault(); showView('productividad_analistas_aviso_obra');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Aviso de Obra</a>
+                                    </div>
+
+                                    <!-- Column DGIUR & Otros -->
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #16a34a; padding: 4px 8px; text-transform: uppercase; font-family: 'Outfit'; border-bottom: 1px solid #dcfce7; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-city"></i> DGIUR
+                                        </div>
+                                        <a href="#/productividad_analistas/morfologia" id="link-prod-morfologia" onclick="event.preventDefault(); showView('productividad_analistas_morfologia');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Morfología Urbana</a>
+                                        <a href="#/productividad_analistas/aph" id="link-prod-aph" onclick="event.preventDefault(); showView('productividad_analistas_aph');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">APH</a>
+                                        <a href="#/productividad_analistas/usos" id="link-prod-usos" onclick="event.preventDefault(); showView('productividad_analistas_usos');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Usos del Suelo</a>
+                                        <a href="#/productividad_analistas/publico_privado" id="link-prod-publico_privado" onclick="event.preventDefault(); showView('productividad_analistas_publico_privado');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Público Privado</a>
+                                        <a href="#/productividad_analistas/copua" id="link-prod-copua" onclick="event.preventDefault(); showView('productividad_analistas_copua');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">COPUA</a>
+                                        <a href="#/productividad_analistas/privada" id="link-prod-privada" onclick="event.preventDefault(); showView('productividad_analistas_privada');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Privada</a>
+                                        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 4px 0;">
+                                        <a href="#/productividad_analistas/otros" id="link-prod-otros" onclick="event.preventDefault(); showView('productividad_analistas_otros');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block; color: #64748b;">Otros / General</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         
                         <!-- Reporte RRHH Submenu -->
                         <div class="dropdown-submenu" id="menu-sub-rrhh">
@@ -6702,6 +6747,136 @@
             <div style="padding: 0.85rem 1.75rem; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; font-size: 0.8rem; color: #64748b;">
                 <span id="modal-ub-footer-info">Mostrando tratas asociadas a este buzón/usuario.</span>
                 <button type="button" onclick="closeUniversoBuzonDetailModal()" style="padding: 6px 14px; background: #e2e8f0; color: #334155; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; font-size: 0.82rem; cursor: pointer;">
+                    Cerrar
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modal Dashboard de Analista (Productividad) -->
+    <div id="prod-analyst-modal" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: white; border-radius: 20px; width: 100%; max-width: 1200px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+            
+            <!-- Modal Header -->
+            <div style="padding: 1.25rem 2rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; flex-shrink: 0;">
+                <div>
+                    <h2 id="prod-modal-analyst-name" style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.4rem;">Detalle del Analista</h2>
+                    <p id="prod-modal-analyst-meta" style="color: #64748b; margin: 2px 0 0 0; font-size: 0.88rem;">Usuario: -- | Sector: --</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn-primary" onclick="downloadIndividualPDF()" style="padding: 8px 16px; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: var(--primary); color: white; font-size: 0.85rem;">
+                        <i class="fa-solid fa-file-pdf"></i> Reporte PDF
+                    </button>
+                    <button type="button" onclick="closeProductividadModal()" style="background: #e2e8f0; border: none; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #475569; font-size: 1.1rem; transition: background 0.2s;" onmouseover="this.style.background='#cbd5e1'" onmouseout="this.style.background='#e2e8f0'">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding: 1.5rem 2rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 1.5rem;">
+                
+                <!-- Date Filter Bar -->
+                <div style="display: flex; align-items: flex-end; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 18px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; display: block;">Fecha Desde</label>
+                        <input type="date" id="prod-modal-date-from" style="width: 100%; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; background: white;">
+                    </div>
+                    <div style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; display: block;">Fecha Hasta</label>
+                        <input type="date" id="prod-modal-date-to" style="width: 100%; padding: 7px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; background: white;">
+                    </div>
+                    <button type="button" onclick="loadProductividadAnalistaData()" class="btn-primary" style="padding: 8px 18px; font-family: 'Outfit'; font-weight: 700; height: 36px; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: 6px; background: var(--primary); color: white; font-size: 0.88rem;">
+                        <i class="fa-solid fa-filter"></i> Filtrar
+                    </button>
+                </div>
+
+                <!-- Loader -->
+                <div id="prod-modal-loader" style="display: none; padding: 3rem; text-align: center;">
+                    <span class="loader" style="width: 44px; height: 44px; border-width: 4px; margin: 0 auto 1rem auto;"></span>
+                    <h4 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">Procesando datos del analista...</h4>
+                    <p style="color: #64748b; margin-top: 0.4rem; font-size: 0.88rem;">Analizando tareas, pases y tiempos de conexión SADE.</p>
+                </div>
+
+                <!-- Dashboard Content -->
+                <div id="prod-modal-dashboard-content" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    
+                    <!-- KPIs Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="analyst-card-premium" style="padding: 16px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Tareas Totales</span>
+                            <span id="prod-modal-kpi-tareas" style="font-size: 1.8rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit'; margin: 6px 0;">0</span>
+                            <span style="font-size: 0.75rem; color: #94a3b8;">En período seleccionado</span>
+                        </div>
+                        <div class="analyst-card-premium" style="padding: 16px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Promedio Diario</span>
+                            <span id="prod-modal-kpi-diario" style="font-size: 1.8rem; font-weight: 800; color: var(--primary); font-family: 'Outfit'; margin: 6px 0;">0</span>
+                            <span style="font-size: 0.75rem; color: #94a3b8;">Tareas por día hábil</span>
+                        </div>
+                        <div class="analyst-card-premium" style="padding: 16px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Jornada Media</span>
+                            <span id="prod-modal-kpi-jornada" style="font-size: 1.8rem; font-weight: 800; color: #0f766e; font-family: 'Outfit'; margin: 6px 0;">0h</span>
+                            <span style="font-size: 0.75rem; color: #94a3b8;">Primera a última acción</span>
+                        </div>
+                        <div class="analyst-card-premium" style="padding: 16px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Stock en Bandeja</span>
+                            <span id="prod-modal-kpi-stock" style="font-size: 1.8rem; font-weight: 800; color: #b45309; font-family: 'Outfit'; margin: 6px 0;">0</span>
+                            <span id="prod-modal-kpi-stock-details" style="font-size: 0.75rem; color: #94a3b8;">Propio: -- | Subs: --</span>
+                        </div>
+                        <div class="analyst-card-premium" style="padding: 16px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span style="font-size: 0.78rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Firmados / Rechazos</span>
+                            <span id="prod-modal-kpi-firmas" style="font-size: 1.5rem; font-weight: 800; color: #15803d; font-family: 'Outfit'; margin: 6px 0;">0 / 0</span>
+                            <span id="prod-modal-kpi-rechazo-rate" style="font-size: 0.75rem; color: #ef4444; font-weight: 600;">Tasa rechazo: --%</span>
+                        </div>
+                    </div>
+
+                    <!-- Charts 1: Mix + Daily -->
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.25rem;">
+                        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <h4 style="margin: 0 0 1rem 0; align-self: flex-start; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Mix de Tareas (%)</h4>
+                            <div style="width: 220px; height: 220px; position: relative;">
+                                <canvas id="prod-modal-chart-mix"></canvas>
+                            </div>
+                        </div>
+                        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem;">
+                            <h4 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Tareas Completadas por Día</h4>
+                            <div style="height: 220px; position: relative;">
+                                <canvas id="prod-modal-chart-diario"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline & Horarios -->
+                    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 14px; padding: 1.25rem;">
+                        <h4 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Rango de Conexión Diario y Horarios Activos</h4>
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.25rem; align-items: start;">
+                            <div style="height: 260px; position: relative; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; background: #f8fafc;">
+                                <canvas id="prod-modal-chart-timeline"></canvas>
+                            </div>
+                            <div style="max-height: 260px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.82rem;" class="cierre-table">
+                                    <thead>
+                                        <tr style="background: #f8fafc; font-family: 'Outfit'; font-weight: 700; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #cbd5e1;">
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Fecha</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Inicio</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Fin</th>
+                                            <th style="padding: 8px; border-bottom: 1px solid #e2e8f0;">Activo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="prod-modal-table-horarios">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div style="padding: 0.75rem 2rem; border-top: 1px solid #e2e8f0; background: #f8fafc; display: flex; justify-content: flex-end; align-items: center; flex-shrink: 0;">
+                <button type="button" onclick="closeProductividadModal()" style="padding: 7px 16px; background: #e2e8f0; color: #334155; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
                     Cerrar
                 </button>
             </div>
