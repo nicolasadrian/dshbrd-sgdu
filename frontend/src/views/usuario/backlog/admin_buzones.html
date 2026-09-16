@@ -4,90 +4,182 @@
 
 <div class="admin-page-container" style="margin-top: 1rem;">
     
-                <button type="button" onclick="showBacklogMenu()"
-                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
-                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px;">
+        <button type="button" onclick="showBacklogMenu()"
+            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+        </button>
+
+        <button type="button" onclick="toggleCreateBuzonAreaBox()" id="btn-toggle-create-buzon-area"
+            style="background: #eff6ff; color: var(--primary); border: 1.5px solid #bfdbfe; padding: 8px 16px; border-radius: 8px; font-family: 'Outfit'; font-weight: 700; font-size: 0.88rem; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <i class="fa-solid fa-folder-plus"></i> + Nueva Área / Sector
+        </button>
+    </div>
+
+    <!-- Panel Crear Nueva Área / Sector (Desplegable) -->
+    <div id="create-buzon-area-box" style="display: none; background: white; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; margin-bottom: 1.5rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: all 0.3s ease;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
+            <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-layer-group" style="color: var(--primary);"></i> Crear Nueva Área / Sector
+            </h4>
+            <button type="button" onclick="toggleCreateBuzonAreaBox(false)" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.1rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="create-buzon-area-form" onsubmit="handleCreateBuzonAreaSubmit(event)" style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 12px; align-items: end;">
+            <div>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 5px;">Nombre del Área / Sector *</label>
+                <input type="text" id="new-buzon-area-nombre" required placeholder="Ej: Mesa de Entradas, Inspecciones, etc."
+                    style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.88rem; box-sizing: border-box; outline: none;">
+            </div>
+            <div>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 5px;">Dirección / Subsecretaría</label>
+                <select id="new-buzon-area-direccion" style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.88rem; box-sizing: border-box; background: white; outline: none; font-weight: 600;">
+                    <option value="DGROC">DGROC</option>
+                    <option value="DGIUR">DGIUR</option>
+                    <option value="SECGDU">SECGDU</option>
+                    <option value="OTRA">OTRA</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size: 0.8rem; font-weight: 700; color: #475569; display: block; margin-bottom: 5px;">Código Clave (Opcional)</label>
+                <input type="text" id="new-buzon-area-key" placeholder="Ej: mesa_entradas"
+                    style="width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.88rem; box-sizing: border-box; outline: none;">
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" onclick="toggleCreateBuzonAreaBox(false)"
+                    style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; padding: 9px 14px; border-radius: 6px; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                    Cancelar
                 </button>
-                <div class="admin-grid"
-                    style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
-                    <!-- Panel Agregar Analista / Buzón Adicional -->
-                    <div class="admin-card"
-                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <h3
-                            style="margin-top: 0; margin-bottom: 6px; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
-                            Buzones y Analistas por Gerencia</h3>
-                        <p style="margin: 0 0 1.25rem 0; font-size: 0.82rem; color: #64748b; line-height: 1.4;">
-                            Define qué analistas o buzones se visualizan en cada área de la sección <strong>Buzones</strong>. Los configurados en las tratas están activos por default.
-                        </p>
+                <button type="submit"
+                    style="background: var(--primary); color: white; border: none; padding: 9px 16px; border-radius: 6px; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                    <i class="fa-solid fa-check"></i> Guardar Área
+                </button>
+            </div>
+        </form>
+    </div>
 
-                        <div class="form-group" style="margin-bottom: 1.2rem;">
-                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Seleccionar Área / Gerencia</label>
-                            <select id="admin-buzon-gerencia-select" onchange="onAdminBuzonGerenciaChange()"
-                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none; font-weight: 700; color: var(--primary-dark);">
-                                <!-- Cargado dinámicamente -->
-                            </select>
-                        </div>
+    <div class="admin-grid" style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
+        <!-- Panel Agregar Analista / Buzón Adicional -->
+        <div class="admin-card"
+            style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                    Buzones y Analistas por Área
+                </h3>
+            </div>
+            <p style="margin: 0 0 1.25rem 0; font-size: 0.82rem; color: #64748b; line-height: 1.4;">
+                Define qué analistas o buzones se visualizan en cada sector de la sección <strong>Buzones</strong>.
+            </p>
 
-                        <div class="form-group" style="position: relative; margin-bottom: 1.2rem;">
-                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Agregar Analista o Buzón Adicional</label>
-                            <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">
-                                Puedes escribir el nombre de un usuario SADE o el código de un buzón especial (ej. <em>DGIUR-03</em>, <em>ALANDAZURI</em>, etc.).
-                            </p>
-                            <div style="position: relative;">
-                                <input type="text" id="admin-buzon-user-search"
-                                    oninput="searchSadeUsersForBuzonAdicional(this.value)"
-                                    placeholder="Buscar usuario SADE o escribir código..."
-                                    style="width: 100%; padding: 10px 14px 10px 35px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"
-                                    autocomplete="off">
-                                <i class="fa-solid fa-search"
-                                    style="position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 0.9rem;"></i>
-                                <button type="button" onclick="clearAdminBuzonUserSearch()"
-                                    style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;"
-                                    id="btn-clear-buzon-search">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
-                            <!-- Sugerencias SADE -->
-                            <div id="admin-buzon-search-results"
-                                style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 100; margin-top: 5px;">
-                            </div>
-                        </div>
-
-                        <button type="button" onclick="addCustomBuzonCodeFromInput()" class="btn-primary"
-                            style="padding: 10px 16px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Outfit'; font-size: 0.9rem; width: 100%;">
-                            <i class="fa-solid fa-plus"></i> Agregar como Buzón / Usuario
-                        </button>
-                    </div>
-
-                    <!-- Lista de Analistas y Buzones Asignados -->
-                    <div class="admin-card"
-                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
-                            <div>
-                                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;" id="admin-buzones-table-title">Analistas y Buzones Visibles</h3>
-                                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #64748b;" id="admin-buzones-table-subtitle">Cargando...</p>
-                            </div>
-                            <input type="text" id="admin-buzones-table-search" oninput="filterAdminBuzonesTable()"
-                                placeholder="Filtrar por nombre o usuario..."
-                                style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
-                        </div>
-
-                        <div class="table-container" style="overflow-x: auto; max-height: 480px;">
-                            <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
-                                <thead>
-                                    <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc; position: sticky; top: 0; z-index: 10;">
-                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Usuario / Buzón</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Nombre y Apellido</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center;">Origen</th>
-                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center; width: 110px;">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="admin-buzones-table-body">
-                                    <!-- Dinámico -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+            <div class="form-group" style="margin-bottom: 1.2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="font-weight: 700; color: var(--primary-dark); font-size: 0.88rem; margin: 0;">Seleccionar Área / Sector</label>
+                    <button type="button" id="btn-delete-current-area" onclick="deleteCurrentBuzonArea()"
+                        style="display: none; background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.78rem; font-family: 'Outfit'; font-weight: 700; align-items: center; gap: 4px;" title="Eliminar este sector personalizado">
+                        <i class="fa-solid fa-trash"></i> Eliminar Área
+                    </button>
                 </div>
-            
+                <select id="admin-buzon-gerencia-select" onchange="onAdminBuzonGerenciaChange()"
+                    style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none; font-weight: 700; color: var(--primary-dark);">
+                    <!-- Cargado dinámicamente -->
+                </select>
+            </div>
+
+            <div class="form-group" style="position: relative; margin-bottom: 1.2rem;">
+                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Agregar Analista o Buzón</label>
+                <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">
+                    Puedes escribir el nombre o usuario SADE (ej. <em>ALANDAZURI</em>) o el código de un buzón especial (ej. <em>DGIUR-03</em>).
+                </p>
+                <div style="position: relative;">
+                    <input type="text" id="admin-buzon-user-search"
+                        oninput="searchSadeUsersForBuzonAdicional(this.value)"
+                        placeholder="Buscar usuario SADE o escribir código..."
+                        style="width: 100%; padding: 10px 14px 10px 35px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"
+                        autocomplete="off">
+                    <i class="fa-solid fa-search"
+                        style="position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 0.9rem;"></i>
+                    <button type="button" onclick="clearAdminBuzonUserSearch()"
+                        style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;"
+                        id="btn-clear-buzon-search">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <!-- Sugerencias SADE -->
+                <div id="admin-buzon-search-results"
+                    style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 100; margin-top: 5px;">
+                </div>
+            </div>
+
+            <button type="button" onclick="addCustomBuzonCodeFromInput()" class="btn-primary"
+                style="padding: 11px 16px; font-weight: 700; border-radius: 8px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Outfit'; font-size: 0.9rem; width: 100%;">
+                <i class="fa-solid fa-user-plus"></i> Incorporar al Área Seleccionada
+            </button>
+        </div>
+
+        <!-- Lista de Analistas y Buzones Asignados -->
+        <div class="admin-card"
+            style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;" id="admin-buzones-table-title">Analistas y Buzones Visibles</h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #64748b;" id="admin-buzones-table-subtitle">Cargando...</p>
+                </div>
+                <input type="text" id="admin-buzones-table-search" oninput="filterAdminBuzonesTable()"
+                    placeholder="Filtrar por nombre o usuario..."
+                    style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
+            </div>
+
+            <div class="table-container" style="overflow-x: auto; max-height: 480px; border: 1px solid #f1f5f9; border-radius: 8px;">
+                <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc; position: sticky; top: 0; z-index: 10;">
+                            <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Usuario / Buzón</th>
+                            <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Nombre y Apellido</th>
+                            <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center;">Origen</th>
+                            <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center; width: 170px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-buzones-table-body">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Mover Usuario / Buzón entre Sectores -->
+<div id="modal-move-buzon" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 9999; align-items: center; justify-content: center;">
+    <div style="background: white; border-radius: 16px; width: 92%; max-width: 460px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); overflow: hidden;">
+        <div style="padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+            <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-arrows-split-up-and-left" style="color: var(--primary);"></i>
+                Mover a otro Sector / Área
+            </h3>
+            <button type="button" onclick="closeMoveBuzonModal()" style="background: none; border: none; font-size: 1.2rem; color: #94a3b8; cursor: pointer;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="padding: 22px 24px;">
+            <p style="margin: 0 0 1.2rem 0; font-size: 0.9rem; color: #475569; line-height: 1.5;">
+                Reasignar a <strong id="modal-move-user-name" style="color: var(--primary-dark); font-family: 'Outfit'; font-size: 1rem;"></strong><br>
+                <span style="font-size: 0.82rem; color: #64748b;">Desde sector: <strong id="modal-move-source-area" style="color: #334155;"></strong></span>
+            </p>
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.85rem;">Seleccionar Área de Destino:</label>
+                <select id="modal-move-target-select" style="width: 100%; padding: 10px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; outline: none; background: white; font-weight: 700; color: var(--primary-dark);">
+                    <!-- Cargado dinámicamente -->
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closeMoveBuzonModal()" style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 9px 16px; border-radius: 8px; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 600; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button type="button" id="modal-move-confirm-btn" onclick="confirmMoveBuzon()" style="background: var(--primary); color: white; border: none; padding: 9px 18px; border-radius: 8px; font-family: 'Outfit'; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-check"></i> Confirmar Traslado
+                </button>
+            </div>
+        </div>
+    </div>
 </div>

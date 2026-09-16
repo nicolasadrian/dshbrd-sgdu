@@ -14207,10 +14207,10 @@ window.toggleAvisoMapLayer = toggleAvisoMapLayer;
 // --- CONFIGURACIÓN DE BUZONES / ANALISTAS POR GERENCIA (ADMIN BACKLOG) ---
 let allAdminGerenciasBuzonesData = [];
 
-const ADMIN_GERENCIAS_LABELS = {
+let ADMIN_GERENCIAS_LABELS = {
     catastro: 'DGROC - Catastro',
     instalaciones: 'DGROC - Instalaciones',
-    conforme: 'DGROC - Conforme',
+    conforme: 'DGROC - Conforme a Obra',
     contable: 'DGROC - Contable',
     etapa_proyecto: 'DGROC - Etapa Proyecto',
     aviso_obra: 'DGROC - Aviso de Obra',
@@ -14221,6 +14221,8 @@ const ADMIN_GERENCIAS_LABELS = {
     copua: 'DGIUR - COPUA',
     privada: 'DGIUR - Privada'
 };
+
+let modalMoveCurrentData = null;
 
 async function loadBuzonesAccesoConfig() {
     const select = document.getElementById('admin-buzon-gerencia-select');
@@ -14236,11 +14238,12 @@ async function loadBuzonesAccesoConfig() {
         if (res && res.ok) {
             allAdminGerenciasBuzonesData = await res.json();
 
-            // Populate dropdown preserving selection
+            // Populate labels dictionary and dropdown preserving selection
             const currentSelVal = select.value;
             let optionsHtml = '';
             allAdminGerenciasBuzonesData.forEach(item => {
-                const label = ADMIN_GERENCIAS_LABELS[item.gerencia] || item.gerencia.toUpperCase();
+                const label = item.label || `${item.direccion || 'DGROC'} - ${item.nombre || item.gerencia.toUpperCase()}`;
+                ADMIN_GERENCIAS_LABELS[item.gerencia] = label;
                 optionsHtml += `<option value="${item.gerencia}">${label} (${item.total_analistas})</option>`;
             });
             select.innerHTML = optionsHtml;
@@ -14266,14 +14269,23 @@ function onAdminBuzonGerenciaChange() {
     const tableBody = document.getElementById('admin-buzones-table-body');
     const title = document.getElementById('admin-buzones-table-title');
     const subtitle = document.getElementById('admin-buzones-table-subtitle');
+    const delAreaBtn = document.getElementById('btn-delete-current-area') || document.getElementById('btn-delete-current-area-legacy');
     if (!select || !tableBody) return;
 
     const gerencia = select.value;
     const item = allAdminGerenciasBuzonesData.find(x => x.gerencia === gerencia);
-    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    const label = (item && item.label) ? item.label : (ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase());
 
     if (title) title.innerText = `Analistas y Buzones en ${label}`;
     
+    if (delAreaBtn) {
+        if (item && item.es_personalizada) {
+            delAreaBtn.style.display = 'inline-flex';
+        } else {
+            delAreaBtn.style.display = 'none';
+        }
+    }
+
     if (!item) {
         tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay información disponible.</td></tr>';
         return;
@@ -14284,11 +14296,11 @@ function onAdminBuzonGerenciaChange() {
     const totalCount = defaultList.length + adicList.length;
 
     if (subtitle) {
-        subtitle.innerHTML = `Total: <strong>${totalCount}</strong> configurados (<span style="color: #059669; font-weight: 700;">${defaultList.length} de tratas por default</span> + <span style="color: #2563eb; font-weight: 700;">${adicList.length} adicionales</span>).`;
+        subtitle.innerHTML = `Total: <strong>${totalCount}</strong> configurados (<span style="color: #059669; font-weight: 700;">${defaultList.length} tratas / nómina</span> + <span style="color: #2563eb; font-weight: 700;">${adicList.length} adicionales</span>).`;
     }
 
     if (totalCount === 0) {
-        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas configurados para esta área.</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas ni buzones configurados para esta área.</td></tr>';
         return;
     }
 
@@ -14296,17 +14308,31 @@ function onAdminBuzonGerenciaChange() {
 
     // Render Defaults
     defaultList.forEach(a => {
+        const uEsc = a.usuario.replace(/'/g, "\\'");
+        const isBuzon = a.tipo === 'buzon' || a.usuario.includes('-') || a.usuario.startsWith('DG') || a.usuario.startsWith('SEC');
         html += `
             <tr class="admin-buzon-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid ${isBuzon ? 'fa-inbox' : 'fa-user'}" style="color: #94a3b8; font-size: 0.85rem;"></i>
+                        ${a.usuario.toUpperCase()}
+                    </span>
+                </td>
                 <td style="padding: 12px 14px; color: #334155;">${a.nombre || a.usuario}</td>
                 <td style="padding: 12px 14px; text-align: center;">
                     <span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
-                        <i class="fa-solid fa-lock"></i> Default Trata
+                        <i class="fa-solid fa-layer-group"></i> Tratas / Nómina
                     </span>
                 </td>
                 <td style="padding: 12px 14px; text-align: center;">
-                    <span style="color: #94a3b8; font-size: 0.8rem; font-style: italic;" title="Configurado en las tratas de la gerencia">—</span>
+                    <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button type="button" onclick="openMoveBuzonModal('${uEsc}', '${gerencia}')" class="btn-action-move" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Mover a otra área">
+                            <i class="fa-solid fa-arrows-split-up-and-left"></i> Mover
+                        </button>
+                        <button type="button" onclick="deleteBuzonFromGerencia('${gerencia}', '${uEsc}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Quitar de esta área">
+                            <i class="fa-solid fa-trash"></i> Quitar
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -14315,9 +14341,15 @@ function onAdminBuzonGerenciaChange() {
     // Render Adicionales
     adicList.forEach(a => {
         const uEsc = a.usuario.replace(/'/g, "\\'");
+        const isBuzon = a.tipo === 'buzon' || a.usuario.includes('-') || a.usuario.startsWith('DG') || a.usuario.startsWith('SEC');
         html += `
             <tr class="admin-buzon-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
-                <td style="padding: 12px 14px; font-weight: 700; color: #2563eb; font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; font-weight: 700; color: #2563eb; font-family: 'Outfit';">
+                    <span style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid ${isBuzon ? 'fa-inbox' : 'fa-user'}" style="color: #60a5fa; font-size: 0.85rem;"></i>
+                        ${a.usuario.toUpperCase()}
+                    </span>
+                </td>
                 <td style="padding: 12px 14px; color: #334155;">${a.nombre || a.usuario}</td>
                 <td style="padding: 12px 14px; text-align: center;">
                     <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
@@ -14325,15 +14357,190 @@ function onAdminBuzonGerenciaChange() {
                     </span>
                 </td>
                 <td style="padding: 12px 14px; text-align: center;">
-                    <button type="button" onclick="deleteBuzonAdicionalFromGerencia('${gerencia}', '${uEsc}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Quitar de esta gerencia">
-                        <i class="fa-solid fa-trash"></i> Quitar
-                    </button>
+                    <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button type="button" onclick="openMoveBuzonModal('${uEsc}', '${gerencia}')" class="btn-action-move" style="background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Mover a otra área">
+                            <i class="fa-solid fa-arrows-split-up-and-left"></i> Mover
+                        </button>
+                        <button type="button" onclick="deleteBuzonFromGerencia('${gerencia}', '${uEsc}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 5px 9px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Quitar de esta área">
+                            <i class="fa-solid fa-trash"></i> Quitar
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
     });
 
     tableBody.innerHTML = html;
+}
+
+function toggleCreateBuzonAreaBox(forceState) {
+    const box = document.getElementById('create-buzon-area-box') || document.getElementById('create-buzon-area-box-legacy');
+    if (!box) return;
+    if (typeof forceState === 'boolean') {
+        box.style.display = forceState ? 'block' : 'none';
+    } else {
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+async function handleCreateBuzonAreaSubmit(event) {
+    event.preventDefault();
+    const nombreInput = document.getElementById('new-buzon-area-nombre') || document.getElementById('new-buzon-area-nombre-legacy');
+    const dirInput = document.getElementById('new-buzon-area-direccion') || document.getElementById('new-buzon-area-direccion-legacy');
+    const keyInput = document.getElementById('new-buzon-area-key') || document.getElementById('new-buzon-area-key-legacy');
+
+    const nombre = (nombreInput?.value || '').trim();
+    const direccion = (dirInput?.value || 'DGROC').trim();
+    const gerencia_key = (keyInput?.value || '').trim();
+
+    if (!nombre) {
+        alert('Por favor complete el nombre del área.');
+        return;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/areas`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, direccion, gerencia_key: gerencia_key || undefined })
+        });
+
+        if (res && res.ok) {
+            const data = await res.json();
+            toggleCreateBuzonAreaBox(false);
+            if (nombreInput) nombreInput.value = '';
+            if (keyInput) keyInput.value = '';
+            
+            await loadBuzonesAccesoConfig();
+            
+            const select = document.getElementById('admin-buzon-gerencia-select');
+            if (select && data.gerencia) {
+                select.value = data.gerencia;
+                onAdminBuzonGerenciaChange();
+            }
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo crear el área."}`);
+        }
+    } catch (err) {
+        console.error("Error creating buzon area:", err);
+        alert("Error de red al crear el área.");
+    }
+}
+
+async function deleteCurrentBuzonArea() {
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    if (!select) return;
+    const gerencia = select.value;
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+
+    if (!confirm(`¿Está seguro de que desea eliminar el área "${label}" y desvincular sus buzones/analistas?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/areas/${encodeURIComponent(gerencia)}`, {
+            method: 'DELETE'
+        });
+
+        if (res && res.ok) {
+            await loadBuzonesAccesoConfig();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo eliminar el área."}`);
+        }
+    } catch (err) {
+        console.error("Error deleting buzon area:", err);
+        alert("Error de red al eliminar el área.");
+    }
+}
+
+function openMoveBuzonModal(usuarioBuzon, gerenciaActual) {
+    const modal = document.getElementById('modal-move-buzon');
+    const nameEl = document.getElementById('modal-move-user-name');
+    const sourceEl = document.getElementById('modal-move-source-area');
+    const targetSelect = document.getElementById('modal-move-target-select');
+    if (!modal || !targetSelect) return;
+
+    modalMoveCurrentData = { usuario: usuarioBuzon, gerencia_origen: gerenciaActual };
+    
+    if (nameEl) nameEl.innerText = usuarioBuzon.toUpperCase();
+    if (sourceEl) sourceEl.innerText = ADMIN_GERENCIAS_LABELS[gerenciaActual] || gerenciaActual.toUpperCase();
+
+    let optionsHtml = '';
+    (allAdminGerenciasBuzonesData || []).forEach(item => {
+        if (item.gerencia !== gerenciaActual) {
+            const label = item.label || ADMIN_GERENCIAS_LABELS[item.gerencia] || item.gerencia.toUpperCase();
+            optionsHtml += `<option value="${item.gerencia}">${label}</option>`;
+        }
+    });
+
+    targetSelect.innerHTML = optionsHtml;
+    modal.style.display = 'flex';
+}
+
+function closeMoveBuzonModal() {
+    const modal = document.getElementById('modal-move-buzon');
+    if (modal) modal.style.display = 'none';
+    modalMoveCurrentData = null;
+}
+
+async function confirmMoveBuzon() {
+    if (!modalMoveCurrentData) return;
+    const targetSelect = document.getElementById('modal-move-target-select');
+    const destino = targetSelect?.value;
+    if (!destino) {
+        alert('Seleccione un área de destino válida.');
+        return;
+    }
+
+    const { usuario, gerencia_origen } = modalMoveCurrentData;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/mover`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                usuario_buzon: usuario,
+                gerencia_origen: gerencia_origen,
+                gerencia_destino: destino
+            })
+        });
+
+        if (res && res.ok) {
+            closeMoveBuzonModal();
+            await loadBuzonesAccesoConfig();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo trasladar el usuario."}`);
+        }
+    } catch (err) {
+        console.error("Error moving buzon/analyst:", err);
+        alert("Error de red al trasladar el usuario.");
+    }
+}
+
+async function deleteBuzonFromGerencia(gerencia, usernameOrBuzon) {
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    if (!confirm(`¿Está seguro de que desea remover a "${usernameOrBuzon.toUpperCase()}" de ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/${encodeURIComponent(gerencia)}/${encodeURIComponent(usernameOrBuzon)}`, {
+            method: 'DELETE'
+        });
+
+        if (res && res.ok) {
+            await loadBuzonesAccesoConfig();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo remover."}`);
+        }
+    } catch (err) {
+        console.error("Error deleting buzon:", err);
+        alert("Error de red al remover.");
+    }
+}
+
+async function deleteBuzonAdicionalFromGerencia(gerencia, usernameOrBuzon) {
+    return deleteBuzonFromGerencia(gerencia, usernameOrBuzon);
 }
 
 function filterAdminBuzonesTable() {
@@ -14440,27 +14647,6 @@ async function addBuzonAdicionalToGerencia(usernameOrBuzon) {
     }
 }
 
-async function deleteBuzonAdicionalFromGerencia(gerencia, usernameOrBuzon) {
-    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
-    if (!confirm(`¿Está seguro de que desea remover a "${usernameOrBuzon.toUpperCase()}" de ${label}?`)) return;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/${encodeURIComponent(gerencia)}/${encodeURIComponent(usernameOrBuzon)}`, {
-            method: 'DELETE'
-        });
-
-        if (res && res.ok) {
-            await loadBuzonesAccesoConfig();
-        } else {
-            const err = await res.json();
-            alert(`Error: ${err.detail || "No se pudo remover."}`);
-        }
-    } catch (err) {
-        console.error("Error deleting buzon adicional:", err);
-        alert("Error de red al remover.");
-    }
-}
-
 window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
 window.onAdminBuzonGerenciaChange = onAdminBuzonGerenciaChange;
 window.filterAdminBuzonesTable = filterAdminBuzonesTable;
@@ -14468,7 +14654,14 @@ window.searchSadeUsersForBuzonAdicional = searchSadeUsersForBuzonAdicional;
 window.clearAdminBuzonUserSearch = clearAdminBuzonUserSearch;
 window.addCustomBuzonCodeFromInput = addCustomBuzonCodeFromInput;
 window.addBuzonAdicionalToGerencia = addBuzonAdicionalToGerencia;
+window.deleteBuzonFromGerencia = deleteBuzonFromGerencia;
 window.deleteBuzonAdicionalFromGerencia = deleteBuzonAdicionalFromGerencia;
+window.toggleCreateBuzonAreaBox = toggleCreateBuzonAreaBox;
+window.handleCreateBuzonAreaSubmit = handleCreateBuzonAreaSubmit;
+window.deleteCurrentBuzonArea = deleteCurrentBuzonArea;
+window.openMoveBuzonModal = openMoveBuzonModal;
+window.closeMoveBuzonModal = closeMoveBuzonModal;
+window.confirmMoveBuzon = confirmMoveBuzon;
 
 // --- MAESTRO DE ANALISTAS POR ÁREA / GERENCIA (ADMIN BACKLOG) ---
 let allAdminAnalistasData = [];

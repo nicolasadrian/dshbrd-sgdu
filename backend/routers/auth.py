@@ -352,6 +352,15 @@ async def delete_admin_familia(nombre: str, current_user: User = Depends(get_cur
 
 def _ensure_buzones_adicionales_table(conn):
     conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.cfg_buzones_areas (
+            gerencia_key VARCHAR(100) PRIMARY KEY,
+            nombre VARCHAR(150) NOT NULL,
+            direccion VARCHAR(100) NOT NULL,
+            es_sistema BOOLEAN DEFAULT FALSE,
+            creado_el TIMESTAMP DEFAULT NOW()
+        )
+    """))
+    conn.execute(text("""
         CREATE TABLE IF NOT EXISTS public.cfg_gerencias_buzones_adicionales (
             id SERIAL PRIMARY KEY,
             gerencia VARCHAR(100) NOT NULL,
@@ -360,6 +369,40 @@ def _ensure_buzones_adicionales_table(conn):
             CONSTRAINT uq_gerencia_usuario UNIQUE (gerencia, usuario_buzon)
         )
     """))
+    
+    # Pre-cargar áreas por defecto si la tabla está vacía
+    area_count = conn.execute(text("SELECT COUNT(*) FROM public.cfg_buzones_areas")).scalar()
+    if not area_count:
+        default_areas = [
+            ('catastro', 'Catastro', 'DGROC', True),
+            ('instalaciones', 'Instalaciones', 'DGROC', True),
+            ('conforme', 'Conforme a Obra', 'DGROC', True),
+            ('contable', 'Contable', 'DGROC', True),
+            ('etapa_proyecto', 'Etapa Proyecto', 'DGROC', True),
+            ('aviso_obra', 'Aviso de Obra', 'DGROC', True),
+            ('morfologia', 'Morfología', 'DGIUR', True),
+            ('aph', 'APH', 'DGIUR', True),
+            ('usos', 'Usos', 'DGIUR', True),
+            ('publico_privado', 'Público Privado', 'DGIUR', True),
+            ('copua', 'COPUA', 'DGIUR', True),
+            ('privada', 'Privada', 'DGIUR', True)
+        ]
+        for k, nom, dir_name, es_sis in default_areas:
+            conn.execute(text("""
+                INSERT INTO public.cfg_buzones_areas (gerencia_key, nombre, direccion, es_sistema)
+                VALUES (:k, :nom, :dir, :es_sis)
+                ON CONFLICT (gerencia_key) DO NOTHING
+            """), {"k": k, "nom": nom, "dir": dir_name, "es_sis": es_sis})
+
+class CreateAreaRequest(BaseModel):
+    nombre: str
+    direccion: str = "DGROC"
+    gerencia_key: Optional[str] = None
+
+class MoveBuzonAnalistaRequest(BaseModel):
+    usuario_buzon: str
+    gerencia_origen: str
+    gerencia_destino: str
 
 class GerenciaBuzonAdicionalRequest(BaseModel):
     usuario_buzon: str
@@ -372,6 +415,15 @@ async def list_gerencias_buzones_config(current_user: User = Depends(get_current
         with engine.begin() as conn:
             _ensure_buzones_adicionales_table(conn)
             
+            # Obtener catálogo de áreas registradas
+            areas_rows = conn.execute(text("""
+                SELECT gerencia_key, nombre, direccion, COALESCE(es_sistema, false) as es_sistema
+                FROM public.cfg_buzones_areas
+                ORDER BY direccion, nombre
+            """)).fetchall()
+            
+            known_areas = {r[0]: {"nombre": r[1], "direccion": r[2], "es_sistema": r[3]} for r in areas_rows}
+
             # Obtener analistas oficiales y buzones de ingreso por gerencia desde cfg_gestion_metas (Default)
             cfg_rows = conn.execute(text("""
                 SELECT 
@@ -384,7 +436,6 @@ async def list_gerencias_buzones_config(current_user: User = Depends(get_current
             defaults_by_gerencia = defaultdict(set)
             for cr in cfg_rows:
                 g = cr[0]
-                # Si en cfg_gestion_metas figura como 'regularizacion', mapearla también a 'conforme'
                 target_keys = [g]
                 if g == 'regularizacion':
                     target_keys.append('conforme')
@@ -398,6 +449,22 @@ async def list_gerencias_buzones_config(current_user: User = Depends(get_current
                     for a in cr[2]:
                         if a:
                             defaults_by_gerencia[tk].add(a)
+
+            # Obtener analistas registrados en cfg_analistas_areas
+            try:
+                area_analistas_rows = conn.execute(text("""
+                    SELECT LOWER(TRIM(gerencia)), UPPER(TRIM(usuario_sade)), direccion
+                    FROM public.cfg_analistas_areas
+                    WHERE activo = true
+                """)).fetchall()
+                for ar in area_analistas_rows:
+                    g = ar[0]
+                    u = ar[1]
+                    if g not in known_areas:
+                        known_areas[g] = {"nombre": g.replace('_', ' ').title(), "direccion": ar[2] or "DGROC", "es_sistema": False}
+                    defaults_by_gerencia[g].add(u)
+            except Exception:
+                pass
 
             # Obtener buzones/analistas adicionales configurados en cfg_gerencias_buzones_adicionales
             adic_rows = conn.execute(text("""
@@ -415,6 +482,13 @@ async def list_gerencias_buzones_config(current_user: User = Depends(get_current
                     target_keys.append('regularizacion')
                 for tk in target_keys:
                     adicionales_by_gerencia[tk].add(ar[1])
+                    if tk not in known_areas:
+                        known_areas[tk] = {"nombre": tk.replace('_', ' ').title(), "direccion": "DGROC", "es_sistema": False}
+
+            # Agregar cualquier gerencia de cfg_gestion_metas a known_areas si faltara
+            for g in defaults_by_gerencia:
+                if g not in known_areas:
+                    known_areas[g] = {"nombre": g.replace('_', ' ').title(), "direccion": "DGROC", "es_sistema": False}
 
             # Mapa de nombres desde datos_usuario
             nombres_sql = conn.execute(text("""
@@ -424,36 +498,189 @@ async def list_gerencias_buzones_config(current_user: User = Depends(get_current
             """)).fetchall()
             nombres_map = {r[0]: r[1] for r in nombres_sql if r[0] and r[1]}
 
-            # Lista consolidada de gerencias
-            all_gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada']
-            
             result = []
-            for g in all_gerencias:
-                def_set = defaults_by_gerencia.get(g, set())
-                adic_set = adicionales_by_gerencia.get(g, set())
+            for g_key, info in known_areas.items():
+                def_set = defaults_by_gerencia.get(g_key, set())
+                adic_set = adicionales_by_gerencia.get(g_key, set())
+                
+                # Excluir de def_set lo que ya esté en adic_set para no duplicar
+                def_set_clean = def_set - adic_set
 
                 def_list = [{
                     "usuario": u,
                     "nombre": nombres_map.get(u, u),
-                    "es_default": True
-                } for u in sorted(def_set)]
+                    "es_default": True,
+                    "tipo": 'buzon' if ('-' in u or u.startswith('DG') or u.startswith('SEC')) else 'analista'
+                } for u in sorted(def_set_clean)]
 
                 adic_list = [{
                     "usuario": u,
                     "nombre": nombres_map.get(u, u),
-                    "es_default": False
+                    "es_default": False,
+                    "tipo": 'buzon' if ('-' in u or u.startswith('DG') or u.startswith('SEC')) else 'analista'
                 } for u in sorted(adic_set)]
 
+                all_items = def_list + adic_list
+
                 result.append({
-                    "gerencia": g,
+                    "gerencia": g_key,
+                    "nombre": info["nombre"],
+                    "direccion": info["direccion"],
+                    "label": f"{info['direccion']} - {info['nombre']}",
+                    "es_personalizada": not info["es_sistema"],
                     "default_analistas": def_list,
                     "adicionales_analistas": adic_list,
-                    "total_analistas": len(def_set.union(adic_set))
+                    "analistas": all_items,
+                    "total_analistas": len(all_items)
                 })
 
+            # Ordenar por direccion y luego nombre
+            result.sort(key=lambda x: (x["direccion"], x["nombre"]))
             return result
     except Exception as e:
         logger.error(f"Error en list_gerencias_buzones_config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/admin/gerencias-buzones/areas")
+async def create_gerencia_buzon_area(
+    data: CreateAreaRequest,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    nombre_clean = data.nombre.strip()
+    if not nombre_clean:
+        raise HTTPException(status_code=400, detail="El nombre del área es requerido.")
+    
+    key_clean = (data.gerencia_key or nombre_clean).strip().lower()
+    # Sanitizar key a formato alfanumérico con guiones bajos
+    key_clean = re.sub(r'[^a-z0-9_]', '_', key_clean)
+    key_clean = re.sub(r'_+', '_', key_clean).strip('_')
+    
+    dir_clean = data.direccion.strip().upper() or "DGROC"
+
+    try:
+        with engine.begin() as conn:
+            _ensure_buzones_adicionales_table(conn)
+            conn.execute(text("""
+                INSERT INTO public.cfg_buzones_areas (gerencia_key, nombre, direccion, es_sistema)
+                VALUES (:k, :nom, :dir, FALSE)
+                ON CONFLICT (gerencia_key) DO UPDATE 
+                SET nombre = EXCLUDED.nombre,
+                    direccion = EXCLUDED.direccion
+            """), {"k": key_clean, "nom": nombre_clean, "dir": dir_clean})
+
+            return {"status": "ok", "gerencia": key_clean, "nombre": nombre_clean, "direccion": dir_clean, "message": f"Área '{nombre_clean}' creada exitosamente."}
+    except Exception as e:
+        logger.error(f"Error creating buzon area: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/api/admin/gerencias-buzones/areas/{gerencia}")
+async def delete_gerencia_buzon_area(
+    gerencia: str,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    g_clean = gerencia.strip().lower()
+    try:
+        with engine.begin() as conn:
+            _ensure_buzones_adicionales_table(conn)
+            
+            # Verificar si es área de sistema
+            is_sys = conn.execute(text("SELECT es_sistema FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": g_clean}).scalar()
+            if is_sys:
+                raise HTTPException(status_code=400, detail="No se pueden eliminar áreas nativas del sistema.")
+
+            conn.execute(text("DELETE FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": g_clean})
+            conn.execute(text("DELETE FROM public.cfg_gerencias_buzones_adicionales WHERE gerencia = :g"), {"g": g_clean})
+            conn.execute(text("DELETE FROM public.cfg_analistas_areas WHERE gerencia = :g"), {"g": g_clean})
+
+            return {"status": "ok", "message": f"Área '{g_clean}' eliminada exitosamente."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting buzon area: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/admin/gerencias-buzones/mover")
+async def move_gerencia_buzon_analista(
+    data: MoveBuzonAnalistaRequest,
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    u_clean = data.usuario_buzon.strip().upper()
+    orig_clean = data.gerencia_origen.strip().lower()
+    dest_clean = data.gerencia_destino.strip().lower()
+
+    if not u_clean or not orig_clean or not dest_clean:
+        raise HTTPException(status_code=400, detail="Datos incompletos para el traslado.")
+    if orig_clean == dest_clean:
+        raise HTTPException(status_code=400, detail="El área de origen y destino deben ser distintas.")
+
+    try:
+        with engine.begin() as conn:
+            _ensure_buzones_adicionales_table(conn)
+            
+            # 1. Quitar de gerencia origen
+            # a) En cfg_gerencias_buzones_adicionales
+            conn.execute(text("""
+                DELETE FROM public.cfg_gerencias_buzones_adicionales 
+                WHERE (LOWER(TRIM(gerencia)) = :g OR (LOWER(TRIM(gerencia)) = 'conforme' AND :g = 'regularizacion')) AND UPPER(TRIM(usuario_buzon)) = :u
+            """), {"g": orig_clean, "u": u_clean})
+
+            # b) En cfg_analistas_areas
+            conn.execute(text("""
+                DELETE FROM public.cfg_analistas_areas 
+                WHERE TRIM(LOWER(gerencia)) = :g AND TRIM(UPPER(usuario_sade)) = :u
+            """), {"g": orig_clean, "u": u_clean})
+
+            # c) En cfg_gestion_metas (remover de analistas_oficiales y buzones_ingreso del origen)
+            rows = conn.execute(text("SELECT id, analistas_oficiales, buzones_ingreso FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": orig_clean}).fetchall()
+            for r in rows:
+                c_analysts = [a for a in (r[1] or []) if a and a.strip().upper() != u_clean]
+                c_buzones = [b for b in (r[2] or []) if b and b.strip().upper() != u_clean]
+                conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a, buzones_ingreso = :b WHERE id = :id"), {"a": c_analysts, "b": c_buzones, "id": r[0]})
+
+            # 2. Agregar a gerencia destino
+            # Determinar dirección de destino
+            dest_dir = conn.execute(text("SELECT direccion FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": dest_clean}).scalar() or "DGROC"
+            
+            # a) Insertar en cfg_gerencias_buzones_adicionales
+            conn.execute(text("""
+                INSERT INTO public.cfg_gerencias_buzones_adicionales (gerencia, usuario_buzon)
+                VALUES (:g, :u)
+                ON CONFLICT (gerencia, usuario_buzon) DO NOTHING
+            """), {"g": dest_clean, "u": u_clean})
+
+            # b) Insertar en cfg_analistas_areas
+            user_row = conn.execute(text("""
+                SELECT UPPER(TRIM(usuario)) as u, 
+                       UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
+                FROM public.datos_usuario 
+                WHERE TRIM(UPPER(usuario)) = :u
+            """), {"u": u_clean}).fetchone()
+            nombre_completo = user_row.nom if user_row and user_row.nom else u_clean
+            tipo = 'buzon' if ('-' in u_clean or u_clean.startswith('DG') or u_clean.startswith('SEC')) else 'analista'
+
+            conn.execute(text("""
+                INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
+                VALUES (:dir, :ger, :usr, :nom, :tipo, true)
+                ON CONFLICT (gerencia, usuario_sade) DO UPDATE 
+                SET direccion = EXCLUDED.direccion,
+                    nombre_completo = COALESCE(EXCLUDED.nombre_completo, cfg_analistas_areas.nombre_completo),
+                    activo = true;
+            """), {"dir": dest_dir, "ger": dest_clean, "usr": u_clean, "nom": nombre_completo, "tipo": tipo})
+
+            return {"status": "ok", "message": f"{tipo.title()} {u_clean} trasladado exitosamente a {dest_clean.upper()}."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error moving buzon/analyst: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/api/admin/gerencias-buzones/{gerencia}")
@@ -480,6 +707,27 @@ async def add_gerencia_buzon_adicional(
                 VALUES (:g, :u)
                 ON CONFLICT (gerencia, usuario_buzon) DO NOTHING
             """), {"g": g_clean, "u": u_clean})
+
+            # También sincronizar en cfg_analistas_areas
+            dest_dir = conn.execute(text("SELECT direccion FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": g_clean}).scalar() or "DGROC"
+            user_row = conn.execute(text("""
+                SELECT UPPER(TRIM(usuario)) as u, 
+                       UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
+                FROM public.datos_usuario 
+                WHERE TRIM(UPPER(usuario)) = :u
+            """), {"u": u_clean}).fetchone()
+            nombre_completo = user_row.nom if user_row and user_row.nom else u_clean
+            tipo = 'buzon' if ('-' in u_clean or u_clean.startswith('DG') or u_clean.startswith('SEC')) else 'analista'
+
+            conn.execute(text("""
+                INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
+                VALUES (:dir, :ger, :usr, :nom, :tipo, true)
+                ON CONFLICT (gerencia, usuario_sade) DO UPDATE 
+                SET direccion = EXCLUDED.direccion,
+                    nombre_completo = COALESCE(EXCLUDED.nombre_completo, cfg_analistas_areas.nombre_completo),
+                    activo = true;
+            """), {"dir": dest_dir, "ger": g_clean, "usr": u_clean, "nom": nombre_completo, "tipo": tipo})
+
             return {"status": "ok", "message": f"Buzón/Analista {u_clean} agregado a la gerencia {g_clean.upper()}."}
     except Exception as e:
         logger.error(f"Error adding gerencia buzon adicional: {e}")
@@ -501,10 +749,26 @@ async def delete_gerencia_buzon_adicional(
     try:
         with engine.begin() as conn:
             _ensure_buzones_adicionales_table(conn)
+            
+            # 1. Eliminar de cfg_gerencias_buzones_adicionales
             conn.execute(text("""
                 DELETE FROM public.cfg_gerencias_buzones_adicionales 
                 WHERE (LOWER(TRIM(gerencia)) = :g OR (LOWER(TRIM(gerencia)) = 'conforme' AND :g = 'regularizacion')) AND UPPER(TRIM(usuario_buzon)) = :u
             """), {"g": g_clean, "u": u_clean})
+
+            # 2. Eliminar de cfg_analistas_areas
+            conn.execute(text("""
+                DELETE FROM public.cfg_analistas_areas 
+                WHERE (LOWER(TRIM(gerencia)) = :g OR (LOWER(TRIM(gerencia)) = 'conforme' AND :g = 'regularizacion')) AND UPPER(TRIM(usuario_sade)) = :u
+            """), {"g": g_clean, "u": u_clean})
+
+            # 3. Sincronizar cfg_gestion_metas
+            rows = conn.execute(text("SELECT id, analistas_oficiales, buzones_ingreso FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": g_clean}).fetchall()
+            for r in rows:
+                c_analysts = [a for a in (r[1] or []) if a and a.strip().upper() != u_clean]
+                c_buzones = [b for b in (r[2] or []) if b and b.strip().upper() != u_clean]
+                conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a, buzones_ingreso = :b WHERE id = :id"), {"a": c_analysts, "b": c_buzones, "id": r[0]})
+
             return {"status": "ok", "message": f"Buzón/Analista {u_clean} removido de {g_clean.upper()}."}
     except Exception as e:
         logger.error(f"Error deleting gerencia buzon adicional: {e}")
