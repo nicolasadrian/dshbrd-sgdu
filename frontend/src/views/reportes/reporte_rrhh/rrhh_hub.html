@@ -1,0 +1,87 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <strong>Reporte RRHH</strong>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+    <div>
+        <h1 class="landing-title" style="margin: 0;">Reporte RRHH — Hub Central</h1>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.92rem;">Monitoreo general de asistencia, cobertura horaria y acceso a páginas independientes por gerencia.</p>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" id="btn-goto-rrhh-carga" onclick="window.location.hash='#/reportes_rrhh/carga'" class="btn-secondary" style="display: none; padding: 9px 16px; border: 1px solid #cbd5e1; background: white; border-radius: 8px; font-family: 'Outfit'; font-weight: 700; cursor: pointer; font-size: 0.88rem; color: #334155; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <i class="fa-solid fa-cloud-arrow-up" style="color: var(--primary);"></i> Cargar Planilla Excel
+        </button>
+    </div>
+</div>
+
+<!-- Filtros de Período -->
+<div class="admin-card" style="background: white; padding: 15px 25px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <label style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit'; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-calendar-days" style="color: var(--primary);"></i> Período:
+        </label>
+        <input type="month" id="rrhh-hub-filter-month" onchange="loadRRHHHubView()" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-weight: bold; color: var(--primary-dark); outline: none; background: #f8fafc;">
+        <button type="button" onclick="loadRRHHHubView()" class="btn-primary" style="padding: 8px 16px; font-size: 0.88rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.06);">
+            <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+        </button>
+    </div>
+</div>
+
+<!-- Resumen/Indicadores Globales -->
+<div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;" id="rrhh-hub-global-cards">
+    <!-- Generado dinámicamente -->
+</div>
+
+<!-- Grid de Gerencias DGROC -->
+<div style="margin-bottom: 2.5rem;" id="rrhh-hub-section-dgroc">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                <i class="fa-solid fa-building-user"></i>
+            </div>
+            <div>
+                <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">Dirección General DGROC</h2>
+                <span style="font-size: 0.8rem; color: #64748b;">Registro de Obras y Catastro — Seleccione una gerencia para ingresar a su página</span>
+            </div>
+        </div>
+    </div>
+    <div class="gerencias-grid" id="rrhh-hub-cards-dgroc" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Dinámico -->
+    </div>
+</div>
+
+<!-- Grid de Gerencias DGIUR -->
+<div style="margin-bottom: 2.5rem;" id="rrhh-hub-section-dgiur">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                <i class="fa-solid fa-city"></i>
+            </div>
+            <div>
+                <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">Dirección General DGIUR</h2>
+                <span style="font-size: 0.8rem; color: #64748b;">Interpretación Urbanística — Seleccione una gerencia para ingresar a su página</span>
+            </div>
+        </div>
+    </div>
+    <div class="gerencias-grid" id="rrhh-hub-cards-dgiur" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Dinámico -->
+    </div>
+</div>
+
+<!-- Grid de Otras Áreas -->
+<div style="margin-bottom: 2.5rem; display: none;" id="rrhh-hub-section-otros">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #f8fafc; color: #64748b; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                <i class="fa-solid fa-folder-tree"></i>
+            </div>
+            <div>
+                <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.25rem;">Otras Áreas / General</h2>
+                <span style="font-size: 0.8rem; color: #64748b;">Personal no categorizado en gerencias operativas principales</span>
+            </div>
+        </div>
+    </div>
+    <div class="gerencias-grid" id="rrhh-hub-cards-otros" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+        <!-- Dinámico -->
+    </div>
+</div>

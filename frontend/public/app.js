@@ -413,8 +413,15 @@ async function showView(viewId, updateHash = true) {
             hasPermission = !!(perms[viewId] || isAdmin);
         } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle' || viewId === 'buzones_dgroc_hub' || viewId === 'buzones_dgiur_hub') {
             hasPermission = !!(perms.buzon_dgroc || perms.buzon_dgiur || perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || isAdmin);
-        } else if (viewId === 'reportes_rrhh') {
-            hasPermission = !!(perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]) || isAdmin);
+        } else if (viewId === 'reportes_rrhh' || viewId.startsWith('reportes_rrhh_')) {
+            if (viewId === 'reportes_rrhh') {
+                hasPermission = !!(perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]) || isAdmin);
+            } else if (viewId === 'reportes_rrhh_carga') {
+                hasPermission = !!(perms.carga_reportes_rrhh || isAdmin);
+            } else {
+                const gKey = viewId.replace('reportes_rrhh_', '');
+                hasPermission = !!(perms.reportes_rrhh || perms[`rrhh_${gKey}`] || isAdmin);
+            }
         } else if (viewId === 'familia_tramites' || viewId === 'family') {
             hasPermission = !!(perms.family || perms.familia_tramites || perms.seguimiento || isAdmin);
         } else if (viewId === 'seguimiento' || viewId === 'cierre' || viewId === 'sla' || viewId === 'subsanaciones' || viewId === 'productividad_analistas' || viewId === 'universo_tratas' || viewId === 'planificacion_nov_2026') {
@@ -440,6 +447,61 @@ async function showView(viewId, updateHash = true) {
         if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
             showView('landing');
             return;
+        }
+    }
+
+    // Ocultar todas las vistas
+    const views = document.querySelectorAll('.view-container');
+    views.forEach(v => {
+        v.style.display = 'none';
+        v.classList.remove('active');
+    });
+
+    // Si existe la función del router modular (mountView), usarla para cargar la plantilla dinámicamente
+    if (typeof window.mountView === 'function') {
+        window.mountView(viewId);
+    }
+
+    // Mostrar la vista solicitada
+    const activeView = document.getElementById(viewId);
+    if (activeView) {
+        activeView.style.display = 'block';
+        setTimeout(() => activeView.classList.add('active'), 10);
+    }
+
+    // Cargar datos específicos de cada vista
+    if (viewId === 'metas' || viewId === 'seguimiento') {
+        loadMetasData();
+    }
+
+    if (viewId === 'sla') {
+        loadSLAReporte();
+    }
+
+    if (viewId === 'cierre') {
+        loadCierreMesData();
+    }
+
+    if (viewId === 'subsanaciones') {
+        loadSubsanacionesReport();
+    }
+
+    if (viewId === 'productividad_analistas') {
+        loadProductividadAnalistasView();
+    }
+
+    if (viewId === 'reportes_rrhh') {
+        if (typeof window.loadRRHHHubView === 'function') {
+            window.loadRRHHHubView();
+        }
+    } else if (viewId === 'reportes_rrhh_carga') {
+        if (typeof window.initRRHHCargaView === 'function') {
+            window.initRRHHCargaView();
+        }
+    } else if (viewId.startsWith('reportes_rrhh_')) {
+        const gKey = viewId.replace('reportes_rrhh_', '');
+        if (typeof window.loadRRHHGerenciaView === 'function') {
+            window.loadRRHHGerenciaView(gKey);
         }
     }
 
@@ -916,10 +978,7 @@ async function handleRouting() {
             await showBuzonesView(second, third, false);
         } else if (first === 'reportes_rrhh') {
             // Formato: #/reportes_rrhh/dgroc/catastro
-            await showView('reportes_rrhh', false);
-            if (typeof window.showRRHHGerenciaView === 'function') {
-                window.showRRHHGerenciaView(third);
-            }
+            await showView(`reportes_rrhh_${third}`, false);
         } else if (first === 'ciudad3d' && second === 'extensiones') {
             // Formato: #/ciudad3d/extensiones/todas, mis-trazados, revision, equipo, mapa
             if (third === 'mis-trazados' || third === 'mis_trazados') {
@@ -949,11 +1008,8 @@ async function handleRouting() {
             // Formato: #/buzones/dgroc o #/buzones/dgiur
             await showBuzonesView(second, null, false);
         } else if (first === 'reportes_rrhh') {
-            // Formato: #/reportes_rrhh/catastro
-            await showView('reportes_rrhh', false);
-            if (typeof window.showRRHHGerenciaView === 'function') {
-                window.showRRHHGerenciaView(second);
-            }
+            // Formato: #/reportes_rrhh/morfologia o #/reportes_rrhh/catastro o #/reportes_rrhh/carga
+            await showView(`reportes_rrhh_${second}`, false);
         } else if (first === 'ciudad3d' && second === 'extensiones') {
             await showView('c3d_extensiones_todas', false);
         } else if (first === 'dgiur' || first === 'dgroc') {

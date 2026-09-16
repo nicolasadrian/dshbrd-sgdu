@@ -38,7 +38,21 @@ const VIEW_ROUTES = {
     'sla': () => import('./views/reportes/tiempos_tramitacion/sla.html?raw'),
     'subsanaciones': () => import('./views/reportes/subsanaciones/subsanaciones.html?raw'),
     'productividad_analistas': () => import('./views/reportes/productividad_analistas/productividad_analistas.html?raw'),
-    'reportes_rrhh': () => import('./views/reportes/reporte_rrhh/rrhh.js'),
+    'reportes_rrhh': () => import('./views/reportes/reporte_rrhh/rrhh_hub.html?raw'),
+    'reportes_rrhh_carga': () => import('./views/reportes/reporte_rrhh/carga.html?raw'),
+    'reportes_rrhh_catastro': () => import('./views/reportes/reporte_rrhh/catastro.html?raw'),
+    'reportes_rrhh_instalaciones': () => import('./views/reportes/reporte_rrhh/instalaciones.html?raw'),
+    'reportes_rrhh_conforme': () => import('./views/reportes/reporte_rrhh/conforme.html?raw'),
+    'reportes_rrhh_contable': () => import('./views/reportes/reporte_rrhh/contable.html?raw'),
+    'reportes_rrhh_etapa_proyecto': () => import('./views/reportes/reporte_rrhh/etapa_proyecto.html?raw'),
+    'reportes_rrhh_aviso_obra': () => import('./views/reportes/reporte_rrhh/aviso_obra.html?raw'),
+    'reportes_rrhh_morfologia': () => import('./views/reportes/reporte_rrhh/morfologia.html?raw'),
+    'reportes_rrhh_aph': () => import('./views/reportes/reporte_rrhh/aph.html?raw'),
+    'reportes_rrhh_usos': () => import('./views/reportes/reporte_rrhh/usos.html?raw'),
+    'reportes_rrhh_publico_privado': () => import('./views/reportes/reporte_rrhh/publico_privado.html?raw'),
+    'reportes_rrhh_copua': () => import('./views/reportes/reporte_rrhh/copua.html?raw'),
+    'reportes_rrhh_privada': () => import('./views/reportes/reporte_rrhh/privada.html?raw'),
+    'reportes_rrhh_otros': () => import('./views/reportes/reporte_rrhh/otros.html?raw'),
     'universo_tratas': () => import('./views/reportes/universo_tratas/universo_tratas.html?raw'),
     'planificacion_nov_2026': () => import('./views/reportes/planificacion_nov_2026/planificacion_nov_2026.html?raw'),
     'familia_tramites': () => import('./views/reportes/family/family.html?raw'),
@@ -170,11 +184,17 @@ function triggerViewInit(viewId) {
     } else if (viewId === 'productividad_analistas' && typeof window.loadProductividadAnalistasView === 'function') {
         window.loadProductividadAnalistasView();
     } else if (viewId === 'reportes_rrhh') {
-        const hash = window.location.hash.substring(2);
-        const parts = hash.split('/');
-        const gKey = (parts[0] === 'reportes_rrhh' && parts[1]) ? parts[1] : null;
-        if (typeof window.initRRHHReportView === 'function') {
-            window.initRRHHReportView(gKey);
+        if (typeof window.loadRRHHHubView === 'function') {
+            window.loadRRHHHubView();
+        }
+    } else if (viewId === 'reportes_rrhh_carga') {
+        if (typeof window.initRRHHCargaView === 'function') {
+            window.initRRHHCargaView();
+        }
+    } else if (viewId.startsWith('reportes_rrhh_')) {
+        const gKey = viewId.replace('reportes_rrhh_', '');
+        if (typeof window.loadRRHHGerenciaView === 'function') {
+            window.loadRRHHGerenciaView(gKey);
         }
     } else if (viewId === 'universo_tratas') {
         if (typeof window.loadUniversoTratas === 'function') {
