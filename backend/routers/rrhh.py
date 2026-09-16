@@ -27,10 +27,35 @@ def format_capital(val):
 
 # --- Endpoints de RRHH ---
 
+def _user_can_access_rrhh(user: User) -> bool:
+    if user.role.lower() in ['admin', 'administrador']:
+        return True
+    perms = user.permissions or {}
+    if perms.get("reportes_rrhh") or perms.get("carga_reportes_rrhh"):
+        return True
+    return any(k.startswith("rrhh_") and v for k, v in perms.items())
+
+def _user_can_access_gerencia(user: User, gerencia: str) -> bool:
+    if user.role.lower() in ['admin', 'administrador']:
+        return True
+    perms = user.permissions or {}
+    if perms.get("reportes_rrhh"):
+        return True
+    g_clean = gerencia.lower().replace(" ", "_")
+    return bool(perms.get(f"rrhh_{g_clean}"))
+
 @router.get("/api/rrhh/reporte")
-async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
-    if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
-        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
+async def get_rrhh_reporte(
+    month: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}$"),
+    gerencia: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    if not _user_can_access_rrhh(current_user):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta sección de RRHH")
+
+    if gerencia and not _user_can_access_gerencia(current_user, gerencia):
+        raise HTTPException(status_code=403, detail=f"No tienes permisos para consultar la gerencia {gerencia}")
+
     try:
         with engine.connect() as conn:
             # Verificar que la tabla existe antes de consultarla
@@ -42,7 +67,11 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\
             """)).scalar()
 
             if not table_exists:
-                return {"month": month or datetime.now().strftime("%Y-%m"), "sectores": {}, "message": "La tabla reportes_rrhh aún no existe. Por favor suba un Excel desde la pestaña 'Carga de Excel'."}
+                return {
+                    "month": month or datetime.now().strftime("%Y-%m"),
+                    "sectores": {},
+                    "message": "La tabla reportes_rrhh aún no existe. Por favor suba un Excel desde la pestaña 'Carga de Excel'."
+                }
 
             # If month is not provided, find the max date in the table
             if not month:
@@ -57,12 +86,16 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\
             y_val = int(year_str)
             m_val = int(month_str)
 
-            # Query all records for this month with SADE user matching
+            # Query all records for this month with SADE user matching and dual gerencia lookup
             sql = text("""
                 SELECT r.cuil, r.nombreyapellido, r.fecha, r.feriado, r.convocado,
                        r.hora_ingreso, r.hora_salida, r.cant_horas, r.estado_incidencia, r.estado,
                        du.usuario, du.apellido, du.nombre,
-                       COALESCE((SELECT MIN(c.gerencia) FROM cfg_gestion_metas c WHERE du.usuario = ANY(c.analistas_oficiales)), 'OTROS') as gerencia
+                       COALESCE(
+                           (SELECT UPPER(a.gerencia) FROM public.cfg_analistas_areas a WHERE UPPER(a.usuario_sade) = UPPER(du.usuario) AND a.activo = true LIMIT 1),
+                           (SELECT UPPER(c.gerencia) FROM public.cfg_gestion_metas c WHERE du.usuario = ANY(c.analistas_oficiales) LIMIT 1),
+                           'OTROS'
+                       ) as gerencia
                 FROM public.reportes_rrhh r
                 LEFT JOIN public.datos_usuario du ON REPLACE(du.numero_cuit, '-', '') = REPLACE(r.cuil, '-', '')
                 WHERE EXTRACT(YEAR FROM r.fecha) = :year AND EXTRACT(MONTH FROM r.fecha) = :month
@@ -76,7 +109,7 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\
             # Process records
             sectores = {}
             for r in result:
-                sec = r[13].upper() # gerencia
+                sec = (r[13] or "OTROS").strip().upper() # gerencia
                 cuil = r[0]
                 nombre_comp = r[1]
                 fecha = r[2].strftime("%Y-%m-%d") if r[2] else None
@@ -161,7 +194,7 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\
                         s_data["latest_salida"] = s_str
 
             # Finalize averages & percents
-            for sec, s_data in sectores.items():
+            for sec, s_data in list(sectores.items()):
                 for ag_key, ag_data in s_data["agentes"].items():
                     tot = ag_data["total_convocado"]
                     if tot > 0:
@@ -181,15 +214,37 @@ async def get_rrhh_reporte(month: Optional[str] = Query(None, pattern=r"^\d{4}-\
                 s_data["agentes_list"] = list(s_data["agentes"].values())
                 del s_data["agentes"]
 
-            return {"sectores": sectores}
+            # Filter sectors based on user permissions
+            filtered_sectores = {}
+            for sec_key, sec_val in sectores.items():
+                if _user_can_access_gerencia(current_user, sec_key):
+                    filtered_sectores[sec_key] = sec_val
+
+            # If a specific gerencia was requested, filter to that one
+            if gerencia:
+                g_req = gerencia.strip().upper().replace(" ", "_")
+                final_sectores = {}
+                for sec_key, sec_val in filtered_sectores.items():
+                    norm_k = sec_key.strip().upper().replace(" ", "_")
+                    if norm_k == g_req:
+                        final_sectores[sec_key] = sec_val
+                filtered_sectores = final_sectores
+
+            return {"month": month, "sectores": filtered_sectores}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error fetching RRHH metrics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/api/rrhh/reporte/detalle-agente")
-async def get_rrhh_agente_detalle(cuil: str = Query(...), month: str = Query(..., pattern=r"^\d{4}-\d{2}$"), current_user: User = Depends(get_current_user)):
-    if not (current_user.permissions.get("reportes_rrhh") or current_user.role.lower() in ['admin', 'administrador']):
+async def get_rrhh_agente_detalle(
+    cuil: str = Query(...),
+    month: str = Query(..., pattern=r"^\d{4}-\d{2}$"),
+    current_user: User = Depends(get_current_user)
+):
+    if not _user_can_access_rrhh(current_user):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta sección")
     try:
         year_str, month_str = month.split("-")

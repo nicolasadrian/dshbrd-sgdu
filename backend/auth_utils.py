@@ -71,7 +71,11 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
             # Buzones DGIUR
             "buzon_dgiur", "buzon_morfologia", "buzon_aph", "buzon_usos", "buzon_publico_privado", "buzon_copua", "buzon_privada",
             # Reportes
-            "seguimiento", "cierre", "sla", "subsanaciones", "productividad_analistas", "reportes_rrhh", "carga_reportes_rrhh", "universo_tratas", "planificacion_nov_2026",
+            "seguimiento", "cierre", "sla", "subsanaciones", "productividad_analistas", "universo_tratas", "planificacion_nov_2026",
+            # Reportes RRHH
+            "reportes_rrhh", "carga_reportes_rrhh",
+            "rrhh_catastro", "rrhh_instalaciones", "rrhh_conforme", "rrhh_contable", "rrhh_etapa_proyecto", "rrhh_aviso_obra",
+            "rrhh_morfologia", "rrhh_aph", "rrhh_usos", "rrhh_publico_privado", "rrhh_copua", "rrhh_privada", "rrhh_otros",
             # Analytics
             "analytics_estadistica", "ley_blanqueo", "analytics_m2_permisados", "analytics_avisos_obra", "analytics_pdl_blanqueo", "analytics_datasets",
             # Ciudad 3D

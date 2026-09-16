@@ -163,7 +163,8 @@ function initAuth() {
         setDisplay('link-buzon-privada', perms.buzon_dgiur || perms.dgiur || perms.buzon_privada || perms.privada);
 
         // 3. Toggles for Reportes dropdown and its contents
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026 || perms.reportes_rrhh || perms.carga_reportes_rrhh;
+        const hasRrhhAccess = perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]);
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
@@ -183,7 +184,7 @@ function initAuth() {
         if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
 
         const rrhhLink = document.getElementById('rrhh-link');
-        if (rrhhLink) rrhhLink.style.display = (perms.reportes_rrhh || perms.carga_reportes_rrhh) ? 'block' : 'none';
+        if (rrhhLink) rrhhLink.style.display = hasRrhhAccess ? 'block' : 'none';
 
         const linkUniversoTratas = document.getElementById('universo-tratas-link');
         if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
@@ -413,7 +414,7 @@ async function showView(viewId, updateHash = true) {
         } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle' || viewId === 'buzones_dgroc_hub' || viewId === 'buzones_dgiur_hub') {
             hasPermission = !!(perms.buzon_dgroc || perms.buzon_dgiur || perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || isAdmin);
         } else if (viewId === 'reportes_rrhh') {
-            hasPermission = !!(perms.reportes_rrhh || perms.carga_reportes_rrhh || isAdmin);
+            hasPermission = !!(perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]) || isAdmin);
         } else if (viewId === 'familia_tramites' || viewId === 'family') {
             hasPermission = !!(perms.family || perms.familia_tramites || perms.seguimiento || isAdmin);
         } else if (viewId === 'seguimiento' || viewId === 'cierre' || viewId === 'sla' || viewId === 'subsanaciones' || viewId === 'productividad_analistas' || viewId === 'universo_tratas' || viewId === 'planificacion_nov_2026') {
@@ -913,6 +914,12 @@ async function handleRouting() {
         if (first === 'buzones') {
             // Formato: #/buzones/dgroc/catastro o #/buzones/dgiur/morfologia
             await showBuzonesView(second, third, false);
+        } else if (first === 'reportes_rrhh') {
+            // Formato: #/reportes_rrhh/dgroc/catastro
+            await showView('reportes_rrhh', false);
+            if (typeof window.showRRHHGerenciaView === 'function') {
+                window.showRRHHGerenciaView(third);
+            }
         } else if (first === 'ciudad3d' && second === 'extensiones') {
             // Formato: #/ciudad3d/extensiones/todas, mis-trazados, revision, equipo, mapa
             if (third === 'mis-trazados' || third === 'mis_trazados') {
@@ -941,6 +948,12 @@ async function handleRouting() {
         if (first === 'buzones') {
             // Formato: #/buzones/dgroc o #/buzones/dgiur
             await showBuzonesView(second, null, false);
+        } else if (first === 'reportes_rrhh') {
+            // Formato: #/reportes_rrhh/catastro
+            await showView('reportes_rrhh', false);
+            if (typeof window.showRRHHGerenciaView === 'function') {
+                window.showRRHHGerenciaView(second);
+            }
         } else if (first === 'ciudad3d' && second === 'extensiones') {
             await showView('c3d_extensiones_todas', false);
         } else if (first === 'dgiur' || first === 'dgroc') {
@@ -973,6 +986,11 @@ async function handleRouting() {
         const viewId = parts[0];
         if (viewId === 'buzones') {
             window.location.hash = '#/buzones/dgroc';
+        } else if (viewId === 'reportes_rrhh') {
+            await showView('reportes_rrhh', false);
+            if (typeof window.showRRHHHub === 'function') {
+                window.showRRHHHub();
+            }
         } else if (viewId === 'family') {
             window.location.hash = '#/familia_tramites';
         } else if (viewId === 'ciudad3d_troneras') {
@@ -3862,10 +3880,25 @@ const PERMISSION_KEYS = {
     sla: "Reportes: Tiempos de tramitación (SLA)",
     subsanaciones: "Reportes: Subsanaciones",
     productividad_analistas: "Reportes: Productividad Analistas",
-    reportes_rrhh: "Reportes: Reporte RRHH (Visualizar)",
-    carga_reportes_rrhh: "Reportes: Reporte RRHH (Cargar Excel)",
     universo_tratas: "Reportes: Universo Tratas y Buzones",
     planificacion_nov_2026: "Reportes: Planificación Noviembre 2026",
+
+    // Reportes RRHH (Granular por Gerencia)
+    reportes_rrhh: "Reportes RRHH (Hub / Completo)",
+    carga_reportes_rrhh: "RRHH: Cargar Planilla Excel",
+    rrhh_catastro: "RRHH: Catastro (DGROC)",
+    rrhh_instalaciones: "RRHH: Instalaciones (DGROC)",
+    rrhh_conforme: "RRHH: Conforme (DGROC)",
+    rrhh_contable: "RRHH: Contable (DGROC)",
+    rrhh_etapa_proyecto: "RRHH: Etapa Proyecto (DGROC)",
+    rrhh_aviso_obra: "RRHH: Aviso de Obra (DGROC)",
+    rrhh_morfologia: "RRHH: Morfología (DGIUR)",
+    rrhh_aph: "RRHH: APH (DGIUR)",
+    rrhh_usos: "RRHH: Usos (DGIUR)",
+    rrhh_publico_privado: "RRHH: Público Privado (DGIUR)",
+    rrhh_copua: "RRHH: COPUA (DGIUR)",
+    rrhh_privada: "RRHH: Privada (DGIUR)",
+    rrhh_otros: "RRHH: Otros / General",
 
     // Analytics
     analytics_estadistica: "Analytics: Estadística",
@@ -3947,10 +3980,25 @@ const PERMISSION_GROUPS = {
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
         productividad_analistas: { label: "Productividad Analistas", desc: "Rankings, bitácoras y metas de analistas." },
-        reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Estadísticas de asistencia y cobertura del personal." },
-        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar base de RRHH." },
         universo_tratas: { label: "Universo Tratas y Buzones", desc: "Listado completo de tratas y buzones de la secretaría." },
         planificacion_nov_2026: { label: "Planificación Noviembre 2026", desc: "Reporte de proyección y stock Noviembre 2026." }
+    },
+    "Reportes RRHH": {
+        reportes_rrhh: { label: "Reportes RRHH (Hub / Completo)", desc: "Acceso total a todas las gerencias de RRHH." },
+        carga_reportes_rrhh: { label: "RRHH: Cargar Planilla Excel", desc: "Permiso para importar planillas mensuales de control de asistencia." },
+        rrhh_catastro: { label: "RRHH: Catastro (DGROC)", desc: "Visualizar reportes de RRHH del área de Catastro." },
+        rrhh_instalaciones: { label: "RRHH: Instalaciones (DGROC)", desc: "Visualizar reportes de RRHH del área de Instalaciones." },
+        rrhh_conforme: { label: "RRHH: Conforme (DGROC)", desc: "Visualizar reportes de RRHH del área de Conforme." },
+        rrhh_contable: { label: "RRHH: Contable (DGROC)", desc: "Visualizar reportes de RRHH del área Contable." },
+        rrhh_etapa_proyecto: { label: "RRHH: Etapa Proyecto (DGROC)", desc: "Visualizar reportes de RRHH del área de Etapa Proyecto." },
+        rrhh_aviso_obra: { label: "RRHH: Aviso de Obra (DGROC)", desc: "Visualizar reportes de RRHH del área de Aviso de Obra." },
+        rrhh_morfologia: { label: "RRHH: Morfología (DGIUR)", desc: "Visualizar reportes de RRHH del área de Morfología." },
+        rrhh_aph: { label: "RRHH: APH (DGIUR)", desc: "Visualizar reportes de RRHH del área de APH." },
+        rrhh_usos: { label: "RRHH: Usos (DGIUR)", desc: "Visualizar reportes de RRHH del área de Usos." },
+        rrhh_publico_privado: { label: "RRHH: Público Privado (DGIUR)", desc: "Visualizar reportes de RRHH del área Público Privado." },
+        rrhh_copua: { label: "RRHH: COPUA (DGIUR)", desc: "Visualizar reportes de RRHH del área de COPUA." },
+        rrhh_privada: { label: "RRHH: Privada (DGIUR)", desc: "Visualizar reportes de RRHH del área de Privada." },
+        rrhh_otros: { label: "RRHH: Otros / General", desc: "Visualizar personal no asignado a gerencias específicas." }
     },
     "Analytics": {
         analytics_estadistica: { label: "Analytics (Estadística)", desc: "Tableros estadísticos interactivos de trámites." },

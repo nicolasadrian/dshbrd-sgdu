@@ -169,6 +169,13 @@ function triggerViewInit(viewId) {
         window.loadSubsanacionesReport();
     } else if (viewId === 'productividad_analistas' && typeof window.loadProductividadAnalistasView === 'function') {
         window.loadProductividadAnalistasView();
+    } else if (viewId === 'reportes_rrhh') {
+        const hash = window.location.hash.substring(2);
+        const parts = hash.split('/');
+        const gKey = (parts[0] === 'reportes_rrhh' && parts[1]) ? parts[1] : null;
+        if (typeof window.initRRHHReportView === 'function') {
+            window.initRRHHReportView(gKey);
+        }
     } else if (viewId === 'universo_tratas') {
         if (typeof window.loadUniversoTratas === 'function') {
             if (window._universoCurrentTab === 'buzones' && typeof window.loadUniversoBuzones === 'function') {
