@@ -1,0 +1,224 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Reportes / Productividad Analistas
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1 class="landing-title" style="margin: 0;">Productividad Analistas</h1>
+            </div>
+
+            <!-- Contenedor 1: Grid de Sectores (Primer Nivel) -->
+            <div id="prod-sectors-grid-panel" style="display: block; margin-top: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;"
+                    id="prod-sectors-grid">
+                    <!-- Se llena dinámicamente con tarjetas de sectores via JS -->
+                </div>
+            </div>
+
+            <!-- Contenedor 2: Detalle del Sector (Segundo Nivel) -->
+            <div id="prod-sector-detail-panel" style="display: none; flex-direction: column; gap: 1.5rem;">
+                <div
+                    style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <button onclick="backToProdSectors()" class="btn-primary"
+                            style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #64748b; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Sectores
+                        </button>
+                        <h2 id="prod-sector-detail-title"
+                            style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.5rem;">
+                            Nombre del Sector</h2>
+                    </div>
+                    <button id="prod-sector-reporte-pdf-btn" class="btn-primary"
+                        style="padding: 10px 18px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: #dc2626; color: white;">
+                        <i class="fa-solid fa-file-pdf"></i> Reporte Sector (PDF)
+                    </button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem;"
+                    id="prod-analysts-grid">
+                    <!-- Se llena dinámicamente con tarjetas de analistas via JS -->
+                </div>
+            </div>
+
+            <!-- Contenedor 3: Dashboard de Analista (Tercer Nivel) -->
+            <div id="prod-analyst-detail-panel" style="display: none; flex-direction: column; gap: 2rem;">
+
+                <div style="display: flex; justify-content: flex-start; align-items: center;">
+                    <button onclick="backToProdSectorDetail()" class="btn-primary"
+                        style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.88rem; background: #64748b; border: none; border-radius: 8px; color: white; cursor: pointer; font-family: 'Outfit'; font-weight: 700;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver al Sector
+                    </button>
+                </div>
+
+                <!-- Panel de Carga / Spinner -->
+                <div id="prod-loader"
+                    style="display: none; background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 3rem; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <span class="loader"
+                        style="width: 48px; height: 48px; border-width: 5px; margin: 0 auto 1.5rem auto;"></span>
+                    <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">Procesando datos del
+                        analista...</h3>
+                    <p style="color: #64748b; margin-top: 0.5rem;">Unificando pases, actividades y analizando tiempos de
+                        SADE.</p>
+                </div>
+
+                <!-- Dashboard Activo -->
+                <div id="prod-dashboard-content" style="display: none; flex-direction: column; gap: 2rem;">
+                    <!-- Header del Analista con filtros -->
+                    <div
+                        style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 1.25rem;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <h2 id="prod-analyst-name"
+                                    style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.6rem;">
+                                    Nombre Completo</h2>
+                                <p id="prod-analyst-meta"
+                                    style="color: #64748b; margin: 4px 0 0 0; font-size: 0.95rem;">Usuario: USERNAME |
+                                    Sector: SECTOR</p>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-primary" onclick="downloadIndividualPDF()"
+                                    style="padding: 10px 16px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: var(--primary);">
+                                    <i class="fa-solid fa-file-pdf"></i> Reporte PDF
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filtros de fecha -->
+                        <div
+                            style="display: flex; align-items: flex-end; gap: 15px; border-top: 1px solid #f1f5f9; padding-top: 1.25rem; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 150px;">
+                                <label
+                                    style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Fecha
+                                    Desde</label>
+                                <input type="date" id="prod-date-from" class="form-input"
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+                            <div style="flex: 1; min-width: 150px;">
+                                <label
+                                    style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block;">Fecha
+                                    Hasta</label>
+                                <input type="date" id="prod-date-to" class="form-input"
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+                            <button class="btn-primary" onclick="updateAnalystProductivity()"
+                                style="padding: 9px 18px; font-family: 'Outfit'; font-weight: 600; height: 38px; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: 6px;">
+                                Filtrar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de KPIs -->
+                    <div class="admin-grid"
+                        style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.5rem; display: grid;">
+                        <div class="analyst-card-premium"
+                            style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span
+                                style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Tareas
+                                Totales</span>
+                            <span id="prod-kpi-tareas"
+                                style="font-size: 2.2rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit'; margin: 10px 0;">0</span>
+                            <span style="font-size: 0.8rem; color: #94a3b8;">En el período seleccionado</span>
+                        </div>
+                        <div class="analyst-card-premium"
+                            style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span
+                                style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Promedio
+                                Diario</span>
+                            <span id="prod-kpi-diario"
+                                style="font-size: 2.2rem; font-weight: 800; color: var(--primary); font-family: 'Outfit'; margin: 10px 0;">0</span>
+                            <span style="font-size: 0.8rem; color: #94a3b8;">Tareas por día hábil</span>
+                        </div>
+                        <div class="analyst-card-premium"
+                            style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span
+                                style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Jornada
+                                Activa Media</span>
+                            <span id="prod-kpi-jornada"
+                                style="font-size: 2.2rem; font-weight: 800; color: #0f766e; font-family: 'Outfit'; margin: 10px 0;">0h</span>
+                            <span style="font-size: 0.8rem; color: #94a3b8;">Entre primera y última acción</span>
+                        </div>
+                        <div class="analyst-card-premium"
+                            style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span
+                                style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Stock
+                                en Bandeja</span>
+                            <span id="prod-kpi-stock"
+                                style="font-size: 2.2rem; font-weight: 800; color: #b45309; font-family: 'Outfit'; margin: 10px 0;">0</span>
+                            <span id="prod-kpi-stock-details" style="font-size: 0.8rem; color: #94a3b8;">Propio: -- |
+                                Subs: --</span>
+                        </div>
+                        <div class="analyst-card-premium"
+                            style="padding: 20px; border-radius: 12px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between;">
+                            <span
+                                style="font-size: 0.85rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Firmados
+                                / Rechazados</span>
+                            <span id="prod-kpi-firmas"
+                                style="font-size: 1.8rem; font-weight: 800; color: #15803d; font-family: 'Outfit'; margin: 10px 0;">0
+                                / 0</span>
+                            <span id="prod-kpi-rechazo-rate"
+                                style="font-size: 0.8rem; color: #ef4444; font-weight: 600;">Tasa de rechazo: --%</span>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos de Productividad -->
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; flex-wrap: wrap;">
+                        <!-- Mix de Tareas -->
+                        <div
+                            style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <h3
+                                style="margin-top: 0; margin-bottom: 1.5rem; align-self: flex-start; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700;">
+                                Mix de Tareas (%)</h3>
+                            <div style="width: 240px; height: 240px; position: relative;">
+                                <canvas id="prod-chart-mix"></canvas>
+                            </div>
+                        </div>
+                        <!-- Actividad Diaria -->
+                        <div
+                            style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                            <h3
+                                style="margin-top: 0; margin-bottom: 1.5rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700;">
+                                Tareas Completadas por Día</h3>
+                            <div style="height: 250px; position: relative;">
+                                <canvas id="prod-chart-diario"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tablas y Gráfico de Detalle de Horarios -->
+                    <div
+                        style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3
+                            style="margin-top: 0; margin-bottom: 1.5rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700;">
+                            Rango de Conexión Diario y Horarios Activos</h3>
+                        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; align-items: start;">
+                            <!-- Gráfico de Rango de Conexión -->
+                            <div
+                                style="height: 300px; position: relative; border: 1px solid #cbd5e1; border-radius: 12px; padding: 12px; background: #f8fafc;">
+                                <canvas id="prod-chart-timeline"></canvas>
+                            </div>
+                            <!-- Tabla de Detalles -->
+                            <div
+                                style="max-height: 300px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 12px;">
+                                <table
+                                    style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.9rem;"
+                                    class="cierre-table">
+                                    <thead>
+                                        <tr
+                                            style="background: #f8fafc; font-family: 'Outfit'; font-weight: 700; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #cbd5e1;">
+                                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Fecha</th>
+                                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Inicio</th>
+                                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Fin</th>
+                                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Activo (h)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="prod-table-horarios">
+                                        <!-- Se llena con JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            </div>

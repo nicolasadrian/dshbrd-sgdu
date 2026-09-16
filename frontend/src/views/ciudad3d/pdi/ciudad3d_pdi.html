@@ -1,0 +1,156 @@
+<div class="breadcrumbs" style="font-family: 'Outfit', sans-serif;">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')" style="cursor: pointer; text-decoration: underline;">Ciudad 3D</span> / <b>Backend PDI - Inventario</b>
+</div>
+
+<!-- Header Principal -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; font-family: 'Outfit', sans-serif;">
+    <div>
+        <h1 style="margin: 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px;">
+            <i class="fa-solid fa-server" style="color: #0284c7;"></i> Backend PDI - Inventario & Estado
+        </h1>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <button type="button" class="btn-primary" onclick="loadCiudad3DPDI(true)" style="display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer;">
+            <i class="fa-solid fa-arrows-rotate" id="pdi-refresh-icon"></i> Actualizar Datos
+        </button>
+    </div>
+</div>
+
+<!-- Navegación por Páginas Independientes del Módulo PDI -->
+<div style="display: flex; gap: 8px; margin-bottom: 2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0; font-family: 'Outfit', sans-serif;">
+    <button type="button" onclick="showView('ciudad3d_pdi')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: #0284c7; border-bottom: 3px solid #0284c7; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-table-list"></i> Inventario & Estado
+    </button>
+    <button type="button" onclick="showView('ciudad3d_pdi_validacion')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-code-compare"></i> Validación de Datos
+    </button>
+    <button type="button" onclick="showView('ciudad3d_pdi_validacion_c3d')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-cube"></i> Validación Ciudad 3D
+    </button>
+    <button type="button" onclick="showView('ciudad3d_manzanas_atipicas')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-shapes"></i> Manzanas Atípicas
+    </button>
+</div>
+
+<!-- Alerta Destacada de VPN (Visible solo si hay error de conexión) -->
+<div id="pdi-vpn-alert" style="display: none; margin-bottom: 2.5rem; background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); border: 2px solid #fecaca; border-radius: 18px; padding: 1.75rem; box-shadow: 0 10px 15px -3px rgba(239,68,68,0.08); font-family: 'Outfit', sans-serif;">
+    <div style="display: flex; align-items: flex-start; gap: 18px;">
+        <div style="width: 52px; height: 52px; border-radius: 14px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div style="flex: 1;">
+            <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.25rem; color: #991b1b;">
+                Verifica estar conectado a la red GCBA o tener la VPN activa
+            </h3>
+            <p style="margin: 8px 0 14px 0; color: #7f1d1d; font-size: 0.95rem; line-height: 1.5; font-family: 'Outfit', sans-serif;">
+                No se pudo establecer comunicación con el servidor de base de datos corporativo. Para consultar esta información territorial es necesario contar con conexión a la red interna de GCBA o tener el cliente VPN corporativo conectado.
+            </p>
+            <button type="button" onclick="loadCiudad3DPDI(true)" style="background: #dc2626; color: white; border: none; padding: 9px 18px; border-radius: 10px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.88rem; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(220,38,38,0.2);">
+                <i class="fa-solid fa-rotate-right"></i> Reintentar Conexión
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Contenido Página Inventario -->
+<div style="font-family: 'Outfit', sans-serif;">
+    <!-- Tarjetas Principales de KPIs Solicitados -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; font-family: 'Outfit', sans-serif;">
+        <!-- Card 1: Cantidad de Parcelas -->
+        <div class="analyst-card-premium" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; border: 1px solid #cbd5e1; border-radius: 20px; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); position: relative; overflow: hidden; font-family: 'Outfit', sans-serif;">
+            <div style="position: absolute; right: -15px; top: -15px; font-size: 7.5rem; color: #f0f9ff; z-index: 1; pointer-events: none;">
+                <i class="fa-solid fa-draw-polygon"></i>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: flex-start; z-index: 2;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                    <i class="fa-solid fa-draw-polygon"></i>
+                </div>
+            </div>
+            <div style="z-index: 2;">
+                <span style="color: #64748b; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'Outfit', sans-serif;">
+                    Cantidad de Parcelas
+                </span>
+                <h2 id="pdi-kpi-parcelas" style="margin: 6px 0 0 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.5rem; line-height: 1;">
+                    ---
+                </h2>
+            </div>
+        </div>
+
+        <!-- Card 2: Cantidad de Manzanas -->
+        <div class="analyst-card-premium" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; border: 1px solid #cbd5e1; border-radius: 20px; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); position: relative; overflow: hidden; font-family: 'Outfit', sans-serif;">
+            <div style="position: absolute; right: -15px; top: -15px; font-size: 7.5rem; color: #fffbeb; z-index: 1; pointer-events: none;">
+                <i class="fa-solid fa-cubes"></i>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: flex-start; z-index: 2;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                    <i class="fa-solid fa-cubes"></i>
+                </div>
+            </div>
+            <div style="z-index: 2;">
+                <span style="color: #64748b; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'Outfit', sans-serif;">
+                    Cantidad de Manzanas
+                </span>
+                <h2 id="pdi-kpi-manzanas" style="margin: 6px 0 0 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.5rem; line-height: 1;">
+                    ---
+                </h2>
+            </div>
+        </div>
+
+        <!-- Card 3: Cantidad de Objetos Territoriales -->
+        <div class="analyst-card-premium" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; border: 1px solid #cbd5e1; border-radius: 20px; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); position: relative; overflow: hidden; font-family: 'Outfit', sans-serif;">
+            <div style="position: absolute; right: -15px; top: -15px; font-size: 7.5rem; color: #f5f3ff; z-index: 1; pointer-events: none;">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: flex-start; z-index: 2;">
+                <div style="width: 48px; height: 48px; border-radius: 12px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+            </div>
+            <div style="z-index: 2;">
+                <span style="color: #64748b; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-family: 'Outfit', sans-serif;">
+                    Objetos Territoriales
+                </span>
+                <h2 id="pdi-kpi-objetos" style="margin: 6px 0 0 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.5rem; line-height: 1;">
+                    ---
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Inventario de las 11 Capas Territoriales PDI -->
+    <div class="analysis-section" style="background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04); font-family: 'Outfit', sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h3 class="section-title" style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; color: #0f172a; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-table-list" style="color: var(--primary);"></i> Inventario de Tablas PDI
+                </h3>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <input type="text" id="pdi-search-input" placeholder="Buscar tabla..." oninput="filterPDITables()" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 0.85rem; min-width: 220px; outline: none;">
+            </div>
+        </div>
+
+        <!-- Contenedor Compacto de la Tabla -->
+        <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: white;">
+            <table class="matrix-table" id="table-pdi-inventory" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; font-family: 'Outfit', sans-serif;">
+                <thead style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                    <tr>
+                        <th style="padding: 10px 14px; font-weight: 700; color: #475569; width: 36px; text-align: center; font-family: 'Outfit', sans-serif; font-size: 0.8rem; white-space: nowrap;">#</th>
+                        <th style="padding: 10px 14px; font-weight: 700; color: #475569; font-family: 'Outfit', sans-serif; font-size: 0.8rem; white-space: nowrap;">TABLA</th>
+                        <th style="padding: 10px 14px; font-weight: 700; color: #475569; font-family: 'Outfit', sans-serif; font-size: 0.8rem; white-space: nowrap;">NOMBRE DESCRIPTIVO</th>
+                        <th style="padding: 10px 14px; font-weight: 700; color: #475569; text-align: right; font-family: 'Outfit', sans-serif; font-size: 0.8rem; white-space: nowrap;">CANTIDAD DE REGISTROS</th>
+                        <th style="padding: 10px 14px; font-weight: 700; color: #475569; text-align: center; font-family: 'Outfit', sans-serif; font-size: 0.8rem; white-space: nowrap;">ESTADO</th>
+                    </tr>
+                </thead>
+                <tbody id="pdi-tables-tbody" style="font-family: 'Outfit', sans-serif;">
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 2rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                            <span class="loader"></span>
+                            <p style="margin-top: 8px; font-family: 'Outfit', sans-serif;">Cargando tablas territoriales...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

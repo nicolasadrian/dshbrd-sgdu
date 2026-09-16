@@ -550,7 +550,7 @@ async def search_sade_users(
         logger.error(f"Error buscando usuarios SADE: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Endpoints de Analistas (Admin) ---
+# --- Endpoints de Analistas (Admin - Maestro de Analistas por Área) ---
 
 @router.get("/api/admin/analistas")
 async def list_admin_analistas(current_user: User = Depends(get_current_user)):
@@ -558,45 +558,54 @@ async def list_admin_analistas(current_user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         with engine.connect() as conn:
+            # Traer analistas del maestro cfg_analistas_areas cruzando con datos_usuario
             result = conn.execute(text("""
-                WITH unnested AS (
-                    SELECT DISTINCT TRIM(gerencia) as gerencia, TRIM(unnest(analistas_oficiales)) as usuario_raw
-                    FROM cfg_gestion_metas
-                    WHERE analistas_oficiales IS NOT NULL
-                )
-                SELECT u.gerencia, u.usuario_raw,
-                       du.usuario, du.apellido, du.nombre, du.mail, du.ocupacion, du.numero_cuit
-                FROM unnested u
-                LEFT JOIN public.datos_usuario du ON TRIM(UPPER(u.usuario_raw)) = TRIM(UPPER(du.usuario))
-                ORDER BY u.gerencia, du.apellido, du.nombre
-            """))
+                SELECT 
+                    a.id,
+                    a.direccion,
+                    a.gerencia,
+                    a.usuario_sade,
+                    COALESCE(a.nombre_completo, du.apellido_nombre, CONCAT(du.nombre, ' ', du.apellido)) as nombre_completo,
+                    a.tipo,
+                    a.activo,
+                    du.apellido,
+                    du.nombre,
+                    du.mail,
+                    du.ocupacion,
+                    du.numero_cuit
+                FROM public.cfg_analistas_areas a
+                LEFT JOIN public.datos_usuario du ON TRIM(UPPER(a.usuario_sade)) = TRIM(UPPER(du.usuario))
+                ORDER BY a.direccion, a.gerencia, a.usuario_sade
+            """)).fetchall()
             
-            g_result = conn.execute(text("SELECT DISTINCT TRIM(gerencia) as gerencia FROM cfg_gestion_metas ORDER BY 1"))
-            gerencias_map = {row[0]: [] for row in g_result}
-            
+            # Agrupar por gerencia
+            gerencias_map = {}
             for row in result:
-                g = row[0]
-                raw_user = row[1]
-                db_user = row[2]
+                g = row.gerencia
+                d = row.direccion
+                if g not in gerencias_map:
+                    gerencias_map[g] = {
+                        "gerencia": g,
+                        "direccion": d,
+                        "analistas": []
+                    }
                 
-                user_code = (db_user or raw_user).strip().upper()
-                apellido = format_capital(row[3])
-                nombre = format_capital(row[4])
-                mail = format_capital(row[5])
-                ocupacion = format_capital(row[6])
-                cuit = format_capital(row[7])
-                
-                if g in gerencias_map:
-                    gerencias_map[g].append({
-                        "usuario": user_code,
-                        "apellido": apellido,
-                        "nombre": nombre,
-                        "mail": mail,
-                        "ocupacion": ocupacion,
-                        "numero_cuit": cuit
-                    })
+                gerencias_map[g]["analistas"].append({
+                    "id": row.id,
+                    "direccion": d,
+                    "gerencia": g,
+                    "usuario": row.usuario_sade,
+                    "nombre_completo": row.nombre_completo or row.usuario_sade,
+                    "apellido": format_capital(row.apellido),
+                    "nombre": format_capital(row.nombre),
+                    "mail": format_capital(row.mail),
+                    "ocupacion": format_capital(row.ocupacion),
+                    "numero_cuit": format_capital(row.numero_cuit),
+                    "tipo": row.tipo,
+                    "activo": row.activo
+                })
             
-            return [{"gerencia": k, "analistas": v} for k, v in gerencias_map.items()]
+            return list(gerencias_map.values())
     except Exception as e:
         logger.error(f"Error listing admin analysts: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -607,16 +616,39 @@ async def add_admin_analista(gerencia: str, req: AddAnalystRequest, current_user
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     
     usuario_to_add = req.usuario.strip().upper()
+    g_clean = gerencia.strip().lower()
     if not usuario_to_add:
         raise HTTPException(status_code=400, detail="Debe ingresar un usuario válido.")
         
+    DGROC_GERENCIAS = {'catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'regularizacion'}
+    DGIUR_GERENCIAS = {'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'}
+    dir_name = 'DGROC' if g_clean in DGROC_GERENCIAS else ('DGIUR' if g_clean in DGIUR_GERENCIAS else 'SECGDU')
+
     try:
         with engine.begin() as conn:
-            user_exists = conn.execute(text("SELECT 1 FROM public.datos_usuario WHERE TRIM(UPPER(usuario)) = :u"), {"u": usuario_to_add}).fetchone()
-            if not user_exists:
-                raise HTTPException(status_code=404, detail=f"El usuario '{usuario_to_add}' no existe en la base de datos.")
-                
-            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(gerencia) = :g"), {"g": gerencia.strip()}).fetchall()
+            # 1. Obtener datos del usuario si existe en datos_usuario
+            user_row = conn.execute(text("""
+                SELECT UPPER(TRIM(usuario)) as u, 
+                       UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
+                FROM public.datos_usuario 
+                WHERE TRIM(UPPER(usuario)) = :u
+            """), {"u": usuario_to_add}).fetchone()
+            
+            nombre_completo = user_row.nom if user_row and user_row.nom else usuario_to_add
+            tipo = 'buzon' if ('-' in usuario_to_add or usuario_to_add.startswith('DGROC') or usuario_to_add.startswith('DGIUR') or usuario_to_add.startswith('SEC')) else 'analista'
+
+            # 2. Insertar o reactivar en cfg_analistas_areas
+            conn.execute(text("""
+                INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
+                VALUES (:dir, :ger, :usr, :nom, :tipo, true)
+                ON CONFLICT (gerencia, usuario_sade) DO UPDATE 
+                SET direccion = EXCLUDED.direccion,
+                    nombre_completo = COALESCE(EXCLUDED.nombre_completo, cfg_analistas_areas.nombre_completo),
+                    activo = true;
+            """), {"dir": dir_name, "ger": g_clean, "usr": usuario_to_add, "nom": nombre_completo, "tipo": tipo})
+
+            # 3. Mantener sincronizada cfg_gestion_metas para tratas existentes de esa gerencia
+            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": g_clean}).fetchall()
             for r in rows:
                 current_analysts = r[1] or []
                 current_analysts_upper = [a.strip().upper() for a in current_analysts if a]
@@ -624,7 +656,7 @@ async def add_admin_analista(gerencia: str, req: AddAnalystRequest, current_user
                     new_analysts = current_analysts + [usuario_to_add]
                     conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a WHERE id = :id"), {"a": new_analysts, "id": r[0]})
             
-            return {"status": "ok", "message": f"Usuario {usuario_to_add} agregado a {gerencia}."}
+            return {"status": "ok", "message": f"Usuario {usuario_to_add} agregado a {g_clean.upper()}."}
     except HTTPException:
         raise
     except Exception as e:
@@ -637,17 +669,68 @@ async def delete_admin_analista(gerencia: str, usuario: str, current_user: User 
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     
     usuario_to_remove = usuario.strip().upper()
+    g_clean = gerencia.strip().lower()
     try:
         with engine.begin() as conn:
-            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(gerencia) = :g"), {"g": gerencia.strip()}).fetchall()
+            # 1. Eliminar de cfg_analistas_areas
+            conn.execute(text("""
+                DELETE FROM public.cfg_analistas_areas 
+                WHERE TRIM(LOWER(gerencia)) = :g AND TRIM(UPPER(usuario_sade)) = :u
+            """), {"g": g_clean, "u": usuario_to_remove})
+
+            # 2. Sincronizar cfg_gestion_metas para esa gerencia
+            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": g_clean}).fetchall()
             for r in rows:
                 current_analysts = r[1] or []
                 new_analysts = [a for a in current_analysts if a and a.strip().upper() != usuario_to_remove]
                 conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a WHERE id = :id"), {"a": new_analysts, "id": r[0]})
             
-            return {"status": "ok", "message": f"Usuario {usuario_to_remove} eliminado de {gerencia}."}
+            return {"status": "ok", "message": f"Usuario {usuario_to_remove} eliminado de {g_clean.upper()}."}
     except Exception as e:
         logger.error(f"Error deleting analyst: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ToggleAnalystStatusRequest(BaseModel):
+    activo: bool
+
+@router.patch("/api/admin/analistas/{gerencia}/{usuario}/status")
+async def toggle_admin_analista_status(gerencia: str, usuario: str, req: ToggleAnalystStatusRequest, current_user: User = Depends(get_current_user)):
+    if current_user.role.lower() not in ['admin', 'administrador']:
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    usuario_target = usuario.strip().upper()
+    g_clean = gerencia.strip().lower()
+    nuevo_estado = bool(req.activo)
+    
+    try:
+        with engine.begin() as conn:
+            # 1. Actualizar en cfg_analistas_areas
+            conn.execute(text("""
+                UPDATE public.cfg_analistas_areas 
+                SET activo = :act
+                WHERE TRIM(LOWER(gerencia)) = :g AND TRIM(UPPER(usuario_sade)) = :u
+            """), {"g": g_clean, "u": usuario_target, "act": nuevo_estado})
+
+            # 2. Sincronizar cfg_gestion_metas: si se activa y no está en la lista, agregarlo; si se desactiva, removerlo
+            rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": g_clean}).fetchall()
+            for r in rows:
+                current_analysts = r[1] or []
+                current_analysts_upper = [a.strip().upper() for a in current_analysts if a]
+                if nuevo_estado:
+                    if usuario_target not in current_analysts_upper:
+                        new_analysts = current_analysts + [usuario_target]
+                        conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a WHERE id = :id"), {"a": new_analysts, "id": r[0]})
+                else:
+                    if usuario_target in current_analysts_upper:
+                        new_analysts = [a for a in current_analysts if a and a.strip().upper() != usuario_target]
+                        conn.execute(text("UPDATE cfg_gestion_metas SET analistas_oficiales = :a WHERE id = :id"), {"a": new_analysts, "id": r[0]})
+            
+            return {
+                "status": "ok", 
+                "message": f"Estado del analista {usuario_target} actualizado a {'Activo' if nuevo_estado else 'Inactivo'}."
+            }
+    except Exception as e:
+        logger.error(f"Error toggling analyst active status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Endpoints de Metas (Admin) ---

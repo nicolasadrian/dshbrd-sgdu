@@ -1,0 +1,185 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="window.location.hash='#/backlog'" style="cursor: pointer;">Backlog</span> / Maestro de Analistas por Área
+</div>
+
+<div class="admin-page-container" style="margin-top: 1rem;">
+    <!-- Encabezado con Botón Volver y Stats -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <button type="button" onclick="window.location.hash='#/backlog'"
+                style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 0.75rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; transition: all 0.2s;">
+                <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+            </button>
+            <h1 class="landing-title" style="margin: 0; font-size: 1.6rem;">Maestro de Analistas por Área</h1>
+            <p style="margin: 6px 0 0 0; color: #64748b; font-size: 0.9rem;">
+                Administra de forma centralizada la nómina oficial de analistas y buzones asignados a cada gerencia.
+            </p>
+        </div>
+        
+        <!-- Tarjeta de Resumen Global -->
+        <div style="display: flex; gap: 14px; background: white; padding: 10px 18px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.03); align-items: center;">
+            <div style="text-align: right;">
+                <span style="display: block; font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Registros</span>
+                <span id="analistas-global-total" style="font-size: 1.35rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit';">-</span>
+            </div>
+            <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+            <div style="text-align: right;">
+                <span style="display: block; font-size: 0.72rem; color: #059669; font-weight: 700; text-transform: uppercase;">Activos</span>
+                <span id="analistas-global-activos" style="font-size: 1.35rem; font-weight: 800; color: #059669; font-family: 'Outfit';">-</span>
+            </div>
+            <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+            <div style="text-align: right;">
+                <span style="display: block; font-size: 0.72rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Inactivos</span>
+                <span id="analistas-global-inactivos" style="font-size: 1.35rem; font-weight: 800; color: #64748b; font-family: 'Outfit';">-</span>
+            </div>
+            <div style="width: 1px; height: 32px; background: #e2e8f0;"></div>
+            <div style="text-align: right;">
+                <span style="display: block; font-size: 0.72rem; color: #0284c7; font-weight: 700; text-transform: uppercase;">Áreas</span>
+                <span id="analistas-global-areas" style="font-size: 1.35rem; font-weight: 800; color: #0284c7; font-family: 'Outfit';">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout Principal: Selector de Áreas (Izquierda) + Panel de Detalle y Gestión (Derecha) -->
+    <div style="display: grid; grid-template-columns: 340px 1fr; gap: 1.5rem; align-items: start;">
+        
+        <!-- Columna Izquierda: Áreas y Gerencias -->
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            
+            <!-- Filtro de Dirección (Pestañas DGROC / DGIUR / Todas) -->
+            <div style="background: white; padding: 14px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                <label style="font-weight: 700; color: #475569; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 8px;">
+                    Filtrar por Dirección
+                </label>
+                <div style="display: flex; gap: 6px; background: #f8fafc; padding: 4px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <button type="button" class="analistas-dir-tab active" onclick="filterAnalistasByDireccion('ALL')" id="tab-dir-all"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.8rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; background: white; color: var(--primary-dark); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                        Todas
+                    </button>
+                    <button type="button" class="analistas-dir-tab" onclick="filterAnalistasByDireccion('DGROC')" id="tab-dir-dgroc"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.8rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b;">
+                        DGROC
+                    </button>
+                    <button type="button" class="analistas-dir-tab" onclick="filterAnalistasByDireccion('DGIUR')" id="tab-dir-dgiur"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.8rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b;">
+                        DGIUR
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista de Áreas / Tarjetas de Selección -->
+            <div class="admin-card" style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: 700; color: #475569; font-size: 0.85rem; text-transform: uppercase;">Gerencias / Sectores</span>
+                    <span id="analistas-areas-count" style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">12 áreas</span>
+                </div>
+                <div id="analistas-areas-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 520px; overflow-y: auto; padding-right: 4px;">
+                    <!-- Llenado dinámico vía JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Nómina del Área Seleccionada + Buscador Rápido -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            
+            <!-- Tarjeta Superior: Área Activa + Buscador para Añadir -->
+            <div class="admin-card" style="background: white; padding: 22px 26px; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04);">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1.2rem; padding-bottom: 14px; border-bottom: 1px solid #f1f5f9;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div id="active-area-badge-dir" style="background: #e0f2fe; color: #0284c7; font-weight: 800; font-size: 0.8rem; padding: 4px 10px; border-radius: 6px; font-family: 'Outfit';">
+                            DGROC
+                        </div>
+                        <div>
+                            <h2 id="active-area-name" style="margin: 0; color: var(--primary-dark); font-size: 1.35rem; font-family: 'Outfit'; font-weight: 700;">
+                                Seleccione un área
+                            </h2>
+                            <p id="active-area-desc" style="margin: 2px 0 0 0; font-size: 0.82rem; color: #64748b;">
+                                Analistas y buzones sincronizados
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span id="active-area-activos-count" style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 16px; display: inline-flex; align-items: center; gap: 5px;">
+                            <i class="fa-solid fa-circle-check"></i> <span id="active-area-activos-num">0</span> Activos
+                        </span>
+                        <span id="active-area-inactivos-count" style="background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 16px; display: inline-flex; align-items: center; gap: 5px;">
+                            <i class="fa-solid fa-circle-minus"></i> <span id="active-area-inactivos-num">0</span> Inactivos
+                        </span>
+                        <span id="active-area-analysts-count" style="background: #eff6ff; color: #0284c7; border: 1px solid #bfdbfe; font-weight: 700; font-size: 0.82rem; padding: 4px 10px; border-radius: 16px;">
+                            0 Total
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Input Buscador de SADE Integrado -->
+                <div style="position: relative;">
+                    <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.85rem;">
+                        <i class="fa-solid fa-user-plus" style="color: var(--primary); margin-right: 4px;"></i> Incorporar Analista o Buzón al Área
+                    </label>
+                    <div style="position: relative;">
+                        <input type="text" id="admin-analistas-user-search"
+                            oninput="searchSadeUsersForAnalistas(this.value)"
+                            placeholder="Buscar por nombre, apellido o usuario SADE (ej: AFAHLER, JPEREZ, DGIUR-03)..."
+                            style="width: 100%; padding: 11px 14px 11px 38px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.92rem; outline: none; transition: border-color 0.2s;"
+                            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'"
+                            autocomplete="off">
+                        <i class="fa-solid fa-search"
+                            style="position: absolute; left: 14px; top: 14px; color: #94a3b8; font-size: 0.95rem;"></i>
+                        <button type="button" onclick="clearAdminAnalistasUserSearch()"
+                            style="position: absolute; right: 12px; top: 11px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;"
+                            id="btn-clear-analistas-search">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <!-- Dropdown de resultados de búsqueda -->
+                    <div id="admin-analistas-search-results"
+                        style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 12px 20px -3px rgba(0,0,0,0.12); max-height: 260px; overflow-y: auto; z-index: 100; margin-top: 6px;">
+                        <!-- Dinámico -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Tarjeta Inferior: Tabla de Analistas Asignados -->
+            <div class="admin-card" style="background: white; padding: 22px 26px; border-radius: 14px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.15rem;" id="admin-analistas-table-title">
+                            Nómina Oficial
+                        </h3>
+                        <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">
+                            Usuarios con asignación y reportes activos en este sector
+                        </p>
+                    </div>
+                    <div style="position: relative;">
+                        <input type="text" id="admin-analistas-table-search" oninput="filterAdminAnalistasTable()"
+                            placeholder="Filtrar en esta nómina..."
+                            style="padding: 8px 12px 8px 30px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
+                        <i class="fa-solid fa-filter" style="position: absolute; left: 10px; top: 10px; color: #94a3b8; font-size: 0.75rem;"></i>
+                    </div>
+                </div>
+
+                <div class="table-container" style="overflow-x: auto; max-height: 520px; border: 1px solid #f1f5f9; border-radius: 8px;">
+                    <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc; position: sticky; top: 0; z-index: 10;">
+                                <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Usuario SADE</th>
+                                <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Nombre y Apellido</th>
+                                <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Email</th>
+                                <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center;">Tipo</th>
+                                <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center; width: 120px;">Estado</th>
+                                <th style="padding: 12px 14px; font-weight: 700; color: #475569; text-align: center; font-family: 'Outfit'; width: 90px;">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-analistas-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

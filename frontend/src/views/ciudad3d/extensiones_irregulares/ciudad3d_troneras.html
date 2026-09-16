@@ -1,0 +1,341 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')">Ciudad
+                    3D</span> / Extensión Irregular (Esquinas)
+            </div>
+
+            <div
+                style="margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1
+                        style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">
+                        Extensión Irregular (Esquinas)</h1>
+                    <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem;">Visualización y análisis de línea
+                        de frente interno y trazado de extensiones regulares e irregulares</p>
+                </div>
+                <button onclick="showView('ciudad3d_home')"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; transition: all 0.2s;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver a Ciudad 3D
+                </button>
+            </div>
+
+            <!-- Dashboard de Indicadores (KPI Cards) -->
+            <div class="lfi-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                <div class="lfi-kpi-card" id="kpi-lfi-pendientes" onclick="filterLFIByStatus('Pendiente')" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="lfi-kpi-info">
+                            <div style="display: flex; align-items: baseline; gap: 6px;">
+                                <span class="lfi-kpi-val" id="kpi-lfi-val-pendientes">-</span>
+                                <span id="kpi-lfi-pct-pendientes" style="font-size: 0.85rem; font-weight: 600; color: #64748b;">(0%)</span>
+                            </div>
+                            <span class="lfi-kpi-label">Manzanas Pendientes</span>
+                        </div>
+                        <div class="lfi-kpi-icon-wrapper" style="background: #f1f5f9; color: #475569;">
+                            <i class="fa-solid fa-hourglass-start"></i>
+                        </div>
+                    </div>
+                    <div style="padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 0.78rem;">
+                        <span style="color: #2563eb; font-weight: 700;" title="Esquinas No Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-si-pendientes">0</span> No Consol.
+                        </span>
+                        <span style="color: #dc2626; font-weight: 700;" title="Esquinas Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-no-pendientes">0</span> Consol.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="lfi-kpi-card" id="kpi-lfi-en-curso" onclick="filterLFIByStatus('En curso')" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="lfi-kpi-info">
+                            <div style="display: flex; align-items: baseline; gap: 6px;">
+                                <span class="lfi-kpi-val" id="kpi-lfi-val-en-curso">-</span>
+                                <span id="kpi-lfi-pct-en-curso" style="font-size: 0.85rem; font-weight: 600; color: #0284c7;">(0%)</span>
+                            </div>
+                            <span class="lfi-kpi-label">Manzanas En Curso</span>
+                        </div>
+                        <div class="lfi-kpi-icon-wrapper" style="background: #e0f2fe; color: #0284c7;">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </div>
+                    </div>
+                    <div style="padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 0.78rem;">
+                        <span style="color: #2563eb; font-weight: 700;" title="Esquinas No Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-si-en-curso">0</span> No Consol.
+                        </span>
+                        <span style="color: #dc2626; font-weight: 700;" title="Esquinas Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-no-en-curso">0</span> Consol.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="lfi-kpi-card" id="kpi-lfi-revision" onclick="filterLFIByStatus('Para revisión')" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="lfi-kpi-info">
+                            <div style="display: flex; align-items: baseline; gap: 6px;">
+                                <span class="lfi-kpi-val" id="kpi-lfi-val-revision">-</span>
+                                <span id="kpi-lfi-pct-revision" style="font-size: 0.85rem; font-weight: 600; color: #b45309;">(0%)</span>
+                            </div>
+                            <span class="lfi-kpi-label">Manzanas en Revisión</span>
+                        </div>
+                        <div class="lfi-kpi-icon-wrapper" style="background: #fef3c7; color: #d97706;">
+                            <i class="fa-solid fa-eye-dropper"></i>
+                        </div>
+                    </div>
+                    <div style="padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 0.78rem;">
+                        <span style="color: #2563eb; font-weight: 700;" title="Esquinas No Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-si-revision">0</span> No Consol.
+                        </span>
+                        <span style="color: #dc2626; font-weight: 700;" title="Esquinas Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-no-revision">0</span> Consol.
+                        </span>
+                    </div>
+                </div>
+
+                <div class="lfi-kpi-card" id="kpi-lfi-aprobadas" onclick="filterLFIByStatus('Aprobadas')" style="flex-direction: column; align-items: stretch; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div class="lfi-kpi-info">
+                            <div style="display: flex; align-items: baseline; gap: 6px;">
+                                <span class="lfi-kpi-val" id="kpi-lfi-val-aprobadas">-</span>
+                                <span id="kpi-lfi-pct-aprobadas" style="font-size: 0.85rem; font-weight: 600; color: #15803d;">(0%)</span>
+                            </div>
+                            <span class="lfi-kpi-label">Manzanas Aprobadas</span>
+                        </div>
+                        <div class="lfi-kpi-icon-wrapper" style="background: #dcfce7; color: #16a34a;">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                    </div>
+                    <div style="padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 0.78rem;">
+                        <span style="color: #2563eb; font-weight: 700;" title="Esquinas No Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-si-aprobadas">0</span> No Consol.
+                        </span>
+                        <span style="color: #dc2626; font-weight: 700;" title="Esquinas Consolidadas">
+                            <i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> <span id="kpi-lfi-no-aprobadas">0</span> Consol.
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navegación por Sub-Pestañas -->
+            <div class="lfi-tabs-container">
+                <button class="lfi-tab-btn active" id="lfi-tab-btn-todas" onclick="changeLfiSubTab('todas')">
+                    <i class="fa-solid fa-globe"></i> Todas las Manzanas
+                </button>
+                <button class="lfi-tab-btn" id="lfi-tab-btn-mis-trazados" onclick="changeLfiSubTab('mis-trazados')"
+                    style="display: none;">
+                    <i class="fa-solid fa-user-pen"></i> Mis Trazados
+                </button>
+                <button class="lfi-tab-btn" id="lfi-tab-btn-revision" onclick="changeLfiSubTab('revision')"
+                    style="display: none;">
+                    <i class="fa-solid fa-clipboard-check"></i> Bandeja de Revisión
+                </button>
+                <button class="lfi-tab-btn" id="lfi-tab-btn-equipo" onclick="changeLfiSubTab('equipo')"
+                    style="display: none;">
+                    <i class="fa-solid fa-users-gear"></i> Estado de Avance por Analista
+                </button>
+                <button class="lfi-tab-btn" id="lfi-tab-btn-mapa" onclick="changeLfiSubTab('mapa')">
+                    <i class="fa-solid fa-map"></i> Mapa
+                </button>
+            </div>
+
+            <!-- Panel 1: Todas las Manzanas -->
+            <div id="c3d-lfi-panel-todas" class="lfi-tab-content-panel active">
+                <!-- Search & Filters -->
+                <div
+                    style="background: white; padding: 1.5rem; border-radius: 16px; border: 1px solid #cbd5e1; margin-bottom: 2rem; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div style="flex-grow: 1; position: relative;">
+                        <i class="fa-solid fa-magnifying-glass"
+                            style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                        <input type="text" id="c3d-troneras-search" oninput="filterCiudad3DTroneras()"
+                            placeholder="Buscar por barrio, sección (ej: 13) o manzana (ej: 013-004)..."
+                            style="width: 100%; padding: 12px 12px 12px 42px; border: 1px solid #cbd5e1; border-radius: 10px; font-family: inherit; font-size: 0.95rem; outline: none; transition: border-color 0.2s;"
+                            onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#cbd5e1'">
+                    </div>
+                </div>
+
+                <!-- Nested Table for Barrios -->
+                <div
+                    style="background: white; border-radius: 20px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 3rem;">
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table"
+                            style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                            <thead>
+                                <tr
+                                    style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 12px 16px; width: 40px; text-align: center;"></th>
+                                    <th style="padding: 12px 16px;">Barrio</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Cantidad de Secciones</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Cantidad de Manzanas</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Esquinas consolidadas</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Esquinas no consolidadas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="c3d-troneras-table-body" style="color: #334155;">
+                                <!-- Dinámico via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 2: Mis Trazados -->
+            <div id="c3d-lfi-panel-mis-trazados" class="lfi-tab-content-panel">
+                <div
+                    style="background: white; border-radius: 20px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 3rem;">
+                    <div style="margin-bottom: 1.25rem;">
+                        <h3
+                            style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem;">
+                            Mis Trabajos Asignados</h3>
+                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Manzanas asignadas a su
+                            usuario para trazado de extensiones. Suba el archivo finalizado para enviar a revisión.</p>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table"
+                            style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; font-family: 'Outfit', sans-serif;">
+                            <thead>
+                                <tr
+                                    style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 12px 16px;">Sección - Manzana</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Esquinas consolidadas</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Esquinas no consolidadas</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Estado</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="c3d-lfi-mis-trazados-table-body" style="color: #334155; font-family: 'Outfit', sans-serif;">
+                                <!-- Dinámico via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3: Bandeja de Revisión -->
+            <div id="c3d-lfi-panel-revision" class="lfi-tab-content-panel">
+                <div
+                    style="background: white; border-radius: 20px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 3rem;">
+                    <div style="margin-bottom: 1.25rem;">
+                        <h3
+                            style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem;">
+                            Bandeja de Revisión</h3>
+                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Trazados pendientes de
+                            visación o aprobación por los usuarios autorizados.</p>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table"
+                            style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                            <thead>
+                                <tr
+                                    style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 12px 16px;">Sección - Manzana</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Esquinas consolidadas</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Esquinas no consolidadas</th>
+                                    <th style="padding: 12px 16px;">Trazador / Analista</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="c3d-lfi-revision-table-body" style="color: #334155;">
+                                <!-- Dinámico via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 3.5: Estado de Avance por Analista (Solo para Revisores / Admins) -->
+            <div id="c3d-lfi-panel-equipo" class="lfi-tab-content-panel">
+                <div style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 2rem;">
+                    <div style="margin-bottom: 1.2rem;">
+                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-size: 1.2rem; font-weight: 700;">
+                            <i class="fa-solid fa-chart-user" style="color: var(--primary); margin-right: 8px;"></i> Monitor de Productividad y Carga del Equipo de Trazados
+                        </h3>
+                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Desglose del estado de avance, volumen asignado y entregas por analista de trazado.</p>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 12px 16px;">Analista / Trazador</th>
+                                    <th style="padding: 12px 16px; text-align: center;">En curso</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Para revisión</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Aprobados / Subir C3D</th>
+                                    <th style="padding: 12px 16px; text-align: center;">Total Asignado</th>
+                                    <th style="padding: 12px 16px; text-align: center;">% Avance / Completado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="c3d-lfi-equipo-table-body" style="color: #334155;">
+                                <!-- Dinámico via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 4: Mapa -->
+            <div id="c3d-lfi-panel-mapa" class="lfi-tab-content-panel">
+                <div class="lfi-map-wrapper">
+                    <!-- Panel de Capas -->
+                    <div class="lfi-map-layers-panel" id="lfi-map-layers-panel">
+                        <div class="lfi-map-layers-title">
+                            <i class="fa-solid fa-layer-group"></i> Capas
+                        </div>
+                        <label class="lfi-layer-toggle">
+                            <input type="checkbox" id="lfi-layer-parcelas" checked
+                                onchange="toggleLFIMapLayer('parcelas', this.checked)">
+                            <span class="lfi-layer-swatch" style="background: #94a3b8;"></span>
+                            Parcelas
+                        </label>
+                        <label class="lfi-layer-toggle">
+                            <input type="checkbox" id="lfi-layer-lfi" checked
+                                onchange="toggleLFIMapLayer('lfi', this.checked)">
+                            <span class="lfi-layer-swatch" style="background: #1d4ed8;"></span>
+                            Línea de Frente Interno
+                        </label>
+                        <label class="lfi-layer-toggle">
+                            <input type="checkbox" id="lfi-layer-basamento" checked
+                                onchange="toggleLFIMapLayer('basamento', this.checked)">
+                            <span class="lfi-layer-swatch" style="background: #FFD306;"></span>
+                            Línea de Basamento
+                        </label>
+                        <label class="lfi-layer-toggle">
+                            <input type="checkbox" id="lfi-layer-troneras-si" checked
+                                onchange="toggleLFIMapLayer('troneras-si', this.checked)">
+                            <span class="lfi-layer-swatch" style="background: #ef4444;"></span>
+                            Tronera Irregular (SI)
+                        </label>
+                        <label class="lfi-layer-toggle">
+                            <input type="checkbox" id="lfi-layer-troneras-no" checked
+                                onchange="toggleLFIMapLayer('troneras-no', this.checked)">
+                            <span class="lfi-layer-swatch" style="background: #1d4ed8;"></span>
+                            Tronera Irregular (NO)
+                        </label>
+                        <label class="lfi-layer-toggle">
+                            <input type="checkbox" id="lfi-layer-banda-minima" checked
+                                onchange="toggleLFIMapLayer('banda_minima', this.checked)">
+                            <span class="lfi-layer-swatch" style="background: rgba(239,68,68,0.6);"></span>
+                            Banda Mínima
+                        </label>
+                        <div class="lfi-map-layers-footer">
+                            <button onclick="lfiMapFitBounds()" class="lfi-map-fit-btn" title="Centrar mapa">
+                                <i class="fa-solid fa-crosshairs"></i> Centrar
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Buscador de calles -->
+                    <div id="lfi-street-search"
+                        style="position:absolute;top:12px;right:12px;z-index:10;display:flex;flex-direction:column;gap:4px;width:260px;">
+                        <div
+                            style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.97);border-radius:10px;padding:7px 12px;box-shadow:0 2px 10px rgba(0,0,0,0.18);">
+                            <i class="fa-solid fa-magnifying-glass" style="color:#64748b;font-size:0.85rem;"></i>
+                            <input id="lfi-street-input" type="text" placeholder="Buscar calle..." autocomplete="off"
+                                oninput="searchStreetLFI(this.value)"
+                                style="border:none;outline:none;background:transparent;flex:1;font-size:0.88rem;color:#1e293b;font-family:'Outfit',sans-serif;">
+                            <button onclick="clearStreetLFI()" title="Limpiar"
+                                style="border:none;background:none;cursor:pointer;padding:0;color:#94a3b8;font-size:0.8rem;"><i
+                                    class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div id="lfi-street-results"
+                            style="background:rgba(255,255,255,0.97);border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.15);overflow:hidden;display:none;">
+                        </div>
+                    </div>
+                    <!-- Mapa -->
+                    <div id="lfi-map"></div>
+                </div>
+            </div>

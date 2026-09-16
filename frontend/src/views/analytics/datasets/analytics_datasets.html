@@ -1,0 +1,71 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Analytics / Datasets
+            </div>
+
+            <div
+                style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1
+                        style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">
+                        Descarga de Datasets Consolidados</h1>
+                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Acceda a los datos crudos en
+                        formato estructurado para auditorías y análisis externos.</p>
+                </div>
+            </div>
+
+            <div class="datasets-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-bottom: 3rem;">
+                <!-- Card 1: Permisos de Obra -->
+                <div class="dataset-card"
+                    style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.75rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; justify-content: space-between; gap: 1.5rem; transition: all 0.25s ease;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.06)'"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='var(--card-shadow)'">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div
+                            style="background: rgba(0, 159, 227, 0.08); color: var(--primary); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-file-invoice"></i>
+                        </div>
+                        <h3
+                            style="font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem; margin: 0;">
+                            Historial de Permisos de Obra (IFPDO)</h3>
+                        <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5; margin: 0;">Listado consolidado
+                            de expedientes con permisos otorgados (IFPDO), incluyendo fecha de emisión, código de
+                            trámite y detalles.</p>
+                    </div>
+                    <div
+                        style="border-top: 1px solid #f1f5f9; padding-top: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Formato: .xlsx / .csv</span>
+                        <button onclick="downloadDataset('permisos_obra')" class="btn-primary"
+                            style="padding: 8px 16px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer;">
+                            <i class="fa-solid fa-download"></i> Descargar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Card 2: Egresos de Transacciones -->
+                <div class="dataset-card"
+                    style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.75rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column; justify-content: space-between; gap: 1.5rem; transition: all 0.25s ease;"
+                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.06)'"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='var(--card-shadow)'">
+                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div
+                            style="background: rgba(16, 185, 129, 0.08); color: #10b981; width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-list-check"></i>
+                        </div>
+                        <h3
+                            style="font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem; margin: 0;">
+                            Egresos de Transacciones</h3>
+                        <p style="color: #64748b; font-size: 0.88rem; line-height: 1.5; margin: 0;">Set de datos con el
+                            consolidado general de egresos del tablero y sus correspondientes identificadores de SADE.
+                        </p>
+                    </div>
+                    <div
+                        style="border-top: 1px solid #f1f5f9; padding-top: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: 600;">Formato: .xlsx / .csv</span>
+                        <button onclick="downloadDataset('egresos_transacciones')" class="btn-primary"
+                            style="padding: 8px 16px; font-size: 0.82rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; border: none; border-radius: 8px; cursor: pointer; background: #10b981;">
+                            <i class="fa-solid fa-download"></i> Descargar
+                        </button>
+                    </div>
+                </div>
+            </div>

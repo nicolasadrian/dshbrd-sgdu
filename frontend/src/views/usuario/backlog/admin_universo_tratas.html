@@ -1,0 +1,37 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="window.location.hash='#/backlog'" style="cursor: pointer;">Backlog</span> / Universo Tratas
+</div>
+
+<div class="admin-page-container" style="margin-top: 1rem;">
+    
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">Universo de Tratas</h2>
+                        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Vista informativa del universo de tratas y sus métricas en el tablero.</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-search" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.8rem;"></i>
+                            <input type="text" id="backlog-universo-tratas-search"
+                                placeholder="Buscar trata..."
+                                oninput="filterBacklogUniversoTratas()"
+                                style="padding: 8px 10px 8px 30px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.85rem; outline: none; width: 220px;">
+                        </div>
+                        <button onclick="loadBacklogUniversoTratas()"
+                            style="padding: 8px 14px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-rotate-right"></i> Actualizar
+                        </button>
+                    </div>
+                </div>
+                <div id="backlog-universo-tratas-container" class="admin-card"
+                    style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow-x: auto;">
+                    <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+                        <span class="loader"></span>
+                        <p style="margin-top: 8px;">Cargando datos...</p>
+                    </div>
+                </div>
+</div>

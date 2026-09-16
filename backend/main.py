@@ -37,6 +37,7 @@ from routers.rrhh import router as rrhh_router
 from routers.landing import router as landing_router
 from routers.reportes import router as reportes_router
 from routers.ciudad3d import router as city3d_router
+from routers.ciudad3d_pdi import router as pdi_router
 
 app = FastAPI(title="SGDU Analytics API")
 
@@ -518,6 +519,8 @@ app.include_router(rrhh_router)
 app.include_router(landing_router)
 app.include_router(reportes_router)
 app.include_router(city3d_router)
+app.include_router(pdi_router)
+
 
 
 if __name__ == "__main__":

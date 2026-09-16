@@ -60,9 +60,29 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
         
     # Admins get ALL permissions automatically
     if r_lower in ["admin", "administrador"]:
-        for k in ["dgroc", "dgiur", "family", "seguimiento", "cierre", "sla", "subsanaciones", "buscador", "favoritos", "favoritos-seguimiento", "analytics_estadistica", "analytics_datasets", "analytics_m2_permisados", "analytics_avisos_obra", "analytics_pdl_blanqueo", "asignados-mi", "productividad_analistas", "reportes_rrhh", "carga_reportes_rrhh", "universo_tratas", "planificacion_nov_2026"]:
+        all_perms = [
+            "admin",
+            # Seguimiento DGROC
+            "dgroc", "seguimiento_catastro", "seguimiento_instalaciones", "seguimiento_conforme", "seguimiento_contable", "seguimiento_etapa_proyecto", "seguimiento_aviso_obra",
+            # Seguimiento DGIUR
+            "dgiur", "seguimiento_morfologia", "seguimiento_aph", "seguimiento_usos", "publico_privado", "copua", "privada", "family",
+            # Buzones DGROC
+            "buzon_dgroc", "buzon_catastro", "buzon_instalaciones", "buzon_conforme", "buzon_contable", "buzon_etapa_proyecto", "buzon_aviso_obra",
+            # Buzones DGIUR
+            "buzon_dgiur", "buzon_morfologia", "buzon_aph", "buzon_usos", "buzon_publico_privado", "buzon_copua", "buzon_privada",
+            # Reportes
+            "seguimiento", "cierre", "sla", "subsanaciones", "productividad_analistas", "reportes_rrhh", "carga_reportes_rrhh", "universo_tratas", "planificacion_nov_2026",
+            # Analytics
+            "analytics_estadistica", "ley_blanqueo", "analytics_m2_permisados", "analytics_avisos_obra", "analytics_pdl_blanqueo", "analytics_datasets",
+            # Ciudad 3D
+            "ciudad_3d", "c3d_home", "c3d_extensiones_todas", "c3d_extensiones_mis_trazados", "c3d_extensiones_revision", "c3d_extensiones_equipo", "c3d_extensiones_mapa", "ciudad3d_manzanas_atipicas", "lfi_dibujar", "lfi_revisar",
+            # Contable
+            "contable_calculadora", "contable_plusvalia", "contable_derechos", "contable_seguimiento",
+            # Mis Expedientes
+            "buscador", "favoritos", "favoritos-seguimiento", "asignados-mi"
+        ]
+        for k in all_perms:
             resolved[k] = True
-
             
     return resolved
 

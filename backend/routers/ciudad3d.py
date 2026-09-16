@@ -81,6 +81,7 @@ class FichaInternalNoteEditRequest(BaseModel):
 class LFIAssignRequest(BaseModel):
     seccion: str
     manzana: str
+    analista: Optional[str] = None
 
 class LFIAssignSeccionRequest(BaseModel):
     seccion: str
@@ -93,6 +94,7 @@ class LFINoteRequest(BaseModel):
 class AssignRequest(BaseModel):
     seccion: str
     manzana: str
+    analista: Optional[str] = None
 
 class NoteRequest(BaseModel):
     seccion: str
@@ -1168,100 +1170,6 @@ async def save_expediente_ficha(expediente: str, data: FichaEditRequest, current
 
 
 # --- Endpoints de Reportes y Subsanaciones Especiales ---
-
-@router.get("/api/reporte/pendientes_asociacion")
-async def get_pendientes_asociacion(current_user: User = Depends(get_current_user)):
-    results = {}
-    import oracledb
-    
-    oracle_user = os.getenv("ORACLE_USER", "CDASILVACOSTA")
-    oracle_pass = os.getenv("ORACLE_PASS", "SUI_sie329(m")
-    oracle_dsn = os.getenv("ORACLE_DSN", "ind01-scan1.gcba.gob.ar:1521/sadetst.gcba.gob.ar")
-    
-    oracle_data = []
-    try:
-        connection = oracledb.connect(user=oracle_user, password=oracle_pass, dsn=oracle_dsn)
-        cursor = connection.cursor()
-        cursor.execute("""
-            SELECT id_expediente, documento, acronimo, usuario_creador, fecha_creacion
-            FROM EE_SADE.MVW_DATOS_GEDO_SECGDU
-            WHERE fecha_creacion IS NOT NULL 
-              AND fecha_asociacion IS NULL
-        """)
-        oracle_data = cursor.fetchall()
-        connection.close()
-    except Exception as e:
-        logger.error(f"Error consultando Oracle para pendientes_asociacion: {e}")
-        raise HTTPException(status_code=500, detail=f"Error al conectar con la base transaccional Oracle: {str(e)}")
-
-    if not oracle_data:
-        return results
-
-    id_list = [row[0] for row in oracle_data]
-
-    try:
-        with engine.connect() as conn:
-            for gerencia, tratas in TRAMITES_CONFIG.items():
-                cfg_rows = conn.execute(text("""
-                    SELECT trata_reporte, acronimos_egreso, firmantes_egreso 
-                    FROM cfg_gestion_metas 
-                    WHERE gerencia = :g AND trata_reporte <> 'INTERVENCIONES'
-                """), {"g": gerencia}).fetchall()
-                
-                trata_rules = {row[0]: {"acronimos": row[1] or [], "firmantes": row[2] or []} for row in cfg_rows}
-                
-                gerencia_data = {}
-                
-                sql = f"""
-                    SELECT id_expediente, expediente, trata
-                    FROM mv_{gerencia}_universo
-                    WHERE es_trata_propia = TRUE
-                      AND id_expediente = ANY(:ids)
-                """
-                try:
-                    pg_rows = conn.execute(text(sql), {"ids": id_list}).fetchall()
-                    pg_exp_map = {row[0]: {"expediente": row[1], "trata": row[2]} for row in pg_rows}
-                    
-                    for id_exp, doc, acro, creator, created in oracle_data:
-                        if id_exp in pg_exp_map:
-                            trata_code = pg_exp_map[id_exp]["trata"]
-                            exp_num = pg_exp_map[id_exp]["expediente"]
-                            
-                            rules = trata_rules.get(trata_code)
-                            if not rules or not rules["acronimos"]:
-                                continue
-                            
-                            if acro not in rules["acronimos"]:
-                                continue
-                                
-                            if rules["firmantes"] and creator not in rules["firmantes"]:
-                                continue
-                                
-                            if trata_code not in gerencia_data:
-                                trata_name = TRAMITES_CONFIG.get(gerencia, {}).get(trata_code, {}).get("nombre") or trata_code
-                                gerencia_data[trata_code] = {
-                                    "trata_nombre": trata_name,
-                                    "expedientes": []
-                                }
-                                
-                            gerencia_data[trata_code]["expedientes"].append({
-                                    "expediente": exp_num,
-                                    "gedo": doc,
-                                    "usuario_creador": creator,
-                                    "fecha_creacion": created.strftime("%Y-%m-%d %H:%M:%S") if created and hasattr(created, "strftime") else (str(created)[:19] if created else None)
-                            })
-                except Exception as query_err:
-                    logger.error(f"Error filtrando en Postgres para gerencia {gerencia}: {query_err}")
-                
-                if gerencia_data:
-                    results[gerencia] = {
-                        "area_nombre": gerencia.upper(),
-                        "tratas": gerencia_data
-                    }
-        return results
-    except Exception as e:
-        logger.error(f"Error procesando pendientes en Postgres: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/reporte/subsanaciones")
 async def get_subsanaciones_report(

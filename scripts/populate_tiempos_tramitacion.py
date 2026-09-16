@@ -1,15 +1,23 @@
-import sys, time
+import sys, time, os
 sys.path.insert(0, './backend')
 sys.path.insert(0, '.')
-from database import engine
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from config import TRAMITES_CONFIG
+from dotenv import load_dotenv
+
+load_dotenv()
+db_url = os.getenv("DATABASE_URL_LOCAL") or os.getenv("DATABASE_URL") or os.getenv("DATABASE_URL_PUBLIC") or "postgresql://postgres:lenovo@localhost:5432/sade_db"
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(db_url, connect_args={"options": "-c statement_timeout=0"})
 
 g_list = list(TRAMITES_CONFIG.keys())
 
 def populate():
     t0 = time.time()
     with engine.connect() as conn:
+        conn.execute(text("SET statement_timeout = 0;"))
         print("=== RE-CREATING planificacion_tiempos_tramitacion_resumen TABLE ===")
         conn.execute(text("DROP TABLE IF EXISTS planificacion_tiempos_tramitacion_resumen CASCADE;"))
         conn.execute(text("""
@@ -17,11 +25,19 @@ def populate():
                 gerencia VARCHAR(50),
                 trata VARCHAR(50),
                 descripcion_trata VARCHAR(255),
+                -- Métricas Último Mes Completo Cerrado
                 dias_propio_sector NUMERIC(10, 1),
                 dias_subsanacion NUMERIC(10, 1),
                 dias_intervenciones NUMERIC(10, 1),
                 dias_totales NUMERIC(10, 1),
+                total_resueltos_ultimo_mes INT,
+                -- Métricas Expedientes Ingresados en el Año en Curso (resueltos en último mes cerrado)
+                dias_propio_sector_este_ano NUMERIC(10, 1),
+                dias_subsanacion_este_ano NUMERIC(10, 1),
+                dias_intervenciones_este_ano NUMERIC(10, 1),
+                dias_totales_este_ano NUMERIC(10, 1),
                 dias_mediana_ingresados_este_ano NUMERIC(10, 1),
+                total_resueltos_este_ano INT,
                 ultimo_mes_cerrado VARCHAR(20)
             );
         """))
@@ -32,13 +48,14 @@ def populate():
 
         for g in g_list:
             t_g0 = time.time()
-            print(f"Populating median processing times matching SLA for gerencia '{g}'...")
+            print(f"Populating processing times matching SLA for gerencia '{g}'...")
             try:
-                # 1. Monthly historical population matching exact SLA logic per month using MEDIANS
+                conn.execute(text("SET statement_timeout = 0;"))
+                # 1. Monthly historical population matching exact SLA logic per month using AVERAGES
                 sql_hist_insert = f"""
                     INSERT INTO planificacion_tiempos_trata_historico (gerencia, trata, mes_label, dias_propio_sector, dias_subsanacion, dias_intervenciones)
                     WITH official_tratas AS (
-                        SELECT trata_reporte
+                        SELECT DISTINCT trata_reporte
                         FROM cfg_gestion_metas
                         WHERE gerencia = '{g}' AND trata_reporte <> 'INTERVENCIONES'
                     ),
@@ -46,6 +63,7 @@ def populate():
                         SELECT analistas_oficiales, buzones_ingreso
                         FROM cfg_gestion_metas
                         WHERE gerencia = '{g}' AND trata_reporte = 'INTERVENCIONES'
+                        LIMIT 1
                     ),
                     expedientes_egreso AS (
                         SELECT 
@@ -83,27 +101,48 @@ def populate():
                         FROM pases_cronologicos pc
                         GROUP BY pc.id_expediente
                     ),
+                    sol_sub AS (
+                        SELECT 
+                            id_expediente, 
+                            fecha_alta as fecha_solicitud,
+                            LEAD(fecha_alta) OVER (PARTITION BY id_expediente ORDER BY fecha_alta ASC) as next_solicitud
+                        FROM mvw_ee_actividades_secgdu
+                        WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ),
+                    ciclos_sub AS (
+                        SELECT 
+                            s.id_expediente,
+                            s.fecha_solicitud,
+                            COALESCE(
+                                (SELECT MIN(r.fecha_alta) 
+                                 FROM mvw_ee_actividades_secgdu r 
+                                 WHERE r.id_expediente = s.id_expediente 
+                                   AND r.nombre_tipo_actividad = 'SUBSANACION'
+                                   AND r.fecha_alta >= s.fecha_solicitud
+                                   AND (s.next_solicitud IS NULL OR r.fecha_alta <= s.next_solicitud)
+                                ),
+                                s.next_solicitud,
+                                e.fecha_egreso
+                            ) as fecha_fin_sub
+                        FROM sol_sub s
+                        JOIN expedientes_egreso e ON e.id_expediente = s.id_expediente
+                        WHERE s.fecha_solicitud >= e.fecha_primer_ingreso_gerencia AND s.fecha_solicitud <= e.fecha_egreso
+                    ),
                     subsanaciones_globales AS (
                         SELECT 
-                            e.id_expediente,
-                            SUM((EXTRACT(epoch FROM (a.fecha_cierre - a.fecha_alta)) / 86400.0)) AS duracion_subsanaciones
-                        FROM expedientes_egreso e
-                        JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = e.id_expediente
-                        WHERE a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                          AND a.estado = 'CERRADA'
-                          AND a.fecha_alta >= e.fecha_primer_ingreso_gerencia AND a.fecha_alta <= e.fecha_egreso
-                        GROUP BY e.id_expediente
+                            cs.id_expediente,
+                            SUM(GREATEST(0, (EXTRACT(epoch FROM (cs.fecha_fin_sub - cs.fecha_solicitud)) / 86400.0))) AS duracion_subsanaciones
+                        FROM ciclos_sub cs
+                        GROUP BY cs.id_expediente
                     ),
                     pases_internos AS (
                         SELECT 
                             pc.id_expediente,
-                            SUM((EXTRACT(epoch FROM (LEAST(a.fecha_cierre, pc.fecha_fin_tramo) - GREATEST(a.fecha_alta, pc.fecha_inicio_tramo))) / 86400.0)) AS duracion_subsanaciones_adentro
+                            SUM(GREATEST(0, (EXTRACT(epoch FROM (LEAST(cs.fecha_fin_sub, pc.fecha_fin_tramo) - GREATEST(cs.fecha_solicitud, pc.fecha_inicio_tramo))) / 86400.0))) AS duracion_subsanaciones_adentro
                         FROM pases_cronologicos pc
-                        JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = pc.id_expediente
+                        JOIN ciclos_sub cs ON cs.id_expediente = pc.id_expediente
                         WHERE pc.ubicacion_destino = 'ADENTRO'
-                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                          AND a.estado = 'CERRADA'
-                          AND a.fecha_alta < pc.fecha_fin_tramo AND a.fecha_cierre > pc.fecha_inicio_tramo
+                          AND cs.fecha_solicitud < pc.fecha_fin_tramo AND cs.fecha_fin_sub > pc.fecha_inicio_tramo
                         GROUP BY pc.id_expediente
                     ),
                     tiempos_unificados AS (
@@ -111,7 +150,7 @@ def populate():
                             e.trata,
                             e.mes_label,
                             e.id_expediente,
-                            (COALESCE(t.dias_adentro_bruto, e.duracion_total) - COALESCE(sa.duracion_subsanaciones_adentro, 0.0)) AS duracion_neta,
+                            GREATEST(0.0, (COALESCE(t.dias_adentro_bruto, e.duracion_total) - COALESCE(sa.duracion_subsanaciones_adentro, 0.0))) AS duracion_neta,
                             COALESCE(s.duracion_subsanaciones, 0.0) AS duracion_sub,
                             COALESCE(t.dias_en_otras_areas, 0.0) AS duracion_int
                         FROM expedientes_egreso e
@@ -123,23 +162,26 @@ def populate():
                         '{g}' as gerencia,
                         tu.trata,
                         tu.mes_label,
-                        ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_neta), 0.0)::numeric, 1) as dias_propio_sector,
-                        ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_sub), 0.0)::numeric, 1) as dias_subsanacion,
-                        ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_int), 0.0)::numeric, 1) as dias_intervenciones
+                        CEIL(COALESCE(AVG(tu.duracion_neta), 0.0)) as dias_propio_sector,
+                        CEIL(COALESCE(AVG(tu.duracion_sub), 0.0)) as dias_subsanacion,
+                        CEIL(COALESCE(AVG(tu.duracion_int), 0.0)) as dias_intervenciones
                     FROM tiempos_unificados tu
                     GROUP BY tu.trata, tu.mes_label;
                 """
                 conn.execute(text(sql_hist_insert))
 
-                # 2. Resumen con Mediana del último mes cerrado y Mediana de trámites ingresados este año
+                # 2. Resumen con Promedios del último mes cerrado y Promedios de trámites ingresados este año
                 sql_resumen_insert = f"""
                     INSERT INTO planificacion_tiempos_tramitacion_resumen (
                         gerencia, trata, descripcion_trata, 
                         dias_propio_sector, dias_subsanacion, dias_intervenciones, dias_totales,
-                        dias_mediana_ingresados_este_ano, ultimo_mes_cerrado
+                        total_resueltos_ultimo_mes,
+                        dias_propio_sector_este_ano, dias_subsanacion_este_ano, dias_intervenciones_este_ano, dias_totales_este_ano,
+                        dias_mediana_ingresados_este_ano, total_resueltos_este_ano,
+                        ultimo_mes_cerrado
                     )
                     WITH official_tratas AS (
-                        SELECT trata_reporte, descripcion_trata
+                        SELECT DISTINCT trata_reporte, descripcion_trata
                         FROM cfg_gestion_metas
                         WHERE gerencia = '{g}' AND trata_reporte <> 'INTERVENCIONES'
                     ),
@@ -147,6 +189,7 @@ def populate():
                         SELECT analistas_oficiales, buzones_ingreso
                         FROM cfg_gestion_metas
                         WHERE gerencia = '{g}' AND trata_reporte = 'INTERVENCIONES'
+                        LIMIT 1
                     ),
                     expedientes_egreso AS (
                         SELECT 
@@ -159,7 +202,8 @@ def populate():
                             (EXTRACT(epoch FROM (ee.fecha_egreso - ee.fecha_primer_ingreso_gerencia)) / 86400.0) AS duracion_total
                         FROM mv_{g}_egresos_efectivos ee
                         JOIN official_tratas ot ON ot.trata_reporte = ee.trata
-                        WHERE ee.fecha_egreso >= '2025-01-01'
+                        WHERE ee.fecha_egreso >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '12 months')
+                          AND ee.fecha_egreso < DATE_TRUNC('month', CURRENT_DATE)
                     ),
                     pases_cronologicos AS (
                         SELECT 
@@ -186,27 +230,48 @@ def populate():
                         FROM pases_cronologicos pc
                         GROUP BY pc.id_expediente
                     ),
+                    sol_sub AS (
+                        SELECT 
+                            id_expediente, 
+                            fecha_alta as fecha_solicitud,
+                            LEAD(fecha_alta) OVER (PARTITION BY id_expediente ORDER BY fecha_alta ASC) as next_solicitud
+                        FROM mvw_ee_actividades_secgdu
+                        WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ),
+                    ciclos_sub AS (
+                        SELECT 
+                            s.id_expediente,
+                            s.fecha_solicitud,
+                            COALESCE(
+                                (SELECT MIN(r.fecha_alta) 
+                                 FROM mvw_ee_actividades_secgdu r 
+                                 WHERE r.id_expediente = s.id_expediente 
+                                   AND r.nombre_tipo_actividad = 'SUBSANACION'
+                                   AND r.fecha_alta >= s.fecha_solicitud
+                                   AND (s.next_solicitud IS NULL OR r.fecha_alta <= s.next_solicitud)
+                                ),
+                                s.next_solicitud,
+                                e.fecha_egreso
+                            ) as fecha_fin_sub
+                        FROM sol_sub s
+                        JOIN expedientes_egreso e ON e.id_expediente = s.id_expediente
+                        WHERE s.fecha_solicitud >= e.fecha_primer_ingreso_gerencia AND s.fecha_solicitud <= e.fecha_egreso
+                    ),
                     subsanaciones_globales AS (
                         SELECT 
-                            e.id_expediente,
-                            SUM((EXTRACT(epoch FROM (a.fecha_cierre - a.fecha_alta)) / 86400.0)) AS duracion_subsanaciones
-                        FROM expedientes_egreso e
-                        JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = e.id_expediente
-                        WHERE a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                          AND a.estado = 'CERRADA'
-                          AND a.fecha_alta >= e.fecha_primer_ingreso_gerencia AND a.fecha_alta <= e.fecha_egreso
-                        GROUP BY e.id_expediente
+                            cs.id_expediente,
+                            SUM(GREATEST(0, (EXTRACT(epoch FROM (cs.fecha_fin_sub - cs.fecha_solicitud)) / 86400.0))) AS duracion_subsanaciones
+                        FROM ciclos_sub cs
+                        GROUP BY cs.id_expediente
                     ),
                     pases_internos AS (
                         SELECT 
                             pc.id_expediente,
-                            SUM((EXTRACT(epoch FROM (LEAST(a.fecha_cierre, pc.fecha_fin_tramo) - GREATEST(a.fecha_alta, pc.fecha_inicio_tramo))) / 86400.0)) AS duracion_subsanaciones_adentro
+                            SUM(GREATEST(0, (EXTRACT(epoch FROM (LEAST(cs.fecha_fin_sub, pc.fecha_fin_tramo) - GREATEST(cs.fecha_solicitud, pc.fecha_inicio_tramo))) / 86400.0))) AS duracion_subsanaciones_adentro
                         FROM pases_cronologicos pc
-                        JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = pc.id_expediente
+                        JOIN ciclos_sub cs ON cs.id_expediente = pc.id_expediente
                         WHERE pc.ubicacion_destino = 'ADENTRO'
-                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                          AND a.estado = 'CERRADA'
-                          AND a.fecha_alta < pc.fecha_fin_tramo AND a.fecha_cierre > pc.fecha_inicio_tramo
+                          AND cs.fecha_solicitud < pc.fecha_fin_tramo AND cs.fecha_fin_sub > pc.fecha_inicio_tramo
                         GROUP BY pc.id_expediente
                     ),
                     tiempos_unificados AS (
@@ -215,7 +280,7 @@ def populate():
                             e.mes_label,
                             e.anio_ingreso,
                             e.duracion_total,
-                            (COALESCE(t.dias_adentro_bruto, e.duracion_total) - COALESCE(sa.duracion_subsanaciones_adentro, 0.0)) AS duracion_neta,
+                            GREATEST(0.0, (COALESCE(t.dias_adentro_bruto, e.duracion_total) - COALESCE(sa.duracion_subsanaciones_adentro, 0.0))) AS duracion_neta,
                             COALESCE(s.duracion_subsanaciones, 0.0) AS duracion_sub,
                             COALESCE(t.dias_en_otras_areas, 0.0) AS duracion_int
                         FROM expedientes_egreso e
@@ -234,46 +299,56 @@ def populate():
                     med_ultimo_mes AS (
                         SELECT 
                             tu.trata,
-                            ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_neta), 0.0)::numeric, 1) as dias_propio_sector,
-                            ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_sub), 0.0)::numeric, 1) as dias_subsanacion,
-                            ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_int), 0.0)::numeric, 1) as dias_intervenciones,
-                            ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY tu.duracion_total), 0.0)::numeric, 1) as dias_totales,
+                            COUNT(*) as count_ultimo_mes,
+                            CEIL(COALESCE(AVG(tu.duracion_neta), 0.0)) as prom_propio_sector,
+                            CEIL(COALESCE(AVG(tu.duracion_sub), 0.0)) as prom_subsanacion,
+                            CEIL(COALESCE(AVG(tu.duracion_int), 0.0)) as prom_intervenciones,
                             ltm.max_mes as ultimo_mes_cerrado
                         FROM tiempos_unificados tu
                         JOIN latest_trata_month ltm ON ltm.trata = tu.trata AND ltm.max_mes = tu.mes_label
                         GROUP BY tu.trata, ltm.max_mes
                     ),
-                    med_ing_2026 AS (
+                    med_ing_este_ano AS (
                         SELECT 
-                            trata,
-                            ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duracion_total), 0.0)::numeric, 1) as dias_mediana_ingresados_este_ano
-                        FROM tiempos_unificados
-                        WHERE anio_ingreso = EXTRACT(YEAR FROM CURRENT_DATE)::integer
-                        GROUP BY trata
+                            tu.trata,
+                            COUNT(*) as count_este_ano,
+                            CEIL(COALESCE(AVG(tu.duracion_neta), 0.0)) as prom_propio_sector_este_ano,
+                            CEIL(COALESCE(AVG(tu.duracion_sub), 0.0)) as prom_subsanacion_este_ano,
+                            CEIL(COALESCE(AVG(tu.duracion_int), 0.0)) as prom_intervenciones_este_ano
+                        FROM tiempos_unificados tu
+                        JOIN latest_trata_month ltm ON ltm.trata = tu.trata AND ltm.max_mes = tu.mes_label
+                        WHERE tu.anio_ingreso = EXTRACT(YEAR FROM CURRENT_DATE)::integer
+                        GROUP BY tu.trata
                     )
                     SELECT 
                         '{g}' as gerencia,
                         ot.trata_reporte as trata,
                         ot.descripcion_trata,
-                        COALESCE(m.dias_propio_sector, 0.0) as dias_propio_sector,
-                        COALESCE(m.dias_subsanacion, 0.0) as dias_subsanacion,
-                        COALESCE(m.dias_intervenciones, 0.0) as dias_intervenciones,
-                        COALESCE(m.dias_totales, 0.0) as dias_totales,
-                        COALESCE(i.dias_mediana_ingresados_este_ano, 0.0) as dias_mediana_ingresados_este_ano,
+                        COALESCE(m.prom_propio_sector, 0.0) as dias_propio_sector,
+                        COALESCE(m.prom_subsanacion, 0.0) as dias_subsanacion,
+                        COALESCE(m.prom_intervenciones, 0.0) as dias_intervenciones,
+                        (COALESCE(m.prom_propio_sector, 0.0) + COALESCE(m.prom_subsanacion, 0.0) + COALESCE(m.prom_intervenciones, 0.0)) as dias_totales,
+                        COALESCE(m.count_ultimo_mes, 0) as total_resueltos_ultimo_mes,
+                        COALESCE(i.prom_propio_sector_este_ano, 0.0) as dias_propio_sector_este_ano,
+                        COALESCE(i.prom_subsanacion_este_ano, 0.0) as dias_subsanacion_este_ano,
+                        COALESCE(i.prom_intervenciones_este_ano, 0.0) as dias_intervenciones_este_ano,
+                        (COALESCE(i.prom_propio_sector_este_ano, 0.0) + COALESCE(i.prom_subsanacion_este_ano, 0.0) + COALESCE(i.prom_intervenciones_este_ano, 0.0)) as dias_totales_este_ano,
+                        (COALESCE(i.prom_propio_sector_este_ano, 0.0) + COALESCE(i.prom_subsanacion_este_ano, 0.0) + COALESCE(i.prom_intervenciones_este_ano, 0.0)) as dias_mediana_ingresados_este_ano,
+                        COALESCE(i.count_este_ano, 0) as total_resueltos_este_ano,
                         COALESCE(m.ultimo_mes_cerrado, to_char(CURRENT_DATE - INTERVAL '1 month', 'YYYY-MM')) as ultimo_mes_cerrado
                     FROM official_tratas ot
                     LEFT JOIN med_ultimo_mes m ON m.trata = ot.trata_reporte
-                    LEFT JOIN med_ing_2026 i ON i.trata = ot.trata_reporte;
+                    LEFT JOIN med_ing_este_ano i ON i.trata = ot.trata_reporte;
                 """
                 conn.execute(text(sql_resumen_insert))
                 conn.commit()
-                print(f"  Gerencia '{g}' median SLAs populated in {round(time.time() - t_g0, 2)}s.")
+                print(f"  Gerencia '{g}' processing times populated in {round(time.time() - t_g0, 2)}s.")
 
             except Exception as e:
                 print(f"  Error populating gerencia '{g}': {e}")
                 conn.rollback()
 
-    print(f"All processing times using MEDIANS populated in {round(time.time() - t0, 2)}s!")
+    print(f"All processing times using AVERAGES populated in {round(time.time() - t0, 2)}s!")
 
 if __name__ == '__main__':
     populate()

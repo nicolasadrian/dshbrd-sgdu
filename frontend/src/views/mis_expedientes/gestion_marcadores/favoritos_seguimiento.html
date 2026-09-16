@@ -1,0 +1,150 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Gestión de Marcadores
+            </div>
+
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Gestión de Marcadores</h1>
+                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Gestión detallada e información de
+                        expedientes marcados.</p>
+                </div>
+                <!-- Boton Exportar Excel -->
+                <button onclick="exportFavSegExcel()" id="btn-export-fav-seg"
+                    style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #16a34a, #15803d); color: white; border: none; border-radius: 10px; padding: 10px 18px; font-family: 'Outfit'; font-weight: 700; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(22,163,74,0.25); white-space: nowrap;"
+                    onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 14px rgba(22,163,74,0.4)';"
+                    onmouseout="this.style.transform=''; this.style.boxShadow='0 2px 8px rgba(22,163,74,0.25)';">
+                    <i class="fa-solid fa-file-excel" style="font-size: 1rem;"></i>
+                    Exportar Excel
+                </button>
+            </div>
+
+            <!-- Controles de Búsqueda y Filtro (Favoritos Seguimiento) -->
+            <div class="filter-controls-container"
+                style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                    <!-- Búsqueda Global -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 2;">
+                        <label
+                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscador
+                            Global</label>
+                        <input type="text" id="fav-seg-search" class="form-input"
+                            placeholder="Buscar expediente, trámite, analista, dirección, responsable, notas..."
+                            oninput="filterAndRenderFavoritosSeguimiento()"
+                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                    </div>
+
+                    <!-- Filtro Gerencia -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
+                        <label
+                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Área
+                            / Gerencia</label>
+                        <select id="fav-seg-filter-gerencia" onchange="filterAndRenderFavoritosSeguimiento()"
+                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todas</option>
+                            <option value="CATASTRO">Catastro (DGROC)</option>
+                            <option value="INSTALACIONES">Instalaciones (DGROC)</option>
+                            <option value="CONFORME">Conforme (DGROC)</option>
+                            <option value="CONTABLE">Contable (DGROC)</option>
+                            <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
+                            <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
+                            <option value="MORFOLOGIA">Morfología (DGIUR)</option>
+                            <option value="APH">APH (DGIUR)</option>
+                            <option value="USOS">Usos (DGIUR)</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Estado Tablero -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
+                        <label
+                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Estado
+                            Tablero</label>
+                        <select id="fav-seg-filter-sade" onchange="filterAndRenderFavoritosSeguimiento()"
+                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todos</option>
+                            <option value="STOCK">Stock</option>
+                            <option value="SUBSANACION">Subsanación</option>
+                            <option value="EGRESADO">Egresos</option>
+                            <option value="EN FLUJO">En Flujo</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Estado Ficha -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 150px; flex-grow: 1;">
+                        <label
+                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Estado
+                            Ficha</label>
+                        <select id="fav-seg-filter-estado" onchange="filterAndRenderFavoritosSeguimiento()"
+                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todos</option>
+                            <option value="Finalizado">Finalizado</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="En Pausa">En Pausa</option>
+                            <option value="Subsanación">Subsanación</option>
+                            <option value="NONE">Sin Ficha / Sin Estado</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Prioridad -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 130px; flex-grow: 1;">
+                        <label
+                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Prioridad</label>
+                        <select id="fav-seg-filter-prioridad" onchange="filterAndRenderFavoritosSeguimiento()"
+                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todas</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Media">Media</option>
+                            <option value="Baja">Baja</option>
+                            <option value="NONE">Sin Prioridad</option>
+                        </select>
+                    </div>
+
+                    <!-- Filtro Reunión -->
+                    <div class="form-group" style="margin-bottom: 0; min-width: 120px; flex-grow: 1;">
+                        <label
+                            style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Próx.
+                            Reunión</label>
+                        <select id="fav-seg-filter-reunion" onchange="filterAndRenderFavoritosSeguimiento()"
+                            style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                            <option value="ALL">Todos</option>
+                            <option value="true">Sí</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="fav-seg-container" class="matrix-table-container"
+                style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem; overflow: hidden;">
+                <div style="overflow-x: auto; width: 100%;">
+                    <table class="matrix-table" style="margin-top: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;"><i
+                                        class="fa-solid fa-bookmark"></i></th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Área / Gerencia
+                                </th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Dirección</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Nota</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Nota Interna
+                                    (última)</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Responsable</th>
+                                <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Estado</th>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 140px;">
+                                    Ficha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fav-seg-tbody">
+                            <!-- Inyectado vía JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="fav-seg-empty-state" style="display: none; text-align: center; padding: 3rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem; color: #94a3b8;"><i
+                            class="fa-regular fa-folder-open"></i></div>
+                    <h3 style="color: #64748b; margin: 0; font-family: 'Outfit';">No tienes expedientes marcados</h3>
+                    <p style="color: #94a3b8; margin: 0.5rem 0 0 0; font-family: 'Outfit';">Haz clic en la estrella de
+                        cualquier expediente en el buscador o reportes para marcarlo.</p>
+                </div>
+            </div>

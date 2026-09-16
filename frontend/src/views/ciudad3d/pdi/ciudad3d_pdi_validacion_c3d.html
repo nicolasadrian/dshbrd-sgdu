@@ -1,0 +1,138 @@
+<div class="breadcrumbs" style="font-family: 'Outfit', sans-serif;">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')" style="cursor: pointer; text-decoration: underline;">Ciudad 3D</span> / <b>Backend PDI - Validación Ciudad 3D</b>
+</div>
+
+<!-- Header Principal -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; font-family: 'Outfit', sans-serif;">
+    <div>
+        <h1 style="margin: 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px;">
+            <i class="fa-solid fa-cube" style="color: #0284c7;"></i> Validación Ciudad 3D (API EPOK)
+        </h1>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.92rem; font-family: 'Outfit', sans-serif;">
+            Verificación 1 a 1 de parcelas de <code>mo_parcelasmap</code> contra la API de edificabilidad de Ciudad 3D.
+        </p>
+    </div>
+</div>
+
+<!-- Navegación por Páginas Independientes del Módulo PDI -->
+<div style="display: flex; gap: 8px; margin-bottom: 2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0; font-family: 'Outfit', sans-serif;">
+    <button type="button" onclick="showView('ciudad3d_pdi')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-table-list"></i> Inventario & Estado
+    </button>
+    <button type="button" onclick="showView('ciudad3d_pdi_validacion')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-code-compare"></i> Validación de Datos
+    </button>
+    <button type="button" onclick="showView('ciudad3d_pdi_validacion_c3d')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: #0284c7; border-bottom: 3px solid #0284c7; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-cube"></i> Validación Ciudad 3D
+    </button>
+    <button type="button" onclick="showView('ciudad3d_manzanas_atipicas')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-shapes"></i> Manzanas Atípicas
+    </button>
+</div>
+
+<!-- Panel Principal de Validación C3D -->
+<div class="analysis-section" style="background: white; border: 1px solid #e2e8f0; border-radius: 18px; padding: 1.75rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04); font-family: 'Outfit', sans-serif;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 14px;">
+        <div>
+            <h3 class="section-title" style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.35rem; color: #0f172a; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-satellite-dish" style="color: #0284c7;"></i> Monitor de Validación en Vivo
+            </h3>
+            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem; font-family: 'Outfit', sans-serif;">
+                El análisis se realiza de a una parcela por vez. El último caso analizado se añade arriba de todo.
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <select id="pdi-c3d-seccion-select" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; background: white; font-weight: 600; outline: none;">
+                <option value="">Todas las secciones (Universo completo)</option>
+            </select>
+            <button type="button" class="btn-primary" onclick="startCiudad3DValidation()" id="pdi-c3d-start-btn" style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.88rem; cursor: pointer;">
+                <i class="fa-solid fa-play" id="pdi-c3d-run-icon"></i> Iniciar Validación
+            </button>
+            <button type="button" class="btn-secondary" onclick="stopCiudad3DValidation()" id="pdi-c3d-stop-btn" style="display: none; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.88rem; cursor: pointer; background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;">
+                <i class="fa-solid fa-pause"></i> Pausar
+            </button>
+            <button type="button" class="btn-secondary" onclick="clearCiudad3DValidationFeed()" id="pdi-c3d-clear-btn" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.85rem; cursor: pointer; border: 1px solid #cbd5e1; background: white;">
+                <i class="fa-solid fa-trash-can"></i> Limpiar
+            </button>
+        </div>
+    </div>
+
+    <!-- Barra de Progreso Dinámica -->
+    <div id="pdi-c3d-progress-wrapper" style="margin-bottom: 1.5rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 700; font-size: 0.88rem; color: #1e293b; font-family: 'Outfit', sans-serif;" id="pdi-c3d-progress-label">
+                Progreso de Validación: 0%
+            </span>
+            <span style="font-size: 0.82rem; color: #64748b; font-weight: 600; font-family: 'Outfit', sans-serif;" id="pdi-c3d-progress-count">
+                0 / 0 parcelas
+            </span>
+        </div>
+        <div style="width: 100%; height: 10px; background: #e2e8f0; border-radius: 99px; overflow: hidden;">
+            <div id="pdi-c3d-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7 0%, #0ea5e9 100%); border-radius: 99px; transition: width 0.25s ease;"></div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Resumen de Validación C3D -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.2rem;">
+            <span style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Analizadas</span>
+            <h3 id="pdi-c3d-kpi-checked" style="margin: 4px 0 0 0; font-size: 1.8rem; font-weight: 800; color: #0f172a;">0</h3>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.2rem;">
+            <span style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Respuestas OK</span>
+            <h3 id="pdi-c3d-kpi-ok" style="margin: 4px 0 0 0; font-size: 1.8rem; font-weight: 800; color: #16a34a;">0</h3>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.2rem;">
+            <span style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Con Error / Inexistentes</span>
+            <h3 id="pdi-c3d-kpi-errors" style="margin: 4px 0 0 0; font-size: 1.8rem; font-weight: 800; color: #dc2626;">0</h3>
+        </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.2rem;">
+            <span style="color: #64748b; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;">Estado</span>
+            <div id="pdi-c3d-kpi-status" style="margin-top: 6px;">
+                <span style="background: #f1f5f9; color: #64748b; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px;">En espera</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros Rápidos de la Tabla en Vivo -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-secondary" onclick="filterC3DLiveFeed('all')" id="c3d-filter-btn-all" style="padding: 5px 12px; border-radius: 6px; font-weight: 700; font-size: 0.8rem; background: #0284c7; color: white; border: none;">
+                Todos (<span id="c3d-count-all">0</span>)
+            </button>
+            <button type="button" class="btn-secondary" onclick="filterC3DLiveFeed('ok')" id="c3d-filter-btn-ok" style="padding: 5px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; background: white; color: #166534; border: 1px solid #bbf7d0;">
+                Solo OK (<span id="c3d-count-ok">0</span>)
+            </button>
+            <button type="button" class="btn-secondary" onclick="filterC3DLiveFeed('error')" id="c3d-filter-btn-error" style="padding: 5px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; background: white; color: #991b1b; border: 1px solid #fecaca;">
+                Solo Errores (<span id="c3d-count-error">0</span>)
+            </button>
+        </div>
+        <span style="font-size: 0.82rem; color: #64748b; font-weight: 600;">
+            <i class="fa-solid fa-arrow-down-short-wide"></i> Orden: Más reciente primero
+        </span>
+    </div>
+
+    <!-- Tabla en Vivo de Casos Analizados (Último Arriba de Todo, 1 Línea) -->
+    <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 12px; background: white; max-height: 520px; overflow-y: auto;">
+        <table class="matrix-table" id="table-pdi-c3d-results" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; font-family: 'Outfit', sans-serif;">
+            <thead style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; font-family: 'Outfit', sans-serif; position: sticky; top: 0; z-index: 5;">
+                <tr>
+                    <th style="padding: 10px 14px; font-weight: 700; color: #475569; width: 45px; text-align: center; font-size: 0.8rem; white-space: nowrap;">#</th>
+                    <th style="padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.8rem; width: 140px; white-space: nowrap;">SMP</th>
+                    <th style="padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.8rem; white-space: nowrap;">SECCIÓN / MANZANA / PARCELA</th>
+                    <th style="padding: 10px 14px; font-weight: 700; color: #475569; text-align: center; font-size: 0.8rem; width: 120px; white-space: nowrap;">ESTADO</th>
+                    <th style="padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.8rem; white-space: nowrap;">DETALLE DE RESPUESTA</th>
+                    <th style="padding: 10px 14px; font-weight: 700; color: #475569; text-align: center; font-size: 0.8rem; width: 110px; white-space: nowrap;">API EPOK</th>
+                </tr>
+            </thead>
+            <tbody id="pdi-c3d-tbody" style="font-family: 'Outfit', sans-serif;">
+                <tr id="pdi-c3d-empty-row">
+                    <td colspan="6" style="text-align: center; padding: 2.5rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                        <i class="fa-solid fa-play" style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: #cbd5e1;"></i>
+                        Seleccione una sección o todas las parcelas y haga clic en <b>Iniciar Validación</b> para observar el análisis progresivo en tiempo real.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -4,13 +4,20 @@ Tablero institucional de gestión para la Secretaría de Gestión y Desarrollo U
 
 ## 🚀 Inicio Rápido (Local)
 
-Para iniciar de forma automatizada tanto el Backend como el Frontend, ejecuta el siguiente archivo por lotes en tu terminal:
+Para iniciar de forma automatizada tanto el Backend como el Frontend:
 
+* **En Linux / macOS:**
+```bash
+./restart.sh
+```
+
+* **En Windows:**
 ```cmd
 restart.bat
 ```
 
 * **Acceso del Sistema:** [http://localhost:3000](http://localhost:3000)
+* **API Backend:** [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
 ---
 

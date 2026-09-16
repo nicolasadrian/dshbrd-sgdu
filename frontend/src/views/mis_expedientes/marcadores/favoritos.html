@@ -1,0 +1,34 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Marcadores
+            </div>
+
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Expedientes Marcados</h1>
+                    <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Organice y acceda rápidamente a sus
+                        expedientes.</p>
+                </div>
+            </div>
+
+            <!-- Ribbon de Carpetas Superior -->
+            <div
+                style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.25rem; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-grow: 1;"
+                    id="favorites-folders-list">
+                    <!-- Inyectado vía JS: Todos, General, Carpetas personalizadas -->
+                </div>
+                <button class="btn-primary" onclick="openCreateFolderModal()"
+                    style="display: flex; align-items: center; gap: 8px; font-family: 'Outfit'; font-size: 0.85rem; padding: 0.5rem 1rem; cursor: pointer; border-radius: 8px;">
+                    <i class="fa-solid fa-folder-plus"></i> Nueva Carpeta
+                </button>
+            </div>
+
+            <!-- Contenido poblado completamente vía JS (renderFavoritesContent) en dos bloques separados -->
+            <div id="favoritos-container" style="margin-bottom: 3rem;">
+                <!-- Poblado completamente vía JS (renderFavoritesContent) -->
+                <div style="text-align: center; padding: 3rem; color: #94a3b8; font-family: 'Outfit';">
+                    <i class="fa-regular fa-folder-open"
+                        style="font-size: 2rem; display: block; margin-bottom: 0.75rem;"></i>
+                    Cargando marcadores...
+                </div>
+            </div>

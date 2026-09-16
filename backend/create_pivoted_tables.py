@@ -151,7 +151,7 @@ def main():
             columns_def.append(f"{san_name} {sql_type}")
             
         logger.info("Creando la tabla en Postgres...")
-        pg_cursor.execute(f"DROP TABLE IF EXISTS public.{table_name};")
+        pg_cursor.execute(f"DROP TABLE IF EXISTS public.{table_name} CASCADE;")
         create_sql = f"CREATE TABLE public.{table_name} (\n    " + ",\n    ".join(columns_def) + "\n);"
         pg_cursor.execute(create_sql)
         postgres_conn.commit()

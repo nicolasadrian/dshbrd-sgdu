@@ -13,3 +13,5 @@ geopandas
 shapely
 ezdxf
 fiona
+oracledb
+openpyxl

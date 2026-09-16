@@ -1051,7 +1051,6 @@ main {
     width: 100%;
     height: 100%;
     background: rgba(0, 25, 40, 0.8);
-    backdrop-filter: blur(5px);
     display: none !important; /* Forzar ocultamiento inicial */
     justify-content: center;
     align-items: center;
@@ -1317,23 +1316,41 @@ body::after, body::before, html::after, html::before {
 
 .header-stock-indicators {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .header-stock-tag {
-    padding: 0.75rem 1.5rem;
+    padding: 0.65rem 1.25rem;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 140px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    min-width: 125px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.prop-tag {
+.header-stock-tag:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.tiempo-tag {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+}
+
+.stock-tag, .prop-tag {
     background: #fef2f2;
     border: 1px solid #fee2e2;
+}
+
+.flujo-tag {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
 }
 
 .subs-tag {
@@ -1341,7 +1358,9 @@ body::after, body::before, html::after, html::before {
     border: 1px solid #ffedd5;
 }
 
-.prop-tag .stock-label { color: #991b1b; }
+.tiempo-tag .stock-label { color: #0284c7; }
+.stock-tag .stock-label, .prop-tag .stock-label { color: #991b1b; }
+.flujo-tag .stock-label { color: #166534; }
 .subs-tag .stock-label { color: #9a3412; }
 
 .stock-label {
@@ -1349,17 +1368,49 @@ body::after, body::before, html::after, html::before {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
 }
 
 .stock-value {
-    font-size: 2rem;
+    font-size: 1.85rem;
     font-weight: 800;
     line-height: 1;
+    font-family: 'Outfit', sans-serif;
 }
 
-.prop-tag .stock-value { color: #ef4444; }
+.tiempo-tag .stock-value { color: #0284c7; }
+.stock-tag .stock-value, .prop-tag .stock-value { color: #ef4444; }
+.flujo-tag .stock-value { color: #16a34a; }
 .subs-tag .stock-value { color: #f59e0b; }
+
+.badge-tipo-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.badge-tipo-flujo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
 
 .meta-semaphore-container {
     background: #f8fafc;
@@ -4160,5 +4211,65 @@ span.perf-low {
     color: #475569;
     font-weight: 600;
     border-radius: 16px;
+}
+
+/* Multi-level Dropdown Submenus */
+.dropdown-submenu {
+    position: relative;
+}
+
+.dropdown-submenu > .submenu-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+
+.dropdown-submenu > .submenu-trigger .submenu-chevron {
+    font-size: 0.65rem;
+    margin-left: 8px;
+    color: #94a3b8;
+    transition: transform 0.2s;
+}
+
+.dropdown-submenu:hover > .submenu-trigger .submenu-chevron {
+    color: var(--primary);
+    transform: translateX(2px);
+}
+
+.dropdown-submenu .submenu-content {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    margin-left: 2px;
+    background-color: var(--white);
+    min-width: 190px;
+    box-shadow: 0 10px 25px rgba(0, 45, 71, 0.12);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(10px);
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1200;
+}
+
+.dropdown-submenu:hover > .submenu-content {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(0);
+}
+
+.dropdown-submenu-left .submenu-content {
+    left: auto;
+    right: 100%;
+    margin-right: 2px;
+    margin-left: 0;
+    transform: translateX(-10px);
+}
+
+.dropdown-submenu-left:hover > .submenu-content {
+    transform: translateX(0);
 }
 

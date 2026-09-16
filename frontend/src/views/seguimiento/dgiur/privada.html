@@ -1,0 +1,187 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> /
+    <span onclick="showView('dgiur')">DGIUR</span> / 
+    <span>Privada</span>
+</div>
+
+<div class="privada-header-container" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 class="landing-title" style="margin: 0; display: flex; align-items: center; gap: 0.6rem;">
+            <i class="fa-solid fa-user-lock" style="color: var(--primary); font-size: 1.6rem;"></i>
+            <span>DGIUR - Privada</span>
+        </h1>
+        <p style="margin: 0.3rem 0 0 0; color: #64748b; font-size: 0.95rem;">
+            Monitoreo y análisis de productividad mensual por analista e intervenciones sobre trámites (desde Marzo 2026)
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <button class="btn-secondary" onclick="loadGenericGerenciaProdView('privada')" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; font-size: 0.88rem; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; color: #334155;">
+            <i class="fa-solid fa-rotate-right"></i> Actualizar
+        </button>
+        <button class="btn-primary" onclick="exportGProdToExcel('privada')" style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; font-size: 0.88rem; cursor: pointer; background: #0076bb; color: #fff; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+            <i class="fa-solid fa-file-excel"></i> Exportar Excel
+        </button>
+    </div>
+</div>
+
+<!-- KPI Cards Superiores -->
+<div class="privada-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="privada-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Producción Total (Marzo-Hoy)</span>
+            <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #0076bb; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
+                <i class="fa-solid fa-calendar-check"></i>
+            </div>
+        </div>
+        <div id="privada-kpi-prod-anio" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
+        <span style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Expedientes tramitados desde Marzo 2026</span>
+    </div>
+
+    <div class="privada-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Último Mes Cerrado</span>
+            <div style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+        </div>
+        <div id="privada-kpi-prod-mes" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
+        <span id="privada-kpi-prod-mes-sub" style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Expedientes resueltos</span>
+    </div>
+
+    <div class="privada-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Stock Actual en Poder</span>
+            <div style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
+                <i class="fa-solid fa-folder-open"></i>
+            </div>
+        </div>
+        <div id="privada-kpi-stock-actual" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
+        <span style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Expedientes pendientes en buzón</span>
+    </div>
+
+    <div class="privada-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Tratas Atendidas</span>
+            <div style="width: 32px; height: 32px; border-radius: 8px; background: #f5f3ff; color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
+                <i class="fa-solid fa-diagram-project"></i>
+            </div>
+        </div>
+        <div id="privada-kpi-tratas-count" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
+        <span style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Tipos de trámite intervenidos</span>
+    </div>
+</div>
+
+<!-- Gráficos de Producción -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;" class="privada-charts-grid">
+    <!-- Evolución Mensual por Analista -->
+    <div style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.05rem; color: #1e293b; font-weight: 600;">Evolución de Producción Mensual (Desde Marzo 2026)</h3>
+                <span style="font-size: 0.8rem; color: #64748b;">Expedientes intervenidos y tramitados por cada analista</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <select id="privada-chart-filter-analyst" onchange="updateGProdChart('privada')" style="padding: 0.35rem 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.82rem; color: #334155; outline: none; background: #f8fafc;">
+                    <option value="ALL">Todos los analistas</option>
+                </select>
+            </div>
+        </div>
+        <div style="position: relative; height: 280px;">
+            <canvas id="privada-production-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Tratas Intervenidas -->
+    <div style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+        <div style="margin-bottom: 1rem;">
+            <h3 style="margin: 0; font-size: 1.05rem; color: #1e293b; font-weight: 600;">Tratas Intervenidas</h3>
+            <span style="font-size: 0.8rem; color: #64748b;">Distribución por descripción del trámite</span>
+        </div>
+        <div style="position: relative; height: 280px;">
+            <canvas id="privada-tratas-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Pestañas de Navegación de la Sección -->
+<div class="tabs-container" style="margin-bottom: 1rem; border-bottom: 1px solid #e2e8f0; display: flex; gap: 0.5rem;">
+    <button id="privada-tab-btn-produccion" class="tab-btn active" onclick="switchGProdSection('produccion', 'privada')" style="padding: 0.65rem 1.2rem; border: none; background: none; font-size: 0.92rem; font-weight: 600; color: #0076bb; border-bottom: 2px solid #0076bb; cursor: pointer;">
+        <i class="fa-solid fa-table-cells"></i> Matriz Mensual de Producción
+    </button>
+    <button id="privada-tab-btn-expedientes" class="tab-btn" onclick="switchGProdSection('expedientes', 'privada')" style="padding: 0.65rem 1.2rem; border: none; background: none; font-size: 0.92rem; font-weight: 500; color: #64748b; cursor: pointer;">
+        <i class="fa-solid fa-list-check"></i> Detalle de Expedientes Intervenidos
+    </button>
+    <button id="privada-tab-btn-stock" class="tab-btn" onclick="switchGProdSection('stock', 'privada')" style="padding: 0.65rem 1.2rem; border: none; background: none; font-size: 0.92rem; font-weight: 500; color: #64748b; cursor: pointer;">
+        <i class="fa-solid fa-inbox"></i> Stock Actual en Bandeja (<span id="privada-tab-stock-count">0</span>)
+    </button>
+</div>
+
+<!-- SECCIÓN 1: Matriz Mensual -->
+<div id="privada-section-produccion" class="privada-section active" style="display: block;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow: hidden;">
+        <div style="padding: 1rem 1.25rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div>
+                <h4 style="margin: 0; font-size: 0.95rem; color: #1e293b; font-weight: 600;">Balance y Producción Mensual por Analista (Ingresos y Egresos)</h4>
+                <span style="font-size: 0.8rem; color: #64748b;">Detalle mensual de expedientes que ingresaron y egresaron por analista/buzón</span>
+            </div>
+            <div style="font-size: 0.82rem; color: #64748b; display: flex; gap: 1rem; align-items: center;">
+                <span><i class="fa-solid fa-arrow-down-long" style="color: #0284c7; margin-right: 4px;"></i><strong>ING:</strong> Ingresos</span>
+                <span><i class="fa-solid fa-arrow-up-long" style="color: #10b981; margin-right: 4px;"></i><strong>EGR:</strong> Egresos</span>
+            </div>
+        </div>
+        <div id="privada-matrix-container" style="overflow-x: auto; padding: 0.5rem;">
+            <!-- Tabla Matriz renderizada vía JS -->
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 2: Detalle de Expedientes -->
+<div id="privada-section-expedientes" class="privada-section" style="display: none;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow: hidden;">
+        <!-- Filtros y Búsqueda -->
+        <div style="padding: 1rem 1.25rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                <div style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.82rem;"></i>
+                    <input type="text" id="privada-search-input" onkeyup="filterGProdExpedientesTable('privada')" placeholder="Buscar por expediente, motivo..." style="padding: 0.45rem 0.75rem 0.45rem 2rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; width: 240px; outline: none; background: #ffffff;">
+                </div>
+                <select id="privada-filter-analyst" onchange="filterGProdExpedientesTable('privada')" style="padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; color: #334155; outline: none; background: #ffffff;">
+                    <option value="ALL">Todos los analistas</option>
+                </select>
+                <select id="privada-filter-mes" onchange="filterGProdExpedientesTable('privada')" style="padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; color: #334155; outline: none; background: #ffffff;">
+                    <option value="ALL">Todos los períodos</option>
+                </select>
+                <select id="privada-filter-tipo-evento" onchange="filterGProdExpedientesTable('privada')" style="padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; color: #334155; outline: none; background: #ffffff;">
+                    <option value="ALL">Todos los eventos (ING + EGR)</option>
+                    <option value="ING">Solo Ingresos (ING)</option>
+                    <option value="EGR">Solo Egresos (EGR)</option>
+                </select>
+                <select id="privada-filter-trata" onchange="filterGProdExpedientesTable('privada')" style="padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; color: #334155; outline: none; background: #ffffff;">
+                    <option value="ALL">Todas las tratas</option>
+                </select>
+            </div>
+            <div id="privada-expedientes-counter" style="font-size: 0.85rem; color: #64748b; font-weight: 500;">
+                Mostrando 0 expedientes
+            </div>
+        </div>
+
+        <div id="privada-expedientes-table-container" style="overflow-x: auto; max-height: 540px; padding: 0.5rem;">
+            <!-- Tabla de Expedientes renderizada vía JS -->
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN 3: Stock Actual en Bandeja -->
+<div id="privada-section-stock" class="privada-section" style="display: none;">
+    <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); overflow: hidden;">
+        <div style="padding: 1rem 1.25rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h4 style="margin: 0; font-size: 0.95rem; color: #1e293b; font-weight: 600;">Expedientes Actualmente Asignados a la Gerencia / Analistas</h4>
+                <span style="font-size: 0.8rem; color: #64748b;">Trámites pendientes de despacho en buzón</span>
+            </div>
+        </div>
+        <div id="privada-stock-table-container" style="overflow-x: auto; max-height: 540px; padding: 0.5rem;">
+            <!-- Tabla de Stock renderizada vía JS -->
+        </div>
+    </div>
+</div>

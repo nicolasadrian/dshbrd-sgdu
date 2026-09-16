@@ -1,0 +1,47 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')">Ciudad 3D</span> / Extensión Irregular (Esquinas)
+</div>
+<h1 class="landing-title">Extensión Irregular (Esquinas)</h1>
+<p style="margin-bottom: 2rem; color: #64748b;">Seleccione una sección para ver el listado de manzanas, asignaciones de trazado, revisiones o mapa</p>
+
+<div class="button-grid">
+    <article class="nav-card" id="card-c3d-todas" onclick="window.location.hash='#/ciudad3d/extensiones/todas'">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px;">
+            <i class="fa-solid fa-globe"></i>
+        </div>
+        <h2>Listado de Manzanas</h2>
+        <p>Listado general agrupado por barrio y sección catastral</p>
+    </article>
+    
+    <article class="nav-card" id="card-c3d-mis-trazados" onclick="window.location.hash='#/ciudad3d/extensiones/mis-trazados'">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px;">
+            <i class="fa-solid fa-user-pen"></i>
+        </div>
+        <h2>Mis Trazados</h2>
+        <p>Manzanas asignadas a su usuario para trazado y subida de archivos</p>
+    </article>
+    
+    <article class="nav-card" id="card-c3d-revision" onclick="window.location.hash='#/ciudad3d/extensiones/revision'">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #fce7f3; color: #db2777; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px;">
+            <i class="fa-solid fa-clipboard-check"></i>
+        </div>
+        <h2>Bandeja de Revisión</h2>
+        <p>Trazados pendientes de visación y aprobación técnica</p>
+    </article>
+    
+    <article class="nav-card" id="card-c3d-equipo" onclick="window.location.hash='#/ciudad3d/extensiones/equipo'">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px;">
+            <i class="fa-solid fa-users-gear"></i>
+        </div>
+        <h2>Avance por Analista</h2>
+        <p>Monitor de productividad y carga del equipo de trazadores</p>
+    </article>
+    
+    <article class="nav-card" id="card-c3d-mapa" onclick="window.location.hash='#/ciudad3d/extensiones/mapa'">
+        <div style="width: 44px; height: 44px; border-radius: 10px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; margin-bottom: 12px;">
+            <i class="fa-solid fa-map"></i>
+        </div>
+        <h2>Mapa</h2>
+        <p>Visualización geoespacial de parcelas, troneras y líneas LFI</p>
+    </article>
+</div>

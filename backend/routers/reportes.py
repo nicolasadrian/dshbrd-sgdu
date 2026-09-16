@@ -1,4 +1,5 @@
 import logging
+import math
 import pandas as pd
 import traceback
 from typing import List, Optional, Dict, Any
@@ -440,25 +441,163 @@ def get_analyst_consolidado_data(analysts: List[str], cache_key: str) -> List[Di
 
 
 
-@router.get("/api/reporte/publico_privado/consolidado")
-def get_publico_privado_consolidado(current_user: User = Depends(get_current_user)):
-    analysts = ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"]
-    return get_analyst_consolidado_data(analysts, "consolidado_publico_privado")
+def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str, fallback_analysts: list):
+    try:
+        with engine.connect() as conn:
+            # Obtener analistas y buzones configurados activamente
+            cfg_res = conn.execute(text("""
+                SELECT DISTINCT usuario_sade AS usuario, nombre_completo, tipo
+                FROM cfg_analistas_areas
+                WHERE gerencia = :g AND activo = true
+                UNION
+                SELECT DISTINCT usuario_buzon AS usuario, usuario_buzon AS nombre_completo, 'buzon' AS tipo
+                FROM cfg_gerencias_buzones_adicionales
+                WHERE gerencia = :g;
+            """), {"g": gerencia_name}).fetchall()
+            
+            # Deduplicar lista de usuarios respetando el orden
+            analysts_set = set()
+            analysts = []
+            cfg_names = {}
+            for r in cfg_res:
+                u = r[0]
+                if u not in analysts_set:
+                    analysts_set.add(u)
+                    analysts.append(u)
+                if r[1] and r[1] != u:
+                    cfg_names[u] = r[1]
 
-@router.get("/api/reporte/copua/consolidado")
-def get_copua_consolidado(current_user: User = Depends(get_current_user)):
-    analysts = ["CAPUAM-02"]
-    return get_analyst_consolidado_data(analysts, "consolidado_copua")
+            if not analysts:
+                analysts = fallback_analysts
 
-@router.get("/api/reporte/publico_privado/config/all")
-def get_publico_privado_config(current_user: User = Depends(get_current_user)):
-    analysts = ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP"]
-    return {a: {"buzones_ingreso": [], "analistas_oficiales": [], "acronimos_egreso": [], "buzones_ingreso_intervenciones": []} for a in analysts}
+            # Nombres legibles de analistas
+            users_res = conn.execute(text("SELECT usuario, apellido_nombre FROM datos_usuario WHERE usuario = ANY(:a)"), {"a": analysts}).fetchall()
+            names_map = {u[0]: u[1] for u in users_res if u[1]}
+            for u, n in cfg_names.items():
+                if u not in names_map or not names_map[u]:
+                    names_map[u] = n
 
-@router.get("/api/reporte/copua/config/all")
-def get_copua_config(current_user: User = Depends(get_current_user)):
-    analysts = ["CAPUAM-02"]
-    return {a: {"buzones_ingreso": [], "analistas_oficiales": [], "acronimos_egreso": [], "buzones_ingreso_intervenciones": []} for a in analysts}
+            # 1. Producción mensual por analista y mes (ING y EGR desde Marzo 2026 en adelante)
+            prod_mes_sql = f"""
+                SELECT 
+                    mes_label,
+                    anio,
+                    mes,
+                    analista,
+                    COUNT(DISTINCT CASE WHEN tipo_evento = 'ING' THEN id_expediente END) AS cant_ingresos,
+                    COUNT(DISTINCT CASE WHEN tipo_evento = 'EGR' THEN id_expediente END) AS cant_egresos,
+                    COUNT(DISTINCT id_expediente) AS exp_intervenidos,
+                    COUNT(*) AS total_pases
+                FROM {matview_name}
+                WHERE mes_label >= '2026-03'
+                GROUP BY mes_label, anio, mes, analista
+                ORDER BY mes_label DESC, analista ASC
+            """
+            rows_prod = [dict(r._mapping) for r in conn.execute(text(prod_mes_sql)).fetchall()]
+            for r in rows_prod:
+                r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
+
+            # 2. Desglose por trata intervenida (desde Marzo 2026 en adelante)
+            tratas_sql = f"""
+                SELECT 
+                    trata,
+                    descripcion_trata,
+                    analista,
+                    mes_label,
+                    COUNT(DISTINCT CASE WHEN tipo_evento = 'ING' THEN id_expediente END) AS cant_ingresos,
+                    COUNT(DISTINCT CASE WHEN tipo_evento = 'EGR' THEN id_expediente END) AS cant_egresos,
+                    COUNT(DISTINCT id_expediente) AS exp_intervenidos
+                FROM {matview_name}
+                WHERE mes_label >= '2026-03'
+                GROUP BY trata, descripcion_trata, analista, mes_label
+                ORDER BY exp_intervenidos DESC
+            """
+            rows_tratas = [dict(r._mapping) for r in conn.execute(text(tratas_sql)).fetchall()]
+            for r in rows_tratas:
+                r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
+
+            # 3. Stock actual en poder de los analistas
+            stock_sql = """
+                SELECT 
+                    up.destinatario_actual AS analista,
+                    up.id_expediente,
+                    t.expediente,
+                    COALESCE(t.trata, 'SIN TRATA') AS trata,
+                    COALESCE(t.descripcion_trata, 'Sin descripción') AS descripcion_trata,
+                    to_char(up.fecha_ultimo_pase, 'YYYY-MM-DD HH24:MI:SS') AS fecha_ultimo_pase,
+                    (CURRENT_DATE - up.fecha_ultimo_pase::date) AS dias_en_poder
+                FROM mv_ultimo_pase up
+                LEFT JOIN mvw_expedientes_tratas_secgdu t ON t.id_expediente = up.id_expediente
+                WHERE up.destinatario_actual = ANY(:a)
+                ORDER BY dias_en_poder DESC
+            """
+            rows_stock = [dict(r._mapping) for r in conn.execute(text(stock_sql), {"a": analysts}).fetchall()]
+            for r in rows_stock:
+                r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
+
+            # 4. Detalle de expedientes intervenidos (desde Marzo 2026 en adelante)
+            exp_sql = f"""
+                SELECT DISTINCT ON (id_expediente, analista, mes_label, tipo_evento)
+                    id_expediente,
+                    expediente,
+                    trata,
+                    descripcion_trata,
+                    analista,
+                    tipo_evento,
+                    contraparte AS destinatario,
+                    motivo,
+                    fecha_evento AS fecha_pase,
+                    fecha_primer_ingreso,
+                    fecha_ultimo_egreso,
+                    dias_en_gerencia,
+                    mes_label,
+                    anio,
+                    mes
+                FROM {matview_name}
+                WHERE mes_label >= '2026-03'
+                ORDER BY id_expediente, analista, mes_label, tipo_evento, fecha_evento DESC
+            """
+            rows_exp = [dict(r._mapping) for r in conn.execute(text(exp_sql)).fetchall()]
+            for r in rows_exp:
+                r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
+
+            return {
+                "gerencia": gerencia_name,
+                "analistas": [
+                    {"usuario": a, "nombre": names_map.get(a, a)} for a in analysts
+                ],
+                "produccion_mensual": rows_prod,
+                "tratas_distribucion": rows_tratas,
+                "stock_actual": rows_stock,
+                "expedientes": rows_exp
+            }
+    except Exception as e:
+        logger.error(f"Error en analisis_produccion para {gerencia_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/reporte/publico_privado/analisis_produccion")
+def get_publico_privado_analisis_produccion(current_user: User = Depends(get_current_user)):
+    return _get_gerencia_analisis_produccion_data(
+        "publico_privado", 
+        "mvw_publico_privado_produccion", 
+        ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP", "E.SALERNO", "JOSPINASUAREZ", "AESCOBARDELCID", "EWILLIAN"]
+    )
+
+@router.get("/api/reporte/copua/analisis_produccion")
+def get_copua_analisis_produccion(current_user: User = Depends(get_current_user)):
+    return _get_gerencia_analisis_produccion_data(
+        "copua", 
+        "mvw_copua_produccion", 
+        ["CAPUAM-02", "GCTELLA", "MZURZOLO"]
+    )
+
+@router.get("/api/reporte/privada/analisis_produccion")
+def get_privada_analisis_produccion(current_user: User = Depends(get_current_user)):
+    return _get_gerencia_analisis_produccion_data(
+        "privada", 
+        "mvw_privada_produccion", 
+        ["DGIUR-PRIVADA", "DGIUR-01", "SERODRIGUEZMOREIRA", "JFIGUEROALEONE", "PBRANDIMARTI", "VGAYTAN"]
+    )
 
 @router.get("/api/reporte/{gerencia}/config/all")
 async def get_gerencia_config(gerencia: str, current_user: User = Depends(get_current_user)):
@@ -635,19 +774,20 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
             
             expected_targets = {}
             try:
-                mes_cal = '2026-07-01'
-                month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
-                if month_res:
-                    mes_cal = month_res[0]
+                with conn.begin_nested():
+                    mes_cal = '2026-07-01'
+                    month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                    if month_res:
+                        mes_cal = month_res[0]
 
-                metas_query = f"SELECT TRIM(trata) as trata, egresos_totales_plan as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = :mes"
-                res_metas = conn.execute(text(metas_query), {"mes": mes_cal})
-                for row in res_metas:
-                    r_dict = row._mapping
-                    if r_dict["trata"]:
-                        val = round(r_dict["nueva_meta_produccion"] or 0)
-                        if val > 0:
-                            expected_targets[str(r_dict["trata"]).strip().upper()] = val
+                    metas_query = f"SELECT TRIM(trata) as trata, egresos_totales_plan as nueva_meta_produccion FROM mv_plan_metas_{gerencia_clean} WHERE mes_calendario = :mes"
+                    res_metas = conn.execute(text(metas_query), {"mes": mes_cal})
+                    for row in res_metas:
+                        r_dict = row._mapping
+                        if r_dict["trata"]:
+                            val = round(r_dict["nueva_meta_produccion"] or 0)
+                            if val > 0:
+                                expected_targets[str(r_dict["trata"]).strip().upper()] = val
             except Exception as e:
                 logger.warning(f"No se pudo consultar mv_plan_metas_{gerencia_clean}, usando fallback: {e}")
 
@@ -769,10 +909,16 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             duracion_dias = 90.0
             if trata and trata != 'INTERVENCIONES':
                 try:
-                    dur_res = conn.execute(text(f"SELECT COALESCE(duracion_total_mediana, 90) FROM mv_tiempos_resolucion_{gerencia_clean} WHERE trata = :t LIMIT 1"), {"t": trata}).fetchone()
-                    if dur_res:
+                    dur_res = conn.execute(text("""
+                        SELECT COALESCE(dias_propio_sector_este_ano, dias_propio_sector, 90)
+                        FROM planificacion_tiempos_tramitacion_resumen
+                        WHERE gerencia = :g AND trata = :t
+                        LIMIT 1
+                    """), {"g": gerencia_clean, "t": trata}).fetchone()
+                    if dur_res and dur_res[0]:
                         duracion_dias = float(dur_res[0])
                 except Exception as dur_err:
+                    conn.rollback()
                     logger.warning(f"Error obteniendo duracion de resolucion: {dur_err}")
             
             healthy_corriente_target = avg_ing * (duracion_dias / 30.0)
@@ -814,6 +960,7 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                         db_expected_target = (db_expected_target or 0.0) + int_fallback
                         db_ingresos_promedio = (db_ingresos_promedio or 0.0) + avg_ing
             except Exception as meta_err:
+                conn.rollback()
                 logger.warning(f"Error obteniendo egresos/ingresos de mv_plan_metas_{gerencia_clean}: {meta_err}")
 
             if db_ingresos_promedio is not None:
@@ -832,70 +979,44 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
             projection_target = []
             
             if complete_months:
-                projection_start_record = complete_months[-1]
-            else:
-                projection_start_record = hist_data[-1]
-
-            proj_sector_start = float(projection_start_record['stock_sector'])
-            proj_corriente_start = float(projection_start_record['stock_corriente'])
-
-            try:
-                last_date = datetime.strptime(projection_start_record['mes_label'], '%Y-%m')
-            except:
-                last_date = datetime.now()
-
-            temp_sector_current = proj_sector_start
-            temp_corriente_target = proj_corriente_start
-            temp_sector_target = proj_sector_start
-            
-            for i in range(1, 8):
-                next_month = last_date + timedelta(days=31*i)
-                mes_label = next_month.strftime('%Y-%m')
+                last_hist = complete_months[-1]
+                temp_sector_current = float(last_hist['stock_sector'])
+                temp_corriente_current = float(last_hist['stock_corriente'])
+                temp_sector_target = float(last_hist['stock_sector'])
+                temp_corriente_target = float(last_hist['stock_corriente'])
                 
-                delta_current = avg_ing - avg_egr
-                temp_sector_current = max(0, temp_sector_current + delta_current)
-                projection_current.append({
-                    "mes_label": mes_label,
-                    "ingresos": round(avg_ing),
-                    "egresos_totales": round(avg_egr),
-                    "stock_sector": round(temp_sector_current),
-                    "stock_corriente": round(proj_corriente_start),
-                    "es_proyeccion": True,
-                    "escenario": "actual"
-                })
-                
-                monthly_target = meta_total_target
-                
-                if temp_sector_target > 0:
-                    backlog_cleared = proj_sector_start / 6.0
-                    temp_sector_target = max(0.0, temp_sector_target - backlog_cleared)
-                else:
-                    backlog_cleared = 0.0
-                    temp_sector_target = 0.0
-                
-                flow_capacity = max(0.0, monthly_target - backlog_cleared)
-                
-                if proj_sector_start > 0:
-                    efficiency_gain = (proj_sector_start - temp_sector_target) / proj_sector_start
-                else:
-                    efficiency_gain = 1.0
-                
-                target_optimized_duration = max(30.0, duracion_dias * 0.6)
-                effective_duration = duracion_dias - (duracion_dias - target_optimized_duration) * efficiency_gain
-                
-                dynamic_healthy_corriente = avg_ing * (effective_duration / 30.0)
-                
-                temp_corriente_target = max(dynamic_healthy_corriente, temp_corriente_target + avg_ing - flow_capacity)
-                
-                projection_target.append({
-                    "mes_label": mes_label,
-                    "ingresos": round(avg_ing),
-                    "egresos_totales": round(monthly_target),
-                    "stock_sector": round(temp_sector_target),
-                    "stock_corriente": round(temp_corriente_target),
-                    "es_proyeccion": True,
-                    "escenario": "objetivo"
-                })
+                last_dt = datetime.strptime(last_hist['mes_label'], '%Y-%m')
+                for i in range(1, 13):
+                    next_month = (last_dt.month - 1 + i) % 12 + 1
+                    next_year = last_dt.year + ((last_dt.month - 1 + i) // 12)
+                    mes_label = f"{next_year}-{next_month:02d}"
+                    
+                    # Trend actual
+                    temp_sector_current = max(0.0, temp_sector_current + (avg_ing * 0.25) - (avg_egr * 0.25))
+                    temp_corriente_current = max(0.0, temp_corriente_current + (avg_ing * 0.75) - (avg_egr * 0.75))
+                    projection_current.append({
+                        "mes_label": mes_label,
+                        "ingresos": round(avg_ing),
+                        "egresos_totales": round(avg_egr),
+                        "stock_sector": round(temp_sector_current),
+                        "stock_corriente": round(temp_corriente_current),
+                        "es_proyeccion": True,
+                        "escenario": "actual"
+                    })
+                    
+                    # Trend objetivo
+                    monthly_target = meta_total_target
+                    temp_sector_target = max(0.0, temp_sector_target - (monthly_target * 0.25))
+                    temp_corriente_target = max(0.0, temp_corriente_target + avg_ing - (monthly_target * 0.75))
+                    projection_target.append({
+                        "mes_label": mes_label,
+                        "ingresos": round(avg_ing),
+                        "egresos_totales": round(monthly_target),
+                        "stock_sector": round(temp_sector_target),
+                        "stock_corriente": round(temp_corriente_target),
+                        "es_proyeccion": True,
+                        "escenario": "objetivo"
+                    })
 
             projection_target_db = []
             try:
@@ -924,6 +1045,7 @@ async def get_metas_proyeccion(gerencia: str, trata: Optional[str] = None, curre
                         "escenario": "objetivo"
                     })
             except Exception as plan_err:
+                conn.rollback()
                 logger.warning(f"No se pudo consultar mv_plan_metas_{gerencia_clean}, usando fallback matemático: {plan_err}")
 
             if projection_target_db:
@@ -1027,8 +1149,13 @@ def calculate_single_trata_fallback(conn, gerencia_clean: str, t_upper: str) -> 
         
         duracion_dias = 90.0
         try:
-            dur_res = conn.execute(text(f"SELECT COALESCE(duracion_total_mediana, 90) FROM mv_tiempos_resolucion_{gerencia_clean} WHERE trata = :t LIMIT 1"), {"t": t_upper}).fetchone()
-            if dur_res:
+            dur_res = conn.execute(text("""
+                SELECT COALESCE(dias_propio_sector_este_ano, dias_propio_sector, 90)
+                FROM planificacion_tiempos_tramitacion_resumen
+                WHERE gerencia = :g AND trata = :t
+                LIMIT 1
+            """), {"g": gerencia_clean, "t": t_upper}).fetchone()
+            if dur_res and dur_res[0]:
                 duracion_dias = float(dur_res[0])
         except Exception:
             pass
@@ -1081,29 +1208,30 @@ async def get_reporte_familia(
                 if not gerencia_clean:
                     continue
 
-                try:
-                    # Buscar el mes más cercano en la planificación
-                    mes_cal = '2026-07-01'
-                    month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
-                    if month_res:
-                        mes_cal = month_res[0]
+                VALID_PLAN_VIEWS = {'usos', 'aph', 'aviso_obra', 'contable', 'etapa_proyecto', 'regularizacion', 'morfologia', 'instalaciones'}
+                meta_found = False
+                if gerencia_clean in VALID_PLAN_VIEWS:
+                    try:
+                        # Buscar el mes más cercano en la planificación
+                        mes_cal = '2026-07-01'
+                        month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                        if month_res:
+                            mes_cal = month_res[0]
 
-                    meta_res = conn.execute(text(f"""
-                        SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_promedio, 0) 
-                        FROM mv_plan_metas_{gerencia_clean} 
-                        WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
-                    """), {"t": t_upper, "mes": mes_cal}).fetchone()
+                        meta_res = conn.execute(text(f"""
+                            SELECT COALESCE(egresos_totales_plan, 0), COALESCE(ingresos_promedio, 0) 
+                            FROM mv_plan_metas_{gerencia_clean} 
+                            WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
+                        """), {"t": t_upper, "mes": mes_cal}).fetchone()
 
-                    if meta_res and float(meta_res[0]) > 0:
-                        total_egresos_totales_plan += float(meta_res[0])
-                        total_ingresos_promedio += float(meta_res[1])
-                    else:
-                        # Fallback matemático igual a get_metas_proyeccion
-                        fallback_egr, fallback_ing = calculate_single_trata_fallback(conn, gerencia_clean, t_upper)
-                        total_egresos_totales_plan += fallback_egr
-                        total_ingresos_promedio += fallback_ing
-                except Exception as meta_err:
-                    logger.warning(f"Error fetching plan metas for {t_upper} in {gerencia_clean}: {meta_err}")
+                        if meta_res and float(meta_res[0]) > 0:
+                            total_egresos_totales_plan += float(meta_res[0])
+                            total_ingresos_promedio += float(meta_res[1])
+                            meta_found = True
+                    except Exception as meta_err:
+                        logger.warning(f"Error fetching plan metas for {t_upper} in {gerencia_clean}: {meta_err}")
+
+                if not meta_found:
                     try:
                         fallback_egr, fallback_ing = calculate_single_trata_fallback(conn, gerencia_clean, t_upper)
                         total_egresos_totales_plan += fallback_egr
@@ -1231,6 +1359,8 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
         "INTERVENCIONES_MORFOLOGIA": "morfologia"
     }
 
+    VALID_PLAN_VIEWS = {'usos', 'aph', 'aviso_obra', 'contable', 'etapa_proyecto', 'regularizacion', 'morfologia', 'instalaciones'}
+    
     results = []
     
     try:
@@ -1246,26 +1376,33 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                     if not gerencia_clean:
                         continue
                         
-                    try:
-                        mes_cal = '2026-07-01'
-                        month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
-                        if month_res:
-                            mes_cal = month_res[0]
+                    # 1. Metas esperadas
+                    meta_found = False
+                    if gerencia_clean in VALID_PLAN_VIEWS:
+                        try:
+                            month_res = conn.execute(text(f"SELECT mes_calendario FROM mv_plan_metas_{gerencia_clean} ORDER BY abs(extract(epoch from (mes_calendario::timestamp - CURRENT_TIMESTAMP))) ASC LIMIT 1")).fetchone()
+                            mes_cal = month_res[0] if month_res else '2026-07-01'
 
-                        meta_res = conn.execute(text(f"""
-                            SELECT COALESCE(egresos_totales_plan, 0)
-                            FROM mv_plan_metas_{gerencia_clean} 
-                            WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
-                        """), {"t": t_upper, "mes": mes_cal}).fetchone()
-                        if meta_res and float(meta_res[0]) > 0:
-                            total_target += float(meta_res[0])
-                        else:
+                            meta_res = conn.execute(text(f"""
+                                SELECT COALESCE(egresos_totales_plan, 0)
+                                FROM mv_plan_metas_{gerencia_clean} 
+                                WHERE TRIM(UPPER(trata)) = :t AND mes_calendario = :mes LIMIT 1
+                            """), {"t": t_upper, "mes": mes_cal}).fetchone()
+                            if meta_res and float(meta_res[0]) > 0:
+                                total_target += float(meta_res[0])
+                                meta_found = True
+                        except Exception as meta_err:
+                            logger.warning(f"Error fetching plan meta for {t_upper} in {gerencia_clean}: {meta_err}")
+
+                    if not meta_found:
+                        try:
                             fallback_dict = calculate_all_trata_expected_egresos_batch(conn, gerencia_clean, [t_upper, 'INTERVENCIONES'])
                             t_key = 'INTERVENCIONES' if t_upper.startswith("INTERVENCIONES_") else t_upper
                             total_target += float(fallback_dict.get(t_key, 0))
-                    except Exception:
-                        pass
+                        except Exception:
+                            pass
                         
+                    # 2. Egresos reales mes actual y mes anterior
                     try:
                         sql_months = f"""
                             SELECT DISTINCT mes_label FROM mv_{gerencia_clean}_stock_historico
@@ -1321,10 +1458,8 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
                                 total_prev += int(egr_ef_prev[0])
                             if egr_ne_prev:
                                 total_prev += int(egr_ne_prev[0])
-                    except Exception:
-                        pass
-                    except Exception:
-                        pass
+                    except Exception as hist_err:
+                        logger.warning(f"Error fetching actual/prev egresos for {t_upper} in {gerencia_clean}: {hist_err}")
                 
                 progress_pct = round((total_actual / total_target) * 100) if total_target > 0 else 0
                 
@@ -2148,11 +2283,6 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
 
     try:
         with engine.connect() as conn:
-            if trata == 'INTERVENCIONES':
-                return {"trata": "INTERVENCIONES", "nombre_trata": "Intervenciones",
-                        "expedientes": [], "analyst_data": {}, "propio_month_counts": {},
-                        "subs_month_counts": {}, "totales": {"propio": 0, "subs": 0}}
-            
             trata_info = conn.execute(text("""
                 SELECT COALESCE(
                     (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
@@ -2162,179 +2292,447 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
             """), {"t": trata, "g": gerencia_clean}).fetchone()
             nombre_trata = trata_info[0] if trata_info else trata
 
-            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
-                trata_codes = list(TRAMITES_CONFIG[gerencia_clean].keys())
-                is_official = trata in [t for t in trata_codes if t != 'INTERVENCIONES']
-                
-                view_stock = f"mv_{gerencia_clean}_stock_propio" if is_official else f"mv_{gerencia_clean}_intervenciones_stock"
-                view_subs = f"mv_{gerencia_clean}_subsanaciones" if is_official else f"mv_{gerencia_clean}_intervenciones_subs"
-                
-                sql = f"""
-                    SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, dias, analista, analista_nombre, trata,
-                           caratula, descripcion_trata, descripcion, estado_expediente, dias_en_gerencia, 0 AS is_subs
-                    FROM (
-                        SELECT id_expediente, expediente, fecha_primer_ingreso_gerencia as fecha_ing, 
-                               fecha_recepcion_analista as fecha_ultimo_pase, 
-                               dias_en_poder_actual as dias, analista, NULL as analista_nombre, trata,
-                               NULL as caratula, NULL as descripcion_trata, NULL as descripcion, NULL as estado_expediente,
-                               (CURRENT_DATE - fecha_primer_ingreso_gerencia::date) as dias_en_gerencia
-                        FROM {view_stock}
-                        WHERE {f"trata = '{trata}'" if trata != 'INTERVENCIONES' else '1=1'}
-                    ) s
-                """
-                result = conn.execute(text(sql))
-                rows = []
-                for r in result.fetchall():
-                    rows.append(dict(r._mapping))
-                
-                # Fetch extra details to enrich
-                if rows:
-                    ids = [r['id_expediente'] for r in rows]
-                    enrich_sql = text("SELECT id_expediente, fecha_creacion, descripcion_trata, descripcion, estado FROM mvw_expedientes_tratas_secgdu WHERE id_expediente = ANY(:ids)")
-                    enrich_map = {e[0]: e for e in conn.execute(enrich_sql, {"ids": ids}).fetchall()}
-                    
-                    user_sql = text("SELECT usuario, apellido_nombre FROM datos_usuario WHERE usuario = ANY(:users)")
-                    users = list(set([r['analista'] for r in rows if r['analista']]))
-                    user_map = {u[0]: u[1] for u in conn.execute(user_sql, {"users": users}).fetchall()} if users else {}
-                    
-                    for r in rows:
-                        eid = r['id_expediente']
-                        if eid in enrich_map:
-                            r['caratula'] = enrich_map[eid][1]
-                            r['descripcion_trata'] = enrich_map[eid][2]
-                            r['descripcion'] = enrich_map[eid][3]
-                            r['estado_expediente'] = enrich_map[eid][4]
-                        if r['analista'] in user_map:
-                            r['analista_nombre'] = user_map[r['analista']]
-                        else:
-                            r['analista_nombre'] = r['analista']
+            # 1. Obtener Tiempo de Tramitación en Gerencia para expedientes ingresados este año desde planificacion_tiempos_tramitacion_resumen
+            t_resolucion = None
+            try:
+                res_meta = conn.execute(text("""
+                    SELECT dias_propio_sector_este_ano, dias_propio_sector
+                    FROM planificacion_tiempos_tramitacion_resumen
+                    WHERE gerencia = :g AND trata = :t
+                    LIMIT 1
+                """), {"g": gerencia_clean, "t": trata}).fetchone()
 
-                analyst_data = {}
-                propio_month_counts = {}
-                ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
-                
-                for row in rows:
-                    analista = row.get('analista') or 'SIN ASIGNAR'
-                    analista_nombre = row.get('analista_nombre') or analista
-                    dias = row.get('dias') or 0
-                    is_sub = row.get('is_subs') == 1
-                    f_pase = row.get('fecha_ultimo_pase')
-                    
-                    if f_pase and hasattr(f_pase, 'strftime'):
-                        m_key = f_pase.strftime("%Y-%m")
-                        propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
+                if res_meta:
+                    val_ano = res_meta[0]
+                    val_ultimo = res_meta[1]
+                    if val_ano is not None and float(val_ano) > 0:
+                        t_resolucion = math.ceil(float(val_ano))
+                    elif val_ultimo is not None and float(val_ultimo) > 0:
+                        t_resolucion = math.ceil(float(val_ultimo))
+            except Exception as e_meta:
+                logger.warning(f"Error al leer planificacion_tiempos_tramitacion_resumen para {gerencia_clean}/{trata}: {e_meta}")
 
-                    if analista not in analyst_data:
-                        analyst_data[analista] = {
-                            "analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0,
-                            "STOCK_PROPIO": 0, "STOCK_SUBS": 0
-                        }
-                        for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
-                    
-                    analyst_data[analista]["TOTAL"] += 1
-                    if is_sub:
-                        analyst_data[analista]["STOCK_SUBS"] += 1
-                    else:
-                        analyst_data[analista]["STOCK_PROPIO"] += 1
-                        
-                    for r_min, r_max, r_name in ranges:
-                        if r_min <= dias < r_max:
-                            analyst_data[analista][r_name] += 1
-                            break
-                
-                month_dist = [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())]
-            else:
-                cfg_query = text("""
-                    SELECT buzones_ingreso, analistas_oficiales 
-                    FROM cfg_gestion_metas 
-                    WHERE gerencia = :g AND trata_reporte = :t
-                """)
-                trata_cfg_lookup = gerencia_clean.upper() if gerencia_clean in ['instalaciones', 'contable'] else trata
-                cfg_res = conn.execute(cfg_query, {"g": gerencia_clean, "t": trata_cfg_lookup}).fetchone()
-                
-                if not cfg_res:
-                    return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
-                
-                sector_whitelist = (cfg_res[0] or []) + (cfg_res[1] or [])
-                if not sector_whitelist:
-                    return {"nombre_trata": nombre_trata, "stock_propio_count": 0, "month_distribution": [], "analyst_distribution": [], "expedientes": []}
+            if t_resolucion is None or t_resolucion <= 0:
+                t_resolucion = 30
 
-                sql = f"""
-                    SELECT id_expediente, expediente, fecha_ing, fecha_ultimo_pase, 
-                           dias_stock as dias, analista_actual as analista, du.apellido_nombre as analista_nombre, trata,
-                           fecha_creacion as caratula,
-                           descripcion_trata,
-                           descripcion,
-                           estado as estado_expediente,
-                           dias_stock as dias_en_gerencia,
-                           is_subs
-                    FROM mvw_stock_actual_detalle
-                    LEFT JOIN datos_usuario du ON mvw_stock_actual_detalle.analista_actual = du.usuario
-                    WHERE trata_reporte = :t 
-                      AND gerencia = :g
-                      AND analista_actual = ANY(:whitelist)
-                """
-                result = conn.execute(text(sql), {"t": trata, "g": gerencia_clean, "whitelist": sector_whitelist})
-                rows = [dict(r._mapping) for r in result.fetchall()]
+            # 2. Query de Stock Propio directo a la vista materializada de la gerencia
+            trata_stock_filter = "s.trata = :t"
+            if trata == 'INTERVENCIONES':
+                trata_stock_filter = "s.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)"
 
-                query_month = text(f"SELECT anio || '-' || LPAD(mes::text, 2, '0') as periodo, COUNT(*) as cantidad FROM mvw_reporte_historico_{gerencia_clean} WHERE \"COD TRATA\" = :t GROUP BY 1 ORDER BY 1")
-                res_month = conn.execute(query_month, {"t": trata})
-                month_dist = [dict(row) for row in res_month.mappings()]
+            sql_stock = f"""
+                SELECT 
+                    s.id_expediente, s.expediente, s.trata, s.descripcion_trata, s.descripcion, s.caratula, 
+                    s.estado_expediente, s.fecha_primer_ingreso_gerencia, s.analista, s.fecha_recepcion_analista,
+                    s.dias_en_poder_actual as dias, s.dias_en_gerencia,
+                    COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
+                    COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
+                    COALESCE(sub.dias_subs, 0) as dias_en_subsanacion,
+                    p.motivo as motivo_pase,
+                    p.fecha as fecha_ultimo_pase
+                FROM mv_{gerencia_clean}_stock_propio s
+                LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
+                LEFT JOIN LATERAL (
+                    SELECT 
+                        COUNT(*) as cant_subs,
+                        ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs
+                    FROM mvw_ee_actividades_secgdu a
+                    WHERE a.id_expediente = s.id_expediente
+                      AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                ) sub ON true
+                LEFT JOIN LATERAL (
+                    SELECT motivo, fecha
+                    FROM mvw_ee_pases_secgdu pase
+                    WHERE pase.id_expediente = s.id_expediente
+                    ORDER BY pase.fecha DESC
+                    LIMIT 1
+                ) p ON true
+                WHERE {trata_stock_filter}
+                ORDER BY s.dias_en_gerencia DESC
+            """
+            result = conn.execute(text(sql_stock), {"g": gerencia_clean, "t": trata})
+            rows = [dict(r._mapping) for r in result.fetchall()]
+
+            # Distribución por antigüedad / analistas y segmentación Stock / Flujo
+            analyst_data = {}
+            propio_month_counts = {}
+            ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
+
+            stock_count = 0
+            flujo_count = 0
+            formatted_expedientes = []
+
+            for row in rows:
+                analista = (row.get('analista') or 'SIN ASIGNAR').strip()
+                analista_nombre = row.get('analista_nombre') or analista
+                dias = row.get('dias') or 0
+                dias_gerencia = row.get('dias_en_gerencia') or 0
+                f_pase = row.get('fecha_ultimo_pase')
                 
-                analyst_data = {}
-                ranges = [(0, 15, "Menos de 15 dias"), (15, 30, "15 a 30 dias"), (30, 45, "30 a 45 dias"), (45, 60, "45 a 60 dias"), (60, 75, "60 a 75 dias"), (75, 90, "75 a 90 dias"), (90, 999999, "Mas de 90 dias")]
+                # Clasificación según el tiempo de resolución
+                # Si dias_en_gerencia > tiempo de resolución => STOCK (excede tiempo esperado)
+                # Si dias_en_gerencia <= tiempo de resolución => FLUJO (dentro del tiempo normal)
+                if dias_gerencia > t_resolucion:
+                    tipo_flujo = "STOCK"
+                    stock_count += 1
+                else:
+                    tipo_flujo = "FLUJO"
+                    flujo_count += 1
+
+                if f_pase:
+                    m_key = str(f_pase)[:7]
+                    propio_month_counts[m_key] = propio_month_counts.get(m_key, 0) + 1
+
+                if analista not in analyst_data:
+                    analyst_data[analista] = {
+                        "analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0,
+                        "STOCK_PROPIO": 0, "STOCK_SUBS": 0, "STOCK": 0, "FLUJO": 0
+                    }
+                    for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
                 
-                for row in rows:
-                    analista = row.get('analista') or 'SIN ASIGNAR'
-                    analista_nombre = row.get('analista_nombre') or analista
-                    dias = row.get('dias') or 0
-                    is_sub = row.get('is_subs') == 1
+                analyst_data[analista]["TOTAL"] += 1
+                analyst_data[analista]["STOCK_PROPIO"] += 1
+                analyst_data[analista][tipo_flujo] += 1
                     
-                    if analista not in analyst_data:
-                        analyst_data[analista] = {
-                            "analista": analista, "analista_nombre": analista_nombre, "TOTAL": 0,
-                            "STOCK_PROPIO": 0, "STOCK_SUBS": 0
-                        }
-                        for _, _, r_name in ranges: analyst_data[analista][r_name] = 0
-                    
-                    analyst_data[analista]["TOTAL"] += 1
-                    if is_sub:
-                        analyst_data[analista]["STOCK_SUBS"] += 1
-                    else:
-                        analyst_data[analista]["STOCK_PROPIO"] += 1
-                        
-                    for r_min, r_max, r_name in ranges:
-                        if r_min <= dias < r_max:
-                            analyst_data[analista][r_name] += 1
-                            break
-            
+                for r_min, r_max, r_name in ranges:
+                    if r_min <= dias < r_max:
+                        analyst_data[analista][r_name] += 1
+                        break
+
+                dias_int = math.ceil(float(dias))
+                dias_gerencia_int = math.ceil(float(dias_gerencia))
+                dias_subs_int = math.ceil(float(row.get("dias_en_subsanacion") or 0))
+                dias_restantes_flujo = max(0, t_resolucion - dias_gerencia_int) if tipo_flujo == "FLUJO" else 0
+
+                formatted_expedientes.append({
+                    "id_expediente": row.get("id_expediente"),
+                    "expediente": row.get("expediente"),
+                    "fecha_ing": str(row.get("fecha_primer_ingreso_gerencia")) if row.get("fecha_primer_ingreso_gerencia") else None,
+                    "fecha_ultimo_pase": str(row.get("fecha_ultimo_pase")) if row.get("fecha_ultimo_pase") else None,
+                    "fecha_caratulacion": str(row.get("caratula")) if row.get("caratula") else None,
+                    "dias": dias_int,
+                    "analista": analista,
+                    "analista_nombre": analista_nombre,
+                    "trata": row.get("trata"),
+                    "caratula": str(row.get("caratula")),
+                    "descripcion_trata": row.get("descripcion_trata") or nombre_trata,
+                    "descripcion": row.get("descripcion"),
+                    "estado_expediente": row.get("estado_expediente"),
+                    "dias_en_gerencia": dias_gerencia_int,
+                    "cant_subsanaciones": int(row.get("cant_subsanaciones") or 0),
+                    "dias_en_subsanacion": dias_subs_int,
+                    "dias_restantes_flujo": dias_restantes_flujo,
+                    "motivo_pase": row.get("motivo_pase") or "Sin Motivo",
+                    "tipo_flujo": tipo_flujo,
+                    "categoria": "STOCK_PROPIO"
+                })
+
+            month_dist = [{"periodo": m, "cantidad": propio_month_counts.get(m, 0)} for m in sorted(propio_month_counts.keys())]
+
             return {
                 "nombre_trata": nombre_trata,
-                "stock_propio_count": len(rows),
+                "tiempo_resolucion": math.ceil(t_resolucion),
+                "stock_count": stock_count,
+                "flujo_count": flujo_count,
+                "stock_propio_count": len(formatted_expedientes),
                 "month_distribution": month_dist,
                 "analyst_distribution": list(analyst_data.values()),
-                "expedientes": [
-                    {
-                        "id_expediente": r.get("id_expediente"),
-                        "expediente": r.get("expediente"),
-                        "fecha_ing": r.get("fecha_ing").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ing") and hasattr(r.get("fecha_ing"), "strftime") else None,
-                        "fecha_ultimo_pase": r.get("fecha_ultimo_pase").strftime("%Y-%m-%d %H:%M:%S") if r.get("fecha_ultimo_pase") and hasattr(r.get("fecha_ultimo_pase"), "strftime") else None,
-                        "dias": r.get("dias") if r.get("dias") is not None else 0,
-                        "analista": r.get("analista"),
-                        "analista_nombre": r.get("analista_nombre") or r.get("analista"),
-                        "trata": r.get("trata"),
-                        "caratula": r.get("caratula").strftime("%Y-%m-%d %H:%M:%S") if r.get("caratula") and hasattr(r.get("caratula"), "strftime") else (str(r.get("caratula"))[:19] if r.get("caratula") else None),
-                        "descripcion_trata": r.get("descripcion_trata"),
-                        "descripcion": r.get("descripcion"),
-                        "estado_expediente": r.get("estado_expediente"),
-                        "dias_en_gerencia": r.get("dias_en_gerencia") if r.get("dias_en_gerencia") is not None else 0,
-                        "categoria": "STOCK_SUBS" if r.get("is_subs") == 1 else "STOCK_PROPIO"
-                    } 
-                    for r in rows
-                ]
+                "expedientes": formatted_expedientes
             }
     except Exception as e:
         logger.error(f"Error en stock_detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/reporte/{gerencia}/tramite/{trata}/egresos_detail")
+async def get_reporte_tramite_egresos_detail(
+    gerencia: str,
+    trata: str,
+    current_user: User = Depends(get_current_user)
+):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+
+    try:
+        with engine.connect() as conn:
+            # 1. Obtener nombre de la trata
+            if trata == 'INTERVENCIONES':
+                nombre_trata = "Intervenciones"
+            else:
+                trata_info = conn.execute(text("""
+                    SELECT COALESCE(
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = :t LIMIT 1)
+                    )
+                """), {"t": trata, "g": gerencia_clean}).fetchone()
+                nombre_trata = trata_info[0] if trata_info else trata
+
+            # Query ultra-rápida desde la vista materializada mvw_egresos_resueltos_metricas
+            sql = """
+                SELECT id_expediente, expediente, trata, descripcion_trata,
+                       fecha_caratulacion, fecha_egreso, anio_caratula, anio_egreso,
+                       mes_egreso, mes_egreso_label, dias_totales, cant_subsanaciones,
+                       dias_subsanacion, dias_intervenciones, dias_area
+                FROM mvw_egresos_resueltos_metricas
+                WHERE gerencia = :gerencia AND trata = :trata
+                ORDER BY fecha_egreso DESC
+            """
+            result = conn.execute(text(sql), {"gerencia": gerencia_clean, "trata": trata})
+            rows = [dict(r._mapping) for r in result.fetchall()]
+
+            # Obtener métricas consolidadas desde planificacion_tiempos_tramitacion_resumen
+            res_resumen = conn.execute(text("""
+                SELECT 
+                    dias_propio_sector, dias_subsanacion, dias_intervenciones, dias_totales, total_resueltos_ultimo_mes,
+                    dias_propio_sector_este_ano, dias_subsanacion_este_ano, dias_intervenciones_este_ano, dias_totales_este_ano,
+                    total_resueltos_este_ano, ultimo_mes_cerrado
+                FROM planificacion_tiempos_tramitacion_resumen
+                WHERE gerencia = :gerencia AND trata = :trata
+                LIMIT 1
+            """), {"gerencia": gerencia_clean, "trata": trata}).mappings().fetchone()
+
+            nombres_meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+            # Determinar el último mes completo cerrado
+            ultimo_mes_str = res_resumen["ultimo_mes_cerrado"] if (res_resumen and res_resumen["ultimo_mes_cerrado"]) else None
+            if ultimo_mes_str and '-' in str(ultimo_mes_str):
+                parts = str(ultimo_mes_str).split('-')
+                last_m_year = int(parts[0])
+                last_m_num = int(parts[1])
+            else:
+                today = date.today()
+                if today.month == 1:
+                    last_m_year = today.year - 1
+                    last_m_num = 12
+                else:
+                    last_m_year = today.year
+                    last_m_num = today.month - 1
+            
+            mes_completo_nombre = f"{nombres_meses[last_m_num - 1]} {last_m_year}"
+
+            if res_resumen:
+                metrics_last_month = {
+                    "dias_area": math.ceil(float(res_resumen["dias_propio_sector"] or 0)),
+                    "dias_intervenciones": math.ceil(float(res_resumen["dias_intervenciones"] or 0)),
+                    "dias_subsanacion": math.ceil(float(res_resumen["dias_subsanacion"] or 0)),
+                    "dias_totales": math.ceil(float(res_resumen["dias_totales"] or 0)),
+                    "prom_dias_area": math.ceil(float(res_resumen["dias_propio_sector"] or 0)),
+                    "prom_dias_intervenciones": math.ceil(float(res_resumen["dias_intervenciones"] or 0)),
+                    "prom_dias_subsanacion": math.ceil(float(res_resumen["dias_subsanacion"] or 0)),
+                    "prom_dias_totales": math.ceil(float(res_resumen["dias_totales"] or 0)),
+                    "total_expedientes": int(res_resumen["total_resueltos_ultimo_mes"] or 0)
+                }
+                metrics_2026_last_month = {
+                    "dias_area": math.ceil(float(res_resumen["dias_propio_sector_este_ano"] or 0)),
+                    "dias_intervenciones": math.ceil(float(res_resumen["dias_intervenciones_este_ano"] or 0)),
+                    "dias_subsanacion": math.ceil(float(res_resumen["dias_subsanacion_este_ano"] or 0)),
+                    "dias_totales": math.ceil(float(res_resumen["dias_totales_este_ano"] or 0)),
+                    "prom_dias_area": math.ceil(float(res_resumen["dias_propio_sector_este_ano"] or 0)),
+                    "prom_dias_intervenciones": math.ceil(float(res_resumen["dias_intervenciones_este_ano"] or 0)),
+                    "prom_dias_subsanacion": math.ceil(float(res_resumen["dias_subsanacion_este_ano"] or 0)),
+                    "prom_dias_totales": math.ceil(float(res_resumen["dias_totales_este_ano"] or 0)),
+                    "total_expedientes": int(res_resumen["total_resueltos_este_ano"] or 0)
+                }
+            else:
+                rows_last_month = [r for r in rows if r.get("anio_egreso") == last_m_year and r.get("mes_egreso") == last_m_num]
+                rows_2026_last_month = [r for r in rows_last_month if r.get("anio_caratula") == 2026]
+
+                def calc_fallback_metrics(items):
+                    if not items:
+                        return {
+                            "dias_area": 0, "dias_intervenciones": 0, "dias_subsanacion": 0, "dias_totales": 0,
+                            "prom_dias_area": 0, "prom_dias_intervenciones": 0, "prom_dias_subsanacion": 0, "prom_dias_totales": 0,
+                            "total_expedientes": 0
+                        }
+                    import statistics
+                    a_m = math.ceil(statistics.mean([float(x["dias_area"] or 0) for x in items]))
+                    i_m = math.ceil(statistics.mean([float(x["dias_intervenciones"] or 0) for x in items]))
+                    s_m = math.ceil(statistics.mean([float(x["dias_subsanacion"] or 0) for x in items]))
+                    t_m = math.ceil(statistics.mean([float(x["dias_totales"] or 0) for x in items]))
+                    return {
+                        "dias_area": a_m, "dias_intervenciones": i_m, "dias_subsanacion": s_m, "dias_totales": t_m,
+                        "prom_dias_area": a_m, "prom_dias_intervenciones": i_m, "prom_dias_subsanacion": s_m, "prom_dias_totales": t_m,
+                        "total_expedientes": len(items)
+                    }
+
+                metrics_last_month = calc_fallback_metrics(rows_last_month)
+                metrics_2026_last_month = calc_fallback_metrics(rows_2026_last_month)
+
+            # Formatear la lista de expedientes redondeando días a enteros hacia arriba
+            formatted_expedientes = []
+            for r in rows:
+                formatted_expedientes.append({
+                    "id_expediente": r["id_expediente"],
+                    "expediente": r["expediente"],
+                    "trata": r["trata"],
+                    "descripcion_trata": r["descripcion_trata"] or nombre_trata,
+                    "fecha_caratulacion": r["fecha_caratulacion"],
+                    "fecha_egreso": r["fecha_egreso"],
+                    "cant_subsanaciones": int(r["cant_subsanaciones"] or 0),
+                    "dias_area": math.ceil(float(r["dias_area"] or 0)),
+                    "dias_intervenciones": math.ceil(float(r["dias_intervenciones"] or 0)),
+                    "dias_subsanacion": math.ceil(float(r["dias_subsanacion"] or 0)),
+                    "dias_totales": math.ceil(float(r["dias_totales"] or 0))
+                })
+
+            return {
+                "nombre_trata": nombre_trata,
+                "trata": trata,
+                "gerencia": gerencia_clean,
+                "mes_completo": mes_completo_nombre,
+                "mes_completo_num": last_m_num,
+                "mes_completo_anio": last_m_year,
+                "metricas_historicas": metrics_last_month,
+                "metricas_2026": metrics_2026_last_month,
+                "expedientes": formatted_expedientes
+            }
+    except Exception as e:
+        logger.error(f"Error en egresos_detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/reporte/{gerencia}/tramite/{trata}/subsanaciones_detail")
+async def get_reporte_tramite_subsanaciones_detail(
+    gerencia: str,
+    trata: str,
+    current_user: User = Depends(get_current_user)
+):
+    gerencia_clean = gerencia.lower()
+    if gerencia_clean == 'conforme':
+        gerencia_clean = 'regularizacion'
+
+    try:
+        with engine.connect() as conn:
+            # 1. Obtener nombre de la trata
+            if trata == 'INTERVENCIONES':
+                nombre_trata = "Intervenciones"
+            else:
+                trata_info = conn.execute(text("""
+                    SELECT COALESCE(
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = :t AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE :t = ANY(tratas_incluidas) AND gerencia = :g LIMIT 1),
+                        (SELECT descripcion_trata FROM vw_expedientes_maestro WHERE trata = :t LIMIT 1)
+                    )
+                """), {"t": trata, "g": gerencia_clean}).fetchone()
+                nombre_trata = trata_info[0] if trata_info else trata
+
+            trata_filter = "s.trata = :t"
+            if trata == 'INTERVENCIONES':
+                trata_filter = "s.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)"
+
+            sql = f"""
+                SELECT 
+                    s.id_expediente, s.expediente, s.trata, s.descripcion_trata, s.descripcion, s.caratula,
+                    s.analista,
+                    COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
+                    s.fecha_primer_ingreso_gerencia, s.fecha_apertura_subsanacion, s.dias_subsanacion_abierta, s.dias_en_gerencia,
+                    COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
+                    COALESCE(sub.dias_subs_total, 0) as dias_subsanacion_total,
+                    COALESCE(interv.dias_intervenciones, 0) as dias_intervenciones
+                FROM mv_{gerencia_clean}_subsanaciones s
+                LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
+                LEFT JOIN LATERAL (
+                    SELECT 
+                        COUNT(*) as cant_subs,
+                        ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs_total
+                    FROM mvw_ee_actividades_secgdu a
+                    WHERE a.id_expediente = s.id_expediente
+                      AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                ) sub ON true
+                LEFT JOIN LATERAL (
+                    WITH cfg AS (
+                        SELECT analistas_oficiales, buzones_ingreso
+                        FROM cfg_gestion_metas
+                        WHERE gerencia = :g AND trata_reporte = 'INTERVENCIONES'
+                        LIMIT 1
+                    ),
+                    pases AS (
+                        SELECT 
+                            p.fecha AS f_ini,
+                            CASE 
+                                WHEN ((p.destinatario = ANY (cfg.analistas_oficiales)) OR (p.destinatario = ANY (cfg.buzones_ingreso))) THEN 'ADENTRO'
+                                ELSE 'AFUERA'
+                            END AS ubicacion,
+                            COALESCE(LEAD(p.fecha) OVER (ORDER BY p.fecha), CURRENT_TIMESTAMP) AS f_fin
+                        FROM mvw_ee_pases_secgdu p
+                        CROSS JOIN cfg
+                        WHERE p.id_expediente = s.id_expediente
+                          AND p.fecha >= s.fecha_primer_ingreso_gerencia
+                    )
+                    SELECT 
+                        COALESCE(ROUND(SUM(CASE WHEN ubicacion = 'AFUERA' THEN (EXTRACT(epoch FROM (f_fin - f_ini)) / 86400.0) ELSE 0.0 END)::numeric, 1), 0) AS dias_intervenciones
+                    FROM pases
+                ) interv ON true
+                WHERE {trata_filter}
+                ORDER BY s.dias_subsanacion_abierta DESC
+            """
+            result = conn.execute(text(sql), {"g": gerencia_clean, "t": trata})
+            rows = [dict(r._mapping) for r in result.fetchall()]
+
+            analyst_data = {}
+            formatted_expedientes = []
+            sum_dias_actual = 0
+            sum_dias_total = 0
+
+            for r in rows:
+                analista = (r.get('analista') or 'SIN ASIGNAR').strip()
+                analista_nombre = r.get('analista_nombre') or analista
+                dias_actual = math.ceil(float(r.get('dias_subsanacion_abierta') or 0))
+                dias_total_sub = math.ceil(float(r.get('dias_subsanacion_total') or 0))
+                dias_ger = math.ceil(float(r.get('dias_en_gerencia') or 0))
+                dias_int = math.ceil(float(r.get('dias_intervenciones') or 0))
+                cant_subs = int(r.get('cant_subsanaciones') or 0)
+
+                sum_dias_actual += dias_actual
+                sum_dias_total += dias_total_sub
+
+                if analista not in analyst_data:
+                    analyst_data[analista] = {
+                        "analista": analista,
+                        "analista_nombre": analista_nombre,
+                        "total": 0,
+                        "dias_actual_sum": 0
+                    }
+                analyst_data[analista]["total"] += 1
+                analyst_data[analista]["dias_actual_sum"] += dias_actual
+
+                formatted_expedientes.append({
+                    "id_expediente": r.get("id_expediente"),
+                    "expediente": r.get("expediente"),
+                    "trata": r.get("trata"),
+                    "descripcion_trata": r.get("descripcion_trata") or nombre_trata,
+                    "descripcion": r.get("descripcion"),
+                    "caratula": str(r.get("caratula") or ""),
+                    "analista": analista,
+                    "analista_nombre": analista_nombre,
+                    "fecha_ingreso_gerencia": str(r.get("fecha_primer_ingreso_gerencia")) if r.get("fecha_primer_ingreso_gerencia") else None,
+                    "fecha_apertura_subsanacion": str(r.get("fecha_apertura_subsanacion")) if r.get("fecha_apertura_subsanacion") else None,
+                    "dias_subsanacion_actual": dias_actual,
+                    "cant_subsanaciones": cant_subs,
+                    "dias_subsanacion_total": dias_total_sub,
+                    "dias_en_gerencia": dias_ger,
+                    "dias_intervenciones": dias_int
+                })
+
+            total_subs = len(formatted_expedientes)
+            prom_dias_actual = math.ceil(sum_dias_actual / total_subs) if total_subs > 0 else 0
+            prom_dias_total = math.ceil(sum_dias_total / total_subs) if total_subs > 0 else 0
+
+            analysts_list = list(analyst_data.values())
+            analysts_list.sort(key=lambda x: x["total"], reverse=True)
+
+            return {
+                "nombre_trata": nombre_trata,
+                "trata": trata,
+                "gerencia": gerencia_clean,
+                "total_subsanaciones_abiertas": total_subs,
+                "prom_dias_subsanacion_actual": prom_dias_actual,
+                "prom_dias_subsanacion_total": prom_dias_total,
+                "analyst_distribution": analysts_list,
+                "expedientes": formatted_expedientes
+            }
+    except Exception as e:
+        logger.error(f"Error en subsanaciones_detail: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/api/reporte/{gerencia}/buzones")
@@ -3823,7 +4221,7 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                         for r in meta_res:
                             metas_plan[r[0].upper()] = float(r[1])
                     except Exception:
-                        pass
+                        conn.rollback()
 
                 fallbacks = calculate_all_trata_expected_egresos_batch(conn, g_clean, trata_codes + ['INTERVENCIONES'])
                 for k, v in fallbacks.items():
@@ -4066,85 +4464,75 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
 
 @router.get("/api/reporte/sla")
 async def get_sla_report(gerencia: Optional[str] = 'ALL', current_user: User = Depends(get_current_user)):
-    _ck = f"sla_{gerencia or 'ALL'}"
+    _ck = f"sla_resumen_{gerencia or 'ALL'}"
     hit, data = cached_response(_ck, ttl_seconds=120)
     if hit:
         return data
     try:
         with engine.connect() as conn:
-            gerencias_to_query = []
-            if gerencia and gerencia != 'ALL':
-                g_clean = gerencia.lower()
-                if g_clean == 'conforme':
-                    g_clean = 'regularizacion'
-                gerencias_to_query = [g_clean]
-            else:
-                gerencias_to_query = list(TRAMITES_CONFIG.keys())
+            g_clean = (gerencia or 'ALL').lower()
+            if g_clean == 'conforme':
+                g_clean = 'regularizacion'
+
+            where_clause = "" if g_clean == 'all' else "WHERE gerencia = :g"
+            params = {} if g_clean == 'all' else {"g": g_clean}
+
+            sql = f"""
+                SELECT 
+                    gerencia,
+                    trata,
+                    descripcion_trata,
+                    dias_propio_sector,
+                    dias_subsanacion,
+                    dias_intervenciones,
+                    dias_totales,
+                    total_resueltos_ultimo_mes,
+                    dias_propio_sector_este_ano,
+                    dias_subsanacion_este_ano,
+                    dias_intervenciones_este_ano,
+                    dias_totales_este_ano,
+                    dias_mediana_ingresados_este_ano,
+                    total_resueltos_este_ano,
+                    ultimo_mes_cerrado
+                FROM planificacion_tiempos_tramitacion_resumen
+                {where_clause}
+                ORDER BY gerencia ASC, trata ASC
+            """
+            result = conn.execute(text(sql), params).mappings().fetchall()
 
             records = []
-            for g_clean in gerencias_to_query:
-                try:
-                    sql_tiempos = f"""
-                        SELECT 
-                            gerencia,
-                            trata AS "COD TRATA",
-                            tramite AS "DETALLE TRATA",
-                            total_expedientes_egresados AS total_resueltos,
-                            duracion_total_mediana AS duracion_total_mediana,
-                            duracion_total_promedio AS duracion_total_promedio,
-                            duracion_neta_mediana AS duracion_neta_mediana,
-                            duracion_subsanaciones_mediana AS duracion_subsanaciones_mediana
-                        FROM mv_tiempos_resolucion_{g_clean}
-                    """
-                    result = conn.execute(text(sql_tiempos))
-                    for row in result:
-                        row_dict = dict(row._mapping)
-                        
-                        row_dict["mediana_dias"] = float(row_dict.get("duracion_total_mediana") or 0.0)
-                        row_dict["promedio_dias"] = float(row_dict.get("duracion_total_mediana") or 0.0)
-                        row_dict["total_resueltos"] = int(row_dict.get("total_resueltos") or 0)
-                        
-                        g_cfg = TRAMITES_CONFIG.get(g_clean, {})
-                        t_code = row_dict["COD TRATA"]
-                        t_cfg = g_cfg.get(t_code, {})
-                        row_dict["acronimos"] = t_cfg.get("acronimos", "")
-                        if t_cfg.get("nombre"):
-                            row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
-                            
-                        records.append(row_dict)
-                except Exception as e:
-                    logger.warning(f"No se pudo consultar mv_tiempos_resolucion_{g_clean}, usando fallback: {e}")
-                    sql_fallback = f"""
-                        SELECT 
-                            gerencia,
-                            trata AS "COD TRATA",
-                            descripcion_trata AS "DETALLE TRATA",
-                            COUNT(*) AS total_resueltos,
-                            ROUND(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY dias_resolucion)::numeric, 1) AS mediana_dias,
-                            ROUND(AVG(dias_resolucion)::numeric, 1) AS promedio_dias
-                        FROM mvw_sla_tramites
-                        WHERE gerencia = :g
-                        GROUP BY gerencia, trata, descripcion_trata
-                        ORDER BY trata
-                    """
-                    result = conn.execute(text(sql_fallback), {"g": g_clean})
-                    for row in result:
-                        row_dict = dict(row._mapping)
-                        
-                        row_dict["duracion_total_mediana"] = float(row_dict.get("mediana_dias") or 0.0)
-                        row_dict["duracion_neta_mediana"] = float(row_dict.get("mediana_dias") or 0.0)
-                        row_dict["duracion_subsanaciones_mediana"] = 0.0
-                        row_dict["promedio_dias"] = float(row_dict.get("promedio_dias") or 0.0)
-                        row_dict["total_resueltos"] = int(row_dict.get("total_resueltos") or 0)
-                        
-                        g_cfg = TRAMITES_CONFIG.get(g_clean, {})
-                        t_code = row_dict["COD TRATA"]
-                        t_cfg = g_cfg.get(t_code, {})
-                        row_dict["acronimos"] = t_cfg.get("acronimos", "")
-                        if t_cfg.get("nombre"):
-                            row_dict["DETALLE TRATA"] = t_cfg.get("nombre")
-                            
-                        records.append(row_dict)
+            for row in result:
+                g_code = row["gerencia"]
+                t_code = row["trata"]
+                g_cfg = TRAMITES_CONFIG.get(g_code, {})
+                t_cfg = g_cfg.get(t_code, {})
+
+                desc_trata = row["descripcion_trata"] or t_cfg.get("nombre") or t_code
+
+                records.append({
+                    "gerencia": g_code,
+                    "trata": t_code,
+                    "COD TRATA": t_code,
+                    "descripcion_trata": desc_trata,
+                    "DETALLE TRATA": desc_trata,
+                    "acronimos": t_cfg.get("acronimos", ""),
+                    # Último mes completo cerrado
+                    "dias_propio_sector": float(row["dias_propio_sector"] or 0.0),
+                    "dias_subsanacion": float(row["dias_subsanacion"] or 0.0),
+                    "dias_intervenciones": float(row["dias_intervenciones"] or 0.0),
+                    "dias_totales": float(row["dias_totales"] or 0.0),
+                    "total_resueltos": int(row["total_resueltos_ultimo_mes"] or 0),
+                    "total_resueltos_ultimo_mes": int(row["total_resueltos_ultimo_mes"] or 0),
+                    # Ingresados en el año en curso
+                    "dias_propio_sector_este_ano": float(row["dias_propio_sector_este_ano"] or 0.0),
+                    "dias_subsanacion_este_ano": float(row["dias_subsanacion_este_ano"] or 0.0),
+                    "dias_intervenciones_este_ano": float(row["dias_intervenciones_este_ano"] or 0.0),
+                    "dias_totales_este_ano": float(row["dias_totales_este_ano"] or 0.0),
+                    "total_resueltos_este_ano": int(row["total_resueltos_este_ano"] or 0),
+                    "dias_mediana_ingresados_este_ano": float(row["dias_mediana_ingresados_este_ano"] or 0.0),
+                    "ultimo_mes_cerrado": row["ultimo_mes_cerrado"] or ""
+                })
+
             set_cache(_ck, records)
             return records
     except Exception as e:
@@ -4163,58 +4551,179 @@ async def get_sla_expedientes(
         
     try:
         with engine.connect() as conn:
+            # 1. Obtener el último mes completo cerrado registrado para esta gerencia/trata
+            res_meta = conn.execute(text("""
+                SELECT ultimo_mes_cerrado
+                FROM planificacion_tiempos_tramitacion_resumen
+                WHERE gerencia = :g AND trata = :t
+                LIMIT 1
+            """), {"g": gerencia_clean, "t": trata}).fetchone()
+
+            ultimo_mes = res_meta[0] if (res_meta and res_meta[0]) else None
+            
+            if not ultimo_mes:
+                today = date.today()
+                prev_y = today.year if today.month > 1 else today.year - 1
+                prev_m = today.month - 1 if today.month > 1 else 12
+                ultimo_mes = f"{prev_y}-{str(prev_m).zfill(2)}"
+
+            # 2. Intentar primero consultar la vista rápida mvw_egresos_resueltos_metricas
+            try:
+                sql_mvw = """
+                    SELECT expediente, trata, descripcion_trata,
+                           fecha_caratulacion, fecha_egreso,
+                           dias_area, dias_subsanacion, dias_intervenciones, dias_totales
+                    FROM mvw_egresos_resueltos_metricas
+                    WHERE gerencia = :g AND trata = :t AND mes_egreso_label = :mes
+                    ORDER BY fecha_egreso DESC
+                """
+                res_mvw = conn.execute(text(sql_mvw), {"g": gerencia_clean, "t": trata, "mes": ultimo_mes}).mappings().fetchall()
+                if res_mvw:
+                    mapped_rows = []
+                    for r in res_mvw:
+                        mapped_rows.append({
+                            "gerencia": gerencia_clean.upper(),
+                            "expediente": r["expediente"],
+                            "trata": r["trata"],
+                            "descripcion_trata": r["descripcion_trata"] or r["trata"],
+                            "fecha_caratula": str(r["fecha_caratulacion"]) if r["fecha_caratulacion"] else "",
+                            "fecha_egreso": str(r["fecha_egreso"]) if r["fecha_egreso"] else "",
+                            "mes_analizado": ultimo_mes,
+                            "dias_gerencia": math.ceil(float(r["dias_area"] or 0)),
+                            "dias_subsanacion": math.ceil(float(r["dias_subsanacion"] or 0)),
+                            "dias_intervenciones": math.ceil(float(r["dias_intervenciones"] or 0)),
+                            "dias_totales": math.ceil(float(r["dias_totales"] or 0))
+                        })
+                    return mapped_rows
+            except Exception:
+                pass
+
+            # 3. Fallback en tiempo real calculando pases, tramos y subsanaciones TAD para el último mes
             sql = f"""
-                WITH subs_dias AS (
+                WITH cfg AS (
+                    SELECT analistas_oficiales, buzones_ingreso
+                    FROM cfg_gestion_metas
+                    WHERE gerencia = '{gerencia_clean}' AND trata_reporte = 'INTERVENCIONES'
+                    LIMIT 1
+                ),
+                expedientes_egreso AS (
                     SELECT 
-                        id_expediente,
-                        CASE 
-                            WHEN COUNT(*) > 20 THEN 0
-                            ELSE COALESCE(SUM(
-                                CASE 
-                                    WHEN fecha_alta IS NULL OR fecha_alta < '2015-01-01'::date THEN 0
-                                    WHEN fecha_cierre IS NOT NULL THEN (fecha_cierre::date - fecha_alta::date)
-                                    ELSE (CURRENT_DATE - fecha_alta::date)
-                                END
-                            ), 0)
-                        END AS dias_subs
-                    FROM (
-                        SELECT DISTINCT id_expediente, fecha_alta, fecha_cierre
-                        FROM mvw_ee_actividades_secgdu
-                        WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                    ) t
-                    GROUP BY id_expediente
+                        ee.id_expediente,
+                        ee.expediente,
+                        ee.trata,
+                        to_char(ee.fecha_egreso, 'YYYY-MM') as mes_label,
+                        ee.fecha_primer_ingreso_gerencia,
+                        ee.fecha_egreso,
+                        ee.caratula,
+                        (EXTRACT(epoch FROM (ee.fecha_egreso - ee.fecha_primer_ingreso_gerencia)) / 86400.0) AS duracion_total
+                    FROM mv_{gerencia_clean}_egresos_efectivos ee
+                    WHERE ee.trata = :trata
+                      AND to_char(ee.fecha_egreso, 'YYYY-MM') = :mes
+                ),
+                pases_cronologicos AS (
+                    SELECT 
+                        e.id_expediente,
+                        e.trata,
+                        e.mes_label,
+                        p.fecha AS fecha_inicio_tramo,
+                        CASE
+                            WHEN ((p.destinatario = ANY (cfg.analistas_oficiales)) OR (p.destinatario = ANY (cfg.buzones_ingreso))) THEN 'ADENTRO'
+                            ELSE 'AFUERA'
+                        END AS ubicacion_destino,
+                        COALESCE(LEAD(p.fecha) OVER (PARTITION BY e.id_expediente ORDER BY p.fecha), e.fecha_egreso) AS fecha_fin_tramo
+                    FROM expedientes_egreso e
+                    CROSS JOIN cfg
+                    JOIN mvw_ee_pases_secgdu p ON p.id_expediente = e.id_expediente
+                    WHERE p.fecha >= e.fecha_primer_ingreso_gerencia AND p.fecha <= e.fecha_egreso
+                ),
+                tramos_resumidos AS (
+                    SELECT 
+                        pc.id_expediente,
+                        SUM(CASE WHEN pc.ubicacion_destino = 'AFUERA' THEN (EXTRACT(epoch FROM (pc.fecha_fin_tramo - pc.fecha_inicio_tramo)) / 86400.0) ELSE 0.0 END) AS dias_en_otras_areas,
+                        SUM(CASE WHEN pc.ubicacion_destino = 'ADENTRO' THEN (EXTRACT(epoch FROM (pc.fecha_fin_tramo - pc.fecha_inicio_tramo)) / 86400.0) ELSE 0.0 END) AS dias_adentro_bruto
+                    FROM pases_cronologicos pc
+                    GROUP BY pc.id_expediente
+                ),
+                sol_sub AS (
+                    SELECT 
+                        id_expediente, 
+                        fecha_alta as fecha_solicitud,
+                        LEAD(fecha_alta) OVER (PARTITION BY id_expediente ORDER BY fecha_alta ASC) as next_solicitud
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                ),
+                ciclos_sub AS (
+                    SELECT 
+                        s.id_expediente,
+                        s.fecha_solicitud,
+                        COALESCE(
+                            (SELECT MIN(r.fecha_alta) 
+                             FROM mvw_ee_actividades_secgdu r 
+                             WHERE r.id_expediente = s.id_expediente 
+                               AND r.nombre_tipo_actividad = 'SUBSANACION'
+                               AND r.fecha_alta >= s.fecha_solicitud
+                               AND (s.next_solicitud IS NULL OR r.fecha_alta <= s.next_solicitud)
+                            ),
+                            s.next_solicitud,
+                            e.fecha_egreso
+                        ) as fecha_fin_sub
+                    FROM sol_sub s
+                    JOIN expedientes_egreso e ON e.id_expediente = s.id_expediente
+                    WHERE s.fecha_solicitud >= e.fecha_primer_ingreso_gerencia AND s.fecha_solicitud <= e.fecha_egreso
+                ),
+                subsanaciones_globales AS (
+                    SELECT 
+                        cs.id_expediente,
+                        SUM(GREATEST(0, (EXTRACT(epoch FROM (cs.fecha_fin_sub - cs.fecha_solicitud)) / 86400.0))) AS duracion_subsanaciones
+                    FROM ciclos_sub cs
+                    GROUP BY cs.id_expediente
+                ),
+                pases_internos AS (
+                    SELECT 
+                        pc.id_expediente,
+                        SUM(GREATEST(0, (EXTRACT(epoch FROM (LEAST(cs.fecha_fin_sub, pc.fecha_fin_tramo) - GREATEST(cs.fecha_solicitud, pc.fecha_inicio_tramo))) / 86400.0))) AS duracion_subsanaciones_adentro
+                    FROM pases_cronologicos pc
+                    JOIN ciclos_sub cs ON cs.id_expediente = pc.id_expediente
+                    WHERE pc.ubicacion_destino = 'ADENTRO'
+                      AND cs.fecha_solicitud < pc.fecha_fin_tramo AND cs.fecha_fin_sub > pc.fecha_inicio_tramo
+                    GROUP BY pc.id_expediente
                 )
                 SELECT 
-                    '{gerencia_clean}'::text AS gerencia,
-                    u.expediente AS "EXPEDIENTE",
-                    u.trata AS "TRAMITE",
-                    u.descripcion_trata AS "DETALLE TRATA",
-                    to_char(u.fecha_creacion_ee, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA CARATULA",
-                    to_char(e.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS "FECHA EGRESO",
-                    (e.fecha_egreso::date - u.fecha_creacion_ee::date) AS "DIAS BRUTOS",
-                    COALESCE(s.dias_subs, 0) AS "DIAS SUBSANACION",
-                    GREATEST(0, (e.fecha_egreso::date - u.fecha_creacion_ee::date) - COALESCE(s.dias_subs, 0)) AS "DIAS NETOS SLA"
-                FROM mv_{gerencia_clean}_universo u
-                INNER JOIN mv_{gerencia_clean}_egresos_efectivos e ON u.id_expediente = e.id_expediente
-                LEFT JOIN subs_dias s ON u.id_expediente = s.id_expediente
-                WHERE u.trata = :trata
+                    e.expediente,
+                    e.trata,
+                    COALESCE(
+                        (SELECT descripcion_trata FROM cfg_gestion_metas WHERE trata_reporte = e.trata AND gerencia = '{gerencia_clean}' LIMIT 1),
+                        e.trata
+                    ) AS descripcion_trata,
+                    to_char(e.caratula, 'YYYY-MM-DD HH24:MI:SS') AS fecha_caratula,
+                    to_char(e.fecha_egreso, 'YYYY-MM-DD HH24:MI:SS') AS fecha_egreso,
+                    GREATEST(0, (COALESCE(t.dias_adentro_bruto, e.duracion_total) - COALESCE(sa.duracion_subsanaciones_adentro, 0.0))) AS dias_gerencia,
+                    COALESCE(s.duracion_subsanaciones, 0.0) AS dias_subsanacion,
+                    COALESCE(t.dias_en_otras_areas, 0.0) AS dias_intervenciones,
+                    (GREATEST(0, (COALESCE(t.dias_adentro_bruto, e.duracion_total) - COALESCE(sa.duracion_subsanaciones_adentro, 0.0))) + COALESCE(s.duracion_subsanaciones, 0.0) + COALESCE(t.dias_en_otras_areas, 0.0)) AS dias_totales
+                FROM expedientes_egreso e
+                LEFT JOIN tramos_resumidos t ON t.id_expediente = e.id_expediente
+                LEFT JOIN subsanaciones_globales s ON s.id_expediente = e.id_expediente
+                LEFT JOIN pases_internos sa ON sa.id_expediente = e.id_expediente
                 ORDER BY e.fecha_egreso DESC
             """
-            result = conn.execute(text(sql), {"trata": trata})
+            result = conn.execute(text(sql), {"trata": trata, "mes": ultimo_mes})
             rows = [dict(row._mapping) for row in result.fetchall()]
             
             mapped_rows = []
             for r in rows:
                 mapped_rows.append({
-                    "gerencia": r["gerencia"],
-                    "expediente": r["EXPEDIENTE"],
-                    "trata": r["TRAMITE"],
-                    "descripcion_trata": r["DETALLE TRATA"],
-                    "fecha_caratula": r["FECHA CARATULA"],
-                    "fecha_egreso": r["FECHA EGRESO"],
-                    "dias_brutos": int(r["DIAS BRUTOS"] or 0),
-                    "dias_subsanacion": int(r["DIAS SUBSANACION"] or 0),
-                    "dias_netos_sla": int(r["DIAS NETOS SLA"] or 0)
+                    "gerencia": gerencia_clean.upper(),
+                    "expediente": r["expediente"],
+                    "trata": r["trata"],
+                    "descripcion_trata": r["descripcion_trata"],
+                    "fecha_caratula": r["fecha_caratula"] or "",
+                    "fecha_egreso": r["fecha_egreso"] or "",
+                    "mes_analizado": ultimo_mes,
+                    "dias_gerencia": math.ceil(float(r["dias_gerencia"] or 0)),
+                    "dias_subsanacion": math.ceil(float(r["dias_subsanacion"] or 0)),
+                    "dias_intervenciones": math.ceil(float(r["dias_intervenciones"] or 0)),
+                    "dias_totales": math.ceil(float(r["dias_totales"] or 0))
                 })
                 
             return mapped_rows
@@ -5623,7 +6132,12 @@ async def get_planificacion_tiempos_tramitacion(
         with engine.connect() as conn:
             where_clause = "" if g_clean == "all" else "WHERE gerencia = :g"
             sql = f"""
-                SELECT gerencia, trata, descripcion_trata, dias_propio_sector, dias_subsanacion, dias_intervenciones, dias_totales, dias_mediana_ingresados_este_ano, ultimo_mes_cerrado
+                SELECT 
+                    gerencia, trata, descripcion_trata, 
+                    dias_propio_sector, dias_subsanacion, dias_intervenciones, dias_totales, total_resueltos_ultimo_mes,
+                    dias_propio_sector_este_ano, dias_subsanacion_este_ano, dias_intervenciones_este_ano, dias_totales_este_ano,
+                    dias_mediana_ingresados_este_ano, total_resueltos_este_ano,
+                    ultimo_mes_cerrado
                 FROM planificacion_tiempos_tramitacion_resumen
                 {where_clause}
                 ORDER BY gerencia ASC, trata ASC
@@ -5640,7 +6154,13 @@ async def get_planificacion_tiempos_tramitacion(
                     "dias_subsanacion": float(r["dias_subsanacion"] or 0),
                     "dias_intervenciones": float(r["dias_intervenciones"] or 0),
                     "dias_totales": float(r["dias_totales"] or 0),
+                    "total_resueltos_ultimo_mes": int(r["total_resueltos_ultimo_mes"] or 0),
+                    "dias_propio_sector_este_ano": float(r["dias_propio_sector_este_ano"] or 0),
+                    "dias_subsanacion_este_ano": float(r["dias_subsanacion_este_ano"] or 0),
+                    "dias_intervenciones_este_ano": float(r["dias_intervenciones_este_ano"] or 0),
+                    "dias_totales_este_ano": float(r["dias_totales_este_ano"] or 0),
                     "dias_mediana_ingresados_este_ano": float(r["dias_mediana_ingresados_este_ano"] or 0),
+                    "total_resueltos_este_ano": int(r["total_resueltos_este_ano"] or 0),
                     "ultimo_mes_cerrado": r["ultimo_mes_cerrado"] or ""
                 })
 

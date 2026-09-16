@@ -1,0 +1,209 @@
+<div class="breadcrumbs" id="subsanaciones-breadcrumbs">
+                <span onclick="showSubsanacionesMainView()"
+                    style="cursor: pointer; text-decoration: underline;">Inicio</span> / Reporte de Subsanaciones
+            </div>
+
+            <div class="section-header-flex" style="margin-bottom: 2rem;">
+                <div>
+                    <h1 class="section-title" id="subsanaciones-title"
+                        style="font-size: 1.8rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">
+                        Reporte de Subsanaciones</h1>
+                    <p class="section-subtitle" id="subsanaciones-subtitle"
+                        style="font-size: 0.95rem; color: #64748b; margin-top: 4px;">Mediana de cantidad de
+                        subsanaciones y tiempo de resolución de subsanación por trámite y analista.</p>
+                </div>
+            </div>
+
+            <!-- SUB-VISTA 1: Lista de Trámites -->
+            <div id="subsanaciones-main-container">
+                <!-- Controles de Búsqueda, Filtro y Ordenamiento (Subsanaciones) -->
+                <div class="filter-controls-container"
+                    style="background: white; padding: 1.5rem 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; margin-bottom: 2.5rem;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 1.5rem; flex-grow: 1; width: 100%;">
+                        <!-- Búsqueda -->
+                        <div class="form-group" style="margin-bottom: 0; min-width: 250px; flex-grow: 1;">
+                            <label
+                                style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Buscar
+                                Trámite / Trata</label>
+                            <input type="text" id="subsanaciones-search" class="form-input"
+                                placeholder="Buscar por código o nombre..." oninput="filterAndRenderSubsanaciones()"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem;">
+                        </div>
+
+                        <!-- Filtro por Gerencia -->
+                        <div class="form-group" style="margin-bottom: 0; min-width: 200px; flex-grow: 1;">
+                            <label
+                                style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Filtrar
+                                por Área / Gerencia</label>
+                            <select id="subsanaciones-filter-gerencia" onchange="loadSubsanacionesReport()"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                                <option value="ALL">Todas las Gerencias</option>
+                                <option value="CATASTRO">Catastro (DGROC)</option>
+                                <option value="INSTALACIONES">Instalaciones (DGROC)</option>
+                                <option value="REGULARIZACION">Regularización y Conforme (DGROC)</option>
+                                <option value="CONTABLE">Contable (DGROC)</option>
+                                <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
+                                <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
+                                <option value="MORFOLOGIA">Morfología Urbana (DGIUR)</option>
+                                <option value="APH">Protección Histórica APH (DGIUR)</option>
+                                <option value="USOS">Usos del Suelo (DGIUR)</option>
+                            </select>
+                        </div>
+
+                        <!-- Ordenamiento -->
+                        <div class="form-group" style="margin-bottom: 0; min-width: 220px; flex-grow: 1;">
+                            <label
+                                style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Ordenar
+                                Resultados</label>
+                            <select id="subsanaciones-sort" onchange="filterAndRenderSubsanaciones()"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white;">
+                                <option value="COUNT_DESC">Mayor Cantidad de Expedientes Primero</option>
+                                <option value="QTY_DESC">Mayor Mediana de Subsanaciones Primero</option>
+                                <option value="TIME_DESC">Mayor Tiempo de Subsanación Primero</option>
+                                <option value="NAME_ASC">Nombre (A-Z)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="subsanaciones-grid-container"
+                    style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 3rem;">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+
+            <!-- SUB-VISTA 2: Detalle de Trámite (Tarjetas de Analistas) -->
+            <div id="subsanaciones-detail-container" style="display: none;">
+                <div style="margin-bottom: 2rem;">
+                    <button class="btn-download-excel" onclick="showSubsanacionesMainView()"
+                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-weight: bold; margin-bottom: 1rem;">
+                        ← Volver a Trámites
+                    </button>
+                    <div class="info-banner-premium">
+                        <div>
+                            <h2 id="sub-trata-title"
+                                style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">
+                                --</h2>
+                            <p id="sub-trata-desc"
+                                style="color: #64748b; margin: 4px 0 0 0; font-size: 1rem; font-weight: 500;">--</p>
+                        </div>
+                        <div class="info-banner-stats">
+                            <div class="info-banner-stat-item">
+                                <span
+                                    style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Expedientes</span>
+                                <div id="sub-trata-total"
+                                    style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin-top: 2px;">--
+                                </div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span
+                                    style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana
+                                    Cant.</span>
+                                <div id="sub-trata-mediana-cant"
+                                    style="font-size: 1.3rem; font-weight: 800; color: var(--primary); margin-top: 2px;">
+                                    --</div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span
+                                    style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana
+                                    Días</span>
+                                <div id="sub-trata-mediana-dias"
+                                    style="font-size: 1.3rem; font-weight: 800; color: #6366f1; margin-top: 2px;">--
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3
+                    style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin-bottom: 1.5rem; border-left: 4px solid var(--primary); padding-left: 0.75rem;">
+                    Analistas con Subsanaciones</h3>
+                <div id="subsanaciones-analysts-grid" class="seguimiento-grid view-grid">
+                    <!-- Se llenará con tarjetas de analistas -->
+                </div>
+            </div>
+
+            <!-- SUB-VISTA 3: Expedientes de Analista -->
+            <div id="subsanaciones-expedientes-container" style="display: none;">
+                <div style="margin-bottom: 2rem;">
+                    <button id="btn-back-to-trata" class="btn-download-excel" onclick="backToTrataDetail()"
+                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-weight: bold; margin-bottom: 1rem;">
+                        ← Volver a Trámite
+                    </button>
+                    <div class="info-banner-premium">
+                        <div>
+                            <h2 id="sub-analyst-title"
+                                style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">
+                                --</h2>
+                            <p id="sub-analyst-subtitle"
+                                style="color: #64748b; margin: 4px 0 0 0; font-size: 0.95rem; font-weight: 500;">--</p>
+                        </div>
+                        <div class="info-banner-stats">
+                            <div class="info-banner-stat-item">
+                                <span
+                                    style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Expedientes</span>
+                                <div id="sub-analyst-total"
+                                    style="font-size: 1.3rem; font-weight: 800; color: #1e293b; margin-top: 2px;">--
+                                </div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span
+                                    style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana
+                                    Cant.</span>
+                                <div id="sub-analyst-mediana-cant"
+                                    style="font-size: 1.3rem; font-weight: 800; color: var(--primary); margin-top: 2px;">
+                                    --</div>
+                            </div>
+                            <div class="info-banner-stat-item">
+                                <span
+                                    style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Mediana
+                                    Días</span>
+                                <div id="sub-analyst-mediana-dias"
+                                    style="font-size: 1.3rem; font-weight: 800; color: #6366f1; margin-top: 2px;">--
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-container-dynamic"
+                    style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 1.5rem; margin-bottom: 3rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 1rem; margin-bottom: 1.25rem;">
+                        <h3
+                            style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin: 0; border-left: 4px solid var(--primary); padding-left: 0.75rem;">
+                            Listado de Expedientes</h3>
+                        <button class="btn-download-excel" onclick="exportSubsanacionesExpedientesExcel()"
+                            style="padding: 8px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Descargar Excel
+                        </button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="minimal-table" style="width: 100%; margin-top: 0;">
+                            <thead>
+                                <tr>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente
+                                    </th>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Trámite</th>
+                                    <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem;">Cant.
+                                        Subsanaciones</th>
+                                    <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem;">Días
+                                        Subsanación</th>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Analista</th>
+                                    <th style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Fecha Creación
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="subsanaciones-expedientes-tbody">
+                                <!-- Se llenará dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>

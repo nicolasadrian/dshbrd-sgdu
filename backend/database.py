@@ -52,6 +52,27 @@ def get_geo_mdr_engine():
 
 geo_engine = get_geo_mdr_engine()
 
+# Configuración del motor de Base de Datos PDI (Corporativa GCBA / VPN)
+def get_pdi_engine():
+    db_url = os.getenv("PDI_DATABASE_URL") or "postgresql://postgres:lenovo@10.10.8.207:5432/geodb"
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+    return create_engine(
+        db_url,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        pool_recycle=180,
+        pool_timeout=5,
+        connect_args={
+            "connect_timeout": 4,
+            "options": "-c statement_timeout=10000"
+        },
+    )
+
+pdi_engine = get_pdi_engine()
+
 # Dependencia para inyectar sesión de SQLAlchemy en FastAPI
 def get_db():
     db = SessionLocal()
@@ -59,3 +80,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

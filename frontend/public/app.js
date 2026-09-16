@@ -96,36 +96,74 @@ function initAuth() {
         if (adminLink) {
             adminLink.style.display = perms.admin ? 'block' : 'none';
         }
+        
+        // 1. Toggles for Seguimiento dropdown and its contents
+        const hasDgrocSeg = perms.dgroc || perms.seguimiento_catastro || perms.seguimiento_instalaciones || perms.seguimiento_conforme || perms.seguimiento_contable || perms.seguimiento_etapa_proyecto || perms.seguimiento_aviso_obra;
+        const hasDgiurSeg = perms.dgiur || perms.seguimiento_morfologia || perms.seguimiento_aph || perms.seguimiento_usos || perms.publico_privado || perms.copua || perms.privada;
+        const hasFamily = perms.family || perms.familia_tramites;
+        const hasSeguimientoAccess = hasDgrocSeg || hasDgiurSeg || hasFamily || perms.seguimiento;
 
-        // Toggles for Seguimiento dropdown and its contents
-        const hasSeguimientoAccess = perms.dgroc || perms.dgiur || perms.family || perms.publico_privado || perms.copua || perms.seguimiento;
         const navSeguimiento = document.getElementById('nav-dropdown-seguimiento');
         if (navSeguimiento) navSeguimiento.style.display = hasSeguimientoAccess ? 'inline-block' : 'none';
 
-        const linkDgroc = document.querySelector('a[onclick*="showView(\'dgroc\')"]');
-        if (linkDgroc) linkDgroc.style.display = perms.dgroc ? 'block' : 'none';
-        const linkDgiur = document.querySelector('a[onclick*="showView(\'dgiur\')"]');
-        if (linkDgiur) linkDgiur.style.display = perms.dgiur ? 'block' : 'none';
-        const linkPublicoPrivado = document.querySelector('a[onclick*="showView(\'publico_privado\')"]');
-        if (linkPublicoPrivado) linkPublicoPrivado.style.display = (perms.publico_privado || perms.seguimiento) ? 'block' : 'none';
-        const linkCopua = document.querySelector('a[onclick*="showView(\'copua\')"]');
-        if (linkCopua) linkCopua.style.display = (perms.copua || perms.seguimiento) ? 'block' : 'none';
-        const linkFamily = document.querySelector('a[onclick*="showView(\'family\')"]');
-        if (linkFamily) linkFamily.style.display = perms.family ? 'block' : 'none';
+        const subSegDgroc = document.getElementById('menu-sub-seguimiento-dgroc');
+        if (subSegDgroc) subSegDgroc.style.display = hasDgrocSeg ? 'block' : 'none';
 
-        // Toggles for Buzones dropdown and its contents
-        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.seguimiento;
+        const subSegDgiur = document.getElementById('menu-sub-seguimiento-dgiur');
+        if (subSegDgiur) subSegDgiur.style.display = hasDgiurSeg ? 'block' : 'none';
+
+        // Granular links inside Seguimiento DGROC
+        const setDisplay = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? 'block' : 'none'; };
+        setDisplay('link-seg-catastro', perms.dgroc || perms.seguimiento_catastro);
+        setDisplay('link-seg-instalaciones', perms.dgroc || perms.seguimiento_instalaciones);
+        setDisplay('link-seg-conforme', perms.dgroc || perms.seguimiento_conforme);
+        setDisplay('link-seg-contable', perms.dgroc || perms.seguimiento_contable);
+        setDisplay('link-seg-etapa_proyecto', perms.dgroc || perms.seguimiento_etapa_proyecto);
+        setDisplay('link-seg-aviso_obra', perms.dgroc || perms.seguimiento_aviso_obra);
+
+        // Granular links inside Seguimiento DGIUR
+        setDisplay('link-seg-morfologia', perms.dgiur || perms.seguimiento_morfologia);
+        setDisplay('link-seg-aph', perms.dgiur || perms.seguimiento_aph);
+        setDisplay('link-seg-usos', perms.dgiur || perms.seguimiento_usos);
+        setDisplay('link-seg-publico_privado', perms.dgiur || perms.publico_privado);
+        setDisplay('link-seg-copua', perms.dgiur || perms.copua);
+        setDisplay('link-seg-privada', perms.dgiur || perms.privada);
+
+        const linkFamily = document.getElementById('link-familia-tramites');
+        if (linkFamily) linkFamily.style.display = hasFamily ? 'block' : 'none';
+
+        // 2. Toggles for Buzones dropdown and its contents
+        const hasDgrocBuzon = perms.buzon_dgroc || perms.dgroc || perms.buzon_catastro || perms.buzon_instalaciones || perms.buzon_conforme || perms.buzon_contable || perms.buzon_etapa_proyecto || perms.buzon_aviso_obra;
+        const hasDgiurBuzon = perms.buzon_dgiur || perms.dgiur || perms.buzon_morfologia || perms.buzon_aph || perms.buzon_usos || perms.buzon_publico_privado || perms.buzon_copua || perms.buzon_privada;
+        const hasBuzonesAccess = hasDgrocBuzon || hasDgiurBuzon || perms.buzones_analisis || perms.secgdu;
+
         const navBuzones = document.getElementById('nav-dropdown-buzones');
         if (navBuzones) navBuzones.style.display = hasBuzonesAccess ? 'inline-block' : 'none';
 
-        const linkBuzonesDgroc = document.getElementById('link-buzones-dgroc');
-        if (linkBuzonesDgroc) linkBuzonesDgroc.style.display = perms.dgroc ? 'block' : 'none';
+        const subBuzonDgroc = document.getElementById('menu-sub-buzones-dgroc');
+        if (subBuzonDgroc) subBuzonDgroc.style.display = hasDgrocBuzon ? 'block' : 'none';
 
-        const linkBuzonesDgiur = document.getElementById('link-buzones-dgiur');
-        if (linkBuzonesDgiur) linkBuzonesDgiur.style.display = (perms.dgiur || perms.publico_privado || perms.copua || perms.seguimiento) ? 'block' : 'none';
+        const subBuzonDgiur = document.getElementById('menu-sub-buzones-dgiur');
+        if (subBuzonDgiur) subBuzonDgiur.style.display = hasDgiurBuzon ? 'block' : 'none';
 
-        // Toggles for Reportes dropdown and its contents
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026;
+        // Granular links inside Buzones DGROC
+        setDisplay('link-buzon-catastro', perms.buzon_dgroc || perms.dgroc || perms.buzon_catastro);
+        setDisplay('link-buzon-instalaciones', perms.buzon_dgroc || perms.dgroc || perms.buzon_instalaciones);
+        setDisplay('link-buzon-conforme', perms.buzon_dgroc || perms.dgroc || perms.buzon_conforme);
+        setDisplay('link-buzon-contable', perms.buzon_dgroc || perms.dgroc || perms.buzon_contable);
+        setDisplay('link-buzon-etapa_proyecto', perms.buzon_dgroc || perms.dgroc || perms.buzon_etapa_proyecto);
+        setDisplay('link-buzon-aviso_obra', perms.buzon_dgroc || perms.dgroc || perms.buzon_aviso_obra);
+
+        // Granular links inside Buzones DGIUR
+        setDisplay('link-buzon-morfologia', perms.buzon_dgiur || perms.dgiur || perms.buzon_morfologia);
+        setDisplay('link-buzon-aph', perms.buzon_dgiur || perms.dgiur || perms.buzon_aph);
+        setDisplay('link-buzon-usos', perms.buzon_dgiur || perms.dgiur || perms.buzon_usos);
+        setDisplay('link-buzon-publico_privado', perms.buzon_dgiur || perms.dgiur || perms.buzon_publico_privado || perms.publico_privado);
+        setDisplay('link-buzon-copua', perms.buzon_dgiur || perms.dgiur || perms.buzon_copua || perms.copua);
+        setDisplay('link-buzon-privada', perms.buzon_dgiur || perms.dgiur || perms.buzon_privada || perms.privada);
+
+        // 3. Toggles for Reportes dropdown and its contents
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026 || perms.reportes_rrhh || perms.carga_reportes_rrhh;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
@@ -141,11 +179,11 @@ function initAuth() {
         const linkSub = document.querySelector('a[onclick*="showView(\'subsanaciones\')"]');
         if (linkSub) linkSub.style.display = perms.subsanaciones ? 'block' : 'none';
 
-        const pendientesAsocLink = document.getElementById('pendientes-asoc-link');
-        if (pendientesAsocLink) pendientesAsocLink.style.display = perms.pendientes_asociacion ? 'block' : 'none';
-
         const prodLink = document.getElementById('productividad-link');
         if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
+
+        const rrhhLink = document.getElementById('rrhh-link');
+        if (rrhhLink) rrhhLink.style.display = (perms.reportes_rrhh || perms.carga_reportes_rrhh) ? 'block' : 'none';
 
         const linkUniversoTratas = document.getElementById('universo-tratas-link');
         if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
@@ -153,15 +191,10 @@ function initAuth() {
         const linkPlanifNov2026 = document.getElementById('planificacion-nov-2026-link');
         if (linkPlanifNov2026) linkPlanifNov2026.style.display = perms.planificacion_nov_2026 ? 'block' : 'none';
 
-        // Toggles for Analytics dropdown and its contents
-        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_pdl_blanqueo;
+        // 4. Toggles for Analytics dropdown and its contents
+        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo;
         const navAnalytics = document.getElementById('nav-dropdown-analytics');
         if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
-
-        // Toggles for Ciudad 3D dropdown and its contents
-        const hasCiudad3DAccess = perms.ciudad_3d;
-        const navCiudad3D = document.getElementById('nav-dropdown-ciudad3d');
-        if (navCiudad3D) navCiudad3D.style.display = hasCiudad3DAccess ? 'inline-block' : 'none';
 
         const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
         if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo) ? 'block' : 'none';
@@ -190,8 +223,18 @@ function initAuth() {
             cardPdlBlanqueo.style.display = perms.analytics_pdl_blanqueo ? 'flex' : 'none';
         }
 
-        // Toggles for Mis Expedientes dropdown and its contents
-        const hasExpedientesAccess = perms.buscador || perms.favoritos;
+        // 5. Toggles for Ciudad 3D dropdown and its contents
+        const hasC3DGeneral = perms.ciudad_3d || perms.c3d_home || perms.c3d_extensiones_todas || perms.c3d_extensiones_mis_trazados || perms.c3d_extensiones_revision || perms.c3d_extensiones_equipo || perms.c3d_extensiones_mapa || perms.ciudad3d_manzanas_atipicas || perms.ciudad3d_pdi || perms.lfi_dibujar || perms.lfi_revisar;
+        const navCiudad3D = document.getElementById('nav-dropdown-ciudad3d');
+        if (navCiudad3D) navCiudad3D.style.display = hasC3DGeneral ? 'inline-block' : 'none';
+
+        // 6. Toggles for Contable dropdown and its contents
+        const hasContableAccess = perms.contable_calculadora || perms.contable_plusvalia || perms.contable_derechos || perms.contable_seguimiento;
+        const navContable = document.getElementById('nav-dropdown-contable');
+        if (navContable) navContable.style.display = hasContableAccess ? 'inline-block' : 'none';
+
+        // 7. Toggles for Mis Expedientes dropdown and its contents
+        const hasExpedientesAccess = perms.buscador || perms.favoritos || perms['favoritos-seguimiento'] || perms['asignados-mi'];
         const navExpedientes = document.getElementById('nav-dropdown-expedientes');
         if (navExpedientes) navExpedientes.style.display = hasExpedientesAccess ? 'inline-block' : 'none';
 
@@ -299,42 +342,84 @@ const ANALYSTS_DOCS = {
     'aviso_obra': ["DGROC-AUTOMAT"]
 };
 
-function showView(viewId, updateHash = true) {
-    const views = document.querySelectorAll('.view-container');
-    const targetView = document.getElementById(viewId);
-    if (!targetView) {
-        console.error("View not found:", viewId);
-        return;
-    }
-
+async function showView(viewId, updateHash = true) {
     // Seguridad: Validar contra los permisos dinámicos del usuario
     if (currentUser && currentUser.permissions) {
-        // Mapeos para sub-vistas de gerencias
-        const dgrocViews = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'regularizacion'];
-        const dgiurViews = ['morfologia', 'aph', 'usos'];
-        const ciudad3DViews = ['ciudad3d_home', 'ciudad3d_troneras', 'ciudad3d_manzanas_atipicas'];
+        const perms = currentUser.permissions;
+        const role = (currentUser.role || '').toLowerCase();
+        const isAdmin = role === 'administrador' || role === 'admin';
+
+        // Mapeos para sub-vistas de gerencias DGROC
+        const dgrocMap = {
+            'catastro': 'seguimiento_catastro',
+            'instalaciones': 'seguimiento_instalaciones',
+            'conforme': 'seguimiento_conforme',
+            'contable': 'seguimiento_contable',
+            'etapa_proyecto': 'seguimiento_etapa_proyecto',
+            'aviso_obra': 'seguimiento_aviso_obra',
+            'regularizacion': 'seguimiento_conforme'
+        };
+
+        // Mapeos para sub-vistas de gerencias DGIUR
+        const dgiurMap = {
+            'morfologia': 'seguimiento_morfologia',
+            'aph': 'seguimiento_aph',
+            'usos': 'seguimiento_usos',
+            'publico_privado': 'publico_privado',
+            'copua': 'copua',
+            'privada': 'privada'
+        };
+
+        const ciudad3DViews = [
+            'ciudad3d_home', 
+            'ciudad3d_troneras', 
+            'c3d_extensiones_todas', 
+            'c3d_extensiones_mis_trazados', 
+            'c3d_extensiones_revision', 
+            'c3d_extensiones_equipo', 
+            'c3d_extensiones_mapa', 
+            'ciudad3d_manzanas_atipicas'
+        ];
         
-        let hasPermission = !!currentUser.permissions[viewId];
-        if (viewId === 'publico_privado' || viewId === 'copua') {
-            hasPermission = !!(currentUser.permissions[viewId] || currentUser.permissions['seguimiento']);
+        let hasPermission = !!perms[viewId] || isAdmin;
+
+        if (viewId === 'dgroc') {
+            hasPermission = !!(perms.dgroc || Object.values(dgrocMap).some(k => perms[k]) || isAdmin);
+        } else if (viewId === 'dgiur') {
+            hasPermission = !!(perms.dgiur || Object.values(dgiurMap).some(k => perms[k]) || isAdmin);
+        } else if (dgrocMap[viewId]) {
+            const specificKey = dgrocMap[viewId];
+            hasPermission = !!(perms[specificKey] || perms.dgroc || perms[viewId] || isAdmin);
+        } else if (dgiurMap[viewId]) {
+            const specificKey = dgiurMap[viewId];
+            hasPermission = !!(perms[specificKey] || perms.dgiur || perms[viewId] || perms.seguimiento || isAdmin);
+        } else if (viewId.startsWith('c3d_extensiones_') || viewId === 'c3d_extensiones_hub' || viewId === 'ciudad3d_troneras') {
+            const specificKey = viewId === 'ciudad3d_troneras' ? 'c3d_extensiones_todas' : viewId;
+            hasPermission = !!(perms.ciudad_3d || perms[specificKey] || perms.lfi_dibujar || perms.lfi_revisar || isAdmin);
+        } else if (viewId === 'ciudad3d_home') {
+            hasPermission = !!(perms.ciudad_3d || perms.c3d_home || isAdmin);
+        } else if (viewId === 'ciudad3d_manzanas_atipicas') {
+            hasPermission = !!(perms.ciudad_3d || perms.ciudad3d_manzanas_atipicas || isAdmin);
+        } else if (viewId.startsWith('contable_')) {
+            hasPermission = !!(perms.contable_calculadora || perms[viewId] || isAdmin);
         } else if (viewId === 'analytics_estadistica') {
-            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo'] || currentUser.permissions['analytics_m2_permisados'] || currentUser.permissions['analytics_avisos_obra'] || currentUser.permissions['analytics_pdl_blanqueo']);
-        } else if (viewId === 'analytics_m2_permisados') {
-            hasPermission = !!currentUser.permissions['analytics_m2_permisados'];
-        } else if (viewId === 'analytics_avisos_obra') {
-            hasPermission = !!currentUser.permissions['analytics_avisos_obra'];
+            hasPermission = !!(perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo || perms.analytics_datasets || isAdmin);
+        } else if (viewId === 'analytics_m2_permisados' || viewId === 'analytics_avisos_obra' || viewId === 'analytics_pdl_blanqueo' || viewId === 'ley_blanqueo' || viewId === 'analytics_datasets') {
+            hasPermission = !!(perms[viewId] || perms.analytics_estadistica || isAdmin);
         } else if (viewId === 'asignados-mi') {
-            hasPermission = !!currentUser.permissions['asignados-mi'];
-        } else if (dgrocViews.includes(viewId)) {
-            hasPermission = !!currentUser.permissions['dgroc'];
-        } else if (dgiurViews.includes(viewId)) {
-            hasPermission = !!currentUser.permissions['dgiur'];
-        } else if (ciudad3DViews.includes(viewId)) {
-            hasPermission = !!currentUser.permissions['ciudad_3d'];
-        } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle') {
-            hasPermission = !!(currentUser.permissions['dgroc'] || currentUser.permissions['dgiur'] || currentUser.permissions['buzones_analisis'] || currentUser.permissions['secgdu']);
+            hasPermission = !!(perms['asignados-mi'] || isAdmin);
+        } else if (viewId === 'favoritos' || viewId === 'favoritos-seguimiento' || viewId === 'buscador') {
+            hasPermission = !!(perms[viewId] || isAdmin);
+        } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle' || viewId === 'buzones_dgroc_hub' || viewId === 'buzones_dgiur_hub') {
+            hasPermission = !!(perms.buzon_dgroc || perms.buzon_dgiur || perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || isAdmin);
         } else if (viewId === 'reportes_rrhh') {
-            hasPermission = !!(currentUser.permissions['reportes_rrhh'] || currentUser.permissions['carga_reportes_rrhh']);
+            hasPermission = !!(perms.reportes_rrhh || perms.carga_reportes_rrhh || isAdmin);
+        } else if (viewId === 'familia_tramites' || viewId === 'family') {
+            hasPermission = !!(perms.family || perms.familia_tramites || perms.seguimiento || isAdmin);
+        } else if (viewId === 'seguimiento' || viewId === 'cierre' || viewId === 'sla' || viewId === 'subsanaciones' || viewId === 'productividad_analistas' || viewId === 'universo_tratas' || viewId === 'planificacion_nov_2026') {
+            hasPermission = !!(perms[viewId] || isAdmin);
+        } else if (viewId === 'mis_datos' || viewId === 'backlog' || viewId === 'admin' || viewId.startsWith('backlog_')) {
+            hasPermission = isAdmin || (viewId === 'mis_datos');
         }
 
         // Si no tiene permiso para la vista solicitada, redirigir a 'landing'
@@ -350,11 +435,45 @@ function showView(viewId, updateHash = true) {
             showView('landing');
             return;
         }
-        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado o COPUA
-        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado, COPUA o Privada
+        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
             showView('landing');
             return;
         }
+    }
+
+    if (updateHash) {
+        const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+        const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
+        if (dgiurGerencias.includes(viewId)) {
+            window.location.hash = `#/dgiur/${viewId}`;
+        } else if (dgrocGerencias.includes(viewId)) {
+            window.location.hash = `#/dgroc/${viewId}`;
+        } else if (viewId === 'c3d_extensiones_todas' || viewId === 'ciudad3d_troneras') {
+            window.location.hash = `#/ciudad3d/extensiones/todas`;
+        } else if (viewId === 'c3d_extensiones_mis_trazados') {
+            window.location.hash = `#/ciudad3d/extensiones/mis-trazados`;
+        } else if (viewId === 'c3d_extensiones_revision') {
+            window.location.hash = `#/ciudad3d/extensiones/revision`;
+        } else if (viewId === 'c3d_extensiones_equipo') {
+            window.location.hash = `#/ciudad3d/extensiones/equipo`;
+        } else if (viewId === 'c3d_extensiones_mapa') {
+            window.location.hash = `#/ciudad3d/extensiones/mapa`;
+        } else {
+            window.location.hash = `#/${viewId}`;
+        }
+    }
+
+    if (typeof window.mountView === 'function') {
+        await window.mountView(viewId);
+        return;
+    }
+
+    const views = document.querySelectorAll('.view-container');
+    const targetView = document.getElementById(viewId);
+    if (!targetView) {
+        console.warn("View element not found:", viewId);
+        return;
     }
 
     views.forEach(v => {
@@ -364,10 +483,6 @@ function showView(viewId, updateHash = true) {
 
     targetView.style.display = 'block';
     setTimeout(() => targetView.classList.add('active'), 10);
-
-    if (updateHash) {
-        window.location.hash = `#/${viewId}`;
-    }
 
     if (viewId === 'admin') {
         showBacklogMenu();
@@ -409,10 +524,6 @@ function showView(viewId, updateHash = true) {
         loadSubsanacionesReport();
     }
 
-    if (viewId === 'pendientes_asociacion') {
-        loadPendientesAsociacionData();
-    }
-
     if (viewId === 'productividad_analistas') {
         loadProductividadAnalistasView();
     }
@@ -433,7 +544,7 @@ function showView(viewId, updateHash = true) {
         }
     }
 
-    if (viewId === 'family') {
+    if (viewId === 'familia_tramites' || viewId === 'family') {
         backToFamilySelector();
     }
 
@@ -453,8 +564,12 @@ function showView(viewId, updateHash = true) {
         loadCiudad3DStats();
     }
 
-    if (viewId === 'ciudad3d_troneras') {
-        loadCiudad3DTroneras();
+    if (viewId === 'ciudad3d_troneras' || viewId === 'c3d_extensiones_todas' || viewId === 'c3d_extensiones_mis_trazados' || viewId === 'c3d_extensiones_revision' || viewId === 'c3d_extensiones_equipo' || viewId === 'c3d_extensiones_mapa') {
+        loadCiudad3DTroneras().then(() => {
+            if (viewId === 'c3d_extensiones_mapa') {
+                setTimeout(() => initLFIMap(), 150);
+            }
+        });
     }
 
     if (viewId === 'ciudad3d_manzanas_atipicas') {
@@ -484,10 +599,13 @@ function showView(viewId, updateHash = true) {
         loadPlanificacionNov2026Data();
     }
 
-    // Carga de reportes si es una vista de gerencia
-    const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos', 'publico_privado', 'copua'];
-    if (gerencias.includes(viewId)) {
-        setTimeout(() => loadConsolidatedReport(viewId), 50);
+    if (viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') {
+        setTimeout(() => loadGenericGerenciaProdView(viewId), 50);
+    } else {
+        const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+        if (gerencias.includes(viewId)) {
+            setTimeout(() => loadConsolidatedReport(viewId), 50);
+        }
     }
 }
 
@@ -784,26 +902,89 @@ async function handleRouting() {
     }
 
     const parts = hash.split('/');
-    const viewId = parts[0];
+    const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+    const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
 
-    if (parts.length === 2) {
-        if (viewId === 'buzones') {
-            const area = parts[1];
-            showBuzonesView(area, false);
+    if (parts.length === 3) {
+        const first = parts[0];
+        const second = parts[1];
+        const third = parts[2];
+
+        if (first === 'buzones') {
+            // Formato: #/buzones/dgroc/catastro o #/buzones/dgiur/morfologia
+            await showBuzonesView(second, third, false);
+        } else if (first === 'ciudad3d' && second === 'extensiones') {
+            // Formato: #/ciudad3d/extensiones/todas, mis-trazados, revision, equipo, mapa
+            if (third === 'mis-trazados' || third === 'mis_trazados') {
+                await showView('c3d_extensiones_mis_trazados', false);
+            } else if (third === 'revision') {
+                await showView('c3d_extensiones_revision', false);
+            } else if (third === 'equipo') {
+                await showView('c3d_extensiones_equipo', false);
+            } else if (third === 'mapa') {
+                await showView('c3d_extensiones_mapa', false);
+            } else {
+                await showView('c3d_extensiones_todas', false);
+            }
         } else {
-            // Detalle de trámite: #/gerencia/trataCode
-            const gerencia = parts[0];
-            const trataCode = parts[1];
-
-            // Primero mostramos la vista base por si acaso
-            showView(gerencia, false);
-
-            // Intentamos obtener el nombre del trámite desde la configuración (o fallback)
+            // Formato: #/dgiur/morfologia/DGIUR-03 o #/dgroc/catastro/DGROC-CIC
+            const dir = first;
+            const gerencia = second;
+            const trataCode = third;
             const trataName = "...";
-            showTrataDetail(gerencia, trataCode, trataName, false);
+            await showTrataDetail(gerencia, trataCode, trataName, false);
+        }
+    } else if (parts.length === 2) {
+        const first = parts[0];
+        const second = parts[1];
+
+        if (first === 'buzones') {
+            // Formato: #/buzones/dgroc o #/buzones/dgiur
+            await showBuzonesView(second, null, false);
+        } else if (first === 'ciudad3d' && second === 'extensiones') {
+            await showView('c3d_extensiones_todas', false);
+        } else if (first === 'dgiur' || first === 'dgroc') {
+            // Formato: #/dgiur/morfologia o #/dgroc/catastro
+            await showView(second, false);
+        } else if (first === 'backlog' || first === 'admin') {
+            const backlogMap = {
+                'usuarios': 'backlog_users',
+                'users': 'backlog_users',
+                'tratas': 'backlog_metas',
+                'metas': 'backlog_metas',
+                'roles': 'backlog_roles',
+                'buzones': 'backlog_buzones',
+                'familias': 'backlog_familias',
+                'analistas': 'backlog_analistas',
+                'universo_tratas': 'backlog_universo_tratas',
+                'universo': 'backlog_universo_tratas'
+            };
+            const target = backlogMap[second] || 'backlog_hub';
+            await showView(target, false);
+        } else {
+            // Formato antiguo de 2 partes: #/gerencia/trataCode -> Redirigir a 3 partes si corresponde
+            const gerencia = first;
+            const trataCode = second;
+            showView(gerencia, false);
+            const trataName = "...";
+            showTrataDetail(gerencia, trataCode, trataName, true);
         }
     } else {
-        showView(viewId, false);
+        const viewId = parts[0];
+        if (viewId === 'buzones') {
+            window.location.hash = '#/buzones/dgroc';
+        } else if (viewId === 'family') {
+            window.location.hash = '#/familia_tramites';
+        } else if (viewId === 'ciudad3d_troneras') {
+            window.location.hash = '#/ciudad3d/extensiones/todas';
+        } else if (dgiurGerencias.includes(viewId)) {
+            // Si entra con ruta antigua de 1 parte a una gerencia (ej: #/morfologia), redirigir a URL jerárquica
+            window.location.hash = `#/dgiur/${viewId}`;
+        } else if (dgrocGerencias.includes(viewId)) {
+            window.location.hash = `#/dgroc/${viewId}`;
+        } else {
+            showView(viewId, false);
+        }
     }
 }
 
@@ -1117,12 +1298,21 @@ let currentTrataCode = "";
 let currentTrataName = "";
 
 async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true, fromSeguimiento = false) {
+    if (typeof window.mountView === 'function') {
+        const trataElem = document.getElementById('trata_detail');
+        if (!trataElem || !trataElem.dataset.loaded) {
+            await window.mountView('trata_detail');
+        }
+    }
+
     const views = document.querySelectorAll('.view-container');
     views.forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
 
     const detailView = document.getElementById('trata_detail');
-    detailView.style.display = 'block';
-    detailView.classList.add('active');
+    if (detailView) {
+        detailView.style.display = 'block';
+        detailView.classList.add('active');
+    }
 
     currentGerencia = gerencia; // Guardar gerencia actual para el módulo de metas
     currentTrataCode = trataCode; // Guardar trata actual
@@ -1145,8 +1335,13 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         metasTabBtn.style.display = canSeeMetas ? 'block' : 'none';
     }
 
+    // Determinar la dirección superior (DGROC o DGIUR)
+    const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+    const isDGIUR = dgiurGerencias.includes(gerencia);
+    const parentDir = isDGIUR ? 'dgiur' : 'dgroc';
+
     if (updateHash) {
-        window.location.hash = `#/${gerencia}/${trataCode}`;
+        window.location.hash = `#/${parentDir}/${gerencia}/${trataCode}`;
     }
 
     if (currentChart) { currentChart.destroy(); currentChart = null; }
@@ -1169,11 +1364,6 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         document.getElementById('trata_detail_title').innerText = trataName;
     }
     document.getElementById('trata_detail_subtitle').innerText = trataCode;
-
-    // Determinar la dirección superior (DGROC o DGIUR)
-    const dgiurGerencias = ['morfologia', 'aph', 'usos'];
-    const isDGIUR = dgiurGerencias.includes(gerencia);
-    const parentDir = isDGIUR ? 'dgiur' : 'dgroc';
 
     // Actualizar Breadcrumbs
     const parentLink = document.getElementById('trata_detail_parent_link');
@@ -1204,7 +1394,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             const cleanGerencia = gerencia.toLowerCase() === 'aph' ? 'APH' : (gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' '));
             backBtn.innerText = cleanGerencia;
             backBtn.onclick = () => {
-                window.location.hash = `#/${gerencia}`;
+                window.location.hash = `#/${parentDir}/${gerencia}`;
             };
         }
     }
@@ -1221,7 +1411,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 
     try {
         const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}`);
-        if (!response.ok) throw new Error(`Status ${response.status}`);
+        if (!response || !response.ok) return;
 
         const data = await response.json();
 
@@ -1238,7 +1428,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             document.getElementById('breadcrumb_trata_name').innerText = latest["DETALLE TRATA"];
         }
 
-        animateValue('header-stock-propio', 0, latest.STOCK_PROPIO || 0, 1500);
+        // Subsanaciones (sin cambios)
         animateValue('header-stock-subs', 0, latest.STOCK_SUBS || 0, 1500);
 
         // --- TOTALES 12 MESES ---
@@ -1292,17 +1482,348 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             }
         });
 
-        // Cargar detalles de stock
+        // Cargar detalles de stock y clasificaciones (Stock, Flujo, Tiempo de Tramitación)
         const stockResp = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/stock_detail`);
-        if (stockResp.ok) {
+        if (stockResp && stockResp.ok) {
             const stockData = await stockResp.json();
-            currentStockData = { expedientes: stockData.expedientes || [], trataName, trataCode };
+            currentStockData = { 
+                expedientes: stockData.expedientes || [], 
+                trataName, 
+                trataCode, 
+                gerencia,
+                tiempo_resolucion: stockData.tiempo_resolucion || 0,
+                stock_count: stockData.stock_count || 0,
+                flujo_count: stockData.flujo_count || 0,
+                stock_propio_count: stockData.stock_propio_count || 0,
+                analyst_distribution: stockData.analyst_distribution || []
+            };
+
+            // Animar las 3 tarjetas dependientes del análisis de stock:
+            // 1. Tiempo de Tramitación (en días)
+            const elTiempo = document.getElementById('header-stock-tiempo');
+            if (elTiempo) {
+                const tResVal = stockData.tiempo_resolucion !== undefined ? Math.ceil(Number(stockData.tiempo_resolucion)) : 0;
+                elTiempo.innerText = `${tResVal} d`;
+            }
+
+            // 2. Stock (expedientes con tiempo en gerencia > tiempo resolución)
+            animateValue('header-stock-propio', 0, stockData.stock_count !== undefined ? stockData.stock_count : (latest.STOCK_PROPIO || 0), 1500);
+
+            // 3. Flujo (expedientes con tiempo en gerencia <= tiempo resolución)
+            animateValue('header-stock-flujo', 0, stockData.flujo_count || 0, 1500);
+
             renderStockAgeChart(stockData.month_distribution);
             renderAnalystTable(stockData.analyst_distribution);
+            
+            // Si la sección activa es stock-analistas o flujo, o para precargar el stock y flujo
+            renderStockTab();
+            renderFlujoTab();
         }
+
+        // Resetear bandera de egresos y subsanaciones para cargar bajo demanda
+        currentEgresosData.loadedTrata = "";
+        currentTrataSubsanacionesData.loadedTrata = "";
     } catch (error) {
         console.warn("Error cargando detalle:", error.message);
     }
+}
+
+// Variables globales para la sección de Egresos
+let currentEgresosData = { metricas_historicas: {}, metricas_2026: {}, expedientes: [], trataName: "", trataCode: "", gerencia: "", loadedTrata: "" };
+
+async function loadEgresosDetail(gerencia, trataCode, trataName) {
+    const tableContainer = document.getElementById('egresos-table-container');
+    if (!tableContainer) return;
+
+    // Si ya fue cargado para este trámite, no volver a pedirlo
+    if (currentEgresosData.loadedTrata === `${gerencia}_${trataCode}` && currentEgresosData.expedientes.length > 0) {
+        return;
+    }
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/egresos_detail`);
+        if (!response || !response.ok) return;
+
+        const data = await response.json();
+        currentEgresosData = {
+            ...data,
+            trataName: data.nombre_trata || trataName,
+            trataCode,
+            gerencia,
+            loadedTrata: `${gerencia}_${trataCode}`
+        };
+
+        renderEgresosCards(data);
+        populateEgresosYearAndMonthFilters(data.expedientes || []);
+        renderEgresosTable(data.expedientes || []);
+    } catch (err) {
+        console.error("Error al cargar detalle de egresos:", err);
+        if (tableContainer) {
+            tableContainer.innerHTML = `
+                <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                    <p>No se encontraron egresos efectivos registrados para este trámite.</p>
+                </div>`;
+        }
+    }
+}
+
+function populateEgresosYearAndMonthFilters(expedientes) {
+    const anioSelect = document.getElementById('egresos-filter-anio');
+    const mesSelect = document.getElementById('egresos-filter-mes');
+    if (!anioSelect || !mesSelect) return;
+
+    // Extraer años únicos presentes en las fechas de egreso
+    const yearsMap = new Map();
+    (expedientes || []).forEach(exp => {
+        const fe = exp.fecha_egreso;
+        if (fe && fe.length >= 4) {
+            const y = fe.substring(0, 4);
+            yearsMap.set(y, (yearsMap.get(y) || 0) + 1);
+        }
+    });
+
+    const sortedYears = Array.from(yearsMap.keys()).sort().reverse();
+
+    let anioOptions = `<option value="ALL">Todos los años (${(expedientes || []).length})</option>`;
+    sortedYears.forEach(y => {
+        const count = yearsMap.get(y);
+        anioOptions += `<option value="${y}">${y} (${count})</option>`;
+    });
+    anioSelect.innerHTML = anioOptions;
+    anioSelect.value = 'ALL';
+
+    // Poblar meses para todos los años inicialmente
+    populateEgresosMeses('ALL');
+}
+
+function populateEgresosMeses(selectedYear) {
+    const mesSelect = document.getElementById('egresos-filter-mes');
+    if (!mesSelect) return;
+
+    const expedientes = currentEgresosData.expedientes || [];
+
+    let options = `<option value="ALL">Todos los meses</option>`;
+    for (let m = 1; m <= 12; m++) {
+        const mStr = m.toString().padStart(2, '0');
+        const count = expedientes.filter(exp => {
+            const fe = exp.fecha_egreso;
+            if (!fe || fe.length < 7) return false;
+            const matchYear = (selectedYear === 'ALL' || !selectedYear) || fe.startsWith(selectedYear);
+            const matchMonth = fe.substring(5, 7) === mStr;
+            return matchYear && matchMonth;
+        }).length;
+
+        if (count > 0 || selectedYear === 'ALL') {
+            options += `<option value="${mStr}">${MESES[m - 1]} (${count})</option>`;
+        }
+    }
+    mesSelect.innerHTML = options;
+    mesSelect.value = 'ALL';
+}
+
+function onEgresosAnioChange() {
+    const selectedYear = document.getElementById('egresos-filter-anio')?.value || 'ALL';
+    populateEgresosMeses(selectedYear);
+    filterEgresosTable();
+}
+
+window.onEgresosAnioChange = onEgresosAnioChange;
+window.filterEgresosTable = filterEgresosTable;
+window.exportEgresosToExcel = exportEgresosToExcel;
+window.populateEgresosYearAndMonthFilters = populateEgresosYearAndMonthFilters;
+
+function filterEgresosTable() {
+    const query = (document.getElementById('egresos-search-input')?.value || '').toLowerCase().trim();
+    const selectedYear = document.getElementById('egresos-filter-anio')?.value || 'ALL';
+    const selectedMonth = document.getElementById('egresos-filter-mes')?.value || 'ALL';
+    
+    if (!currentEgresosData.expedientes) return;
+
+    let filtered = currentEgresosData.expedientes;
+
+    // Filtro por Año
+    if (selectedYear !== 'ALL') {
+        filtered = filtered.filter(exp => exp.fecha_egreso && exp.fecha_egreso.startsWith(selectedYear));
+    }
+
+    // Filtro por Mes
+    if (selectedMonth !== 'ALL') {
+        filtered = filtered.filter(exp => {
+            return exp.fecha_egreso && exp.fecha_egreso.length >= 7 && exp.fecha_egreso.substring(5, 7) === selectedMonth;
+        });
+    }
+
+    // Filtro por búsqueda de texto
+    if (query) {
+        filtered = filtered.filter(exp => {
+            return (exp.expediente || '').toLowerCase().includes(query) ||
+                   (exp.fecha_caratulacion || '').toLowerCase().includes(query) ||
+                   (exp.fecha_egreso || '').toLowerCase().includes(query);
+        });
+    }
+
+    renderEgresosTable(filtered);
+}
+
+function exportEgresosToExcel() {
+    const query = (document.getElementById('egresos-search-input')?.value || '').toLowerCase().trim();
+    const selectedYear = document.getElementById('egresos-filter-anio')?.value || 'ALL';
+    const selectedMonth = document.getElementById('egresos-filter-mes')?.value || 'ALL';
+    
+    if (!currentEgresosData.expedientes || currentEgresosData.expedientes.length === 0) {
+        alert("No hay expedientes para exportar.");
+        return;
+    }
+
+    let toExport = currentEgresosData.expedientes;
+
+    if (selectedYear !== 'ALL') {
+        toExport = toExport.filter(exp => exp.fecha_egreso && exp.fecha_egreso.startsWith(selectedYear));
+    }
+    if (selectedMonth !== 'ALL') {
+        toExport = toExport.filter(exp => exp.fecha_egreso && exp.fecha_egreso.length >= 7 && exp.fecha_egreso.substring(5, 7) === selectedMonth);
+    }
+    if (query) {
+        toExport = toExport.filter(exp => {
+            return (exp.expediente || '').toLowerCase().includes(query) ||
+                   (exp.fecha_caratulacion || '').toLowerCase().includes(query) ||
+                   (exp.fecha_egreso || '').toLowerCase().includes(query);
+        });
+    }
+
+    if (toExport.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros seleccionados para exportar.");
+        return;
+    }
+
+    const cleanData = toExport.map((r, i) => ({
+        '#': i + 1,
+        'Expediente': r.expediente,
+        'Trámite': r.trata,
+        'Descripción Trámite': r.descripcion_trata,
+        'Fecha Caratulación': r.fecha_caratulacion,
+        'Fecha Egreso': r.fecha_egreso,
+        'Cantidad Subsanaciones': r.cant_subsanaciones,
+        'Días en Área': r.dias_area,
+        'Días en Intervenciones': r.dias_intervenciones,
+        'Días en Subsanación': r.dias_subsanacion,
+        'Tiempo Total (Días)': r.dias_totales
+    }));
+
+    let periodSuffix = '';
+    if (selectedYear !== 'ALL') periodSuffix += `_${selectedYear}`;
+    if (selectedMonth !== 'ALL') periodSuffix += `_M${selectedMonth}`;
+    const filename = `Egresos_${currentEgresosData.gerencia.toUpperCase()}_${currentEgresosData.trataCode}${periodSuffix}`;
+    downloadExcel(filename, cleanData);
+}
+
+function renderEgresosCards(data) {
+    const mAll = data.metricas_historicas || {};
+    const m2026 = data.metricas_2026 || {};
+    const mesNom = data.mes_completo || "Último Mes Completo";
+
+    // Actualizar títulos de grupos
+    const titleAll = document.getElementById('egr-all-group-title');
+    if (titleAll) titleAll.innerText = `Egresados Efectivos (${mesNom})`;
+
+    const subtitleAll = document.getElementById('egr-all-group-subtitle');
+    if (subtitleAll) subtitleAll.innerText = `Todos los expedientes egresados en ${mesNom}`;
+
+    const title2026 = document.getElementById('egr-2026-group-title');
+    if (title2026) title2026.innerText = `Ingresados en 2026 (${mesNom})`;
+
+    const secDesc = document.getElementById('egresos-section-desc');
+    if (secDesc) {
+        secDesc.innerText = `Promedios de tiempo en días corridos por tramo de gestión del último mes cerrado (${mesNom}) y listado cronológico de expedientes resueltos.`;
+    }
+
+    // Grupo 1: Egresados en el Último Mes Completo
+    const countAllTag = document.getElementById('egresos-all-count-tag');
+    if (countAllTag) countAllTag.innerText = `${(mAll.total_expedientes || 0).toLocaleString('es-AR')} exp`;
+
+    const elAreaAll = document.getElementById('egr-all-dias-area');
+    const elIntAll = document.getElementById('egr-all-dias-int');
+    const elSubAll = document.getElementById('egr-all-dias-sub');
+    const elTotAll = document.getElementById('egr-all-dias-tot');
+
+    if (elAreaAll) elAreaAll.innerText = mAll.prom_dias_area !== undefined ? `${mAll.prom_dias_area} d` : '--';
+    if (elIntAll) elIntAll.innerText = mAll.prom_dias_intervenciones !== undefined ? `${mAll.prom_dias_intervenciones} d` : '--';
+    if (elSubAll) elSubAll.innerText = mAll.prom_dias_subsanacion !== undefined ? `${mAll.prom_dias_subsanacion} d` : '--';
+    if (elTotAll) elTotAll.innerText = mAll.prom_dias_totales !== undefined ? `${mAll.prom_dias_totales} d` : '--';
+
+    // Grupo 2: Ingresados 2026 Egresados en el Último Mes Completo
+    const count2026Tag = document.getElementById('egresos-2026-count-tag');
+    if (count2026Tag) count2026Tag.innerText = `${(m2026.total_expedientes || 0).toLocaleString('es-AR')} exp`;
+
+    const elArea2026 = document.getElementById('egr-2026-dias-area');
+    const elInt2026 = document.getElementById('egr-2026-dias-int');
+    const elSub2026 = document.getElementById('egr-2026-dias-sub');
+    const elTot2026 = document.getElementById('egr-2026-dias-tot');
+
+    if (elArea2026) elArea2026.innerText = m2026.prom_dias_area !== undefined ? `${m2026.prom_dias_area} d` : '--';
+    if (elInt2026) elInt2026.innerText = m2026.prom_dias_intervenciones !== undefined ? `${m2026.prom_dias_intervenciones} d` : '--';
+    if (elSub2026) elSub2026.innerText = m2026.prom_dias_subsanacion !== undefined ? `${m2026.prom_dias_subsanacion} d` : '--';
+    if (elTot2026) elTot2026.innerText = m2026.prom_dias_totales !== undefined ? `${m2026.prom_dias_totales} d` : '--';
+}
+
+function renderEgresosTable(expedientes) {
+    const container = document.getElementById('egresos-table-container');
+    const subtitle = document.getElementById('egresos-table-subtitle');
+    if (!container) return;
+
+    if (subtitle) {
+        subtitle.innerText = `Mostrando ${expedientes.length.toLocaleString('es-AR')} expedientes resueltos`;
+    }
+
+    if (!expedientes || expedientes.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                <p>No hay expedientes para mostrar con el filtro actual.</p>
+            </div>`;
+        return;
+    }
+
+    let html = `
+        <table class="report-table" style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; text-align: left; font-family: 'Outfit', sans-serif;">
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">#</th>
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">Número de Expediente</th>
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">Fecha Caratulación</th>
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">Fecha Egreso</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: center; font-family: 'Outfit', sans-serif;">Subs.</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; font-family: 'Outfit', sans-serif;">Días Área</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; font-family: 'Outfit', sans-serif;">Días Interv.</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; font-family: 'Outfit', sans-serif;">Días Subs.</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; color: var(--primary); font-family: 'Outfit', sans-serif;">Tiempo Total</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    expedientes.forEach((exp, idx) => {
+        const rowBg = idx % 2 === 0 ? 'background: #ffffff;' : 'background: #fcfdfe;';
+        html += `
+            <tr style="${rowBg} border-bottom: 1px solid #f1f5f9; transition: background 0.15s; font-family: 'Outfit', sans-serif;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${idx % 2 === 0 ? '#ffffff' : '#fcfdfe'}'">
+                <td style="padding: 9px 14px; color: #94a3b8; font-weight: 600; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">${idx + 1}</td>
+                <td style="padding: 9px 14px; font-weight: 700; color: #1e293b; font-family: 'Outfit', sans-serif;">
+                    <span style="font-family: 'Outfit', sans-serif; font-size: 0.88rem; letter-spacing: 0.2px;">${exp.expediente}</span>
+                </td>
+                <td style="padding: 9px 14px; color: #475569; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${exp.fecha_caratulacion || '--'}</td>
+                <td style="padding: 9px 14px; color: #475569; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${exp.fecha_egreso || '--'}</td>
+                <td style="padding: 9px 14px; text-align: center; font-family: 'Outfit', sans-serif;">
+                    <span style="background: ${exp.cant_subsanaciones > 0 ? '#fef3c7' : '#f1f5f9'}; color: ${exp.cant_subsanaciones > 0 ? '#b45309' : '#64748b'}; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.78rem; font-family: 'Outfit', sans-serif;">
+                        ${exp.cant_subsanaciones}
+                    </span>
+                </td>
+                <td style="padding: 9px 14px; text-align: right; color: #334155; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">${exp.dias_area} d</td>
+                <td style="padding: 9px 14px; text-align: right; color: #334155; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">${exp.dias_intervenciones} d</td>
+                <td style="padding: 9px 14px; text-align: right; color: #f59e0b; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">${exp.dias_subsanacion} d</td>
+                <td style="padding: 9px 14px; text-align: right; font-weight: 800; color: #0284c7; font-family: 'Outfit', sans-serif; font-size: 0.9rem;">${exp.dias_totales} d</td>
+            </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
 }
 
 function switchTrataSection(sectionId) {
@@ -1314,17 +1835,27 @@ function switchTrataSection(sectionId) {
         return;
     }
 
-    // Ocultar todas las secciones
-    document.querySelectorAll('.trata-section').forEach(s => s.classList.remove('active'));
+    // Ocultar todas las secciones de trata_detail
+    const allSections = document.querySelectorAll('#trata_detail .trata-section');
+    allSections.forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
+
     // Desactivar todos los botones
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const buttons = document.querySelectorAll('#trata_detail .tab-btn');
+    buttons.forEach(b => b.classList.remove('active'));
 
-    // Mostrar la seleccionada
+    // Mostrar la sección seleccionada
     const targetSection = document.getElementById(`section-${sectionId}`);
-    if (targetSection) targetSection.classList.add('active');
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+    } else {
+        console.warn(`No se encontró el elemento #section-${sectionId}`);
+    }
 
-    // Activar botón (buscando por el texto o el onclick)
-    const buttons = document.querySelectorAll('.tab-btn');
+    // Activar botón correspondiente
     buttons.forEach(btn => {
         const clickAttr = btn.getAttribute('onclick') || "";
         if (clickAttr.includes(`'${sectionId}'`)) {
@@ -1334,6 +1865,14 @@ function switchTrataSection(sectionId) {
 
     if (sectionId === 'metas') {
         loadMetasData();
+    } else if (sectionId === 'egresos') {
+        loadEgresosDetail(currentGerencia, currentTrataCode, currentTrataName);
+    } else if (sectionId === 'subsanaciones') {
+        loadSubsanacionesDetail(currentGerencia, currentTrataCode, currentTrataName);
+    } else if (sectionId === 'stock-analistas') {
+        renderStockTab();
+    } else if (sectionId === 'flujo') {
+        renderFlujoTab();
     }
 }
 
@@ -1566,14 +2105,1228 @@ function openTrataDrillDown(trataCode) {
     filtered.forEach(e => {
         html += `<tr><td class="code-cell">${e.expediente}</td><td class="code-cell">${e.id_expediente}</td><td>${e.analista || 'SIN ASIGNAR'}</td><td>${e.dias}</td></tr>`;
     });
-
     document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
     modal.style.display = 'flex';
 }
 
 function closeModal(id) { document.getElementById(id || 'stock-drilldown-modal').style.display = 'none'; }
 
-// --- FUNCIONES DESCARGA POR ANTIGÜEDAD DE STOCK ---
+// --- SECCIÓN: STOCK (VISTA DETALLADA POR USUARIOS Y EXPEDIENTES) ---
+let selectedStockAnalystCard = 'ALL';
+
+function renderStockTab() {
+    try {
+        const expedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+        
+        // Contadores rápidos en cabecera
+        const totalCount = expedientes.length;
+        const stockCount = currentStockData.stock_count !== undefined ? currentStockData.stock_count : expedientes.filter(e => e.tipo_flujo === 'STOCK').length;
+        const flujoCount = currentStockData.flujo_count !== undefined ? currentStockData.flujo_count : expedientes.filter(e => e.tipo_flujo === 'FLUJO').length;
+
+        const elPropio = document.getElementById('tab-stock-num-propio');
+        if (elPropio) elPropio.innerText = totalCount.toLocaleString('es-AR');
+
+        const elEstancado = document.getElementById('tab-stock-num-estancado');
+        if (elEstancado) elEstancado.innerText = stockCount.toLocaleString('es-AR');
+
+        const elFlujo = document.getElementById('tab-stock-num-flujo');
+        if (elFlujo) elFlujo.innerText = flujoCount.toLocaleString('es-AR');
+
+        // Agrupar por analista / buzón
+        const usersMap = {};
+        expedientes.forEach(e => {
+            const u = (e.analista || 'SIN ASIGNAR').trim();
+            const uName = e.analista_nombre || u;
+            if (!usersMap[u]) {
+                usersMap[u] = {
+                    usuario: u,
+                    nombre: uName,
+                    total: 0,
+                    cant_subs: 0,
+                    stock: 0,
+                    flujo: 0
+                };
+            }
+            usersMap[u].total++;
+            if (e.tipo_flujo === 'STOCK') usersMap[u].stock++;
+            if (e.tipo_flujo === 'FLUJO') usersMap[u].flujo++;
+            if (e.cant_subsanaciones > 0) {
+                usersMap[u].cant_subs += (e.cant_subsanaciones || 0);
+            }
+        });
+
+        const usersList = Object.values(usersMap).sort((a, b) => b.total - a.total);
+
+        const elUsers = document.getElementById('tab-stock-num-users');
+        if (elUsers) elUsers.innerText = usersList.length;
+
+        // Renderizar tarjetas de analistas / buzones
+        const cardsGrid = document.getElementById('stock-analysts-cards-grid');
+        const countUsersEl = document.getElementById('stock-users-count');
+        if (countUsersEl) countUsersEl.innerText = `${usersList.length} ${usersList.length === 1 ? 'usuario / buzón' : 'usuarios y buzones'}`;
+
+        if (cardsGrid) {
+            if (usersList.length === 0) {
+                cardsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: #64748b; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <i class="fa-solid fa-folder-open" style="font-size: 2rem; color: #94a3b8; margin-bottom: 8px; display: block;"></i>
+                        No hay expedientes en stock actualmente para este trámite.
+                    </div>`;
+            } else {
+                let cardsHtml = `
+                    <!-- Tarjeta Todos -->
+                    <div class="stock-analyst-card ${selectedStockAnalystCard === 'ALL' ? 'active' : ''}" 
+                        onclick="selectStockAnalystCard('ALL')"
+                        style="background: ${selectedStockAnalystCard === 'ALL' ? '#eff6ff' : 'white'}; border: 1.5px solid ${selectedStockAnalystCard === 'ALL' ? 'var(--primary)' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </span>
+                                <div>
+                                    <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #1e293b;">Todos los usuarios</h5>
+                                    <span style="font-size: 0.75rem; color: #64748b;">Nómina completa</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 1.35rem; font-weight: 800; color: #0284c7; font-family: 'Outfit';">
+                                ${totalCount}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                            <span style="color: #b91c1c;"><i class="fa-solid fa-circle" style="font-size: 6px; vertical-align: middle;"></i> Stock: ${stockCount}</span>
+                            <span style="color: #15803d;"><i class="fa-solid fa-circle" style="font-size: 6px; vertical-align: middle;"></i> Flujo: ${flujoCount}</span>
+                        </div>
+                    </div>
+                `;
+
+                usersList.forEach(u => {
+                    const isSelected = selectedStockAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                    const isBuzon = u.usuario.startsWith('BUZON_') || u.usuario.includes('DG') || u.usuario.includes('GERENCIA');
+                    const iconBg = isBuzon ? '#fef3c7' : '#f1f5f9';
+                    const iconColor = isBuzon ? '#d97706' : '#475569';
+                    const iconClass = isBuzon ? 'fa-inbox' : 'fa-user';
+                    const uEsc = u.usuario.replace(/'/g, "\\'");
+
+                    cardsHtml += `
+                        <div class="stock-analyst-card ${isSelected ? 'active' : ''}" 
+                            onclick="selectStockAnalystCard('${uEsc}')"
+                            style="background: ${isSelected ? '#eff6ff' : 'white'}; border: 1.5px solid ${isSelected ? 'var(--primary)' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                                    <span style="width: 32px; height: 32px; border-radius: 8px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                                        <i class="fa-solid ${iconClass}"></i>
+                                    </span>
+                                    <div style="overflow: hidden;">
+                                        <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.9rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.nombre}">
+                                            ${u.nombre}
+                                        </h5>
+                                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; font-family: 'Outfit';">${u.usuario}</span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 800; color: ${isSelected ? 'var(--primary)' : '#0f172a'}; font-family: 'Outfit'; flex-shrink: 0;">
+                                    ${u.total}
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px; color: #64748b;">
+                                <span style="color: #b91c1c;">Stk: ${u.stock}</span>
+                                <span style="color: #15803d;">Flj: ${u.flujo}</span>
+                                <span style="color: #0284c7; background: #f0f9ff; padding: 1px 6px; border-radius: 6px;">${u.total} exp</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardsGrid.innerHTML = cardsHtml;
+            }
+        }
+
+        // Llenar select de filtro de analistas
+        const selectAnalista = document.getElementById('stock-filter-analista');
+        if (selectAnalista) {
+            let optHtml = `<option value="ALL">Todos los usuarios (${totalCount})</option>`;
+            usersList.forEach(u => {
+                const isSel = selectedStockAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                optHtml += `<option value="${u.usuario}" ${isSel ? 'selected' : ''}>${u.nombre} (${u.total})</option>`;
+            });
+            selectAnalista.innerHTML = optHtml;
+        }
+
+        filterStockTable();
+    } catch (err) {
+        console.error("Error en renderStockTab:", err);
+    }
+}
+
+function selectStockAnalystCard(usuario) {
+    selectedStockAnalystCard = usuario;
+    const select = document.getElementById('stock-filter-analista');
+    if (select) select.value = usuario;
+
+    // Actualizar clase activa en tarjetas
+    document.querySelectorAll('.stock-analyst-card').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'white';
+        c.style.border = '1.5px solid #e2e8f0';
+    });
+
+    filterStockTable();
+}
+
+function filterStockTable() {
+    const tbody = document.getElementById('stock-expedientes-tbody');
+    const subtitle = document.getElementById('stock-table-subtitle');
+    if (!tbody) return;
+
+    const expedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+    
+    // Obtener valores de filtro
+    const selectTipo = document.getElementById('stock-filter-tipo')?.value || 'ALL';
+    const selectAnalista = document.getElementById('stock-filter-analista')?.value || 'ALL';
+    const searchVal = (document.getElementById('stock-search-input')?.value || '').trim().toLowerCase();
+
+    // Sincronizar estado global si el usuario cambió el select
+    if (selectAnalista !== selectedStockAnalystCard) {
+        selectedStockAnalystCard = selectAnalista;
+    }
+
+    const filtered = expedientes.filter(e => {
+        // Filtro Tipo (Stock / Flujo)
+        if (selectTipo !== 'ALL') {
+            if (e.tipo_flujo !== selectTipo) return false;
+        }
+
+        // Filtro Analista
+        if (selectedStockAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedStockAnalystCard.toUpperCase()) return false;
+        }
+
+        // Filtro Buscador
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !desc.includes(searchVal) && !motivo.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (subtitle) {
+        subtitle.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${expedientes.length.toLocaleString('es-AR')} expedientes en gestión`;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                    No se encontraron expedientes con los filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    // Ordenar por días en gerencia descendente
+    filtered.sort((a, b) => (b.dias_en_gerencia || 0) - (a.dias_en_gerencia || 0));
+
+    let html = '';
+    filtered.forEach(e => {
+        const fCaratula = e.fecha_caratulacion ? e.fecha_caratulacion.substring(0, 10) : (e.caratula ? String(e.caratula).substring(0, 10) : '-');
+        const fUltPase = e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : '-';
+        
+        const diasAnalista = e.dias !== null && e.dias !== undefined ? e.dias : '-';
+        const diasGerencia = e.dias_en_gerencia !== null && e.dias_en_gerencia !== undefined ? e.dias_en_gerencia : '-';
+        const cantSubs = e.cant_subsanaciones || 0;
+        const diasSubs = e.dias_en_subsanacion || 0;
+        const motivoPase = e.motivo_pase || 'Sin Motivo';
+
+        const uDisplayName = e.analista_nombre || e.analista || 'SIN ASIGNAR';
+
+        const isFlujo = e.tipo_flujo === 'FLUJO';
+        const badgeCondicion = isFlujo
+            ? `<span class="badge-tipo-flujo" title="Días en sector (${diasGerencia}d) ≤ tiempo de resolución (${currentStockData.tiempo_resolucion}d)"><i class="fa-solid fa-arrow-trend-up"></i> FLUJO</span>`
+            : `<span class="badge-tipo-stock" title="Días en sector (${diasGerencia}d) > tiempo de resolución (${currentStockData.tiempo_resolucion}d)"><i class="fa-solid fa-hourglass-half"></i> STOCK</span>`;
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 11px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span title="${e.descripcion || e.descripcion_trata || ''}">${e.expediente || '-'}</span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    ${badgeCondicion}
+                </td>
+                <td style="padding: 11px 14px; color: #334155;">
+                    <div style="font-weight: 600; font-size: 0.88rem;">${uDisplayName}</div>
+                    <div style="font-size: 0.74rem; color: #64748b; font-family: 'Outfit';">${e.analista || '-'}</div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fCaratula}</td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fUltPase}</td>
+                <td style="padding: 11px 14px; color: #475569; font-size: 0.82rem; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${motivoPase}">
+                    ${motivoPase}
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-weight: 700; color: ${diasAnalista > 30 ? '#dc2626' : diasAnalista > 15 ? '#d97706' : '#16a34a'};">
+                        ${diasAnalista} ${typeof diasAnalista === 'number' ? 'd' : ''}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #1e293b;">
+                    ${diasGerencia} ${typeof diasGerencia === 'number' ? 'd' : ''}
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 800; background: ${cantSubs > 0 ? '#fffbeb' : '#f1f5f9'}; color: ${cantSubs > 0 ? '#b45309' : '#64748b'}; border: 1px solid ${cantSubs > 0 ? '#fde68a' : '#e2e8f0'};">
+                        ${cantSubs}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-weight: 700; color: ${diasSubs > 0 ? '#b45309' : '#94a3b8'};">
+                        ${diasSubs} ${typeof diasSubs === 'number' ? 'd' : ''}
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function exportStockTabToExcel() {
+    const expedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+    if (expedientes.length === 0) {
+        alert("No hay expedientes para exportar.");
+        return;
+    }
+
+    const selectTipo = document.getElementById('stock-filter-tipo')?.value || 'ALL';
+    const searchVal = (document.getElementById('stock-search-input')?.value || '').trim().toLowerCase();
+
+    const filtered = expedientes.filter(e => {
+        if (selectTipo !== 'ALL' && e.tipo_flujo !== selectTipo) return false;
+        if (selectedStockAnalystCard !== 'ALL' && (e.analista || '').toUpperCase() !== selectedStockAnalystCard.toUpperCase()) return false;
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !motivo.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros para exportar.");
+        return;
+    }
+
+    const headers = ["Expediente", "Condicion", "Usuario SADE", "Nombre Analista", "Fecha Caratulacion", "Ultimo Pase", "Motivo Ultimo Pase", "Dias Analista", "Dias Gerencia", "Cantidad Subsanaciones", "Dias en Subsanacion", "Trata Codigo", "Descripcion Trata"];
+    const rows = filtered.map(e => [
+        `"${e.expediente || ''}"`,
+        `"${e.tipo_flujo || 'STOCK'}"`,
+        `"${e.analista || ''}"`,
+        `"${e.analista_nombre || ''}"`,
+        `"${e.fecha_caratulacion || e.caratula || ''}"`,
+        `"${e.fecha_ultimo_pase || ''}"`,
+        `"${(e.motivo_pase || '').replace(/"/g, '""')}"`,
+        e.dias || 0,
+        e.dias_en_gerencia || 0,
+        e.cant_subsanaciones || 0,
+        e.dias_en_subsanacion || 0,
+        `"${e.trata || currentStockData.trataCode || ''}"`,
+        `"${(e.descripcion_trata || currentStockData.trataName || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Stock_${currentStockData.trataCode || 'Trata'}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exponer en window
+window.renderStockTab = renderStockTab;
+window.selectStockAnalystCard = selectStockAnalystCard;
+window.filterStockTable = filterStockTable;
+window.exportStockTabToExcel = exportStockTabToExcel;
+
+// --- SECCIÓN: FLUJO (EXPEDIENTES ACTIVOS DENTRO DEL TIEMPO DE RESOLUCIÓN) ---
+let selectedFlujoAnalystCard = 'ALL';
+let isFlujoVencenEstaSemanaActive = false;
+
+function getDaysUntilFriday() {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Dom, 1 = Lun, 2 = Mar, 3 = Mie, 4 = Jue, 5 = Vie, 6 = Sab
+    if (dayOfWeek === 0) return 5;
+    if (dayOfWeek <= 5) return 5 - dayOfWeek;
+    return 6;
+}
+
+function renderFlujoTab() {
+    try {
+        const allExpedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+        const tResolucion = (currentStockData && currentStockData.tiempo_resolucion) ? Math.ceil(Number(currentStockData.tiempo_resolucion)) : 30;
+        
+        // Filtrar expedientes en Flujo (dias_en_gerencia <= tResolucion)
+        const flujoExpedientes = allExpedientes.filter(e => e.tipo_flujo === 'FLUJO' || Math.ceil(Number(e.dias_en_gerencia || 0)) <= tResolucion);
+        const daysUntilFriday = getDaysUntilFriday();
+
+        // Actualizar textos informativos de umbral SLA
+        const thresholdText = document.getElementById('flujo-sla-threshold-text');
+        if (thresholdText) thresholdText.innerText = tResolucion;
+
+        // Calcular métricas
+        const totalFlujo = flujoExpedientes.length;
+        const vencenEstaSemanaList = flujoExpedientes.filter(e => {
+            const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+            const dRest = Math.max(0, tResolucion - dGer);
+            return dRest <= daysUntilFriday;
+        });
+        const countVencenEstaSemana = vencenEstaSemanaList.length;
+
+        // KPI Badges superiores
+        const elTotalBadge = document.getElementById('tab-flujo-badge-total');
+        if (elTotalBadge) elTotalBadge.innerText = totalFlujo.toLocaleString('es-AR');
+
+        const elKpiTotal = document.getElementById('kpi-flujo-total-count');
+        if (elKpiTotal) elKpiTotal.innerText = totalFlujo.toLocaleString('es-AR');
+
+        const elKpiVence = document.getElementById('kpi-flujo-vence-semana-count');
+        if (elKpiVence) elKpiVence.innerText = countVencenEstaSemana.toLocaleString('es-AR');
+
+        const subVence = document.getElementById('flujo-vence-semana-subtitle');
+        if (subVence) {
+            subVence.innerText = daysUntilFriday === 0 
+                ? "Vencen hoy viernes" 
+                : `Vencen en los próximos ${daysUntilFriday} días (hasta el viernes)`;
+        }
+
+        // Agrupar por analista / buzón para expedientes de flujo
+        const usersMap = {};
+        flujoExpedientes.forEach(e => {
+            const u = (e.analista || 'SIN ASIGNAR').trim();
+            const uName = e.analista_nombre || u;
+            const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+            const dRest = Math.max(0, tResolucion - dGer);
+            const venceSemana = dRest <= daysUntilFriday;
+
+            if (!usersMap[u]) {
+                usersMap[u] = {
+                    usuario: u,
+                    nombre: uName,
+                    total: 0,
+                    vencen_semana: 0,
+                    cant_subs: 0
+                };
+            }
+            usersMap[u].total++;
+            if (venceSemana) usersMap[u].vencen_semana++;
+            if (e.cant_subsanaciones > 0) {
+                usersMap[u].cant_subs += (e.cant_subsanaciones || 0);
+            }
+        });
+
+        const usersList = Object.values(usersMap).sort((a, b) => b.total - a.total);
+
+        const elUsersBadge = document.getElementById('tab-flujo-num-users');
+        if (elUsersBadge) elUsersBadge.innerText = usersList.length;
+
+        const countUsersEl = document.getElementById('flujo-users-count');
+        if (countUsersEl) countUsersEl.innerText = `${usersList.length} ${usersList.length === 1 ? 'usuario / buzón' : 'usuarios y buzones'}`;
+
+        // Renderizar tarjetas de analistas de Flujo
+        const cardsGrid = document.getElementById('flujo-analysts-cards-grid');
+        if (cardsGrid) {
+            if (usersList.length === 0) {
+                cardsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: #64748b; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <i class="fa-solid fa-arrow-trend-up" style="font-size: 2rem; color: #94a3b8; margin-bottom: 8px; display: block;"></i>
+                        No hay expedientes en flujo actualmente para este trámite.
+                    </div>`;
+            } else {
+                let cardsHtml = `
+                    <!-- Tarjeta Todos -->
+                    <div class="flujo-analyst-card ${selectedFlujoAnalystCard === 'ALL' ? 'active' : ''}" 
+                        onclick="selectFlujoAnalystCard('ALL')"
+                        style="background: ${selectedFlujoAnalystCard === 'ALL' ? '#f0fdf4' : 'white'}; border: 1.5px solid ${selectedFlujoAnalystCard === 'ALL' ? '#16a34a' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 32px; height: 32px; border-radius: 8px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </span>
+                                <div>
+                                    <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #1e293b;">Todos los usuarios</h5>
+                                    <span style="font-size: 0.75rem; color: #64748b;">Nómina completa de flujo</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 1.35rem; font-weight: 800; color: #16a34a; font-family: 'Outfit';">
+                                ${totalFlujo}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                            <span style="color: #ea580c;"><i class="fa-solid fa-clock" style="font-size: 8px; vertical-align: middle;"></i> Vencen esta sem: ${countVencenEstaSemana}</span>
+                            <span style="color: #15803d;"><i class="fa-solid fa-circle-check" style="font-size: 8px; vertical-align: middle;"></i> Total: ${totalFlujo}</span>
+                        </div>
+                    </div>
+                `;
+
+                usersList.forEach(u => {
+                    const isSelected = selectedFlujoAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                    const isBuzon = u.usuario.startsWith('BUZON_') || u.usuario.includes('DG') || u.usuario.includes('GERENCIA');
+                    const iconBg = isBuzon ? '#fef3c7' : '#f0fdf4';
+                    const iconColor = isBuzon ? '#d97706' : '#16a34a';
+                    const iconClass = isBuzon ? 'fa-inbox' : 'fa-user';
+                    const uEsc = u.usuario.replace(/'/g, "\\'");
+
+                    cardsHtml += `
+                        <div class="flujo-analyst-card ${isSelected ? 'active' : ''}" 
+                            onclick="selectFlujoAnalystCard('${uEsc}')"
+                            style="background: ${isSelected ? '#f0fdf4' : 'white'}; border: 1.5px solid ${isSelected ? '#16a34a' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                                    <span style="width: 32px; height: 32px; border-radius: 8px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                                        <i class="fa-solid ${iconClass}"></i>
+                                    </span>
+                                    <div style="overflow: hidden;">
+                                        <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.9rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.nombre}">
+                                            ${u.nombre}
+                                        </h5>
+                                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; font-family: 'Outfit';">${u.usuario}</span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 800; color: ${isSelected ? '#16a34a' : '#0f172a'}; font-family: 'Outfit'; flex-shrink: 0;">
+                                    ${u.total}
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px; color: #64748b;">
+                                <span style="color: ${u.vencen_semana > 0 ? '#ea580c' : '#94a3b8'};">Vence sem: ${u.vencen_semana}</span>
+                                <span style="color: #15803d; background: #f0fdf4; padding: 1px 6px; border-radius: 6px;">${u.total} exp</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardsGrid.innerHTML = cardsHtml;
+            }
+        }
+
+        // Llenar select de filtro de analistas de Flujo
+        const selectAnalista = document.getElementById('flujo-filter-analista');
+        if (selectAnalista) {
+            let optHtml = `<option value="ALL">Todos los usuarios (${totalFlujo})</option>`;
+            usersList.forEach(u => {
+                const isSel = selectedFlujoAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                optHtml += `<option value="${u.usuario}" ${isSel ? 'selected' : ''}>${u.nombre} (${u.total})</option>`;
+            });
+            selectAnalista.innerHTML = optHtml;
+        }
+
+        filterFlujoTable();
+    } catch (err) {
+        console.error("Error en renderFlujoTab:", err);
+    }
+}
+
+function selectFlujoAnalystCard(usuario) {
+    selectedFlujoAnalystCard = usuario;
+    const select = document.getElementById('flujo-filter-analista');
+    if (select) select.value = usuario;
+
+    document.querySelectorAll('.flujo-analyst-card').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'white';
+        c.style.border = '1.5px solid #e2e8f0';
+    });
+
+    filterFlujoTable();
+}
+
+function toggleFlujoVencenEstaSemanaFilter() {
+    const card = document.getElementById('card-flujo-vence-semana');
+    const badge = document.getElementById('badge-flujo-filtro-activo');
+    const selectVenc = document.getElementById('flujo-filter-vencimiento');
+    
+    isFlujoVencenEstaSemanaActive = !isFlujoVencenEstaSemanaActive;
+    
+    if (isFlujoVencenEstaSemanaActive) {
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)';
+            card.style.borderColor = '#ea580c';
+            card.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.3)';
+        }
+        if (badge) badge.style.display = 'inline-block';
+        if (selectVenc) selectVenc.value = 'ESTA_SEMANA';
+    } else {
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+            card.style.borderColor = '#fdba74';
+            card.style.boxShadow = '0 4px 6px -1px rgba(249, 115, 22, 0.1)';
+        }
+        if (badge) badge.style.display = 'none';
+        if (selectVenc) selectVenc.value = 'ALL';
+    }
+    
+    filterFlujoTable();
+}
+
+function filterFlujoTable() {
+    const tbody = document.getElementById('flujo-expedientes-tbody');
+    const subtitle = document.getElementById('flujo-table-subtitle');
+    if (!tbody) return;
+
+    const allExpedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+    const tResolucion = (currentStockData && currentStockData.tiempo_resolucion) ? Math.ceil(Number(currentStockData.tiempo_resolucion)) : 30;
+    const daysUntilFriday = getDaysUntilFriday();
+
+    // Expedientes en Flujo
+    const flujoExpedientes = allExpedientes.filter(e => e.tipo_flujo === 'FLUJO' || Math.ceil(Number(e.dias_en_gerencia || 0)) <= tResolucion);
+    
+    // Obtener valores de filtros
+    const selectVenc = document.getElementById('flujo-filter-vencimiento')?.value || (isFlujoVencenEstaSemanaActive ? 'ESTA_SEMANA' : 'ALL');
+    const selectAnalista = document.getElementById('flujo-filter-analista')?.value || 'ALL';
+    const searchVal = (document.getElementById('flujo-search-input')?.value || '').trim().toLowerCase();
+
+    // Sincronizar estado si el usuario cambió directamente el select
+    if (selectVenc === 'ESTA_SEMANA' && !isFlujoVencenEstaSemanaActive) {
+        isFlujoVencenEstaSemanaActive = true;
+        const card = document.getElementById('card-flujo-vence-semana');
+        const badge = document.getElementById('badge-flujo-filtro-activo');
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)';
+            card.style.borderColor = '#ea580c';
+            card.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.3)';
+        }
+        if (badge) badge.style.display = 'inline-block';
+    } else if (selectVenc !== 'ESTA_SEMANA' && isFlujoVencenEstaSemanaActive) {
+        isFlujoVencenEstaSemanaActive = false;
+        const card = document.getElementById('card-flujo-vence-semana');
+        const badge = document.getElementById('badge-flujo-filtro-activo');
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+            card.style.borderColor = '#fdba74';
+            card.style.boxShadow = '0 4px 6px -1px rgba(249, 115, 22, 0.1)';
+        }
+        if (badge) badge.style.display = 'none';
+    }
+
+    if (selectAnalista !== selectedFlujoAnalystCard) {
+        selectedFlujoAnalystCard = selectAnalista;
+    }
+
+    const filtered = flujoExpedientes.filter(e => {
+        const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const dRest = Math.max(0, tResolucion - dGer);
+
+        // Filtro Vencimiento
+        if (selectVenc === 'ESTA_SEMANA') {
+            if (dRest > daysUntilFriday) return false;
+        } else if (selectVenc === 'MAS_7_DIAS') {
+            if (dRest <= 7) return false;
+        }
+
+        // Filtro Analista
+        if (selectedFlujoAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedFlujoAnalystCard.toUpperCase()) return false;
+        }
+
+        // Filtro Buscador
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !desc.includes(searchVal) && !motivo.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (subtitle) {
+        subtitle.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${flujoExpedientes.length.toLocaleString('es-AR')} expedientes en flujo`;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                    No se encontraron expedientes en flujo con los filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    // Ordenar por días restantes ascendente (los más urgentes primero)
+    filtered.sort((a, b) => {
+        const dGerA = Math.ceil(Number(a.dias_en_gerencia || 0));
+        const dGerB = Math.ceil(Number(b.dias_en_gerencia || 0));
+        const dRestA = Math.max(0, tResolucion - dGerA);
+        const dRestB = Math.max(0, tResolucion - dGerB);
+        return dRestA - dRestB;
+    });
+
+    let html = '';
+    filtered.forEach(e => {
+        const fCaratula = e.fecha_caratulacion ? e.fecha_caratulacion.substring(0, 10) : (e.caratula ? String(e.caratula).substring(0, 10) : '-');
+        const fUltPase = e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : '-';
+        
+        const diasAnalista = e.dias !== null && e.dias !== undefined ? Math.ceil(Number(e.dias)) : '-';
+        const diasGerencia = e.dias_en_gerencia !== null && e.dias_en_gerencia !== undefined ? Math.ceil(Number(e.dias_en_gerencia)) : 0;
+        const cantSubs = e.cant_subsanaciones || 0;
+        const diasSubs = e.dias_en_subsanacion ? Math.ceil(Number(e.dias_en_subsanacion)) : 0;
+        const motivoPase = e.motivo_pase || 'Sin Motivo';
+
+        const uDisplayName = e.analista_nombre || e.analista || 'SIN ASIGNAR';
+
+        const diasRestantes = Math.max(0, tResolucion - diasGerencia);
+        const venceEstaSemana = diasRestantes <= daysUntilFriday;
+
+        let badgeEstado;
+        if (diasRestantes === 0) {
+            badgeEstado = `<span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 99px; font-weight: 800; font-size: 0.75rem;"><i class="fa-solid fa-triangle-exclamation"></i> Límite hoy</span>`;
+        } else if (venceEstaSemana) {
+            badgeEstado = `<span style="background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; padding: 3px 8px; border-radius: 99px; font-weight: 800; font-size: 0.75rem;"><i class="fa-solid fa-clock"></i> Vence esta semana</span>`;
+        } else if (diasRestantes <= 7) {
+            badgeEstado = `<span style="background: #fefce8; color: #a16207; border: 1px solid #fef08a; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem;"><i class="fa-solid fa-hourglass-half"></i> Próxima sem (${diasRestantes}d)</span>`;
+        } else {
+            badgeEstado = `<span style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem;"><i class="fa-solid fa-check"></i> En plazo (+${diasRestantes}d)</span>`;
+        }
+
+        const colorDiasRestantes = venceEstaSemana ? '#ea580c' : (diasRestantes <= 7 ? '#d97706' : '#16a34a');
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 11px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span title="${e.descripcion || e.descripcion_trata || ''}">${e.expediente || '-'}</span>
+                </td>
+                <td style="padding: 11px 14px; color: #334155;">
+                    <div style="font-weight: 600; font-size: 0.88rem;">${uDisplayName}</div>
+                    <div style="font-size: 0.74rem; color: #64748b; font-family: 'Outfit';">${e.analista || '-'}</div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fCaratula}</td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fUltPase}</td>
+                <td style="padding: 11px 14px; color: #475569; font-size: 0.82rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${motivoPase}">
+                    ${motivoPase}
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-weight: 700; color: ${diasAnalista > 30 ? '#dc2626' : diasAnalista > 15 ? '#d97706' : '#16a34a'};">
+                        ${diasAnalista} ${typeof diasAnalista === 'number' ? 'd' : ''}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #1e293b;">
+                    ${diasGerencia} d
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 800; background: ${cantSubs > 0 ? '#fffbeb' : '#f1f5f9'}; color: ${cantSubs > 0 ? '#b45309' : '#64748b'}; border: 1px solid ${cantSubs > 0 ? '#fde68a' : '#e2e8f0'};" title="${diasSubs} días en subsanación">
+                        ${cantSubs} (${diasSubs}d)
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-size: 1.05rem; font-weight: 900; color: ${colorDiasRestantes}; font-family: 'Outfit';">
+                        ${diasRestantes} d
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    ${badgeEstado}
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function exportFlujoTabToExcel() {
+    if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
+        alert("No hay expedientes en flujo para exportar.");
+        return;
+    }
+
+    const allExpedientes = currentStockData.expedientes;
+    const tResolucion = (currentStockData && currentStockData.tiempo_resolucion) ? Math.ceil(Number(currentStockData.tiempo_resolucion)) : 30;
+    const daysUntilFriday = getDaysUntilFriday();
+
+    const flujoExpedientes = allExpedientes.filter(e => e.tipo_flujo === 'FLUJO' || Math.ceil(Number(e.dias_en_gerencia || 0)) <= tResolucion);
+    
+    const selectVenc = document.getElementById('flujo-filter-vencimiento')?.value || (isFlujoVencenEstaSemanaActive ? 'ESTA_SEMANA' : 'ALL');
+    const selectAnalista = document.getElementById('flujo-filter-analista')?.value || 'ALL';
+    const searchVal = (document.getElementById('flujo-search-input')?.value || '').trim().toLowerCase();
+
+    const filtered = flujoExpedientes.filter(e => {
+        const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const dRest = Math.max(0, tResolucion - dGer);
+
+        if (selectVenc === 'ESTA_SEMANA') {
+            if (dRest > daysUntilFriday) return false;
+        } else if (selectVenc === 'MAS_7_DIAS') {
+            if (dRest <= 7) return false;
+        }
+
+        if (selectedFlujoAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedFlujoAnalystCard.toUpperCase()) return false;
+        }
+
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !desc.includes(searchVal) && !motivo.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros para exportar.");
+        return;
+    }
+
+    const headers = ["Expediente", "Condición", "Usuario SADE", "Nombre Analista", "Fecha Caratulación", "Último Pase", "Motivo Último Pase", "Días Analista", "Días Gerencia", "Cant. Subsanaciones", "Días Subsanación", "Días Restantes Flujo", "SLA Meta (Días)", "Vence Esta Semana (Viernes)", "Trata Código", "Descripción Trata"];
+    const rows = filtered.map(e => {
+        const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const dRest = Math.max(0, tResolucion - dGer);
+        const venceSem = dRest <= daysUntilFriday ? "SÍ" : "NO";
+        return [
+            `"${e.expediente || ''}"`,
+            `"FLUJO"`,
+            `"${e.analista || ''}"`,
+            `"${e.analista_nombre || ''}"`,
+            `"${e.fecha_caratulacion || e.caratula || ''}"`,
+            `"${e.fecha_ultimo_pase || ''}"`,
+            `"${(e.motivo_pase || '').replace(/"/g, '""')}"`,
+            Math.ceil(Number(e.dias || 0)),
+            dGer,
+            e.cant_subsanaciones || 0,
+            Math.ceil(Number(e.dias_en_subsanacion || 0)),
+            dRest,
+            tResolucion,
+            `"${venceSem}"`,
+            `"${e.trata || currentStockData.trataCode || ''}"`,
+            `"${(e.descripcion_trata || currentStockData.trataName || '').replace(/"/g, '""')}"`
+        ];
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Flujo_${currentStockData.trataCode || 'Trata'}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exponer funciones de Flujo en window
+window.renderFlujoTab = renderFlujoTab;
+window.selectFlujoAnalystCard = selectFlujoAnalystCard;
+window.toggleFlujoVencenEstaSemanaFilter = toggleFlujoVencenEstaSemanaFilter;
+window.filterFlujoTable = filterFlujoTable;
+window.exportFlujoTabToExcel = exportFlujoTabToExcel;
+window.switchTrataSection = switchTrataSection;
+
+// --- SECCIÓN: SUBSANACIONES (DETALLE DE EXPEDIENTES CON SUBSANACIÓN ABIERTA) ---
+let currentTrataSubsanacionesData = {
+    total: 0,
+    promedio_dias_actual: 0,
+    promedio_dias_total: 0,
+    analyst_distribution: [],
+    expedientes: [],
+    trataName: "",
+    trataCode: "",
+    gerencia: "",
+    loadedTrata: ""
+};
+let selectedSubsAnalystCard = 'ALL';
+
+async function loadSubsanacionesDetail(gerencia, trataCode, trataName) {
+    const tbody = document.getElementById('subsanaciones-expedientes-tbody');
+    if (tbody && (!currentTrataSubsanacionesData.expedientes || currentTrataSubsanacionesData.expedientes.length === 0)) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2.5rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando expedientes en subsanación...</p></td></tr>`;
+    }
+
+    // Si ya fue cargado para este trámite, solo renderizamos
+    if (currentTrataSubsanacionesData.loadedTrata === `${gerencia}_${trataCode}` && currentTrataSubsanacionesData.expedientes.length >= 0) {
+        renderSubsanacionesTab();
+        return;
+    }
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/subsanaciones_detail`);
+        if (!response || !response.ok) return;
+
+        const data = await response.json();
+        const exps = data.expedientes || [];
+        const total = data.total_subsanaciones_abiertas !== undefined ? data.total_subsanaciones_abiertas : exps.length;
+        
+        // Calcular promedios desde data o expedientes
+        let promActual = data.prom_dias_subsanacion_actual;
+        let promTotal = data.prom_dias_subsanacion_total;
+        if (promActual === undefined && exps.length > 0) {
+            const sumAct = exps.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_actual || 0)), 0);
+            promActual = Math.ceil(sumAct / exps.length);
+        }
+        if (promTotal === undefined && exps.length > 0) {
+            const sumTot = exps.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_total || 0)), 0);
+            promTotal = Math.ceil(sumTot / exps.length);
+        }
+
+        currentTrataSubsanacionesData = {
+            total: total,
+            promedio_dias_actual: promActual || 0,
+            promedio_dias_total: promTotal || 0,
+            analyst_distribution: data.analyst_distribution || [],
+            expedientes: exps,
+            trataName: data.nombre_trata || trataName,
+            trataCode,
+            gerencia,
+            loadedTrata: `${gerencia}_${trataCode}`
+        };
+
+        renderSubsanacionesTab();
+    } catch (err) {
+        console.error("Error al cargar detalle de subsanaciones:", err);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2.5rem; color: #94a3b8;">No se encontraron subsanaciones abiertas para este trámite.</td></tr>`;
+        }
+    }
+}
+
+function renderSubsanacionesTab() {
+    try {
+        const expedientes = currentTrataSubsanacionesData.expedientes || [];
+        const totalSubs = currentTrataSubsanacionesData.total !== undefined && currentTrataSubsanacionesData.total > 0 
+            ? currentTrataSubsanacionesData.total 
+            : expedientes.length;
+
+        let promActual = currentTrataSubsanacionesData.promedio_dias_actual;
+        let promTotal = currentTrataSubsanacionesData.promedio_dias_total;
+
+        if ((!promActual || promActual === 0) && expedientes.length > 0) {
+            const sumAct = expedientes.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_actual || 0)), 0);
+            promActual = Math.ceil(sumAct / expedientes.length);
+        }
+        if ((!promTotal || promTotal === 0) && expedientes.length > 0) {
+            const sumTot = expedientes.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_total || 0)), 0);
+            promTotal = Math.ceil(sumTot / expedientes.length);
+        }
+
+        // KPI Badges superiores
+        const elTotalBadge = document.getElementById('tab-subs-num-total');
+        if (elTotalBadge) elTotalBadge.innerText = totalSubs.toLocaleString('es-AR');
+
+        const elPromActualBadge = document.getElementById('tab-subs-num-prom-actual');
+        if (elPromActualBadge) elPromActualBadge.innerText = Math.ceil(Number(promActual || 0));
+
+        const elPromTotalBadge = document.getElementById('tab-subs-num-prom-total');
+        if (elPromTotalBadge) elPromTotalBadge.innerText = Math.ceil(Number(promTotal || 0));
+
+        // Agrupar por analista que mandó a subsanar
+        const analystsMap = {};
+        expedientes.forEach(e => {
+            const a = (e.analista || 'SIN ESPECIFICAR').trim();
+            const aName = e.analista_nombre || a;
+            const dActual = Math.ceil(Number(e.dias_subsanacion_actual || 0));
+            const dTotal = Math.ceil(Number(e.dias_subsanacion_total || 0));
+
+            if (!analystsMap[a]) {
+                analystsMap[a] = {
+                    analista: a,
+                    nombre: aName,
+                    total: 0,
+                    dias_actual_sum: 0,
+                    dias_total_sum: 0
+                };
+            }
+            analystsMap[a].total++;
+            analystsMap[a].dias_actual_sum += dActual;
+            analystsMap[a].dias_total_sum += dTotal;
+        });
+
+        const analystsList = Object.values(analystsMap).sort((a, b) => b.total - a.total);
+
+        const countAnalystsEl = document.getElementById('subs-analysts-count');
+        if (countAnalystsEl) countAnalystsEl.innerText = `${analystsList.length} ${analystsList.length === 1 ? 'analista' : 'analistas'}`;
+
+        // Renderizar tarjetas de analistas solicitantes
+        const cardsGrid = document.getElementById('subs-analysts-cards-grid');
+        if (cardsGrid) {
+            if (analystsList.length === 0) {
+                cardsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: #64748b; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <i class="fa-solid fa-clock-rotate-left" style="font-size: 2rem; color: #94a3b8; margin-bottom: 8px; display: block;"></i>
+                        No hay expedientes con subsanación abierta actualmente para este trámite.
+                    </div>`;
+            } else {
+                let cardsHtml = `
+                    <!-- Tarjeta Todos -->
+                    <div class="subs-analyst-card ${selectedSubsAnalystCard === 'ALL' ? 'active' : ''}" 
+                        onclick="selectSubsAnalystCard('ALL')"
+                        style="background: ${selectedSubsAnalystCard === 'ALL' ? '#fffbeb' : 'white'}; border: 1.5px solid ${selectedSubsAnalystCard === 'ALL' ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </span>
+                                <div>
+                                    <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #1e293b;">Todos los analistas</h5>
+                                    <span style="font-size: 0.75rem; color: #64748b;">Nómina completa</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 1.35rem; font-weight: 800; color: #b45309; font-family: 'Outfit';">
+                                ${totalSubs}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                            <span style="color: #b45309;"><i class="fa-solid fa-hourglass-start" style="font-size: 8px; vertical-align: middle;"></i> Prom. Actual: ${Math.ceil(Number(promActual))}d</span>
+                            <span style="color: #1d4ed8;"><i class="fa-solid fa-calendar-days" style="font-size: 8px; vertical-align: middle;"></i> Prom. Total: ${Math.ceil(Number(promTotal))}d</span>
+                        </div>
+                    </div>
+                `;
+
+                analystsList.forEach(a => {
+                    const isSelected = selectedSubsAnalystCard.toUpperCase() === a.analista.toUpperCase();
+                    const aEsc = a.analista.replace(/'/g, "\\'");
+                    const promActA = a.total > 0 ? Math.ceil(a.dias_actual_sum / a.total) : 0;
+
+                    cardsHtml += `
+                        <div class="subs-analyst-card ${isSelected ? 'active' : ''}" 
+                            onclick="selectSubsAnalystCard('${aEsc}')"
+                            style="background: ${isSelected ? '#fffbeb' : 'white'}; border: 1.5px solid ${isSelected ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                                    <span style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                                        <i class="fa-solid fa-user-pen"></i>
+                                    </span>
+                                    <div style="overflow: hidden;">
+                                        <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.9rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${a.nombre}">
+                                            ${a.nombre}
+                                        </h5>
+                                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; font-family: 'Outfit';">${a.analista}</span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 800; color: ${isSelected ? '#b45309' : '#0f172a'}; font-family: 'Outfit'; flex-shrink: 0;">
+                                    ${a.total}
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px; color: #64748b;">
+                                <span style="color: #b45309;">Prom. en curso: ${promActA}d</span>
+                                <span style="color: #d97706; background: #fffbeb; padding: 1px 6px; border-radius: 6px;">${a.total} exp</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardsGrid.innerHTML = cardsHtml;
+            }
+        }
+
+        // Llenar select de filtro de analistas
+        const selectAnalista = document.getElementById('subs-filter-analyst');
+        if (selectAnalista) {
+            let optHtml = `<option value="ALL">Todos los analistas (${totalSubs})</option>`;
+            analystsList.forEach(a => {
+                const isSel = selectedSubsAnalystCard.toUpperCase() === a.analista.toUpperCase();
+                optHtml += `<option value="${a.analista}" ${isSel ? 'selected' : ''}>${a.nombre} (${a.total})</option>`;
+            });
+            selectAnalista.innerHTML = optHtml;
+        }
+
+        filterSubsanacionesTable();
+    } catch (err) {
+        console.error("Error en renderSubsanacionesTab:", err);
+    }
+}
+
+function selectSubsAnalystCard(analista) {
+    selectedSubsAnalystCard = analista;
+    const select = document.getElementById('subs-filter-analyst');
+    if (select) select.value = analista;
+
+    document.querySelectorAll('.subs-analyst-card').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'white';
+        c.style.border = '1.5px solid #e2e8f0';
+    });
+
+    filterSubsanacionesTable();
+}
+
+function filterSubsanacionesTable() {
+    const tbody = document.getElementById('subsanaciones-expedientes-tbody');
+    const label = document.getElementById('subs-table-count-label');
+    if (!tbody) return;
+
+    const expedientes = currentTrataSubsanacionesData.expedientes || [];
+    const selectAnalista = document.getElementById('subs-filter-analyst')?.value || 'ALL';
+    const searchVal = (document.getElementById('subs-search-input')?.value || '').trim().toLowerCase();
+
+    if (selectAnalista !== selectedSubsAnalystCard) {
+        selectedSubsAnalystCard = selectAnalista;
+    }
+
+    const filtered = expedientes.filter(e => {
+        // Filtro Analista
+        if (selectedSubsAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedSubsAnalystCard.toUpperCase()) return false;
+        }
+
+        // Filtro Buscador
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const a = (e.analista || '').toLowerCase();
+            const aName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !a.includes(searchVal) && !aName.includes(searchVal) && !desc.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (label) {
+        label.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${expedientes.length.toLocaleString('es-AR')} expedientes en subsanación`;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                    No se encontraron expedientes en subsanación con los filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    // Ordenar por días de la subsanación en curso descendente
+    filtered.sort((a, b) => {
+        const dA = Math.ceil(Number(a.dias_subsanacion_actual || 0));
+        const dB = Math.ceil(Number(b.dias_subsanacion_actual || 0));
+        return dB - dA;
+    });
+
+    let html = '';
+    filtered.forEach(e => {
+        const fApertura = e.fecha_apertura_subsanacion ? e.fecha_apertura_subsanacion.substring(0, 10) : '-';
+        const diasActual = Math.ceil(Number(e.dias_subsanacion_actual || 0));
+        const cantSubs = Math.ceil(Number(e.cant_subsanaciones || 1));
+        const diasTotalSubs = Math.ceil(Number(e.dias_subsanacion_total || diasActual));
+        const diasGerencia = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const diasInterv = Math.ceil(Number(e.dias_intervenciones || 0));
+
+        const aDisplayName = e.analista_nombre || e.analista || 'SIN ESPECIFICAR';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#fffdf5'" onmouseout="this.style.background='white'">
+                <td style="padding: 11px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span title="${e.descripcion || e.descripcion_trata || ''}">${e.expediente || '-'}</span>
+                </td>
+                <td style="padding: 11px 14px; color: #334155;">
+                    <div style="font-weight: 600; font-size: 0.88rem;">${aDisplayName}</div>
+                    <div style="font-size: 0.74rem; color: #64748b; font-family: 'Outfit';">${e.analista || '-'}</div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fApertura}</td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-size: 1.05rem; font-weight: 900; color: ${diasActual > 60 ? '#dc2626' : (diasActual > 30 ? '#d97706' : '#b45309')}; font-family: 'Outfit';">
+                        ${diasActual} d
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 800; background: #fffbeb; color: #b45309; border: 1px solid #fde68a;">
+                        ${cantSubs}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #1e293b;">
+                    ${diasTotalSubs} d
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #0284c7;">
+                    ${diasGerencia} d
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 600; color: ${diasInterv > 0 ? '#475569' : '#94a3b8'};">
+                    ${diasInterv} d
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function exportSubsanacionesTabToExcel() {
+    const expedientes = currentTrataSubsanacionesData.expedientes || [];
+    if (expedientes.length === 0) {
+        alert("No hay expedientes en subsanación para exportar.");
+        return;
+    }
+
+    const selectAnalista = document.getElementById('subs-filter-analyst')?.value || 'ALL';
+    const searchVal = (document.getElementById('subs-search-input')?.value || '').trim().toLowerCase();
+
+    const filtered = expedientes.filter(e => {
+        if (selectedSubsAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedSubsAnalystCard.toUpperCase()) return false;
+        }
+
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const a = (e.analista || '').toLowerCase();
+            const aName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !a.includes(searchVal) && !aName.includes(searchVal) && !desc.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros para exportar.");
+        return;
+    }
+
+    const headers = ["Expediente", "Analista Solicitante", "Nombre Analista", "Fecha Apertura Subsanacion", "Dias Subsanacion en Curso", "Cantidad Subsanaciones", "Dias Totales Subsanaciones", "Tiempo en Gerencia (Dias)", "Tiempo Intervenciones (Dias)", "Trata Codigo", "Descripcion Trata"];
+    const rows = filtered.map(e => [
+        `"${e.expediente || ''}"`,
+        `"${e.analista || ''}"`,
+        `"${e.analista_nombre || ''}"`,
+        `"${e.fecha_apertura_subsanacion || ''}"`,
+        Math.ceil(Number(e.dias_subsanacion_actual || 0)),
+        Math.ceil(Number(e.cant_subsanaciones || 1)),
+        Math.ceil(Number(e.dias_subsanacion_total || 0)),
+        Math.ceil(Number(e.dias_en_gerencia || 0)),
+        Math.ceil(Number(e.dias_intervenciones || 0)),
+        `"${e.trata || currentTrataSubsanacionesData.trataCode || ''}"`,
+        `"${(e.descripcion_trata || currentTrataSubsanacionesData.trataName || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Subsanaciones_${currentTrataSubsanacionesData.trataCode || 'Trata'}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exponer funciones de Subsanaciones en window
+window.loadSubsanacionesDetail = loadSubsanacionesDetail;
+window.renderSubsanacionesTab = renderSubsanacionesTab;
+window.selectSubsAnalystCard = selectSubsAnalystCard;
+window.filterSubsanacionesTable = filterSubsanacionesTable;
+window.exportSubsanacionesTabToExcel = exportSubsanacionesTabToExcel;
+
 function openStockAgeDownloadModal() {
     if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
         alert("No hay expedientes en el stock de esta trata para descargar.");
@@ -2065,75 +3818,174 @@ async function downloadCellDetail(gerencia, trata, metrica, periodo) {
 window.onclick = function (e) { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; }
 
 // --- FUNCIONES ADMIN ---
-// --- FUNCIONES ADMIN ---
 const PERMISSION_KEYS = {
-    dgroc: "Seguimiento DGROC",
-    dgiur: "Seguimiento DGIUR",
+    // Seguimiento DGROC
+    dgroc: "Seguimiento DGROC (Todas las gerencias)",
+    seguimiento_catastro: "Seguimiento: Catastro",
+    seguimiento_instalaciones: "Seguimiento: Instalaciones",
+    seguimiento_conforme: "Seguimiento: Conforme",
+    seguimiento_contable: "Seguimiento: Contable",
+    seguimiento_etapa_proyecto: "Seguimiento: Etapa Proyecto",
+    seguimiento_aviso_obra: "Seguimiento: Aviso de Obra",
+
+    // Seguimiento DGIUR
+    dgiur: "Seguimiento DGIUR (Todas las gerencias)",
+    seguimiento_morfologia: "Seguimiento: Morfología",
+    seguimiento_aph: "Seguimiento: APH",
+    seguimiento_usos: "Seguimiento: Usos",
+    publico_privado: "Seguimiento: Público Privado",
+    copua: "Seguimiento: COPUA",
+    privada: "Seguimiento: Privada",
     family: "Familia de Trámites",
-    seguimiento: "Reporte Metas",
-    cierre: "Cierre de Mes",
-    sla: "Tiempos de tramitación (SLA)",
-    subsanaciones: "Subsanaciones",
-    pendientes_asociacion: "Pendientes Asociación",
-    productividad_analistas: "Productividad Analistas",
+
+    // Buzones DGROC
+    buzon_dgroc: "Buzones DGROC (Todas las gerencias)",
+    buzon_catastro: "Buzón: Catastro",
+    buzon_instalaciones: "Buzón: Instalaciones",
+    buzon_conforme: "Buzón: Conforme",
+    buzon_contable: "Buzón: Contable",
+    buzon_etapa_proyecto: "Buzón: Etapa Proyecto",
+    buzon_aviso_obra: "Buzón: Aviso de Obra",
+
+    // Buzones DGIUR
+    buzon_dgiur: "Buzones DGIUR (Todas las gerencias)",
+    buzon_morfologia: "Buzón: Morfología",
+    buzon_aph: "Buzón: APH",
+    buzon_usos: "Buzón: Usos",
+    buzon_publico_privado: "Buzón: Público Privado",
+    buzon_copua: "Buzón: COPUA",
+    buzon_privada: "Buzón: Privada",
+
+    // Reportes
+    seguimiento: "Reportes: Metas",
+    cierre: "Reportes: Cierre de Mes",
+    sla: "Reportes: Tiempos de tramitación (SLA)",
+    subsanaciones: "Reportes: Subsanaciones",
+    productividad_analistas: "Reportes: Productividad Analistas",
+    reportes_rrhh: "Reportes: Reporte RRHH (Visualizar)",
+    carga_reportes_rrhh: "Reportes: Reporte RRHH (Cargar Excel)",
+    universo_tratas: "Reportes: Universo Tratas y Buzones",
+    planificacion_nov_2026: "Reportes: Planificación Noviembre 2026",
+
+    // Analytics
+    analytics_estadistica: "Analytics: Estadística",
+    ley_blanqueo: "Analytics: Ley de Blanqueo",
+    analytics_m2_permisados: "Analytics: M2 Permisados",
+    analytics_avisos_obra: "Analytics: Avisos de Obra",
+    analytics_pdl_blanqueo: "Analytics: PDL Blanqueo",
+    analytics_datasets: "Analytics: Datasets",
+
+    // Ciudad 3D
+    ciudad_3d: "Ciudad 3D (Acceso General)",
+    c3d_home: "Ciudad 3D: Home (Métricas y Estadísticas)",
+    c3d_extensiones_todas: "Ciudad 3D: Listado de Manzanas",
+    c3d_extensiones_mis_trazados: "Ciudad 3D: Mis Trazados",
+    c3d_extensiones_revision: "Ciudad 3D: Bandeja de Revisión",
+    c3d_extensiones_equipo: "Ciudad 3D: Avance por Analista",
+    c3d_extensiones_mapa: "Ciudad 3D: Mapa Geoespacial",
+    ciudad3d_manzanas_atipicas: "Ciudad 3D: Manzanas Atípicas",
+    lfi_dibujar: "Ciudad 3D: Dibujar Trazados (LFI)",
+    lfi_revisar: "Ciudad 3D: Revisar Trazados (LFI)",
+
+    // Contable
+    contable_calculadora: "Contable: Calculadora (Todas las opciones)",
+    contable_plusvalia: "Contable: Calculadora Plusvalía Urbana",
+    contable_derechos: "Contable: Calculadora Derechos DGROC",
+    contable_seguimiento: "Contable: Seguimiento de Trámites",
+
+    // Mis Expedientes
     buscador: "Buscador de Expedientes",
     favoritos: "Marcadores",
     'favoritos-seguimiento': "Gestión de Marcadores",
     'asignados-mi': "Asignados a Mí",
-    analytics_estadistica: "Analytics (Estadística)",
-    ley_blanqueo: "Analytics (Ley de Blanqueo)",
-    analytics_datasets: "Analytics (Datasets)",
-    buzones_analisis: "Buzones para Análisis",
-    secgdu: "Buzones SECGDU (Total Universo)",
-    publico_privado: "Seguimiento Público Privado",
-    copua: "Seguimiento COPUA",
-    ciudad_3d: "Ciudad 3D",
-    reportes_rrhh: "Reporte RRHH (Visualizar)",
-    carga_reportes_rrhh: "Reporte RRHH (Cargar Excel)",
-    universo_tratas: "Universo Tratas",
-    planificacion_nov_2026: "Planificación Noviembre 2026",
-    admin: "Backlog (Administración)"
+
+    // Administración
+    admin: "Backlog (Administración del Sistema)"
 };
 
 const PERMISSION_GROUPS = {
-    "Monitoreo & Reportes": {
-        dgroc: { label: "Seguimiento DGROC", desc: "Ver indicadores clave y pases de la gerencia DGROC." },
-        dgiur: { label: "Seguimiento DGIUR", desc: "Ver indicadores clave y pases de la gerencia DGIUR." },
-        publico_privado: { label: "Seguimiento Público Privado", desc: "Acceder al panel de seguimiento de trámites Público Privado (DGPROPPU)." },
-        copua: { label: "Seguimiento COPUA", desc: "Acceder al panel de seguimiento de trámites de la COPUA." },
-        seguimiento: { label: "Reporte Metas", desc: "Acceder al informe consolidado de cumplimiento de metas." },
+    "Seguimiento DGROC": {
+        dgroc: { label: "DGROC (Completa)", desc: "Acceso total a todas las gerencias de DGROC." },
+        seguimiento_catastro: { label: "Catastro", desc: "Monitoreo y control de mensuras de Catastro." },
+        seguimiento_instalaciones: { label: "Instalaciones", desc: "Monitoreo y registro de planos de Instalaciones." },
+        seguimiento_conforme: { label: "Conforme", desc: "Monitoreo de planos conforme de obra civil." },
+        seguimiento_contable: { label: "Contable", desc: "Monitoreo de registro de profesionales y permisos." },
+        seguimiento_etapa_proyecto: { label: "Etapa Proyecto", desc: "Monitoreo de la gerencia Etapa Proyecto." },
+        seguimiento_aviso_obra: { label: "Aviso de Obra", desc: "Monitoreo de avisos de obra e inicios." }
+    },
+    "Seguimiento DGIUR": {
+        dgiur: { label: "DGIUR (Completa)", desc: "Acceso total a todas las gerencias de DGIUR." },
+        seguimiento_morfologia: { label: "Morfología", desc: "Monitoreo del área de Morfología Urbana." },
+        seguimiento_aph: { label: "APH", desc: "Monitoreo del área de Protección Histórica." },
+        seguimiento_usos: { label: "Usos", desc: "Monitoreo del área de Usos del Suelo." },
+        publico_privado: { label: "Público Privado", desc: "Monitoreo y productividad de Proyectos Público Privados." },
+        copua: { label: "COPUA", desc: "Monitoreo y productividad de la Comisión COPUA." },
+        privada: { label: "Privada", desc: "Monitoreo y productividad de la Gerencia Privada." },
+        family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites relacionados." }
+    },
+    "Buzones DGROC": {
+        buzon_dgroc: { label: "Buzones DGROC (Todos)", desc: "Acceso a todas las bandejas de buzones de DGROC." },
+        buzon_catastro: { label: "Buzón Catastro", desc: "Bandeja de stock y analistas de Catastro." },
+        buzon_instalaciones: { label: "Buzón Instalaciones", desc: "Bandeja de stock y analistas de Instalaciones." },
+        buzon_conforme: { label: "Buzón Conforme", desc: "Bandeja de stock y analistas de Conforme." },
+        buzon_contable: { label: "Buzón Contable", desc: "Bandeja de stock y analistas de Contable." },
+        buzon_etapa_proyecto: { label: "Buzón Etapa Proyecto", desc: "Bandeja de stock y analistas de Etapa Proyecto." },
+        buzon_aviso_obra: { label: "Buzón Aviso de Obra", desc: "Bandeja de stock y analistas de Aviso de Obra." }
+    },
+    "Buzones DGIUR": {
+        buzon_dgiur: { label: "Buzones DGIUR (Todos)", desc: "Acceso a todas las bandejas de buzones de DGIUR." },
+        buzon_morfologia: { label: "Buzón Morfología", desc: "Bandeja de stock y analistas de Morfología." },
+        buzon_aph: { label: "Buzón APH", desc: "Bandeja de stock y analistas de APH." },
+        buzon_usos: { label: "Buzón Usos", desc: "Bandeja de stock y analistas de Usos." },
+        buzon_publico_privado: { label: "Buzón Público Privado", desc: "Bandeja de stock y analistas de Público Privado." },
+        buzon_copua: { label: "Buzón COPUA", desc: "Bandeja de stock y analistas de COPUA." },
+        buzon_privada: { label: "Buzón Privada", desc: "Bandeja de stock y analistas de Privada." }
+    },
+    "Reportes & Gestión": {
+        seguimiento: { label: "Reporte Metas", desc: "Informe consolidado de cumplimiento de metas." },
         cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
-        pendientes_asociacion: { label: "Pendientes Asociación", desc: "Expedientes pendientes de asociar a analistas." },
-        productividad_analistas: { label: "Productividad Analistas", desc: "Ver rankings, bitácoras y metas de analistas." },
-        reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Ver estadísticas de asistencia, cobertura horaria y cumplimiento del personal." },
-        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar la base de datos de RRHH." },
-        planificacion_nov_2026: { label: "Planificación Noviembre 2026", desc: "Acceso al reporte de Planificación Noviembre 2026 (stock, subsanaciones e ingresos por año)." }
+        productividad_analistas: { label: "Productividad Analistas", desc: "Rankings, bitácoras y metas de analistas." },
+        reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Estadísticas de asistencia y cobertura del personal." },
+        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar base de RRHH." },
+        universo_tratas: { label: "Universo Tratas y Buzones", desc: "Listado completo de tratas y buzones de la secretaría." },
+        planificacion_nov_2026: { label: "Planificación Noviembre 2026", desc: "Reporte de proyección y stock Noviembre 2026." }
     },
-    "Buzones & Gestión": {
+    "Analytics": {
+        analytics_estadistica: { label: "Analytics (Estadística)", desc: "Tableros estadísticos interactivos de trámites." },
+        ley_blanqueo: { label: "Ley de Blanqueo", desc: "Módulo de análisis de trámites de Ley de Blanqueo." },
+        analytics_m2_permisados: { label: "M2 Permisados", desc: "Consulta y análisis geoespacial de M2 Permisados." },
+        analytics_avisos_obra: { label: "Avisos de Obra", desc: "Estadísticas y mapas analíticos de Avisos de Obra." },
+        analytics_pdl_blanqueo: { label: "PDL Blanqueo (Análisis)", desc: "Análisis de parcelas y contravenciones CE/CUR." },
+        analytics_datasets: { label: "Datasets", desc: "Descarga de datasets crudos del tablero." }
+    },
+    "Ciudad 3D": {
+        ciudad_3d: { label: "Ciudad 3D (Completa)", desc: "Acceso total a todos los módulos y visores de Ciudad 3D." },
+        c3d_home: { label: "Home (Métricas)", desc: "Estadísticas generales de manzanas y parcelas." },
+        c3d_extensiones_todas: { label: "Listado de Manzanas", desc: "Listado general de extensiones irregulares por barrio." },
+        c3d_extensiones_mis_trazados: { label: "Mis Trazados", desc: "Manzanas asignadas al usuario para trazado y subida de archivos." },
+        c3d_extensiones_revision: { label: "Bandeja de Revisión", desc: "Trazados pendientes de visación y aprobación técnica." },
+        c3d_extensiones_equipo: { label: "Avance por Analista", desc: "Monitor de productividad y carga del equipo de trazadores." },
+        c3d_extensiones_mapa: { label: "Mapa Geoespacial", desc: "Visualizador de parcelas, troneras y líneas LFI." },
+        ciudad3d_manzanas_atipicas: { label: "Manzanas Atípicas", desc: "Módulo de gestión y consulta de manzanas atípicas." },
+        lfi_dibujar: { label: "LFI: Permiso Dibujar", desc: "Permiso para autoasignarse manzanas y subir borradores." },
+        lfi_revisar: { label: "LFI: Permiso Revisar", desc: "Permiso para visar, aprobar o rechazar trazados finalizados." }
+    },
+    "Contable (Calculadora)": {
+        contable_calculadora: { label: "Calculadora (Completa)", desc: "Acceso total a las herramientas contables." },
+        contable_plusvalia: { label: "Plusvalía Urbana", desc: "Cálculo y liquidación de Plusvalía Urbana." },
+        contable_derechos: { label: "Derechos DGROC", desc: "Calculadora de derechos de delineación y construcción." },
+        contable_seguimiento: { label: "Seguimiento", desc: "Monitor y seguimiento de trámites y pagos contables." }
+    },
+    "Mis Expedientes": {
         buscador: { label: "Buscador de Expedientes", desc: "Búsqueda universal de expedientes en el universo SADE." },
         favoritos: { label: "Marcadores", desc: "Marcar expedientes favoritos para seguimiento rápido." },
-        'favoritos-seguimiento': { label: "Gestión de Marcadores", desc: "Panel de administración y control de marcadores." },
-        'asignados-mi': { label: "Asignados a Mí", desc: "Buzón de tareas asignadas al usuario actual." },
-        buzones_analisis: { label: "Buzones para Análisis", desc: "Visualizar la bandeja de buzones configurados." },
-        secgdu: { label: "Buzones SECGDU (Total Universo)", desc: "Visualizar el universo total de expedientes de la secretaría." }
-    },
-    "Visualización & Datos": {
-        ciudad_3d: { label: "Ciudad 3D", desc: "Acceso al módulo de Extensión Irregular (Esquinas) de Ciudad 3D." },
-        lfi_dibujar: { label: "LFI: Dibujar Trazados", desc: "Permiso para asignarse manzanas y subir borrador de trazado de LFI (Troneras)." },
-        lfi_revisar: { label: "LFI: Revisar Trazados", desc: "Permiso para revisar, aprobar/rechazar trazado finalizado de LFI (Visor)." },
-        analytics_estadistica: { label: "Analytics (Estadística)", desc: "Acceso a tableros estadísticos interactivos de trámites." },
-        ley_blanqueo: { label: "Analytics (Ley de Blanqueo)", desc: "Acceso a reportes del blanqueo de capitales." },
-        analytics_datasets: { label: "Analytics (Datasets)", desc: "Descarga de datasets crudos del tablero." },
-        analytics_m2_permisados: { label: "Analytics (M2 Permisados)", desc: "Acceso al módulo de análisis y consulta de M2 Permisados." },
-        analytics_avisos_obra: { label: "Analytics (Avisos de Obra)", desc: "Acceso al módulo de estadísticas y mapas de Avisos de Obra." },
-        analytics_pdl_blanqueo: { label: "Analytics (PDL Blanqueo Análisis)", desc: "Acceso al módulo analítico de PDL Blanqueo (parcelas y contravenciones CE/CUR)." },
-        family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites de un mismo expediente." }
+        'favoritos-seguimiento': { label: "Gestión de Marcadores", desc: "Panel de control y notas de marcadores." },
+        'asignados-mi': { label: "Asignados a Mí", desc: "Buzón de tareas asignadas al usuario actual." }
     },
     "Administración": {
-        admin: { label: "Backlog (Administración)", desc: "Acceso completo a la configuración del sistema, roles y usuarios." },
-        universo_tratas: { label: "Universo Tratas", desc: "Acceder al listado completo de tratas del universo SGDU con métricas de stock, archivo, guarda temporal y egresados." }
+        admin: { label: "Backlog (Administración)", desc: "Acceso completo a configuración del sistema, roles y usuarios." }
     }
 };
 
@@ -2177,73 +4029,198 @@ function toggleUserPermsOverrideUI() {
 
 async function loadUsers() {
     const container = document.getElementById('users-table-container');
+    const countEl = document.getElementById('admin-users-count');
     if (!container) return;
 
-    container.innerHTML = '<div style="padding: 2rem; text-align: center;"><span class="loader"></span><p style="margin-top: 1rem; color: #64748b;">Sincronizando registro de usuarios...</p></div>';
+    container.innerHTML = '<div style="padding: 2.5rem; text-align: center;"><span class="loader"></span><p style="margin-top: 1rem; color: #64748b;">Sincronizando registro de usuarios...</p></div>';
 
     try {
         // dynamic roles load
-        const rolesResp = await def_fetch(`${API_BASE}/admin/roles`);
-        if (rolesResp && rolesResp.ok) {
-            allAdminRoles = await rolesResp.json();
-            loadRolesDropdowns(allAdminRoles);
+        try {
+            const rolesResp = await def_fetch(`${API_BASE}/admin/roles`);
+            if (rolesResp && rolesResp.ok) {
+                allAdminRoles = await rolesResp.json();
+                loadRolesDropdowns(allAdminRoles);
 
-            // Auto initialize the new user role check boxes on load
-            const newRoleSelect = document.getElementById('new-role');
-            if (newRoleSelect && newRoleSelect.value) {
-                handleRoleSelectionChange('new', newRoleSelect.value);
+                // Auto initialize the new user role check boxes on load
+                const newRoleSelect = document.getElementById('new-role');
+                if (newRoleSelect && newRoleSelect.value) {
+                    handleRoleSelectionChange('new', newRoleSelect.value);
+                }
             }
+        } catch (rErr) {
+            console.warn("Could not load roles for dropdowns:", rErr);
         }
 
         const resp = await def_fetch(`${API_BASE}/admin/users`);
-        if (!resp || !resp.ok) return;
-
-        allAdminUsers = await resp.json();
-
-        if (allAdminUsers.length === 0) {
-            container.innerHTML = '<p style="padding: 2rem; text-align: center; color: #64748b;">No hay usuarios registrados.</p>';
+        if (!resp || !resp.ok) {
+            container.innerHTML = '<p style="padding: 2.5rem; text-align: center; color: #ef4444;">Error al consultar usuarios del sistema.</p>';
             return;
         }
 
-        let html = '<div class="users-grid">';
+        allAdminUsers = await resp.json();
 
-        allAdminUsers.forEach(u => {
-            const isMe = u.username === currentUser.username;
-            const roleLabel = (u.role || "").toUpperCase();
-            const roleClass = (u.role || "").toLowerCase() === 'administrador' ? 'role-admin' : 'role-user';
+        if (countEl) {
+            countEl.innerText = `${allAdminUsers.length} ${allAdminUsers.length === 1 ? 'Usuario' : 'Usuarios'}`;
+        }
 
-            html += `
-                <div class="user-card-premium">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div class="user-avatar ${roleClass}" style="width: 46px; height: 46px; border-radius: 12px; font-weight: 800; font-size: 1.1rem; color: white; display: flex; align-items: center; justify-content: center;">
-                            ${(u.full_name || u.username).substring(0, 1).toUpperCase()}
-                        </div>
-                        <div style="overflow: hidden;">
-                            <div style="font-weight: 700; color: var(--primary-dark); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.full_name || 'Sin nombre'}">
-                                ${u.full_name || 'Sin nombre'}
-                                ${isMe ? '<span class="current-user-tag" style="background: var(--primary); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 4px;">TÚ</span>' : ''}
-                            </div>
-                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 600;">@${u.username}</div>
-                        </div>
-                    </div>
-                    
-                    <div style="font-size: 0.85rem; color: #475569; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                        <div><strong>Sector:</strong> ${u.sector || 'S/D'}</div>
-                        <div><strong>Rol:</strong> <span class="badge-role ${roleClass}">${roleLabel}</span></div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 8px; margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                        <button onclick="openEditUser('${u.username}')" class="btn-edit-user" style="flex: 1; padding: 8px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: white;">Editar</button>
-                        <button onclick="deleteUser('${u.username}')" class="btn-delete" ${isMe ? 'disabled' : ''} style="flex: 1; padding: 8px; border-radius: 6px; cursor: pointer;">Eliminar</button>
-                    </div>
-                </div>
-            `;
-        });
+        if (allAdminUsers.length === 0) {
+            container.innerHTML = '<p style="padding: 2.5rem; text-align: center; color: #64748b;">No hay usuarios registrados.</p>';
+            return;
+        }
 
-        container.innerHTML = html + '</div>';
+        renderAdminUsersGrid(allAdminUsers);
     } catch (error) {
-        container.innerHTML = '<p style="padding: 2rem; color: #ef4444;">Error al cargar usuarios. Por favor, reintenta.</p>';
+        console.error("Error in loadUsers:", error);
+        container.innerHTML = '<p style="padding: 2.5rem; text-align: center; color: #ef4444;">Error al cargar usuarios. Por favor, reintenta.</p>';
     }
+}
+
+function renderAdminUsersGrid(usersList) {
+    const container = document.getElementById('users-table-container');
+    if (!container) return;
+
+    if (!usersList || usersList.length === 0) {
+        container.innerHTML = `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 3rem; text-align: center; color: #64748b;">
+                <i class="fa-solid fa-user-xmark" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 0.75rem;"></i>
+                <p style="margin: 0; font-weight: 600; font-size: 0.95rem;">No se encontraron usuarios que coincidan con la búsqueda.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const currentUsername = (currentUser?.username || JSON.parse(localStorage.getItem('sgdu_user') || '{}')?.username || '').toLowerCase();
+
+    let rowsHtml = '';
+
+    usersList.forEach(u => {
+        const isMe = (u.username || '').toLowerCase() === currentUsername;
+        const roleLower = (u.role || "").toLowerCase();
+        const roleLabel = (u.role || "").toUpperCase();
+        const isAdmin = roleLower === 'administrador' || roleLower === 'admin';
+        const initial = (u.full_name || u.username || 'U').substring(0, 1).toUpperCase();
+        
+        // Permisos personalizados badge
+        const hasCustomPerms = u.permissions !== null && u.permissions !== undefined;
+        let permsBadge = '';
+        if (hasCustomPerms) {
+            const count = Object.values(u.permissions || {}).filter(Boolean).length;
+            permsBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 600; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; border: 1px solid #fde68a;"><i class="fa-solid fa-sliders" style="font-size: 0.65rem;"></i> ${count} personalizados</span>`;
+        } else {
+            permsBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 500; color: #64748b;"><i class="fa-solid fa-shield-halved" style="font-size: 0.65rem;"></i> Por Rol</span>`;
+        }
+
+        const roleBadge = isAdmin
+            ? `<span style="font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-crown" style="font-size: 0.7rem;"></i> ${roleLabel}</span>`
+            : `<span style="font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-user-check" style="font-size: 0.7rem;"></i> ${roleLabel}</span>`;
+
+        rowsHtml += `
+            <tr class="admin-user-item" 
+                data-username="${(u.username || '').toLowerCase()}"
+                data-fullname="${(u.full_name || '').toLowerCase()}"
+                data-sector="${(u.sector || '').toLowerCase()}"
+                data-role="${(u.role || '').toLowerCase()}"
+                style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;"
+                onmouseover="this.style.background='#f8fafc'" 
+                onmouseout="this.style.background='white'">
+                
+                <!-- Usuario y Nombre -->
+                <td style="padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 38px; height: 38px; border-radius: 10px; font-weight: 800; font-size: 1rem; color: white; display: flex; align-items: center; justify-content: center; background: ${isAdmin ? 'linear-gradient(135deg, #1e293b, #0f172a)' : 'linear-gradient(135deg, var(--primary), #0284c7)'}; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.06);">
+                            ${initial}
+                        </div>
+                        <div style="min-width: 0;">
+                            <div style="font-weight: 700; color: var(--primary-dark); font-size: 0.92rem; font-family: 'Outfit'; display: flex; align-items: center; gap: 6px;">
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.full_name || 'Sin nombre'}">
+                                    ${u.full_name || 'Sin nombre'}
+                                </span>
+                                ${isMe ? '<span style="background: var(--primary); color: white; font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">TÚ</span>' : ''}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 600; font-family: monospace;">@${u.username}</div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Sector -->
+                <td style="padding: 12px 16px;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; color: #334155; font-weight: 500;">
+                        <i class="fa-solid fa-building" style="color: #94a3b8; font-size: 0.78rem;"></i>
+                        ${u.sector || '<span style="color: #94a3b8; font-style: italic;">Sin sector</span>'}
+                    </span>
+                </td>
+
+                <!-- Rol Asignado -->
+                <td style="padding: 12px 16px;">
+                    ${roleBadge}
+                </td>
+
+                <!-- Tipo de Permisos -->
+                <td style="padding: 12px 16px;">
+                    ${permsBadge}
+                </td>
+
+                <!-- Acciones -->
+                <td style="padding: 12px 16px; text-align: right;">
+                    <div style="display: inline-flex; gap: 6px; align-items: center;">
+                        <button onclick="openEditUser('${u.username}')" 
+                            title="Editar usuario y permisos"
+                            style="padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: white; color: #334155; font-weight: 600; font-size: 0.82rem; font-family: 'Outfit'; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;" 
+                            onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#94a3b8'" 
+                            onmouseout="this.style.background='white'; this.style.borderColor='#cbd5e1'">
+                            <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Editar
+                        </button>
+                        
+                        <button onclick="deleteUser('${u.username}')" ${isMe ? 'disabled' : ''} 
+                            title="${isMe ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}"
+                            style="padding: 6px 10px; border-radius: 6px; cursor: ${isMe ? 'not-allowed' : 'pointer'}; border: 1px solid #fecaca; background: #fef2f2; color: #ef4444; font-weight: 600; font-size: 0.82rem; font-family: 'Outfit'; display: inline-flex; align-items: center; gap: 5px; opacity: ${isMe ? '0.4' : '1'}; transition: all 0.2s;" 
+                            onmouseover="if(!${isMe}) { this.style.background='#fee2e2'; this.style.borderColor='#f87171'; }" 
+                            onmouseout="if(!${isMe}) { this.style.background='#fef2f2'; this.style.borderColor='#fecaca'; }">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="admin-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); overflow: hidden;">
+            <div style="overflow-x: auto;">
+                <table class="table-premium" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-family: 'Outfit'; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <th style="padding: 14px 16px; font-weight: 700;">Usuario / Nombre</th>
+                            <th style="padding: 14px 16px; font-weight: 700;">Sector</th>
+                            <th style="padding: 14px 16px; font-weight: 700;">Rol</th>
+                            <th style="padding: 14px 16px; font-weight: 700;">Permisos</th>
+                            <th style="padding: 14px 16px; font-weight: 700; text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function filterAdminUsersGrid() {
+    const query = (document.getElementById('admin-users-search')?.value || '').toLowerCase().trim();
+    if (!query) {
+        renderAdminUsersGrid(allAdminUsers);
+        return;
+    }
+    const filtered = allAdminUsers.filter(u => {
+        const un = (u.username || '').toLowerCase();
+        const fn = (u.full_name || '').toLowerCase();
+        const sc = (u.sector || '').toLowerCase();
+        const rl = (u.role || '').toLowerCase();
+        return un.includes(query) || fn.includes(query) || sc.includes(query) || rl.includes(query);
+    });
+    renderAdminUsersGrid(filtered);
 }
 
 async function deleteUser(username) {
@@ -2680,10 +4657,6 @@ function enterBacklogSection(sectionName) {
             subBread.innerText = ' / Familias de Trámites';
         } else if (sectionName === 'analistas') {
             subBread.innerText = ' / Analistas por Área';
-        } else if (sectionName === 'universo_tratas') {
-            subBread.innerText = ' / Universo Tratas';
-        } else if (sectionName === 'planificacion_nov_2026') {
-            subBread.innerText = ' / Planificación Nov. 2026';
         }
         subBread.style.display = 'inline';
     }
@@ -3300,7 +5273,7 @@ async function loadMetasData() {
             const duracion = data.metas.duracion_resolucion;
 
             updateVal('meta-obj-ing-prom-val', avgIng);
-            updateVal('meta-obj-duracion-val', duracion !== undefined ? `${duracion} días` : '--');
+            updateVal('meta-obj-duracion-val', (duracion !== undefined && duracion !== null && !isNaN(duracion)) ? `${Math.ceil(Number(duracion))} días` : '--');
             updateVal('meta-obj-tot-val', totalMeta);
 
             const diffTotEgr = totalMeta - avgEgr;
@@ -3796,43 +5769,35 @@ async function loadSLAReporte() {
 }
 
 function filterAndRenderSLA() {
-    const searchVal = document.getElementById('sla-search').value.toLowerCase().trim();
-    const sortVal = document.getElementById('sla-sort').value;
+    const searchVal = (document.getElementById('sla-search') ? document.getElementById('sla-search').value : '').toLowerCase().trim();
+    const sortVal = document.getElementById('sla-sort') ? document.getElementById('sla-sort').value : 'AVG_DESC';
 
     // 1. Filtrar por búsqueda
     let filtered = slaReporteData.filter(t => {
-        const name = (t["DETALLE TRATA"] || '').toLowerCase();
-        const code = (t["COD TRATA"] || '').toLowerCase();
+        const name = (t["DETALLE TRATA"] || t.descripcion_trata || '').toLowerCase();
+        const code = (t["COD TRATA"] || t.trata || '').toLowerCase();
         return code.includes(searchVal) || name.includes(searchVal);
     });
 
     // 2. Ordenar
     if (sortVal === 'AVG_DESC') {
-        filtered.sort((a, b) => {
-            const valA = a.duracion_total_mediana !== undefined ? a.duracion_total_mediana : (a.promedio_dias || 0);
-            const valB = b.duracion_total_mediana !== undefined ? b.duracion_total_mediana : (b.promedio_dias || 0);
-            return valB - valA;
-        });
+        filtered.sort((a, b) => (b.dias_totales || 0) - (a.dias_totales || 0));
     } else if (sortVal === 'AVG_ASC') {
-        filtered.sort((a, b) => {
-            const valA = a.duracion_total_mediana !== undefined ? a.duracion_total_mediana : (a.promedio_dias || 0);
-            const valB = b.duracion_total_mediana !== undefined ? b.duracion_total_mediana : (b.promedio_dias || 0);
-            return valA - valB;
-        });
+        filtered.sort((a, b) => (a.dias_totales || 0) - (b.dias_totales || 0));
     } else if (sortVal === 'RESOLVED_DESC') {
-        filtered.sort((a, b) => (b.total_resueltos || 0) - (a.total_resueltos || 0));
+        filtered.sort((a, b) => (b.total_resueltos || b.total_resueltos_ultimo_mes || 0) - (a.total_resueltos || a.total_resueltos_ultimo_mes || 0));
     } else if (sortVal === 'NAME_ASC') {
-        filtered.sort((a, b) => (a["DETALLE TRATA"] || '').localeCompare(b["DETALLE TRATA"] || ''));
+        filtered.sort((a, b) => (a["DETALLE TRATA"] || a.descripcion_trata || '').localeCompare(b["DETALLE TRATA"] || b.descripcion_trata || ''));
     }
 
-    // 3. Contar rangos de SLA basados en duracion_total_mediana
+    // 3. Contar rangos de SLA basados en dias_totales (tiempo promedio de resolución)
     let countFast = 0;
     let countNormal = 0;
     let countSlow = 0;
     let countDelayed = 0;
 
     filtered.forEach(t => {
-        const val = t.duracion_total_mediana !== undefined ? t.duracion_total_mediana : (t.promedio_dias || 0);
+        const val = t.dias_totales !== undefined ? t.dias_totales : 0;
         if (val <= 15) countFast++;
         else if (val <= 45) countNormal++;
         else if (val <= 90) countSlow++;
@@ -3852,7 +5817,7 @@ function filterAndRenderSLA() {
     // 4. Aplicar filtro por rango de SLA si está activo
     if (activeSlaRangeFilter) {
         filtered = filtered.filter(t => {
-            const val = t.duracion_total_mediana !== undefined ? t.duracion_total_mediana : (t.promedio_dias || 0);
+            const val = t.dias_totales !== undefined ? t.dias_totales : 0;
             if (activeSlaRangeFilter === 'fast') return val <= 15;
             if (activeSlaRangeFilter === 'normal') return val > 15 && val <= 45;
             if (activeSlaRangeFilter === 'slow') return val > 45 && val <= 90;
@@ -3883,79 +5848,393 @@ function filterAndRenderSLA() {
         }
     });
 
-    // 6. Renderizar las tarjetas
+    // 6. Renderizar como Tabla estructurada por bloques comparativos
     const container = document.getElementById('sla-grid-container');
+    if (!container) return;
+
     if (filtered.length === 0) {
         container.innerHTML = `
-            <div class="error-message" style="grid-column: 1 / -1; margin: 2rem auto; width: 100%;">
-                <div class="error-icon">i</div>
+            <div class="error-message" style="margin: 2rem auto; width: 100%;">
+                <div class="error-icon">ℹ️</div>
                 <h3>Sin trámites coincidentes</h3>
                 <p>Modifica los filtros de búsqueda o de área para encontrar lo que buscas.</p>
             </div>`;
         return;
     }
 
-    let html = '';
+    let tableRows = '';
     filtered.forEach(t => {
-        const totalMed = (t.duracion_total_mediana !== undefined && t.duracion_total_mediana !== null) ? t.duracion_total_mediana : 0;
-        const netaMed = (t.duracion_neta_mediana !== undefined && t.duracion_neta_mediana !== null) ? t.duracion_neta_mediana : 0;
-        const subsMed = (t.duracion_subsanaciones_mediana !== undefined && t.duracion_subsanaciones_mediana !== null) ? t.duracion_subsanaciones_mediana : 0;
+        const gCode = t.gerencia || 'catastro';
+        const tCode = t["COD TRATA"] || t.trata;
+        const tDesc = t["DETALLE TRATA"] || t.descripcion_trata || tCode;
+        const descEscaped = (tDesc || '').replace(/'/g, "\\'");
 
-        const totalMedStr = `${totalMed}d`;
-        const netaMedStr = `${netaMed}d`;
-        const subsMedStr = subsMed > 0 ? `${subsMed}d` : 'Sin subs.';
+        // 1. Métricas de Expedientes Egresados Efectivamente en el Último Mes Completo
+        const promPropioNum = Math.ceil(Number(t.dias_propio_sector || 0));
+        const promSubsNum = Math.ceil(Number(t.dias_subsanacion || 0));
+        const promIntervNum = Math.ceil(Number(t.dias_intervenciones || 0));
+        const promTotalNum = Math.ceil(Number(t.dias_totales !== undefined && t.dias_totales !== null ? t.dias_totales : (promPropioNum + promSubsNum + promIntervNum)));
+        const promPropio = String(promPropioNum);
+        const promSubs = String(promSubsNum);
+        const promInterv = String(promIntervNum);
+        const promTotal = String(promTotalNum);
+        const resueltosMes = t.total_resueltos_ultimo_mes || t.total_resueltos || 0;
 
-        let perfClass = 'perf-mid';
-        if (totalMed <= 15) {
-            perfClass = 'perf-high';
-        } else if (totalMed > 45) {
-            perfClass = 'perf-low';
+        // 2. Métricas de Expedientes Caratulados en 2026 (Año en curso)
+        const promPropioAnoNum = Math.ceil(Number(t.dias_propio_sector_este_ano || 0));
+        const promSubsAnoNum = Math.ceil(Number(t.dias_subsanacion_este_ano || 0));
+        const promIntervAnoNum = Math.ceil(Number(t.dias_intervenciones_este_ano || 0));
+        const promTotalAnoNum = Math.ceil(Number(t.dias_totales_este_ano !== undefined && t.dias_totales_este_ano !== null ? t.dias_totales_este_ano : (promPropioAnoNum + promSubsAnoNum + promIntervAnoNum)));
+        const promPropioAno = String(promPropioAnoNum);
+        const promSubsAno = String(promSubsAnoNum);
+        const promIntervAno = String(promIntervAnoNum);
+        const promTotalAno = String(promTotalAnoNum);
+        const resueltosAno = t.total_resueltos_este_ano || 0;
+
+        let gerenciaDisplay = gCode.toUpperCase();
+        if (gCode === 'etapa_proyecto') gerenciaDisplay = 'ETAPA PROYECTO';
+        if (gCode === 'aviso_obra') gerenciaDisplay = 'AVISO OBRA';
+        if (gCode === 'regularizacion') gerenciaDisplay = 'REGULARIZACIÓN';
+
+        // Badge semafórico de SLA (Último mes)
+        let slaBadgeClass = 'comp-low';
+        let slaBadgeLabel = '>90d';
+        if (promTotalNum <= 15) {
+            slaBadgeClass = 'comp-high';
+            slaBadgeLabel = '≤15d';
+        } else if (promTotalNum <= 45) {
+            slaBadgeClass = 'comp-mid-high';
+            slaBadgeLabel = '16-45d';
+        } else if (promTotalNum <= 90) {
+            slaBadgeClass = 'comp-mid-low';
+            slaBadgeLabel = '46-90d';
         }
 
-        const gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : t.gerencia.toUpperCase());
+        // Badge semafórico de SLA (Año 2026)
+        let slaBadgeClassAno = 'comp-low';
+        let slaBadgeLabelAno = '>90d';
+        if (promTotalAnoNum <= 15) {
+            slaBadgeClassAno = 'comp-high';
+            slaBadgeLabelAno = '≤15d';
+        } else if (promTotalAnoNum <= 45) {
+            slaBadgeClassAno = 'comp-mid-high';
+            slaBadgeLabelAno = '16-45d';
+        } else if (promTotalAnoNum <= 90) {
+            slaBadgeClassAno = 'comp-mid-low';
+            slaBadgeLabelAno = '46-90d';
+        }
 
-        html += `
-            <article class="trata-track-card" onclick="showTrataFromSla('${t.gerencia}', '${t["COD TRATA"]}', '${(t["DETALLE TRATA"] || t["COD TRATA"]).replace(/'/g, "\\'")}')" style="cursor: pointer; padding: 1.5rem;">
-                <div class="trata-track-header" style="margin-bottom: 1.2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                    <div class="trata-track-title-block" style="flex: 1;">
-                        <h3 class="trata-track-name" style="font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); line-height: 1.2;">${(t["DETALLE TRATA"] || t["COD TRATA"]).toUpperCase()}</h3>
-                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px;">
-                            <span class="trata-track-code" style="font-size: 0.75rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${t["COD TRATA"]}</span>
-                            <span style="font-size: 0.75rem; color: #0284c7; font-weight: 600; background: #f0f9ff; padding: 2px 6px; border-radius: 4px;">${t.total_resueltos} resueltos</span>
-                        </div>
+        tableRows += `
+            <tr class="sla-table-row" style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s ease;"
+                onmouseover="this.style.background='#f8fafc'" 
+                onmouseout="this.style.background='white'"
+                onclick="openSlaTrataModal('${tCode}', '${descEscaped}', '${gCode}')">
+                
+                <!-- Identificación: Área -->
+                <td style="padding: 10px 10px; vertical-align: middle; white-space: nowrap;">
+                    <span class="badge-gerencia ${gCode}" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 4px 7px; border-radius: 6px; white-space: nowrap;">
+                        ${gerenciaDisplay}
+                    </span>
+                </td>
+
+                <!-- Identificación: Código Trata -->
+                <td style="padding: 10px 10px; vertical-align: middle; text-align: center; white-space: nowrap;">
+                    <span style="font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.78rem; color: var(--primary-dark); background: #f0f9ff; padding: 3px 8px; border-radius: 5px; border: 1px solid #bae6fd; letter-spacing: 0.3px; display: inline-block;">
+                        ${tCode}
+                    </span>
+                </td>
+
+                <!-- Identificación: Descripción Trámite (en una sola línea) -->
+                <td style="padding: 10px 12px; vertical-align: middle; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.84rem; color: #0f172a; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #e2e8f0;" title="${tDesc}">
+                    ${tDesc.toUpperCase()}
+                </td>
+
+                <!-- BLOQUE 1: Egresados Último Mes Completo -->
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa; border-left: 1px solid #e2e8f0;">
+                    <span style="font-size: 0.9rem; font-weight: 800; color: #0284c7; font-family: 'Outfit';">
+                        ${resueltosMes}
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #0369a1; font-family: 'Outfit';">
+                        ${promPropio}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #c2410c; font-family: 'Outfit';">
+                        ${promSubs}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #6d28d9; font-family: 'Outfit';">
+                        ${promInterv}d
+                    </span>
+                </td>
+                <td style="padding: 10px 10px; text-align: center; vertical-align: middle; background: #f1f5f9; border-right: 1.5px solid #cbd5e1;">
+                    <div style="font-size: 0.98rem; font-weight: 800; color: #0f172a; font-family: 'Outfit';">
+                        ${promTotal}d
                     </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                        <span class="badge-gerencia ${t.gerencia}">${gerenciaDisplay}</span>
-                        <button class="btn-cell-download" onclick="exportSlaCardDetail(event, '${t.gerencia}', '${t["COD TRATA"]}')" title="Descargar validación Excel" style="background: rgba(0, 118, 187, 0.05); border: none; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.2s; font-size: 0.7rem; font-weight: 700; gap: 4px;">
-                            Excel
+                    <span class="compliance-badge ${slaBadgeClass}" style="display: inline-block; font-size: 0.62rem; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 1px;">
+                        ${slaBadgeLabel}
+                    </span>
+                </td>
+
+                <!-- BLOQUE 2: Expedientes Caratulados en 2026 -->
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.9rem; font-weight: 800; color: #166534; font-family: 'Outfit';">
+                        ${resueltosAno}
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #15803d; font-family: 'Outfit';">
+                        ${promPropioAno}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #c2410c; font-family: 'Outfit';">
+                        ${promSubsAno}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #6d28d9; font-family: 'Outfit';">
+                        ${promIntervAno}d
+                    </span>
+                </td>
+                <td style="padding: 10px 10px; text-align: center; vertical-align: middle; background: #dcfce7; border-right: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.98rem; font-weight: 800; color: #14532d; font-family: 'Outfit';">
+                        ${promTotalAno}d
+                    </div>
+                    <span class="compliance-badge ${slaBadgeClassAno}" style="display: inline-block; font-size: 0.62rem; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 1px;">
+                        ${slaBadgeLabelAno}
+                    </span>
+                </td>
+
+                <!-- Acciones -->
+                <td style="padding: 10px 12px; text-align: center; vertical-align: middle; white-space: nowrap;" onclick="event.stopPropagation()">
+                    <div style="display: inline-flex; align-items: center; gap: 4px;">
+                        <button onclick="openSlaTrataModal('${tCode}', '${descEscaped}', '${gCode}')"
+                            title="Ver evolución histórica mensual"
+                            style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 8px; border-radius: 6px; font-family: 'Outfit'; font-size: 0.72rem; font-weight: 700; color: #334155; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;"
+                            onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'"
+                            onmouseout="this.style.background='#f1f5f9'; this.style.color='#334155'">
+                            <i class="fa-solid fa-chart-line" style="color: var(--primary);"></i>
+                        </button>
+                        <button class="btn-cell-download" onclick="exportSlaCardDetail(event, '${gCode}', '${tCode}')"
+                            title="Descargar validación Excel"
+                            style="background: rgba(0, 118, 187, 0.08); border: 1px solid rgba(0, 118, 187, 0.2); padding: 5px 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px;"
+                            onmouseover="this.style.background='var(--primary)'; this.style.color='white'"
+                            onmouseout="this.style.background='rgba(0, 118, 187, 0.08)'; this.style.color='var(--primary)'">
+                            <i class="fa-solid fa-file-excel"></i>
                         </button>
                     </div>
-                </div>
-                
-                <div class="trata-track-metrics" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
-                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Duración Trámite</span>
-                        <span class="metric-mini-value" style="font-size: 1.25rem; font-weight: 800; color: #334155;">${totalMedStr}</span>
-                    </div>
-                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">En Gerencia</span>
-                        <span class="metric-mini-value ${perfClass}" style="font-size: 1.25rem; font-weight: 800;">${netaMedStr}</span>
-                    </div>
-                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">En Subsanación</span>
-                        <span class="metric-mini-value" style="font-size: 1.25rem; font-weight: 800; color: #475569;">${subsMedStr}</span>
-                    </div>
-                </div>
-            </article>
+                </td>
+            </tr>
         `;
     });
 
-    container.innerHTML = html;
-    gsap.from("#sla-grid-container .trata-track-card", { opacity: 0, scale: 0.95, duration: 0.4, stagger: 0.03, ease: "power2.out" });
+    const tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; text-align: left; font-size: 0.85rem;">
+            <thead>
+                <!-- Nivel 1: Grupos Principales -->
+                <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; color: #334155; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <th colspan="3" style="padding: 10px 12px; font-weight: 800; border-right: 1px solid #e2e8f0;">Identificación del Trámite</th>
+                    <th colspan="5" style="padding: 10px 12px; font-weight: 800; text-align: center; background: #f1f5f9; color: var(--primary-dark); border-right: 1.5px solid #cbd5e1;">
+                        <i class="fa-solid fa-calendar-check" style="margin-right: 4px; color: var(--primary);"></i> Egresados Efectivamente (Último Mes Completo)
+                    </th>
+                    <th colspan="5" style="padding: 10px 12px; font-weight: 800; text-align: center; background: #dcfce7; color: #166534; border-right: 1px solid #e2e8f0;">
+                        <i class="fa-solid fa-hourglass-half" style="margin-right: 4px; color: #16a34a;"></i> Caratulados en 2026 (Año en Curso)
+                    </th>
+                    <th rowspan="2" style="padding: 10px 12px; font-weight: 800; text-align: center; vertical-align: middle; width: 90px;">Acciones</th>
+                </tr>
+                <!-- Nivel 2: Columnas de Métricas Individuales -->
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.3px;">
+                    <th style="padding: 8px 10px; font-weight: 700; width: 95px;">Área</th>
+                    <th style="padding: 8px 10px; font-weight: 700; width: 105px; text-align: center;">Código</th>
+                    <th style="padding: 8px 12px; font-weight: 700; border-right: 1px solid #e2e8f0; min-width: 200px;">Descripción</th>
+                    
+                    <!-- Sub-columnas Último Mes -->
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; border-left: 1px solid #e2e8f0;">Resueltos</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; color: #0284c7;">T. Gerencia</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; color: #ea580c;">T. Subsanación</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; color: #8b5cf6;">T. Intervención</th>
+                    <th style="padding: 8px 10px; font-weight: 800; text-align: center; background: #e2e8f0; color: #0f172a; border-right: 1.5px solid #cbd5e1;">Tiempo Total</th>
+
+                    <!-- Sub-columnas Caratulados 2026 -->
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4;">Resueltos</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4; color: #15803d;">T. Gerencia</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4; color: #ea580c;">T. Subsanación</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4; color: #8b5cf6;">T. Intervención</th>
+                    <th style="padding: 8px 10px; font-weight: 800; text-align: center; background: #bbf7d0; color: #14532d; border-right: 1px solid #e2e8f0;">Tiempo Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = tableHTML;
+}
+
+let _slaTrataChartInstance = null;
+
+async function openSlaTrataModal(trata, descripcionTrata, gerencia) {
+    const modal = document.getElementById('sla-trata-modal');
+    const modalTitle = document.getElementById('sla-modal-title');
+    const modalSub = document.getElementById('sla-modal-subtitle');
+    const seriesTbody = document.getElementById('sla-modal-series-tbody');
+
+    if (!modal) {
+        // Si no está en sla.html (e.g. index global), abrir en pestaña detalle
+        window.open(`#/${gerencia}/${trata}`, '_blank');
+        return;
+    }
+
+    modal.style.display = 'flex';
+    if (modalTitle) modalTitle.innerText = `${trata} - ${descripcionTrata}`;
+    if (modalSub) modalSub.innerText = `Evolución mensual de tiempos de tramitación (Gerencia: ${gerencia.toUpperCase()})`;
+    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico mensual...</p></td></tr>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/tiempos-tramitacion/trata/${trata}?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        const series = data.series || [];
+
+        renderSlaTrataChart(series);
+
+        if (seriesTbody) {
+            if (series.length === 0) {
+                seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 1.5rem; text-align: center; color: #94a3b8;">No se registran egresos efectivos en meses cerrados para este trámite.</td></tr>`;
+                return;
+            }
+            seriesTbody.innerHTML = series.map(s => {
+                const numVal = (v) => Math.ceil(typeof v === 'number' ? v : parseFloat(v || 0));
+                const p = numVal(s.dias_propio_sector);
+                const sub = numVal(s.dias_subsanacion);
+                const intv = numVal(s.dias_intervenciones);
+                const total = p + sub + intv;
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${p} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${sub} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #8b5cf6; font-weight: 700;">${intv} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0f172a; font-weight: 800; background: #f8fafc;">${total} d</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (e) {
+        console.error("Error cargando detalle mensual SLA de trata:", e);
+        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar histórico: ${e.message}</td></tr>`;
+    }
+}
+
+function closeSlaTrataModal() {
+    const modal = document.getElementById('sla-trata-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderSlaTrataChart(series) {
+    const canvas = document.getElementById('slaTrataChart');
+    if (!canvas) return;
+
+    if (_slaTrataChartInstance) {
+        _slaTrataChartInstance.destroy();
+        _slaTrataChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = series.map(s => s.mes_label);
+    const numVal = (v) => Math.ceil(typeof v === 'number' ? v : parseFloat(v || 0));
+    const propioData = series.map(s => numVal(s.dias_propio_sector));
+    const subsData = series.map(s => numVal(s.dias_subsanacion));
+    const intervData = series.map(s => numVal(s.dias_intervenciones));
+    const totalData = series.map(s => (numVal(s.dias_propio_sector) + numVal(s.dias_subsanacion) + numVal(s.dias_intervenciones)));
+
+    _slaTrataChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'Tiempo Resolución (Promedio Total)',
+                    data: totalData,
+                    borderColor: '#0f172a',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#0f172a',
+                    pointRadius: 4,
+                    tension: 0.1,
+                    order: 1
+                },
+                {
+                    type: 'bar',
+                    label: 'Propio Sector (días promedio)',
+                    data: propioData,
+                    backgroundColor: '#0284c7',
+                    stack: 'stack0',
+                    order: 2
+                },
+                {
+                    type: 'bar',
+                    label: 'Subsanaciones (días promedio)',
+                    data: subsData,
+                    backgroundColor: '#ea580c',
+                    stack: 'stack0',
+                    order: 2
+                },
+                {
+                    type: 'bar',
+                    label: 'Intervenciones (días promedio)',
+                    data: intervData,
+                    backgroundColor: '#8b5cf6',
+                    stack: 'stack0',
+                    order: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw} días`;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        font: { family: 'Outfit', size: 11, weight: '600' }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false }
+                },
+                y: {
+                    stacked: true,
+                    title: { display: true, text: 'Días Corridos Promedio' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
 }
 
 function showTrataFromSla(gerencia, trataCode, trataName) {
-    window.open(`#/${gerencia}/${trataCode}`, '_blank');
+    openSlaTrataModal(trataCode, trataName, gerencia);
 }
 
 function toggleSlaRangeFilter(range) {
@@ -3983,24 +6262,28 @@ async function exportSlaCardDetail(event, gerencia, trataCode) {
         }
         const data = await response.json();
         if (!data || data.length === 0) {
-            alert("No hay expedientes resueltos registrados en el último año para este trámite.");
+            alert("No hay expedientes resueltos registrados en el último mes analizado para este trámite.");
             return;
         }
 
-        // Formatear datos para exportación clara
+        const mesLabel = data[0].mes_analizado || 'Ultimo_Mes';
+
+        // Formatear datos para exportación detallada con todos los tiempos analizados como enteros redondeados hacia arriba
         const cleanData = data.map(r => ({
-            'Gerencia': r.gerencia.toUpperCase(),
+            'Gerencia': (r.gerencia || gerencia).toUpperCase(),
             'Expediente': r.expediente,
-            'Trámite (Trata)': r.trata,
+            'Código Trata': r.trata,
             'Descripción Trámite': r.descripcion_trata,
+            'Mes Analizado': r.mes_analizado || mesLabel,
             'Fecha Carátula': r.fecha_caratula,
             'Fecha Egreso': r.fecha_egreso,
-            'Días Brutos': r.dias_brutos,
-            'Días Subsanación (Descontados)': r.dias_subsanacion,
-            'Días Netos (SLA)': r.dias_netos_sla
+            'Tiempo en Gerencia (días)': Math.ceil(Number(r.dias_gerencia || 0)),
+            'Tiempo en Subsanación (días)': Math.ceil(Number(r.dias_subsanacion || 0)),
+            'Tiempo en Intervención (días)': Math.ceil(Number(r.dias_intervenciones || 0)),
+            'Tiempo Total (días)': Math.ceil(Number(r.dias_totales !== undefined ? r.dias_totales : ((r.dias_gerencia || 0) + (r.dias_subsanacion || 0) + (r.dias_intervenciones || 0))))
         }));
 
-        const filename = `Val_SLA_${gerencia.toUpperCase()}_${trataCode}`;
+        const filename = `SLA_${gerencia.toUpperCase()}_${trataCode}_${mesLabel}`;
         downloadExcel(filename, cleanData);
     } catch (err) {
         console.error("Error al exportar SLA:", err);
@@ -4513,7 +6796,7 @@ function populateCierreMonths() {
     }
     
     const startYear = 2026;
-    const startMonth = 1; // Febrero (0-indexed es 1)
+    const startMonth = 1; // Febrero 2026 (0-indexed es 1)
     
     const mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     
@@ -4539,11 +6822,13 @@ function changeCierreMes(mes) {
 
 async function loadCierreMesData(mes) {
     const select = document.getElementById('cierre-mes-select');
-    if (select && select.children.length <= 4) {
+    if (select) {
         populateCierreMonths();
     }
     if (!mes) {
-        mes = select ? select.value : '2026-06';
+        mes = (select && select.value) ? select.value : '2026-08';
+    } else if (select && select.value !== mes) {
+        select.value = mes;
     }
     currentCierreMes = mes;
 
@@ -8020,68 +10305,117 @@ const BUZONES_GERENCIAS = {
     ]
 };
 
-async function showBuzonesView(area, updateHash = true) {
-    let targetArea = (area || 'dgiur').toLowerCase();
-    let initialGerencia = null;
+async function showBuzonesView(area, gerencia = null, updateHash = true) {
+    let targetArea = (area || 'dgroc').toLowerCase();
+    let targetGerencia = gerencia ? gerencia.toLowerCase() : null;
 
-    // Si entran por URL a sub-áreas directas de DGIUR, ubicarlos en DGIUR
+    // Si entran por URL antigua a sub-áreas directas de DGIUR, ubicarlos en DGIUR
     if (['publico_privado', 'copua', 'privada'].includes(targetArea)) {
-        initialGerencia = targetArea;
+        targetGerencia = targetArea;
+        targetArea = 'dgiur';
+    } else if (['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'].includes(targetArea)) {
+        targetGerencia = targetArea;
+        targetArea = 'dgroc';
+    } else if (['morfologia', 'aph', 'usos'].includes(targetArea)) {
+        targetGerencia = targetArea;
         targetArea = 'dgiur';
     } else if (targetArea !== 'dgroc' && targetArea !== 'dgiur') {
-        targetArea = 'dgiur';
+        targetArea = 'dgroc';
     }
 
     currentBuzonesArea = targetArea;
+
+    // Si NO se especificó gerencia, mostrar el Hub de la Dirección General correspondiente
+    if (!targetGerencia) {
+        const hubViewId = targetArea === 'dgiur' ? 'buzones_dgiur_hub' : 'buzones_dgroc_hub';
+        showView(hubViewId, false);
+        if (updateHash) {
+            window.location.hash = `#/buzones/${targetArea}`;
+        }
+        return;
+    }
+
+    // Si se especificó gerencia, validar permisos específicos
+    if (currentUser && currentUser.permissions) {
+        const perms = currentUser.permissions;
+        const role = (currentUser.role || '').toLowerCase();
+        const isAdmin = role === 'administrador' || role === 'admin';
+        const buzonPermKey = `buzon_${targetGerencia}`;
+        const areaPermKey = targetArea === 'dgiur' ? 'buzon_dgiur' : 'buzon_dgroc';
+        const legacyAreaKey = targetArea; // 'dgroc' or 'dgiur'
+
+        const hasBuzonPerm = isAdmin || perms[buzonPermKey] || perms[areaPermKey] || perms[legacyAreaKey] || perms[targetGerencia] || perms.buzones_analisis || perms.secgdu;
+        if (!hasBuzonPerm) {
+            console.warn(`Acceso denegado al buzón de ${targetGerencia} (${targetArea}) para ${currentUser.username}`);
+            showView('landing');
+            return;
+        }
+    }
+
+    currentBuzonesGerencia = targetGerencia;
+
+    // Primero montar/mostrar la vista 'buzones' en el DOM para que existan los elementos
+    await showView('buzones', false);
+
     const titleEl = document.getElementById('buzones-title');
     const subtitleEl = document.getElementById('buzones-subtitle');
     const breadcrumbArea = document.getElementById('buzones-breadcrumbs-area');
-    const tabsContainer = document.getElementById('buzones-tabs');
+    const breadcrumbGerencia = document.getElementById('buzones-breadcrumbs-gerencia');
     const tableContainer = document.getElementById('buzones-analysts-table-container');
     const emptyState = document.getElementById('buzones-empty-state');
-    
-    if (!titleEl || !subtitleEl || !breadcrumbArea || !tabsContainer) return;
 
-    // Reset view
+    // Reset view containers
     if (tableContainer) tableContainer.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
     const metricsContainer = document.getElementById('buzones-metrics-container');
     if (metricsContainer) metricsContainer.style.display = 'none';
 
-    // Set title and breadcrumbs based on area
-    const uppercaseArea = currentBuzonesArea.toUpperCase();
-    titleEl.innerText = `Buzones ${uppercaseArea}`;
-    breadcrumbArea.innerText = uppercaseArea;
-
-    // Render Gerencias Tabs
+    // Obtener información de la gerencia seleccionada
     const gerencias = BUZONES_GERENCIAS[currentBuzonesArea] || [];
-    const activeGerenciaId = initialGerencia && gerencias.some(g => g.id === initialGerencia) 
-        ? initialGerencia 
-        : (gerencias.length > 0 ? gerencias[0].id : null);
+    const gObj = gerencias.find(g => g.id === targetGerencia);
+    const gerenciaLabel = gObj ? gObj.label : targetGerencia.toUpperCase();
+    const uppercaseArea = currentBuzonesArea.toUpperCase();
 
-    let tabsHtml = '';
-    gerencias.forEach((g) => {
-        const activeClass = g.id === activeGerenciaId ? 'active' : '';
-        tabsHtml += `
-            <button class="buzones-tab-btn ${activeClass}" data-gerencia="${g.id}" onclick="loadBuzonesData('${g.id}')">
-                ${g.label}
-            </button>
-        `;
-    });
-    tabsContainer.innerHTML = tabsHtml;
-
-    // Show view
-    showView('buzones', false);
+    // Set title and breadcrumbs
+    updateBuzonesViewHeader();
 
     if (updateHash) {
-        window.location.hash = `#/buzones/${currentBuzonesArea}`;
+        window.location.hash = `#/buzones/${currentBuzonesArea}/${targetGerencia}`;
     }
 
-    // Load initial gerencia
-    if (activeGerenciaId) {
-        await loadBuzonesData(activeGerenciaId);
+    // Cargar datos de la gerencia seleccionada
+    await loadBuzonesData(targetGerencia);
+}
+
+function updateBuzonesViewHeader() {
+    const titleEl = document.getElementById('buzones-title');
+    const subtitleEl = document.getElementById('buzones-subtitle');
+    const breadcrumbArea = document.getElementById('buzones-breadcrumbs-area');
+    const breadcrumbGerencia = document.getElementById('buzones-breadcrumbs-gerencia');
+
+    const area = currentBuzonesArea || 'dgroc';
+    const gerencia = currentBuzonesGerencia || 'catastro';
+
+    const gerencias = BUZONES_GERENCIAS[area] || [];
+    const gObj = gerencias.find(g => g.id === gerencia);
+    const gerenciaLabel = gObj ? gObj.label : gerencia.toUpperCase();
+    const uppercaseArea = area.toUpperCase();
+
+    if (titleEl) titleEl.innerText = `Buzones ${gerenciaLabel}`;
+    if (subtitleEl) subtitleEl.innerText = `Stock actual de expedientes distribuido por analistas oficiales e intervenciones en ${gerenciaLabel} (${uppercaseArea}).`;
+    
+    if (breadcrumbArea) {
+        breadcrumbArea.innerText = uppercaseArea;
+        breadcrumbArea.onclick = () => {
+            window.location.hash = `#/buzones/${area}`;
+        };
+    }
+
+    if (breadcrumbGerencia) {
+        breadcrumbGerencia.innerText = gerenciaLabel;
     }
 }
+window.updateBuzonesViewHeader = updateBuzonesViewHeader;
 
 async function loadBuzonesData(gerencia) {
     currentBuzonesGerencia = gerencia;
@@ -8091,16 +10425,14 @@ async function loadBuzonesData(gerencia) {
     // Clear analyst search input
     const searchInput = document.getElementById('buzones-analyst-search');
     if (searchInput) searchInput.value = '';
-    
-    // Update active tab styling
-    const tabs = document.querySelectorAll('.buzones-tab-btn');
-    tabs.forEach(btn => {
-        if (btn.getAttribute('data-gerencia') === gerencia) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
+
+    // Update Gerencia breadcrumb
+    const breadcrumbGerencia = document.getElementById('buzones-breadcrumbs-gerencia');
+    if (breadcrumbGerencia) {
+        const gerencias = BUZONES_GERENCIAS[currentBuzonesArea] || [];
+        const gObj = gerencias.find(g => g.id === gerencia);
+        breadcrumbGerencia.innerText = gObj ? gObj.label : gerencia.toUpperCase();
+    }
 
     const loader = document.getElementById('buzones-loader');
     const tableContainer = document.getElementById('buzones-analysts-table-container');
@@ -8405,7 +10737,7 @@ function filterAndRenderBuzonDetalle() {
 }
 
 function backToBuzonGerencia() {
-    showView('buzones');
+    window.location.hash = `#/buzones/${currentBuzonesArea}/${currentBuzonesGerencia}`;
 }
 
 let currentBuzonesEgresadoFilter = null;
@@ -8634,305 +10966,7 @@ function exportBuzonAnalistaExcel() {
 }
 window.exportBuzonAnalistaExcel = exportBuzonAnalistaExcel;
 
-// --- REPORT PENDIENTES ASOCIACION ---
-let currentPendientesAsociacionData = null;
-let expandedPendientesArea = null;
-let expandedPendientesTrata = null;
 
-async function loadPendientesAsociacionData() {
-    const container = document.getElementById('pendientes-content-container');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div style="padding: 3rem; text-align: center;">
-            <div class="loader" style="margin: 0 auto 1.5rem auto;"></div>
-            <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">Cargando Pendientes de Asociación...</h3>
-            <p style="color: #64748b;">Consultando los GEDOs de egreso pendientes en el servidor...</p>
-        </div>
-    `;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/reporte/pendientes_asociacion`);
-        if (!res || !res.ok) {
-            throw new Error("Error en la respuesta del servidor");
-        }
-        currentPendientesAsociacionData = await res.json();
-        renderPendientesAsociacion();
-    } catch (e) {
-        container.innerHTML = `
-            <div style="padding: 3rem; text-align: center; color: #ef4444; font-weight: 600;">
-                Error al cargar el reporte: ${e.message}
-                <br>
-                <button class="btn-primary" style="margin-top: 1.5rem; padding: 8px 16px;" onclick="loadPendientesAsociacionData()">Reintentar Carga</button>
-            </div>
-        `;
-    }
-}
-window.loadPendientesAsociacionData = loadPendientesAsociacionData;
-
-function renderPendientesAsociacion() {
-    const container = document.getElementById('pendientes-content-container');
-    if (!container) return;
-
-    if (!currentPendientesAsociacionData || Object.keys(currentPendientesAsociacionData).length === 0) {
-        container.innerHTML = `
-            <div style="padding: 3rem; text-align: center; color: #64748b; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow);">
-                🎉 No hay GEDOs de egreso pendientes de asociación en este momento.
-            </div>
-        `;
-        return;
-    }
-
-    const searchVal = document.getElementById('pendientes-search')?.value.toLowerCase() || '';
-
-    // Filtrar y agrupar los datos según la búsqueda
-    let hasData = false;
-    let html = `
-        <div class="pendientes-areas-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-    `;
-
-    const GERENCIA_TITLES = {
-        catastro: "Catastro",
-        instalaciones: "Instalaciones",
-        regularizacion: "Regularización",
-        contable: "Contable",
-        etapa_proyecto: "Etapa Proyecto",
-        morfologia: "Morfología",
-        aph: "Protección Histórica APH",
-        usos: "Usos del Suelo",
-        aviso_obra: "Aviso de Obra"
-    };
-
-    Object.keys(currentPendientesAsociacionData).forEach(areaKey => {
-        const area = currentPendientesAsociacionData[areaKey];
-        let totalPendingInArea = 0;
-        const filteredTratas = {};
-
-        Object.keys(area.tratas).forEach(trataCode => {
-            const trata = area.tratas[trataCode];
-            const filteredExps = trata.expedientes.filter(exp => {
-                return exp.expediente.toLowerCase().includes(searchVal) ||
-                       trataCode.toLowerCase().includes(searchVal) ||
-                       trata.trata_nombre.toLowerCase().includes(searchVal) ||
-                       exp.gedo.toLowerCase().includes(searchVal) ||
-                       (exp.usuario_creador || '').toLowerCase().includes(searchVal);
-            });
-
-            if (filteredExps.length > 0) {
-                filteredTratas[trataCode] = {
-                    ...trata,
-                    expedientes: filteredExps
-                };
-                totalPendingInArea += filteredExps.length;
-            }
-        });
-
-        if (totalPendingInArea > 0) {
-            hasData = true;
-            const areaTitle = GERENCIA_TITLES[areaKey] || area.area_nombre;
-            const isExpanded = expandedPendientesArea === areaKey;
-
-            html += `
-                <div class="analyst-card-premium area-card-item" onclick="togglePendientesArea('${areaKey}')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: ${isExpanded ? '2px solid var(--primary)' : '1px solid #cbd5e1'}; border-radius: 16px; transition: all 0.2s; background: ${isExpanded ? '#f0f9ff' : 'white'}; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="width: 50px; height: 50px; border-radius: 12px; background: ${isExpanded ? 'var(--primary)' : '#eff6ff'}; color: ${isExpanded ? 'white' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                            <i class="fa-solid fa-folder-open"></i>
-                        </div>
-                        <span class="badge" style="background: ${isExpanded ? 'var(--primary-dark)' : 'var(--primary)'}; color: white; padding: 4px 10px; border-radius: 9999px; font-weight: bold; font-size: 0.8rem;">
-                            ${totalPendingInArea} GEDOs
-                        </span>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">${areaTitle}</h3>
-                        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 0.85rem;">Gerencia de ${areaTitle}</p>
-                    </div>
-                    <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                        ${isExpanded ? 'Contraer' : 'Ver Detalles'} <i class="fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
-                    </div>
-                </div>
-            `;
-        }
-    });
-
-    html += `</div>`;
-
-    // Renderizar detalles si hay un área expandida
-    if (expandedPendientesArea && currentPendientesAsociacionData[expandedPendientesArea]) {
-        const area = currentPendientesAsociacionData[expandedPendientesArea];
-        const areaTitle = GERENCIA_TITLES[expandedPendientesArea] || area.area_nombre;
-        
-        let tratasHtml = `
-            <div class="pendientes-details-wrapper" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 2rem; box-shadow: var(--card-shadow); margin-top: 1.5rem;">
-                <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin-top: 0; margin-bottom: 1.5rem; border-left: 4px solid var(--primary); padding-left: 0.75rem;">
-                    Trámites de Gerencia: ${areaTitle}
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-        `;
-
-        let activeTrataFound = false;
-
-        Object.keys(area.tratas).forEach(trataCode => {
-            const trata = area.tratas[trataCode];
-            
-            // Aplicar búsqueda al listado interno
-            const filteredExps = trata.expedientes.filter(exp => {
-                return exp.expediente.toLowerCase().includes(searchVal) ||
-                       trataCode.toLowerCase().includes(searchVal) ||
-                       trata.trata_nombre.toLowerCase().includes(searchVal) ||
-                       exp.gedo.toLowerCase().includes(searchVal) ||
-                       (exp.usuario_creador || '').toLowerCase().includes(searchVal);
-            });
-
-            if (filteredExps.length > 0) {
-                const isTrataExpanded = expandedPendientesTrata === trataCode;
-                if (isTrataExpanded) activeTrataFound = true;
-
-                tratasHtml += `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
-                        <div onclick="togglePendientesTrata('${trataCode}')" style="background: #f8fafc; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
-                            <div>
-                                <span style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit'; font-size: 1rem;">${trataCode}</span>
-                                <span style="color: #64748b; font-size: 0.9rem; margin-left: 10px;">${trata.trata_nombre}</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">
-                                    ${filteredExps.length} pend.
-                                </span>
-                                <i class="fa-solid ${isTrataExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}" style="color: #64748b; font-size: 0.85rem;"></i>
-                            </div>
-                        </div>
-                `;
-
-                if (isTrataExpanded) {
-                    tratasHtml += `
-                        <div style="padding: 1rem; border-top: 1px solid #e2e8f0; overflow-x: auto;">
-                            <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
-                                <button class="btn-download-excel" onclick="exportPendientesExcel('${expandedPendientesArea}', '${trataCode}')" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; cursor: pointer; border-radius: 6px; font-weight: bold;">
-                                    <i class="fa-solid fa-file-excel"></i> Exportar Trámite
-                                </button>
-                            </div>
-                            <table class="minimal-table" style="width: 100%; margin-top: 0;">
-                                <thead>
-                                    <tr>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Expediente</th>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Documento GEDO de Egreso</th>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Usuario Creador</th>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Fecha Creación</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-
-                    filteredExps.forEach(exp => {
-                        tratasHtml += `
-                            <tr>
-                                <td style="padding: 10px; font-weight: 600; color: #1e293b; font-size: 0.85rem;">${exp.expediente}</td>
-                                <td style="padding: 10px; font-family: monospace; color: var(--primary-dark); font-size: 0.85rem;">${exp.gedo}</td>
-                                <td style="padding: 10px; color: #475569; font-size: 0.85rem;">${exp.usuario_creador || '-'}</td>
-                                <td style="padding: 10px; color: #64748b; font-size: 0.85rem;">${exp.fecha_creacion}</td>
-                            </tr>
-                        `;
-                    });
-
-                    tratasHtml += `
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-
-                tratasHtml += `</div>`;
-            }
-        });
-
-        tratasHtml += `
-                </div>
-            </div>
-        `;
-
-        html += tratasHtml;
-        
-        // Reset expanded trata if it doesn't exist anymore under the search/filter
-        if (!activeTrataFound) {
-            expandedPendientesTrata = null;
-        }
-    }
-
-    if (!hasData) {
-        container.innerHTML = `
-            <div style="padding: 3rem; text-align: center; color: #64748b; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow);">
-                No se encontraron pendientes de asociación que coincidan con la búsqueda.
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = html;
-    
-    // Quick GSAP Entry animation
-    gsap.from(".area-card-item", { opacity: 0, y: 10, stagger: 0.05, duration: 0.3, ease: "power2.out" });
-}
-window.renderPendientesAsociacion = renderPendientesAsociacion;
-
-function filterPendientes() {
-    renderPendientesAsociacion();
-}
-window.filterPendientes = filterPendientes;
-
-function togglePendientesArea(areaKey) {
-    if (expandedPendientesArea === areaKey) {
-        expandedPendientesArea = null;
-        expandedPendientesTrata = null;
-    } else {
-        expandedPendientesArea = areaKey;
-        expandedPendientesTrata = null; // Reset nested selection
-    }
-    renderPendientesAsociacion();
-}
-window.togglePendientesArea = togglePendientesArea;
-
-function togglePendientesTrata(trataCode) {
-    if (expandedPendientesTrata === trataCode) {
-        expandedPendientesTrata = null;
-    } else {
-        expandedPendientesTrata = trataCode;
-    }
-    renderPendientesAsociacion();
-}
-window.togglePendientesTrata = togglePendientesTrata;
-
-function exportPendientesExcel(areaKey, trataCode) {
-    try {
-        if (!currentPendientesAsociacionData || !currentPendientesAsociacionData[areaKey]) return;
-        const trata = currentPendientesAsociacionData[areaKey].tratas[trataCode];
-        if (!trata || !trata.expedientes) return;
-
-        const rows = trata.expedientes.map(exp => ({
-            "Expediente": exp.expediente,
-            "Documento GEDO": exp.gedo,
-            "Usuario Creador": exp.usuario_creador || '',
-            "Fecha Creación": exp.fecha_creacion
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        const workbook = XLSX.utils.book_new();
-        Xlimits = XLSX.utils.book_append_sheet(workbook, worksheet, "Pendientes");
-
-        // Auto-fit column widths
-        const colWidths = [
-            { wch: 30 },
-            { wch: 35 },
-            { wch: 20 },
-            { wch: 25 }
-        ];
-        worksheet['!cols'] = colWidths;
-
-        XLSX.writeFile(workbook, `pendientes_asociacion_${trataCode}.xlsx`);
-    } catch (e) {
-        alert("Error exportando a Excel: " + e.message);
-    }
-}
-window.exportPendientesExcel = exportPendientesExcel;
 
 // ==========================================
 // SECCIÓN: ANALYTICS (ESTADÍSTICAS & DATASETS)
@@ -10993,22 +13027,20 @@ function renderM2Map(records) {
             style: {
                 version: 8,
                 sources: {
-                    'carto-tiles': {
+                    'osm-tiles': {
                         type: 'raster',
                         tiles: [
-                            'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                            'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                            'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                         ],
                         tileSize: 256,
-                        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
                         maxzoom: 19
                     }
                 },
                 layers: [{
-                    id: 'carto-basemap',
+                    id: 'osm-basemap',
                     type: 'raster',
-                    source: 'carto-tiles',
+                    source: 'osm-tiles',
                     minzoom: 0,
                     maxzoom: 22
                 }]
@@ -11852,22 +13884,20 @@ function renderAvisoMap(points) {
             style: {
                 version: 8,
                 sources: {
-                    'carto-tiles': {
+                    'osm-tiles': {
                         type: 'raster',
                         tiles: [
-                            'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                            'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                            'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                         ],
                         tileSize: 256,
-                        attribution: '&copy; CARTO &copy; OpenStreetMap',
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
                         maxzoom: 19
                     }
                 },
                 layers: [{
-                    id: 'carto-basemap',
+                    id: 'osm-basemap',
                     type: 'raster',
-                    source: 'carto-tiles',
+                    source: 'osm-tiles',
                     minzoom: 0,
                     maxzoom: 22
                 }]
@@ -12398,6 +14428,487 @@ window.addCustomBuzonCodeFromInput = addCustomBuzonCodeFromInput;
 window.addBuzonAdicionalToGerencia = addBuzonAdicionalToGerencia;
 window.deleteBuzonAdicionalFromGerencia = deleteBuzonAdicionalFromGerencia;
 
+// --- MAESTRO DE ANALISTAS POR ÁREA / GERENCIA (ADMIN BACKLOG) ---
+let allAdminAnalistasData = [];
+let currentAdminAnalistasFilterDir = 'ALL';
+let currentAdminAnalistasSelectedGerencia = null;
+
+async function loadAdminAnalistas() {
+    const areasList = document.getElementById('analistas-areas-list');
+    const tableBody = document.getElementById('admin-analistas-table-body');
+    const title = document.getElementById('admin-analistas-table-title');
+    if (!areasList || !tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2.5rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando maestro de analistas por área...</p></td></tr>';
+    areasList.innerHTML = '<div style="text-align: center; padding: 1.5rem; color: #94a3b8;"><span class="loader"></span></div>';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas`);
+        if (res && res.ok) {
+            allAdminAnalistasData = await res.json();
+
+            // Ordenar por direccion y luego gerencia
+            allAdminAnalistasData.sort((a, b) => {
+                const dirA = a.direccion || '';
+                const dirB = b.direccion || '';
+                if (dirA !== dirB) return dirA.localeCompare(dirB);
+                return (a.gerencia || '').localeCompare(b.gerencia || '');
+            });
+
+            // Actualizar Stats Globales
+            let totalRegistros = 0;
+            let totalActivos = 0;
+            let totalInactivos = 0;
+
+            allAdminAnalistasData.forEach(g => {
+                if (g.analistas) {
+                    totalRegistros += g.analistas.length;
+                    g.analistas.forEach(a => {
+                        if (a.activo !== false) {
+                            totalActivos++;
+                        } else {
+                            totalInactivos++;
+                        }
+                    });
+                }
+            });
+
+            const elTotal = document.getElementById('analistas-global-total');
+            const elActivos = document.getElementById('analistas-global-activos');
+            const elInactivos = document.getElementById('analistas-global-inactivos');
+            const elAreas = document.getElementById('analistas-global-areas');
+            if (elTotal) elTotal.innerText = totalRegistros.toLocaleString('es-AR');
+            if (elActivos) elActivos.innerText = totalActivos.toLocaleString('es-AR');
+            if (elInactivos) elInactivos.innerText = totalInactivos.toLocaleString('es-AR');
+            if (elAreas) elAreas.innerText = allAdminAnalistasData.length;
+
+            // Renderizar selector de áreas
+            renderAdminAnalistasAreasList();
+
+            // Seleccionar por defecto la primera o conservar la actual
+            if (!currentAdminAnalistasSelectedGerencia || !allAdminAnalistasData.some(x => x.gerencia === currentAdminAnalistasSelectedGerencia)) {
+                if (allAdminAnalistasData.length > 0) {
+                    currentAdminAnalistasSelectedGerencia = allAdminAnalistasData[0].gerencia;
+                }
+            }
+
+            selectAdminAnalistasGerencia(currentAdminAnalistasSelectedGerencia);
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">Error al obtener los analistas.</td></tr>';
+        }
+    } catch (err) {
+        console.error("Error al cargar maestro de analistas:", err);
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
+    }
+}
+
+function filterAnalistasByDireccion(dir) {
+    currentAdminAnalistasFilterDir = dir;
+    ['all', 'dgroc', 'dgiur'].forEach(d => {
+        const btn = document.getElementById(`tab-dir-${d}`);
+        if (!btn) return;
+        if ((dir === 'ALL' && d === 'all') || dir.toLowerCase() === d) {
+            btn.classList.add('active');
+            btn.style.background = 'white';
+            btn.style.color = 'var(--primary-dark)';
+            btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+        } else {
+            btn.classList.remove('active');
+            btn.style.background = 'transparent';
+            btn.style.color = '#64748b';
+            btn.style.boxShadow = 'none';
+        }
+    });
+
+    renderAdminAnalistasAreasList();
+
+    // Si el área seleccionada actualmente quedó excluida por el filtro, seleccionar la primera visible
+    const visibleData = getFilteredAdminAnalistasData();
+    if (visibleData.length > 0 && !visibleData.some(x => x.gerencia === currentAdminAnalistasSelectedGerencia)) {
+        selectAdminAnalistasGerencia(visibleData[0].gerencia);
+    }
+}
+
+function getFilteredAdminAnalistasData() {
+    if (currentAdminAnalistasFilterDir === 'ALL') return allAdminAnalistasData;
+    return allAdminAnalistasData.filter(x => (x.direccion || '').toUpperCase() === currentAdminAnalistasFilterDir);
+}
+
+function getAdminGerenciaLabel(item) {
+    if (!item) return '';
+    const g = typeof item === 'string' ? item : item.gerencia;
+    const d = (typeof item === 'object' && item.direccion) ? item.direccion : '';
+    if (ADMIN_GERENCIAS_LABELS && ADMIN_GERENCIAS_LABELS[g]) {
+        return ADMIN_GERENCIAS_LABELS[g];
+    }
+    const cleanG = (g || '').replace(/_/g, ' ').toUpperCase();
+    return d ? `${d} - ${cleanG}` : cleanG;
+}
+
+function renderAdminAnalistasAreasList() {
+    const container = document.getElementById('analistas-areas-list');
+    const countEl = document.getElementById('analistas-areas-count');
+    if (!container) return;
+
+    const visibleData = getFilteredAdminAnalistasData();
+    if (countEl) countEl.innerText = `${visibleData.length} ${visibleData.length === 1 ? 'área' : 'áreas'}`;
+
+    if (visibleData.length === 0) {
+        container.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: #94a3b8; font-size: 0.85rem;">No hay áreas en esta dirección</div>';
+        return;
+    }
+
+    let html = '';
+    visibleData.forEach(item => {
+        const isSelected = item.gerencia === currentAdminAnalistasSelectedGerencia;
+        const total = item.analistas ? item.analistas.length : 0;
+        const activos = item.analistas ? item.analistas.filter(a => a.activo !== false).length : 0;
+        const inactivos = total - activos;
+        const label = getAdminGerenciaLabel(item);
+        const dir = item.direccion || 'SGDU';
+        
+        const cardBg = isSelected ? '#eff6ff' : 'white';
+        const cardBorder = isSelected ? 'var(--primary)' : '#e2e8f0';
+        const textWeight = isSelected ? '700' : '600';
+        const textColor = isSelected ? 'var(--primary-dark)' : '#334155';
+        const badgeBg = dir === 'DGROC' ? '#ecfdf5' : dir === 'DGIUR' ? '#f3e8ff' : '#f1f5f9';
+        const badgeColor = dir === 'DGROC' ? '#047857' : dir === 'DGIUR' ? '#7e22ce' : '#475569';
+
+        const gEsc = (item.gerencia || '').replace(/'/g, "\\'");
+
+        html += `
+            <div onclick="selectAdminAnalistasGerencia('${gEsc}')" 
+                style="padding: 10px 12px; border-radius: 8px; border: 1.5px solid ${cardBorder}; background: ${cardBg}; cursor: pointer; transition: all 0.15s; display: flex; justify-content: space-between; align-items: center; gap: 8px;"
+                onmouseover="if('${gEsc}' !== currentAdminAnalistasSelectedGerencia) this.style.borderColor='#cbd5e1'"
+                onmouseout="if('${gEsc}' !== currentAdminAnalistasSelectedGerencia) this.style.borderColor='#e2e8f0'">
+                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                    <span style="font-size: 0.7rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; font-family: 'Outfit';">
+                        ${dir}
+                    </span>
+                    <span style="font-size: 0.88rem; font-weight: ${textWeight}; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${label}
+                    </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                    <span title="${activos} activos" style="font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; background: ${isSelected ? '#059669' : '#ecfdf5'}; color: ${isSelected ? 'white' : '#047857'};">
+                        ${activos}
+                    </span>
+                    ${inactivos > 0 ? `
+                        <span title="${inactivos} inactivos" style="font-size: 0.72rem; font-weight: 700; padding: 2px 5px; border-radius: 10px; background: #f1f5f9; color: #94a3b8;">
+                            ${inactivos}
+                        </span>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function selectAdminAnalistasGerencia(gerencia) {
+    currentAdminAnalistasSelectedGerencia = gerencia;
+    renderAdminAnalistasAreasList();
+    renderAdminAnalistasCurrentTable();
+    clearAdminAnalistasUserSearch();
+}
+
+function renderAdminAnalistasCurrentTable() {
+    const tableBody = document.getElementById('admin-analistas-table-body');
+    const areaNameEl = document.getElementById('active-area-name');
+    const areaDirEl = document.getElementById('active-area-badge-dir');
+    const areaDescEl = document.getElementById('active-area-desc');
+    const areaCountEl = document.getElementById('active-area-analysts-count');
+    const areaActivosNumEl = document.getElementById('active-area-activos-num');
+    const areaInactivosNumEl = document.getElementById('active-area-inactivos-num');
+    if (!tableBody) return;
+
+    const gerencia = currentAdminAnalistasSelectedGerencia;
+    const gerenciaData = allAdminAnalistasData.find(x => x.gerencia === gerencia);
+
+    if (!gerenciaData) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">Seleccione un área para ver sus analistas.</td></tr>';
+        return;
+    }
+
+    const label = getAdminGerenciaLabel(gerenciaData);
+    const dir = gerenciaData.direccion || 'SGDU';
+    const analistasList = gerenciaData.analistas || [];
+    const totalCount = analistasList.length;
+    const activosCount = analistasList.filter(a => a.activo !== false).length;
+    const inactivosCount = totalCount - activosCount;
+
+    if (areaNameEl) areaNameEl.innerText = label;
+    if (areaDirEl) {
+        areaDirEl.innerText = dir;
+        areaDirEl.style.background = dir === 'DGROC' ? '#ecfdf5' : dir === 'DGIUR' ? '#f3e8ff' : '#e0f2fe';
+        areaDirEl.style.color = dir === 'DGROC' ? '#047857' : dir === 'DGIUR' ? '#7e22ce' : '#0284c7';
+    }
+    if (areaDescEl) areaDescEl.innerText = `Gerencia: ${(gerencia || '').toUpperCase()} • Sector: ${dir}`;
+    if (areaCountEl) areaCountEl.innerText = `${totalCount} Total`;
+    if (areaActivosNumEl) areaActivosNumEl.innerText = activosCount;
+    if (areaInactivosNumEl) areaInactivosNumEl.innerText = inactivosCount;
+
+    if (!gerenciaData.analistas || gerenciaData.analistas.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem 1.5rem; color: #64748b; font-style: italic;"><i class="fa-solid fa-users-slash" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>No hay analistas asignados a esta gerencia actualmente.<br>Podés agregar uno buscando su usuario SADE arriba.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    gerenciaData.analistas.forEach(a => {
+        const uEsc = (a.usuario || '').replace(/'/g, "\\'");
+        const gEsc = (gerencia || '').replace(/'/g, "\\'");
+        const isBuzon = (a.tipo === 'buzon') || (a.usuario && a.usuario.includes('-'));
+        const isActivo = a.activo !== false;
+        
+        const badgeHtml = isBuzon 
+            ? '<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;">BUZÓN</span>'
+            : '<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;">ANALISTA</span>';
+
+        const fullName = (a.nombre && a.apellido) ? `${a.apellido}, ${a.nombre}` : (a.nombre_completo || a.nombre || a.apellido || "-");
+
+        html += `
+            <tr class="admin-analista-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s; ${!isActivo ? 'opacity: 0.65; background: #fcfcfc;' : ''}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${!isActivo ? '#fcfcfc' : 'white'}'">
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <i class="fa-solid ${isBuzon ? 'fa-inbox' : 'fa-user'}" style="margin-right: 6px; color: ${isBuzon ? '#ea580c' : '#0284c7'}; font-size: 0.85rem;"></i>
+                    ${a.usuario || '-'}
+                </td>
+                <td style="padding: 12px 14px; color: #334155; font-weight: 500;">${fullName}</td>
+                <td style="padding: 12px 14px; color: #64748b; font-size: 0.84rem;">${a.mail || "-"}</td>
+                <td style="padding: 12px 14px; text-align: center;">${badgeHtml}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <label class="switch-premium" style="position: relative; display: inline-block; width: 42px; height: 22px; margin: 0; flex-shrink: 0;">
+                            <input type="checkbox" ${isActivo ? 'checked' : ''} onchange="toggleAdminAnalistaStatus('${gEsc}', '${uEsc}', this.checked)" style="opacity: 0; width: 0; height: 0;">
+                            <span class="slider-premium" style="border-radius: 22px;"></span>
+                        </label>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: ${isActivo ? '#059669' : '#94a3b8'}; min-width: 48px; text-align: left;">
+                            ${isActivo ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </div>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <button type="button" onclick="deleteAdminAnalistaFromGerencia('${gEsc}', '${uEsc}')" 
+                        title="Remover de esta gerencia"
+                        style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 5px 9px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;"
+                        onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
+}
+
+async function toggleAdminAnalistaStatus(gerencia, username, nuevoEstado) {
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activo: nuevoEstado })
+        });
+
+        if (res && res.ok) {
+            // Actualizar localmente en memoria
+            const gData = allAdminAnalistasData.find(x => x.gerencia === gerencia);
+            if (gData && gData.analistas) {
+                const aObj = gData.analistas.find(x => (x.usuario || '').toUpperCase() === username.toUpperCase());
+                if (aObj) aObj.activo = nuevoEstado;
+            }
+            
+            // Actualizar contadores globales en UI
+            let totalActivos = 0;
+            let totalInactivos = 0;
+            allAdminAnalistasData.forEach(g => {
+                if (g.analistas) {
+                    g.analistas.forEach(a => {
+                        if (a.activo !== false) totalActivos++;
+                        else totalInactivos++;
+                    });
+                }
+            });
+            const elActivos = document.getElementById('analistas-global-activos');
+            const elInactivos = document.getElementById('analistas-global-inactivos');
+            if (elActivos) elActivos.innerText = totalActivos.toLocaleString('es-AR');
+            if (elInactivos) elInactivos.innerText = totalInactivos.toLocaleString('es-AR');
+
+            renderAdminAnalistasAreasList();
+            renderAdminAnalistasCurrentTable();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo actualizar el estado del analista."}`);
+            await loadAdminAnalistas();
+        }
+    } catch (err) {
+        console.error("Error toggling analista status:", err);
+        alert("Error de conexión al actualizar estado.");
+        await loadAdminAnalistas();
+    }
+}
+
+function filterAdminAnalistasTable() {
+    const query = (document.getElementById('admin-analistas-table-search').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#admin-analistas-table-body .admin-analista-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+async function searchSadeUsersForAnalistas(q) {
+    const resultsPanel = document.getElementById('admin-analistas-search-results');
+    const clearBtn = document.getElementById('btn-clear-analistas-search');
+    if (!resultsPanel) return;
+
+    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
+
+    if (q.trim().length < 2) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+        return;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
+        if (res && res.ok) {
+            const users = await res.json();
+            if (users.length === 0) {
+                const uTypedEsc = q.trim().toUpperCase().replace(/'/g, "\\'");
+                resultsPanel.innerHTML = `
+                    <div style="padding: 14px; color: #64748b; font-size: 0.85rem; text-align: center;">
+                        <p style="margin: 0 0 8px 0;">No se encontraron usuarios coincidentes en la base de SADE.</p>
+                        <button type="button" onclick="addAdminAnalistaToGerencia('${uTypedEsc}')" style="background: var(--primary); color: white; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.82rem; font-family: 'Outfit';">
+                            <i class="fa-solid fa-user-plus"></i> Forzar incorporación de "${q.trim().toUpperCase()}"
+                        </button>
+                    </div>`;
+                resultsPanel.style.display = 'block';
+                return;
+            }
+
+            let html = '';
+            users.forEach(u => {
+                const uEsc = u.usuario.replace(/'/g, "\\'");
+                html += `
+                    <div class="search-result-item" onclick="addAdminAnalistaToGerencia('${uEsc}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
+                                <span style="font-size: 0.72rem; color: #94a3b8; background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">${u.codigo_sector_interno || "SADE"}</span>
+                            </div>
+                            <span style="color: #64748b; font-size: 0.82rem; display: block; margin-top: 2px;">${u.apellido_nombre || ""}</span>
+                        </div>
+                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-plus"></i> Agregar</span>
+                    </div>
+                `;
+            });
+            resultsPanel.innerHTML = html;
+            resultsPanel.style.display = 'block';
+        }
+    } catch (err) {
+        console.error("Error searching SADE users for analistas:", err);
+    }
+}
+
+function clearAdminAnalistasUserSearch() {
+    const input = document.getElementById('admin-analistas-user-search');
+    const resultsPanel = document.getElementById('admin-analistas-search-results');
+    const clearBtn = document.getElementById('btn-clear-analistas-search');
+    if (input) input.value = '';
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+}
+
+async function addAdminAnalistaToGerencia(username) {
+    if (!currentAdminAnalistasSelectedGerencia) {
+        alert("Por favor seleccione un área primero.");
+        return;
+    }
+    const gerencia = currentAdminAnalistasSelectedGerencia;
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    
+    if (!confirm(`¿Desea agregar al analista/buzón "${username.toUpperCase()}" a ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario: username })
+        });
+
+        if (res && res.ok) {
+            clearAdminAnalistasUserSearch();
+            await loadAdminAnalistas();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo agregar el analista."}`);
+        }
+    } catch (err) {
+        console.error("Error adding admin analista:", err);
+        alert("Error de red al agregar analista.");
+    }
+}
+
+async function deleteAdminAnalistaFromGerencia(gerencia, username) {
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    if (!confirm(`¿Está seguro de que desea remover a "${username.toUpperCase()}" de ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}`, {
+            method: 'DELETE'
+        });
+
+        if (res && res.ok) {
+            await loadAdminAnalistas();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo remover el analista."}`);
+        }
+    } catch (err) {
+        console.error("Error deleting admin analista:", err);
+        alert("Error de red al remover analista.");
+    }
+}
+
+function onAdminAnalistasGerenciaChange(gerencia) {
+    if (gerencia) {
+        selectAdminAnalistasGerencia(gerencia);
+    } else {
+        renderAdminAnalistasCurrentTable();
+        clearAdminAnalistasUserSearch();
+    }
+}
+
+window.filterAnalistasByDireccion = filterAnalistasByDireccion;
+window.selectAdminAnalistasGerencia = selectAdminAnalistasGerencia;
+window.onAdminAnalistasGerenciaChange = onAdminAnalistasGerenciaChange;
+
+window.loadUsers = loadUsers;
+window.renderAdminUsersGrid = renderAdminUsersGrid;
+window.filterAdminUsersGrid = filterAdminUsersGrid;
+window.showUsersListView = showUsersListView;
+window.showCreateUserView = showCreateUserView;
+window.showEditUserView = showEditUserView;
+window.openEditUser = openEditUser;
+window.deleteUser = deleteUser;
+window.handleRoleSelectionChange = handleRoleSelectionChange;
+
+window.loadAdminAnalistas = loadAdminAnalistas;
+window.filterAdminAnalistasTable = filterAdminAnalistasTable;
+window.searchSadeUsersForAnalistas = searchSadeUsersForAnalistas;
+window.clearAdminAnalistasUserSearch = clearAdminAnalistasUserSearch;
+window.addAdminAnalistaToGerencia = addAdminAnalistaToGerencia;
+window.deleteAdminAnalistaFromGerencia = deleteAdminAnalistaFromGerencia;
+window.toggleAdminAnalistaStatus = toggleAdminAnalistaStatus;
+
 // --- PRODUCTIVIDAD ANALISTAS ---
 let selectedAnalystUser = null;
 let selectedAnalystName = null;
@@ -12874,6 +15385,834 @@ async function loadCiudad3DStats() {
 
 window.loadCiudad3DStats = loadCiudad3DStats;
 
+// ==========================================
+// CIUDAD 3D - BACKEND PDI (geodb 10.10.8.207)
+// ==========================================
+let pdiTablesData = [];
+
+async function loadCiudad3DPDI(forceRefresh = false) {
+    const vpnAlertEl = document.getElementById('pdi-vpn-alert');
+    const refreshIcon = document.getElementById('pdi-refresh-icon');
+
+    const kpiParcelasEl = document.getElementById('pdi-kpi-parcelas');
+    const kpiManzanasEl = document.getElementById('pdi-kpi-manzanas');
+    const kpiObjetosEl = document.getElementById('pdi-kpi-objetos');
+    const tbodyEl = document.getElementById('pdi-tables-tbody');
+
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+    if (kpiParcelasEl && kpiParcelasEl.innerText === '---') kpiParcelasEl.innerText = '...';
+    if (kpiManzanasEl && kpiManzanasEl.innerText === '---') kpiManzanasEl.innerText = '...';
+    if (kpiObjetosEl && kpiObjetosEl.innerText === '---') kpiObjetosEl.innerText = '...';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/pdi/stats`);
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+        const data = await res.json();
+        
+        if (data.connected) {
+            // Conexión exitosa
+            if (vpnAlertEl) vpnAlertEl.style.display = 'none';
+
+            // KPIs
+            const kpis = data.kpis || {};
+            if (kpiParcelasEl) kpiParcelasEl.innerText = Number(kpis.total_parcelas || 0).toLocaleString('es-AR');
+            if (kpiManzanasEl) kpiManzanasEl.innerText = Number(kpis.total_manzanas || 0).toLocaleString('es-AR');
+            if (kpiObjetosEl) kpiObjetosEl.innerText = Number(kpis.total_objetos_territoriales || 0).toLocaleString('es-AR');
+
+            // Tablas
+            pdiTablesData = data.tables || [];
+            renderPDITables(pdiTablesData);
+
+            // Cargar validaciones de consistencia
+            loadPDIValidations(forceRefresh);
+        } else {
+            // No conectado / Fuera de VPN
+            throw new Error(data.error || "Verifica estar conectado a la red GCBA o tener la VPN activa");
+        }
+    } catch (err) {
+        console.warn("Fallo de conexión a Backend PDI:", err);
+        if (vpnAlertEl) vpnAlertEl.style.display = 'block';
+
+        if (kpiParcelasEl) kpiParcelasEl.innerText = "---";
+        if (kpiManzanasEl) kpiManzanasEl.innerText = "---";
+        if (kpiObjetosEl) kpiObjetosEl.innerText = "---";
+
+        if (tbodyEl) {
+            tbodyEl.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 3rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                        <h4 style="margin: 0 0 6px 0; font-family: 'Outfit', sans-serif; font-weight: 700;">Verifica estar conectado a la red GCBA o tener la VPN activa</h4>
+                        <p style="margin: 0; font-size: 0.88rem; color: #7f1d1d; font-family: 'Outfit', sans-serif;">No se pudieron consultar las tablas de la base de datos territorial.</p>
+                    </td>
+                </tr>`;
+        }
+
+        const valContainer = document.getElementById('pdi-validations-container');
+        if (valContainer) {
+            valContainer.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #dc2626; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; margin-bottom: 8px; display: block;"></i>
+                    <p style="margin: 0; font-weight: 600;">No se pudo verificar el espejado de tablas territoriales debido a falta de conexión.</p>
+                </div>`;
+        }
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderPDITables(tables) {
+    const tbody = document.getElementById('pdi-tables-tbody');
+    if (!tbody) return;
+
+    if (!tables || tables.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                    No se encontraron tablas registradas.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    let html = '';
+    tables.forEach((t, idx) => {
+        const rowBg = idx % 2 === 0 ? 'background: #ffffff;' : 'background: #fafbfc;';
+        const isOk = t.status === 'OK';
+        const statusBadge = isOk
+            ? `<span style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.72rem; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-circle-check" style="margin-right: 3px;"></i> OK</span>`
+            : `<span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.72rem; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-circle-xmark" style="margin-right: 3px;"></i> Error</span>`;
+
+        html += `
+            <tr style="${rowBg} border-bottom: 1px solid #f1f5f9; transition: background 0.15s; font-family: 'Outfit', sans-serif;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}'">
+                <td style="padding: 8px 12px; color: #94a3b8; font-weight: 600; text-align: center; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">${idx + 1}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">
+                    ${t.table_name}
+                </td>
+                <td style="padding: 8px 12px; font-weight: 600; color: #334155; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">
+                    ${t.display_name || t.table_name}
+                </td>
+                <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: ${isOk ? '#0284c7' : '#94a3b8'};">
+                    ${isOk ? Number(t.count || 0).toLocaleString('es-AR') : '--'}
+                </td>
+                <td style="padding: 8px 12px; text-align: center; font-family: 'Outfit', sans-serif;">
+                    ${statusBadge}
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function filterPDITables() {
+    const input = document.getElementById('pdi-search-input');
+    const query = (input?.value || '').toLowerCase().trim();
+    if (!query) {
+        renderPDITables(pdiTablesData);
+        return;
+    }
+    const filtered = pdiTablesData.filter(t => 
+        (t.table_name || '').toLowerCase().includes(query) ||
+        (t.display_name || '').toLowerCase().includes(query) ||
+        (t.description || '').toLowerCase().includes(query)
+    );
+    renderPDITables(filtered);
+}
+
+async function loadPDIValidations(forceRefresh = false) {
+    const container = document.getElementById('pdi-validations-container');
+    const refreshIcon = document.getElementById('pdi-val-refresh-icon');
+    if (!container) return;
+
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+    try {
+        const res = await def_fetch(`${API_BASE}/pdi/validations`);
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+        const data = await res.json();
+        if (data.connected && data.validations) {
+            renderPDIValidations(data.validations);
+        } else {
+            throw new Error(data.error || "No se pudo consultar validaciones");
+        }
+    } catch (err) {
+        console.warn("Error cargando validaciones PDI:", err);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: #dc2626; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; margin-bottom: 8px; display: block;"></i>
+                <p style="margin: 0; font-weight: 600;">Verifica estar conectado a la red GCBA o tener la VPN activa para ejecutar las validaciones.</p>
+            </div>`;
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderPDIValidations(validations) {
+    const container = document.getElementById('pdi-validations-container');
+    if (!container) return;
+
+    const vKeys = Object.keys(validations);
+    if (vKeys.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 2rem; color: #94a3b8;">No hay validaciones disponibles.</div>`;
+        return;
+    }
+
+    // Estadísticas globales del catálogo
+    let totalGroups = vKeys.length;
+    let okGroups = 0;
+    let errorGroups = 0;
+    let categoriesSet = new Set();
+
+    vKeys.forEach(k => {
+        const v = validations[k];
+        if (!v) return;
+        const isOk = v.status === 'OK' || (v.error_count || 0) === 0;
+        if (isOk) okGroups++; else errorGroups++;
+        if (v.category) categoriesSet.add(v.category);
+    });
+
+    const categories = Array.from(categoriesSet);
+
+    let html = `
+        <!-- Barra de Resumen Global y Filtros -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="font-weight: 800; font-size: 0.95rem; color: #0f172a; font-family: 'Outfit', sans-serif;">
+                    Resumen del Catálogo:
+                </span>
+                <span style="background: #f1f5f9; color: #334155; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">
+                    ${totalGroups} Reglas
+                </span>
+                <span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-circle-check"></i> ${okGroups} Ok
+                </span>
+                <span style="background: ${errorGroups > 0 ? '#fff1f2' : '#f8fafc'}; color: ${errorGroups > 0 ? '#be123c' : '#64748b'}; border: 1px solid ${errorGroups > 0 ? '#fecdd3' : '#e2e8f0'}; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-circle-xmark"></i> ${errorGroups} Con errores
+                </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <select id="pdi-val-category-filter" onchange="filterPDIValidationsByCategory()" style="padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600; outline: none; background: white;">
+                    <option value="all">Todas las categorías (${totalGroups})</option>
+                    ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+                <button type="button" class="btn-secondary" onclick="toggleAllPDIValidationGroups(true)" style="padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.78rem; font-family: 'Outfit', sans-serif; cursor: pointer; background: white; border: 1px solid #cbd5e1;">
+                    <i class="fa-solid fa-angles-down"></i> Expandir
+                </button>
+                <button type="button" class="btn-secondary" onclick="toggleAllPDIValidationGroups(false)" style="padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.78rem; font-family: 'Outfit', sans-serif; cursor: pointer; background: white; border: 1px solid #cbd5e1;">
+                    <i class="fa-solid fa-angles-up"></i> Colapsar
+                </button>
+            </div>
+        </div>
+    `;
+
+    vKeys.forEach((key, idx) => {
+        const v = validations[key];
+        if (!v) return;
+
+        const isTwoWay = v.type === 'two_way';
+        const errorCount = v.error_count !== undefined ? v.error_count : (isTwoWay ? (v.missing_in_b_count || 0) + (v.missing_in_a_count || 0) : (v.records ? v.records.length : 0));
+        const isOk = errorCount === 0;
+
+        const statusBadge = isOk
+            ? `<span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                <i class="fa-solid fa-circle-check"></i> Ok
+               </span>`
+            : `<span style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                <i class="fa-solid fa-circle-xmark"></i> Con errores (${errorCount.toLocaleString('es-AR')})
+               </span>`;
+
+        let subtitle = `Tabla: <b>${v.table_a}</b> | Campo: <b>${(v.key_field || 'smp').toUpperCase()}</b>`;
+        if (isTwoWay) {
+            subtitle = `Campo: <b>${(v.key_field || 'smp').toUpperCase()}</b> | <span style="font-weight: 600; color: #334155;">${v.table_a}</span> (${Number(v.total_table_a || 0).toLocaleString('es-AR')}) vs <span style="font-weight: 600; color: #334155;">${v.table_b}</span> (${Number(v.total_table_b || 0).toLocaleString('es-AR')})`;
+        }
+
+        html += `
+        <div class="pdi-val-card" data-category="${v.category || 'General'}" style="border: 1px solid ${!isOk ? '#fca5a5' : '#e2e8f0'}; border-radius: 10px; background: white; overflow: hidden; font-family: 'Outfit', sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: border-color 0.2s;">
+            
+            <!-- Cabecera Compacta Anidada Clickable -->
+            <div onclick="togglePDIValidationGroup(${idx})" style="padding: 10px 14px; background: #ffffff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; user-select: none; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 250px;">
+                    <div style="width: 26px; height: 26px; border-radius: 6px; background: ${!isOk ? '#fee2e2' : '#e0f2fe'}; color: ${!isOk ? '#dc2626' : '#0284c7'}; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">
+                        ${idx + 1}
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="background: #f1f5f9; color: #475569; font-size: 0.72rem; font-weight: 700; padding: 1px 6px; border-radius: 4px;">
+                                ${v.category || 'General'}
+                            </span>
+                            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif; line-height: 1.2;">
+                                ${v.title}
+                            </h4>
+                        </div>
+                        <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b; font-family: 'Outfit', sans-serif; line-height: 1.2;">
+                            ${subtitle}
+                        </p>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    ${statusBadge}
+                    <div style="width: 24px; height: 24px; border-radius: 6px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                        <i id="pdi-val-chevron-${idx}" class="pdi-val-group-chevron fa-solid fa-chevron-down" style="font-size: 0.75rem; transition: transform 0.2s ease; transform: rotate(0deg);"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Anidado / Plegable -->
+            <div id="pdi-val-body-${idx}" class="pdi-val-group-body" style="display: none; padding: 1rem; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+                ${isTwoWay ? `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                                    En <span style="color: #0284c7; font-weight: 800;">${v.table_a}</span> pero faltan en <span style="color: #64748b;">${v.table_b}</span>
+                                </span>
+                                <span style="background: ${v.missing_in_b_count > 0 ? '#fee2e2' : '#f0fdf4'}; color: ${v.missing_in_b_count > 0 ? '#991b1b' : '#166534'}; font-weight: 800; font-size: 0.78rem; padding: 2px 8px; border-radius: 99px;">
+                                    ${v.missing_in_b_count || 0}
+                                </span>
+                            </div>
+                            ${renderValidationRecordsList(v.missing_in_b, v.key_field || 'smp')}
+                        </div>
+
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                                    En <span style="color: #0284c7; font-weight: 800;">${v.table_b}</span> pero faltan en <span style="color: #64748b;">${v.table_a}</span>
+                                </span>
+                                <span style="background: ${v.missing_in_a_count > 0 ? '#fee2e2' : '#f0fdf4'}; color: ${v.missing_in_a_count > 0 ? '#991b1b' : '#166534'}; font-weight: 800; font-size: 0.78rem; padding: 2px 8px; border-radius: 99px;">
+                                    ${v.missing_in_a_count || 0}
+                                </span>
+                            </div>
+                            ${renderValidationRecordsList(v.missing_in_a, v.key_field || 'smp')}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                            <span style="font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                                Registros con inconsistencia detectada en <span style="color: #0284c7; font-weight: 800;">${v.table_a}</span>
+                            </span>
+                            <span style="background: ${errorCount > 0 ? '#fee2e2' : '#f0fdf4'}; color: ${errorCount > 0 ? '#991b1b' : '#166534'}; font-weight: 800; font-size: 0.78rem; padding: 2px 8px; border-radius: 99px;">
+                                ${errorCount}
+                            </span>
+                        </div>
+                        ${renderValidationRecordsList(v.records, v.key_field || 'smp')}
+                    </div>
+                `}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function filterPDIValidationsByCategory() {
+    const select = document.getElementById('pdi-val-category-filter');
+    const selected = select ? select.value : 'all';
+    const cards = document.querySelectorAll('.pdi-val-card');
+    cards.forEach(card => {
+        const cat = card.getAttribute('data-category');
+        if (selected === 'all' || cat === selected) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function togglePDIValidationGroup(idx) {
+    const body = document.getElementById(`pdi-val-body-${idx}`);
+    const chevron = document.getElementById(`pdi-val-chevron-${idx}`);
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (chevron) {
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+}
+
+function toggleAllPDIValidationGroups(expand) {
+    const bodies = document.querySelectorAll('.pdi-val-group-body');
+    const chevrons = document.querySelectorAll('.pdi-val-group-chevron');
+    bodies.forEach(b => b.style.display = expand ? 'block' : 'none');
+    chevrons.forEach(c => c.style.transform = expand ? 'rotate(180deg)' : 'rotate(0deg)');
+}
+
+function renderValidationRecordsList(records, keyField) {
+    if (!records || records.length === 0) {
+        return `
+            <div style="text-align: center; padding: 1.25rem 0.5rem; color: #166534; font-size: 0.82rem; background: #f0fdf4; border-radius: 6px; border: 1px dashed #bbf7d0; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.1rem; margin-bottom: 4px; display: block;"></i>
+                Sin diferencias (100% Ok).
+            </div>`;
+    }
+
+    let rowsHtml = '';
+    records.forEach((r, i) => {
+        const keyVal = r[keyField] || r.smp || r.sm || '-';
+        const seccion = r.seccion || '-';
+        const manzana = r.manzana || '-';
+        
+        let extra = '';
+        if (r.superpuesto) extra = `Superpuesto con: <b>${r.superpuesto}</b>`;
+        else if (r.motivo) extra = `Motivo: ${r.motivo}`;
+        else if (r.smp_concatenado) extra = `Concat: <b>${r.smp_concatenado}</b>`;
+        else if (r.detalle_valores) extra = `Valores: ${r.detalle_valores}`;
+        else if (r.cantidad) extra = `Cantidad: <b>${r.cantidad}</b>`;
+        else if (r.cantidad_valores) extra = `Cant. valores: <b>${r.cantidad_valores}</b>`;
+        else if (r.parcela) extra = `Parc: ${r.parcela}`;
+        else if (r.mz_tipo) extra = `Tipo: ${r.mz_tipo}`;
+        else if (r.detalle) extra = `${r.detalle}`;
+
+        rowsHtml += `
+            <tr style="border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 6px 10px; font-weight: 700; color: #0f172a; font-size: 0.85rem; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                        ${keyVal}
+                    </span>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.8rem; color: #475569; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.78rem; color: #64748b; text-align: right; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    ${extra}
+                </td>
+            </tr>`;
+    });
+
+    return `
+        <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">
+                <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
+                    <tr>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">${keyField.toUpperCase()}</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">Ubicación</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; text-align: right; white-space: nowrap;">Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function togglePDIValidationGroup(idx) {
+    const body = document.getElementById(`pdi-val-body-${idx}`);
+    const chevron = document.getElementById(`pdi-val-chevron-${idx}`);
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (chevron) {
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+}
+
+function toggleAllPDIValidationGroups(expand) {
+    const bodies = document.querySelectorAll('.pdi-val-group-body');
+    const chevrons = document.querySelectorAll('.pdi-val-group-chevron');
+    bodies.forEach(b => b.style.display = expand ? 'block' : 'none');
+    chevrons.forEach(c => c.style.transform = expand ? 'rotate(180deg)' : 'rotate(0deg)');
+}
+
+function renderValidationRecordsList(records, keyField, sourceTable) {
+    if (!records || records.length === 0) {
+        return `
+            <div style="text-align: center; padding: 1.25rem 0.5rem; color: #166534; font-size: 0.82rem; background: #f0fdf4; border-radius: 6px; border: 1px dashed #bbf7d0; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.1rem; margin-bottom: 4px; display: block;"></i>
+                Sin diferencias (100% Ok).
+            </div>`;
+    }
+
+    let rowsHtml = '';
+    records.forEach((r, i) => {
+        const keyVal = r[keyField] || '-';
+        const seccion = r.seccion || '-';
+        const manzana = r.manzana || '-';
+        const extra = r.parcela ? `Parcela: ${r.parcela}` : (r.mz_tipo ? `Tipo: ${r.mz_tipo}` : '');
+
+        rowsHtml += `
+            <tr style="border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 6px 10px; font-weight: 700; color: #0f172a; font-size: 0.85rem; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                        ${keyVal}
+                    </span>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.8rem; color: #475569; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.78rem; color: #64748b; text-align: right; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    ${extra}
+                </td>
+            </tr>`;
+    });
+
+    return `
+        <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">
+                <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
+                    <tr>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">${keyField.toUpperCase()}</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">Ubicación</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; text-align: right; white-space: nowrap;">Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function switchPDITab(tabName) {
+    if (tabName === 'inventario') {
+        showView('ciudad3d_pdi');
+    } else if (tabName === 'validacion') {
+        showView('ciudad3d_pdi_validacion');
+    } else if (tabName === 'c3d') {
+        showView('ciudad3d_pdi_validacion_c3d');
+    }
+}
+
+async function loadCiudad3DSecciones() {
+    const select = document.getElementById('pdi-c3d-seccion-select');
+    if (!select || select.children.length > 1) return; // ya cargado
+
+    try {
+        const res = await def_fetch(`${API_BASE}/pdi/c3d-validation/secciones`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.connected && data.secciones) {
+                data.secciones.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.seccion;
+                    opt.innerText = `Sección ${s.seccion} (${Number(s.total_parcelas).toLocaleString('es-AR')} parcelas)`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Error cargando secciones para C3D validation:", err);
+    }
+}
+
+let c3dValidationRunning = false;
+let c3dValidationAllRecords = [];
+let c3dCurrentFilter = 'all';
+
+async function startCiudad3DValidation() {
+    if (c3dValidationRunning) return;
+    c3dValidationRunning = true;
+
+    const select = document.getElementById('pdi-c3d-seccion-select');
+    const seccion = select?.value || null;
+
+    const startBtn = document.getElementById('pdi-c3d-start-btn');
+    const stopBtn = document.getElementById('pdi-c3d-stop-btn');
+    const clearBtn = document.getElementById('pdi-c3d-clear-btn');
+    const kpiStatus = document.getElementById('pdi-c3d-kpi-status');
+    const progressBar = document.getElementById('pdi-c3d-progress-bar');
+    const progressLabel = document.getElementById('pdi-c3d-progress-label');
+    const progressCount = document.getElementById('pdi-c3d-progress-count');
+
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'inline-flex';
+    if (clearBtn) clearBtn.disabled = true;
+
+    if (kpiStatus) {
+        kpiStatus.innerHTML = `<span style="background: #e0f2fe; color: #0284c7; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #bae6fd;"><i class="fa-solid fa-spinner fa-spin"></i> Analizando en vivo...</span>`;
+    }
+
+    try {
+        const batchSize = 1; // Estrictamente de a 1 parcela por vez
+        let offset = c3dValidationAllRecords.length; // Permite reanudar si estaba pausado
+        let hasMore = true;
+        let totalUniverso = null;
+
+        while (hasMore && c3dValidationRunning) {
+            const url = `${API_BASE}/pdi/c3d-validation/check-batch?limit=${batchSize}&offset=${offset}${seccion ? `&seccion=${seccion}` : ''}`;
+            const res = await def_fetch(url, { method: 'POST' });
+            if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+            const data = await res.json();
+            if (!data.connected) throw new Error(data.error || "Error de conexión a PDI");
+
+            if (data.total_available !== undefined && data.total_available !== null) {
+                totalUniverso = Number(data.total_available);
+            }
+
+            const results = data.results || [];
+            if (results.length === 0) {
+                hasMore = false;
+                break;
+            }
+
+            // Procesar el registro individual del análisis y agregarlo arriba de todo
+            results.forEach(record => {
+                c3dValidationAllRecords.unshift(record); // Al inicio del array
+                prependC3DResultRow(record, c3dValidationAllRecords.length);
+            });
+
+            offset += results.length;
+            updateC3DMetricsAndProgress(offset, totalUniverso || offset);
+
+            // Si llegamos al total absoluto de parcelas del universo / sección
+            if (totalUniverso && offset >= totalUniverso) {
+                hasMore = false;
+            }
+
+            // Breve delay de 80ms para asegurar renderizado visual reactivo
+            await new Promise(r => setTimeout(r, 80));
+        }
+
+        if (!c3dValidationRunning) {
+            if (kpiStatus) {
+                kpiStatus.innerHTML = `<span style="background: #fef3c7; color: #b45309; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #fde68a;"><i class="fa-solid fa-pause"></i> Pausado</span>`;
+            }
+        } else {
+            if (kpiStatus) {
+                const errCount = c3dValidationAllRecords.filter(r => r.status !== 'OK').length;
+                if (errCount === 0) {
+                    kpiStatus.innerHTML = `<span style="background: #f0fdf4; color: #166534; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #bbf7d0;"><i class="fa-solid fa-circle-check"></i> Finalizado (100% OK)</span>`;
+                } else {
+                    kpiStatus.innerHTML = `<span style="background: #fff1f2; color: #be123c; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #fecdd3;"><i class="fa-solid fa-triangle-exclamation"></i> Finalizado (${errCount} Errores)</span>`;
+                }
+            }
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressLabel) progressLabel.innerText = 'Progreso de Validación: 100% (Completado)';
+        }
+    } catch (err) {
+        console.warn("Error en validación Ciudad 3D en vivo:", err);
+        if (kpiStatus) {
+            kpiStatus.innerHTML = `<span style="background: #fee2e2; color: #dc2626; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #fecaca;"><i class="fa-solid fa-triangle-exclamation"></i> Error de conexión</span>`;
+        }
+    } finally {
+        c3dValidationRunning = false;
+        if (startBtn) {
+            startBtn.style.display = 'inline-flex';
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> Continuar Validación';
+        }
+        if (stopBtn) stopBtn.style.display = 'none';
+        if (clearBtn) clearBtn.disabled = false;
+    }
+}
+
+function stopCiudad3DValidation() {
+    c3dValidationRunning = false;
+    const startBtn = document.getElementById('pdi-c3d-start-btn');
+    const stopBtn = document.getElementById('pdi-c3d-stop-btn');
+    if (startBtn) {
+        startBtn.style.display = 'inline-flex';
+        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> Continuar Validación';
+    }
+    if (stopBtn) stopBtn.style.display = 'none';
+}
+
+function clearCiudad3DValidationFeed() {
+    if (c3dValidationRunning) return;
+    c3dValidationAllRecords = [];
+
+    const tbody = document.getElementById('pdi-c3d-tbody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr id="pdi-c3d-empty-row">
+                <td colspan="6" style="text-align: center; padding: 2.5rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-play" style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: #cbd5e1;"></i>
+                    Seleccione una sección o todas las parcelas y haga clic en <b>Iniciar Validación</b> para observar el análisis progresivo en tiempo real.
+                </td>
+            </tr>`;
+    }
+
+    const kpiChecked = document.getElementById('pdi-c3d-kpi-checked');
+    const kpiOk = document.getElementById('pdi-c3d-kpi-ok');
+    const kpiErrors = document.getElementById('pdi-c3d-kpi-errors');
+    const kpiStatus = document.getElementById('pdi-c3d-kpi-status');
+    const progressBar = document.getElementById('pdi-c3d-progress-bar');
+    const progressLabel = document.getElementById('pdi-c3d-progress-label');
+    const progressCount = document.getElementById('pdi-c3d-progress-count');
+
+    if (kpiChecked) kpiChecked.innerText = '0';
+    if (kpiOk) kpiOk.innerText = '0';
+    if (kpiErrors) kpiErrors.innerText = '0';
+    if (kpiStatus) kpiStatus.innerHTML = `<span style="background: #f1f5f9; color: #64748b; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px;">En espera</span>`;
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressLabel) progressLabel.innerText = 'Progreso de Validación: 0%';
+    if (progressCount) progressCount.innerText = '0 / 0 parcelas';
+
+    const startBtn = document.getElementById('pdi-c3d-start-btn');
+    if (startBtn) startBtn.innerHTML = '<i class="fa-solid fa-play"></i> Iniciar Validación';
+
+    updateC3DFilterCounts();
+}
+
+function prependC3DResultRow(r, currentTotalCount) {
+    const tbody = document.getElementById('pdi-c3d-tbody');
+    if (!tbody) return;
+
+    const emptyRow = document.getElementById('pdi-c3d-empty-row');
+    if (emptyRow) emptyRow.remove();
+
+    const isOk = r.status === 'OK';
+    const smp = r.smp || '-';
+    const seccion = r.seccion || '-';
+    const manzana = r.manzana || '-';
+    const parcela = r.parcela || '-';
+    const apiLink = `https://epok.buenosaires.gob.ar/cur3d/seccion_edificabilidad/?smp=${encodeURIComponent(smp)}`;
+
+    const statusBadge = isOk
+        ? `<span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> OK</span>`
+        : `<span style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-xmark"></i> ERROR</span>`;
+
+    const detailText = isOk
+        ? `<span style="color: #166534; font-size: 0.82rem; font-weight: 600;">Respuesta válida de edificabilidad</span>`
+        : `<span style="color: #dc2626; font-size: 0.82rem; font-weight: 600;">${r.error_msg || 'ObjetoTerritorial matching query does not exist.'}</span>`;
+
+    const row = document.createElement('tr');
+    row.className = `c3d-row c3d-row-${isOk ? 'ok' : 'error'}`;
+    row.style.cssText = "border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif; transition: background 0.2s;";
+    row.onmouseover = () => row.style.background = '#f8fafc';
+    row.onmouseout = () => row.style.background = '#ffffff';
+
+    // Respetar filtro activo
+    if (c3dCurrentFilter === 'ok' && !isOk) row.style.display = 'none';
+    if (c3dCurrentFilter === 'error' && isOk) row.style.display = 'none';
+
+    row.innerHTML = `
+        <td style="padding: 9px 12px; text-align: center; color: #94a3b8; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">${currentTotalCount}</td>
+        <td style="padding: 9px 12px; font-weight: 700; color: #0f172a; font-size: 0.88rem; white-space: nowrap;">
+            <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 7px; border-radius: 6px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                ${smp}
+            </span>
+        </td>
+        <td style="padding: 9px 12px; font-size: 0.85rem; color: #334155; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+            Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b> | Parc: <b>${parcela}</b>
+        </td>
+        <td style="padding: 9px 12px; text-align: center; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+            ${statusBadge}
+        </td>
+        <td style="padding: 9px 12px; font-family: 'Outfit', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px;">
+            ${detailText}
+        </td>
+        <td style="padding: 9px 12px; text-align: center; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+            <a href="${apiLink}" target="_blank" rel="noopener noreferrer" style="color: #0284c7; font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #e0f2fe; white-space: nowrap;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver API
+            </a>
+        </td>
+    `;
+
+    // INSERTAR SIEMPRE ARRIBA DE TODO
+    tbody.insertBefore(row, tbody.firstChild);
+}
+
+function updateC3DMetricsAndProgress(currentCount, targetTotal) {
+    const kpiChecked = document.getElementById('pdi-c3d-kpi-checked');
+    const kpiOk = document.getElementById('pdi-c3d-kpi-ok');
+    const kpiErrors = document.getElementById('pdi-c3d-kpi-errors');
+    const progressBar = document.getElementById('pdi-c3d-progress-bar');
+    const progressLabel = document.getElementById('pdi-c3d-progress-label');
+    const progressCount = document.getElementById('pdi-c3d-progress-count');
+
+    const total = c3dValidationAllRecords.length;
+    const okCount = c3dValidationAllRecords.filter(r => r.status === 'OK').length;
+    const errCount = total - okCount;
+
+    if (kpiChecked) kpiChecked.innerText = total.toLocaleString('es-AR');
+    if (kpiOk) kpiOk.innerText = okCount.toLocaleString('es-AR');
+    if (kpiErrors) kpiErrors.innerText = errCount.toLocaleString('es-AR');
+
+    const pct = targetTotal > 0 ? Math.min(100, Math.round((total / targetTotal) * 100)) : 0;
+    if (progressBar) progressBar.style.width = `${pct}%`;
+    if (progressLabel) progressLabel.innerText = `Progreso de Validación: ${pct}%`;
+    if (progressCount) {
+        if (targetTotal && targetTotal > 0) {
+            progressCount.innerText = `${total.toLocaleString('es-AR')} / ${targetTotal.toLocaleString('es-AR')} parcelas`;
+        } else {
+            progressCount.innerText = `${total.toLocaleString('es-AR')} parcelas`;
+        }
+    }
+
+    updateC3DFilterCounts();
+}
+
+function updateC3DFilterCounts() {
+    const countAll = document.getElementById('c3d-count-all');
+    const countOk = document.getElementById('c3d-count-ok');
+    const countError = document.getElementById('c3d-count-error');
+
+    const total = c3dValidationAllRecords.length;
+    const okCount = c3dValidationAllRecords.filter(r => r.status === 'OK').length;
+    const errCount = total - okCount;
+
+    if (countAll) countAll.innerText = total;
+    if (countOk) countOk.innerText = okCount;
+    if (countError) countError.innerText = errCount;
+}
+
+function filterC3DLiveFeed(filterType) {
+    c3dCurrentFilter = filterType;
+
+    const btnAll = document.getElementById('c3d-filter-btn-all');
+    const btnOk = document.getElementById('c3d-filter-btn-ok');
+    const btnError = document.getElementById('c3d-filter-btn-error');
+
+    [btnAll, btnOk, btnError].forEach(b => {
+        if (b) {
+            b.style.background = 'white';
+            b.style.color = '#64748b';
+            b.style.border = '1px solid #cbd5e1';
+            b.style.fontWeight = '600';
+        }
+    });
+
+    if (filterType === 'all' && btnAll) {
+        btnAll.style.background = '#0284c7';
+        btnAll.style.color = 'white';
+        btnAll.style.border = 'none';
+        btnAll.style.fontWeight = '700';
+    } else if (filterType === 'ok' && btnOk) {
+        btnOk.style.background = '#16a34a';
+        btnOk.style.color = 'white';
+        btnOk.style.border = 'none';
+        btnOk.style.fontWeight = '700';
+    } else if (filterType === 'error' && btnError) {
+        btnError.style.background = '#dc2626';
+        btnError.style.color = 'white';
+        btnError.style.border = 'none';
+        btnError.style.fontWeight = '700';
+    }
+
+    const rows = document.querySelectorAll('.c3d-row');
+    rows.forEach(r => {
+        if (filterType === 'all') {
+            r.style.display = '';
+        } else if (filterType === 'ok') {
+            r.style.display = r.classList.contains('c3d-row-ok') ? '' : 'none';
+        } else if (filterType === 'error') {
+            r.style.display = r.classList.contains('c3d-row-error') ? '' : 'none';
+        }
+    });
+}
+
+window.loadCiudad3DPDI = loadCiudad3DPDI;
+window.filterPDITables = filterPDITables;
+window.loadPDIValidations = loadPDIValidations;
+window.togglePDIValidationGroup = togglePDIValidationGroup;
+window.toggleAllPDIValidationGroups = toggleAllPDIValidationGroups;
+window.filterPDIValidationsByCategory = filterPDIValidationsByCategory;
+window.switchPDITab = switchPDITab;
+window.loadCiudad3DSecciones = loadCiudad3DSecciones;
+window.startCiudad3DValidation = startCiudad3DValidation;
+window.stopCiudad3DValidation = stopCiudad3DValidation;
+window.clearCiudad3DValidationFeed = clearCiudad3DValidationFeed;
+window.filterC3DLiveFeed = filterC3DLiveFeed;
+
+
+
+
 let c3dTronerasRawData = [];
 let c3dTronerasGroupedData = {};
 let currentLfiStatusFilter = null;
@@ -13042,28 +16381,26 @@ async function initLFIMap() {
     loadingDiv.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem; color: var(--primary);"></i> Cargando mapa...`;
     wrapper.appendChild(loadingDiv);
 
-    // MapLibre GL instance — basemap Carto Light (escala de grises)
+    // MapLibre GL instance — basemap OpenStreetMap
     _lfiMap = new maplibregl.Map({
         container: 'lfi-map',
         style: {
             version: 8,
             sources: {
-                'carto-tiles': {
+                'osm-tiles': {
                     type: 'raster',
                     tiles: [
-                        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                     ],
                     tileSize: 256,
-                    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
                     maxzoom: 19
                 }
             },
             layers: [{
-                id: 'carto-basemap',
+                id: 'osm-basemap',
                 type: 'raster',
-                source: 'carto-tiles',
+                source: 'osm-tiles',
                 minzoom: 0,
                 maxzoom: 22
             }]
@@ -13404,31 +16741,31 @@ function renderLFIMisTrazados() {
     tbody.innerHTML = myRows.map(row => {
         const badgeColor = row.estado === 'Para revisión' ? 'background: #fef3c7; color: #d97706;' : 'background: #e0f2fe; color: #0284c7;';
         return `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px 16px; font-weight: 700; font-family: monospace; font-size: 0.95rem;">
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 12px 16px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--primary-dark);">
                     ${row.seccion} - ${row.manzana}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center; font-family: 'Outfit', sans-serif;">
                         ${row.irregular_si}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center; font-family: 'Outfit', sans-serif;">
                         ${row.irregular_no}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-family: 'Outfit'; ${badgeColor}">
+                    <span style="font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-family: 'Outfit', sans-serif; ${badgeColor}">
                         ${row.estado}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     <div style="display: flex; gap: 6px; justify-content: center;">
-                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: 'Outfit', sans-serif;">
                             <i class="fa-solid fa-download"></i> DXF
                         </button>
-                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: 'Outfit', sans-serif;">
                             <i class="fa-solid fa-folder-open"></i> Ficha
                         </button>
                     </div>
@@ -13450,7 +16787,7 @@ function renderLFIRevision() {
     if (revRows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b; font-family: 'Outfit', sans-serif;">
                     <i class="fa-solid fa-check-double" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                     <p style="margin: 0; font-size: 0.9rem;">No hay trazados pendientes de revisión en este momento.</p>
                 </td>
@@ -13461,8 +16798,8 @@ function renderLFIRevision() {
     
     tbody.innerHTML = revRows.map(row => {
         return `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px 16px; font-weight: 700; font-family: monospace; font-size: 0.95rem;">
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 12px 16px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--primary-dark);">
                     ${row.seccion} - ${row.manzana}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
@@ -13964,8 +17301,8 @@ function expandBarrioTroneras(barrioName) {
                         ${b.secciones[sName].map(row => {
                             const isSiDanger = row.irregular_si > 0;
                             return `
-                                <tr style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
-                                    <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; font-size: 0.95rem;">
+                                <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+                                    <td style="padding: 10px 12px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--primary-dark);">
                                         ${row.seccion} - ${row.manzana}
                                     </td>
                                     <td style="padding: 10px 12px; text-align: center;">
@@ -14200,42 +17537,187 @@ async function downloadManzanaDXF(seccion, manzana) {
     }
 }
 
-let c3dAtipicasRawData = [];
+let c3dAtipicasAnalysisData = null;
+let c3dAtipicasCurrentFilter = 'todos';
+let c3dAtipicasSearchTerm = '';
+let c3dAtipicasOffset = 0;
+const c3dAtipicasLimit = 50;
+let c3dAtipicasSearchTimeout = null;
 
-let activeWorkflowSeccion = '';
-let activeWorkflowManzana = '';
-let activeWorkflowFile = '';
+async function loadCiudad3DManzanasAtipicas(forceRefresh = false) {
+    const vpnAlert = document.getElementById('pdi-vpn-alert-atipicas');
+    const refreshIcon = document.getElementById('c3d-atipicas-refresh-icon');
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+    if (vpnAlert) vpnAlert.style.display = 'none';
 
-async function loadCiudad3DManzanasAtipicas() {
+    try {
+        // 1. Cargar KPIs analíticos
+        const resKpi = await def_fetch(`${API_BASE}/pdi/atipicas-analysis`);
+        if (!resKpi || !resKpi.ok) {
+            throw new Error("No se pudo conectar a la base de datos PDI");
+        }
+        c3dAtipicasAnalysisData = await resKpi.json();
+
+        if (!c3dAtipicasAnalysisData.connected) {
+            if (vpnAlert) vpnAlert.style.display = 'block';
+            return;
+        }
+
+        renderAtipicasKPIs(c3dAtipicasAnalysisData);
+
+        // 2. Cargar tabla con filtro actual
+        await loadAtipicasList();
+    } catch (err) {
+        console.error("Error al cargar análisis de manzanas atípicas PDI:", err);
+        if (vpnAlert) vpnAlert.style.display = 'block';
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderAtipicasKPIs(data) {
+    if (!data || !data.universo_atipicas) return;
+    const u = data.universo_atipicas;
+    const d = data.trazado_si_detalle || {};
+
+    const formatNum = (n) => (n !== undefined && n !== null) ? Number(n).toLocaleString('es-AR') : '0';
+
+    // Nivel 1: Universo y Disposiciones
+    const totalEl = document.getElementById('atip-kpi-total');
+    if (totalEl) totalEl.innerText = formatNum(u.total);
+
+    const conDispEl = document.getElementById('atip-kpi-con-disp');
+    if (conDispEl) conDispEl.innerText = formatNum(u.con_disposicion);
+
+    const pctConDispEl = document.getElementById('atip-pct-con-disp');
+    if (pctConDispEl && u.total > 0) {
+        const pct = ((u.con_disposicion / u.total) * 100).toFixed(1);
+        pctConDispEl.innerText = `${pct}% del universo total`;
+    }
+
+    const sinDispEl = document.getElementById('atip-kpi-sin-disp');
+    if (sinDispEl) sinDispEl.innerText = formatNum(u.sin_disposicion);
+
+    const pctSinDispEl = document.getElementById('atip-pct-sin-disp');
+    if (pctSinDispEl && u.total > 0) {
+        const pct = ((u.sin_disposicion / u.total) * 100).toFixed(1);
+        pctSinDispEl.innerText = `${pct}% sin acto administrativo`;
+    }
+
+    // Nivel 2: Trazado en Manzanas con Disposición
+    const trazSiEl = document.getElementById('atip-kpi-trazado-si');
+    if (trazSiEl) trazSiEl.innerText = formatNum(u.disp_trazado_si);
+
+    const pctTrazSiEl = document.getElementById('atip-pct-trazado-si');
+    if (pctTrazSiEl && u.con_disposicion > 0) {
+        const pct = ((u.disp_trazado_si / u.con_disposicion) * 100).toFixed(1);
+        pctTrazSiEl.innerText = `${pct}% de las que tienen disposición`;
+    }
+
+    const trazNoEl = document.getElementById('atip-kpi-trazado-no');
+    if (trazNoEl) trazNoEl.innerText = formatNum(u.disp_trazado_no);
+
+    const pctTrazNoEl = document.getElementById('atip-pct-trazado-no');
+    if (pctTrazNoEl && u.con_disposicion > 0) {
+        const pct = ((u.disp_trazado_no / u.con_disposicion) * 100).toFixed(1);
+        pctTrazNoEl.innerText = `${pct}% de las que tienen disposición`;
+    }
+
+    // Nivel 3: Cobertura LFI / LIB en Trazado SI
+    const conLfiLibEl = document.getElementById('atip-kpi-con-lfi-lib');
+    if (conLfiLibEl) conLfiLibEl.innerText = formatNum(d.con_lfi_o_lib);
+
+    const pctConLfiLibEl = document.getElementById('atip-pct-con-lfi-lib');
+    if (pctConLfiLibEl && d.total > 0) {
+        const pct = ((d.con_lfi_o_lib / d.total) * 100).toFixed(1);
+        pctConLfiLibEl.innerText = `${pct}% de las trazado SI (${formatNum(d.con_lfi_o_lib)} mzas)`;
+    }
+
+    const ningunaEl = document.getElementById('atip-kpi-ninguna');
+    if (ningunaEl) ningunaEl.innerText = formatNum(d.ninguna);
+
+    const pctNingunaEl = document.getElementById('atip-pct-ninguna');
+    if (pctNingunaEl && d.total > 0) {
+        const pct = ((d.ninguna / d.total) * 100).toFixed(1);
+        pctNingunaEl.innerText = `${pct}% sin nada en las tablas (${formatNum(d.ninguna)} mzas)`;
+    }
+
+    const ambasEl = document.getElementById('atip-kpi-ambas');
+    if (ambasEl) ambasEl.innerText = formatNum(d.ambas);
+
+    const pctAmbasEl = document.getElementById('atip-pct-ambas');
+    if (pctAmbasEl && d.total > 0) {
+        const pct = ((d.ambas / d.total) * 100).toFixed(1);
+        pctAmbasEl.innerText = `${pct}% con ambas (${formatNum(d.ambas)} mzas)`;
+    }
+
+    const soloLfiEl = document.getElementById('atip-kpi-solo-lfi');
+    if (soloLfiEl) soloLfiEl.innerText = formatNum(d.solo_lfi);
+
+    const pctSoloLfiEl = document.getElementById('atip-pct-solo-lfi');
+    if (pctSoloLfiEl && d.total > 0) {
+        const pct = ((d.solo_lfi / d.total) * 100).toFixed(1);
+        pctSoloLfiEl.innerText = `${pct}% solo LFI particularizada`;
+    }
+
+    const soloLibEl = document.getElementById('atip-kpi-solo-lib');
+    if (soloLibEl) soloLibEl.innerText = formatNum(d.solo_lib);
+
+    const pctSoloLibEl = document.getElementById('atip-pct-solo-lib');
+    if (pctSoloLibEl && d.total > 0) {
+        const pct = ((d.solo_lib / d.total) * 100).toFixed(1);
+        pctSoloLibEl.innerText = `${pct}% solo LIB particularizada`;
+    }
+}
+
+async function loadAtipicasList() {
     const tbody = document.getElementById('c3d-atipicas-tbody');
+    const pageInfo = document.getElementById('atip-pagination-info');
+    const prevBtn = document.getElementById('atip-prev-btn');
+    const nextBtn = document.getElementById('atip-next-btn');
+
     if (tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    <h3 style="color: var(--primary-dark); font-family: 'Outfit'; margin: 0 0 0.5rem 0;">Cargando manzanas atípicas...</h3>
-                    <p style="margin: 0; font-size: 0.9rem;">Por favor espere mientras recuperamos la información.</p>
+                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; color: #0284c7; margin-bottom: 8px;"></i>
+                    <div>Recuperando registros de manzanas atípicas...</div>
                 </td>
             </tr>
         `;
     }
-    
+
     try {
-        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_atipicas`);
-        if (res && res.ok) {
-            c3dAtipicasRawData = await res.json();
-            renderCiudad3DManzanasAtipicas();
-        } else {
-            throw new Error("Respuesta no exitosa del servidor");
+        let url = `${API_BASE}/pdi/atipicas-analysis/list?filter_group=${encodeURIComponent(c3dAtipicasCurrentFilter)}&limit=${c3dAtipicasLimit}&offset=${c3dAtipicasOffset}`;
+        if (c3dAtipicasSearchTerm) {
+            url += `&search=${encodeURIComponent(c3dAtipicasSearchTerm)}`;
         }
+
+        const res = await def_fetch(url);
+        if (!res || !res.ok) throw new Error("Error consultando listado de atípicas");
+        const data = await res.json();
+
+        if (!data.connected) {
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Sin conexión a base de datos PDI.
+                        </td>
+                    </tr>
+                `;
+            }
+            return;
+        }
+
+        renderAtipicasTable(data);
     } catch (err) {
-        console.error("Error al cargar manzanas atípicas:", err);
+        console.error("Error cargando listado:", err);
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 3rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 2.5rem; margin-bottom: 1rem;"></i>
-                        <h3 style="font-family: 'Outfit'; margin: 0;">Error al cargar datos</h3>
-                        <p style="color: #64748b; font-size: 0.9rem; margin-top: 8px;">No se pudo conectar a la base de datos.</p>
+                    <td colspan="9" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> No se pudieron recuperar los registros.
                     </td>
                 </tr>
             `;
@@ -14243,69 +17725,147 @@ async function loadCiudad3DManzanasAtipicas() {
     }
 }
 
-function renderCiudad3DManzanasAtipicas(filteredData = null) {
+function renderAtipicasTable(data) {
     const tbody = document.getElementById('c3d-atipicas-tbody');
+    const pageInfo = document.getElementById('atip-pagination-info');
+    const prevBtn = document.getElementById('atip-prev-btn');
+    const nextBtn = document.getElementById('atip-next-btn');
     if (!tbody) return;
-    
+
     tbody.innerHTML = "";
-    const data = filteredData || c3dAtipicasRawData;
-    
-    if (data.length === 0) {
+    const rows = data.records || [];
+    const total = data.total || 0;
+
+    if (rows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    No se encontraron manzanas atípicas que coincidan con la búsqueda.
+                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    No se encontraron manzanas atípicas con los filtros aplicados.
                 </td>
             </tr>
         `;
+        if (pageInfo) pageInfo.innerText = "Mostrando 0 de 0 registros";
+        if (prevBtn) prevBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
         return;
     }
-    
-    data.forEach(row => {
+
+    rows.forEach(r => {
         const tr = document.createElement('tr');
-        tr.style.cssText = "border-bottom: 1px solid #e2e8f0; transition: background 0.15s; font-family: 'Outfit', sans-serif;";
+        tr.style.cssText = "border-bottom: 1px solid #f1f5f9; transition: background 0.15s; font-family: 'Outfit', sans-serif;";
         tr.onmouseover = () => { tr.style.background = '#f8fafc'; };
         tr.onmouseout = () => { tr.style.background = 'none'; };
-        
+
+        // Badge Trazado
+        let trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #f1f5f9; color: #64748b;">-</span>`;
+        if (r.trazado === 'SI') {
+            trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #dbeafe; color: #1e40af;"><i class="fa-solid fa-check" style="font-size: 0.7rem; margin-right: 3px;"></i>SI</span>`;
+        } else if (r.trazado === 'NO') {
+            trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #f1f5f9; color: #475569;">NO</span>`;
+        }
+
+        // Badge LFI
+        const lfiBadge = (r.cant_lfi > 0)
+            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #e0f2fe; color: #0284c7;"><i class="fa-solid fa-check" style="font-size: 0.68rem;"></i> ${r.cant_lfi}</span>`
+            : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+        // Badge LIB
+        const libBadge = (r.cant_lib > 0)
+            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #ccfbf1; color: #0f766e;"><i class="fa-solid fa-check" style="font-size: 0.68rem;"></i> ${r.cant_lib}</span>`
+            : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+        // Badge Cobertura
+        let cobBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: #f8fafc; color: #94a3b8;">N/A</span>`;
+        if (r.cobertura_particularizada === 'AMBAS') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #d1fae5; color: #065f46;"><i class="fa-solid fa-layer-group" style="margin-right: 4px;"></i>LFI + LIB</span>`;
+        } else if (r.cobertura_particularizada === 'SOLO_LFI') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #e0f2fe; color: #0369a1;">Solo LFI</span>`;
+        } else if (r.cobertura_particularizada === 'SOLO_LIB') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #ccfbf1; color: #0f766e;">Solo LIB</span>`;
+        } else if (r.cobertura_particularizada === 'NINGUNA') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #fee2e2; color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 3px;"></i>Sin LFI/LIB</span>`;
+        }
+
         tr.innerHTML = `
-            <td style="padding: 12px 16px; font-weight: 600;">${row.barrio}</td>
-            <td style="padding: 12px 16px; color: #64748b;">${row.comuna}</td>
-            <td style="padding: 12px 16px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--primary-dark);">
-                ${row.seccion} - ${row.manzana}
+            <td style="padding: 10px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">
+                ${r.sm || (r.seccion + '-' + r.manzana)}
             </td>
-            <td style="padding: 12px 16px;">
-                <div style="font-weight: 600; color: #334155; font-size: 0.85rem;">${row.gedo_documento}</div>
-                <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Exp: ${row.expediente} (${row.fecha_egreso})</div>
+            <td style="padding: 10px 14px; color: #475569;">${r.seccion || '-'}</td>
+            <td style="padding: 10px 14px; color: #475569; font-weight: 600;">${r.manzana || '-'}</td>
+            <td style="padding: 10px 14px; color: #64748b;">${r.comuna ? 'Comuna ' + r.comuna : '-'}</td>
+            <td style="padding: 10px 14px; font-size: 0.85rem;">
+                ${r.disposicio ? `<span style="font-weight: 600; color: #334155;">${r.disposicio}</span>` : `<span style="color: #94a3b8; font-style: italic;">Sin Disposición</span>`}
             </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
-                    <i class="fa-solid fa-download"></i> DXF
-                </button>
-            </td>
+            <td style="padding: 10px 14px; text-align: center;">${trazBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${lfiBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${libBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${cobBadge}</td>
         `;
+
         tbody.appendChild(tr);
     });
+
+    const startIdx = data.offset + 1;
+    const endIdx = Math.min(data.offset + rows.length, total);
+    if (pageInfo) {
+        pageInfo.innerText = `Mostrando ${startIdx.toLocaleString('es-AR')} - ${endIdx.toLocaleString('es-AR')} de ${total.toLocaleString('es-AR')} manzanas`;
+    }
+
+    if (prevBtn) prevBtn.disabled = (data.offset <= 0);
+    if (nextBtn) nextBtn.disabled = (data.offset + data.limit >= total);
 }
 
-// Atypical block workflow helpers removed
+function filterAtipicasByGroup(groupKey) {
+    c3dAtipicasCurrentFilter = groupKey;
+    c3dAtipicasOffset = 0;
+    
+    const select = document.getElementById('atip-filter-select');
+    if (select) select.value = groupKey;
 
-function filterCiudad3DManzanasAtipicas() {
-    const searchVal = (document.getElementById('c3d-atipicas-search')?.value || '').toLowerCase().trim();
-    if (!searchVal) {
-        renderCiudad3DManzanasAtipicas();
-        return;
-    }
-    
-    const matched = c3dAtipicasRawData.filter(row => {
-        return (row.barrio || '').toLowerCase().includes(searchVal) ||
-               (row.comuna || '').toLowerCase().includes(searchVal) ||
-               (row.seccion || '').toLowerCase().includes(searchVal) ||
-               (row.manzana || '').toLowerCase().includes(searchVal) ||
-               (row.gedo_documento || '').toLowerCase().includes(searchVal) ||
-               (row.expediente || '').toLowerCase().includes(searchVal);
-    });
-    
-    renderCiudad3DManzanasAtipicas(matched);
+    updateAtipicasActiveFilterLabel(groupKey);
+    loadAtipicasList();
+}
+
+function filterAtipicasBySelect(val) {
+    c3dAtipicasCurrentFilter = val;
+    c3dAtipicasOffset = 0;
+    updateAtipicasActiveFilterLabel(val);
+    loadAtipicasList();
+}
+
+function updateAtipicasActiveFilterLabel(groupKey) {
+    const labelEl = document.getElementById('atip-active-filter-label');
+    if (!labelEl) return;
+
+    const mapLabels = {
+        'todos': 'Todas las manzanas atípicas',
+        'con_disp': 'Manzanas con Disposición no nula',
+        'sin_disp': 'Manzanas sin Disposición',
+        'trazado_si': 'Con Disposición + Trazado SI',
+        'trazado_no': 'Con Disposición + Trazado NO',
+        'con_lfi_o_lib': 'Trazado SI + Tienen LFI o LIB',
+        'ninguna': 'Trazado SI + No tienen nada en las tablas (Faltantes)',
+        'ambas': 'Trazado SI + Ambas LFI y LIB cargadas',
+        'solo_lfi': 'Trazado SI + Solo LFI cargada',
+        'solo_lib': 'Trazado SI + Solo LIB cargada'
+    };
+    labelEl.innerText = `Mostrando: ${mapLabels[groupKey] || groupKey}`;
+}
+
+function debounceAtipicasSearch() {
+    clearTimeout(c3dAtipicasSearchTimeout);
+    c3dAtipicasSearchTimeout = setTimeout(() => {
+        const val = document.getElementById('c3d-atipicas-search')?.value.trim() || '';
+        c3dAtipicasSearchTerm = val;
+        c3dAtipicasOffset = 0;
+        loadAtipicasList();
+    }, 300);
+}
+
+function changeAtipicasPage(direction) {
+    c3dAtipicasOffset += (direction * c3dAtipicasLimit);
+    if (c3dAtipicasOffset < 0) c3dAtipicasOffset = 0;
+    loadAtipicasList();
 }
 
 window.loadCiudad3DTroneras = loadCiudad3DTroneras;
@@ -14313,7 +17873,10 @@ window.filterCiudad3DTroneras = filterCiudad3DTroneras;
 window.expandBarrioTroneras = expandBarrioTroneras;
 window.downloadManzanaDXF = downloadManzanaDXF;
 window.loadCiudad3DManzanasAtipicas = loadCiudad3DManzanasAtipicas;
-window.filterCiudad3DManzanasAtipicas = filterCiudad3DManzanasAtipicas;
+window.filterAtipicasByGroup = filterAtipicasByGroup;
+window.filterAtipicasBySelect = filterAtipicasBySelect;
+window.debounceAtipicasSearch = debounceAtipicasSearch;
+window.changeAtipicasPage = changeAtipicasPage;
 window.openLFIFicha = openLFIFicha;
 
 async function openLFIFicha(seccion, manzana) {
@@ -15477,200 +19040,7 @@ window.saveAdminFamilia = saveAdminFamilia;
 window.deleteAdminFamilia = deleteAdminFamilia;
 
 
-// --- ANALISTAS POR ÁREA / GERENCIA ---
-let allAdminAnalistasData = [];
 
-async function loadAdminAnalistas() {
-    const select = document.getElementById('admin-analistas-gerencia-select');
-    const tableBody = document.getElementById('admin-analistas-table-body');
-    if (!select || !tableBody) return;
-
-    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;"><span class="loader"></span> Cargando analistas...</td></tr>';
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/analistas`);
-        if (res && res.ok) {
-            allAdminAnalistasData = await res.json();
-            
-            // Populate select dropdown preserving selected index if possible
-            const currentSelVal = select.value;
-            let optionsHtml = '';
-            allAdminAnalistasData.forEach(item => {
-                const display = item.gerencia.toUpperCase();
-                optionsHtml += `<option value="${item.gerencia}">${display}</option>`;
-            });
-            select.innerHTML = optionsHtml;
-            
-            if (currentSelVal && allAdminAnalistasData.some(x => x.gerencia === currentSelVal)) {
-                select.value = currentSelVal;
-            } else if (allAdminAnalistasData.length > 0) {
-                select.value = allAdminAnalistasData[0].gerencia;
-            }
-            
-            onAdminAnalistasGerenciaChange();
-        } else {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar datos del servidor.</td></tr>';
-        }
-    } catch (err) {
-        console.error("Error loading admin analysts:", err);
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
-    }
-}
-
-function onAdminAnalistasGerenciaChange() {
-    const select = document.getElementById('admin-analistas-gerencia-select');
-    const tableBody = document.getElementById('admin-analistas-table-body');
-    if (!select || !tableBody) return;
-
-    const gerencia = select.value;
-    const item = allAdminAnalistasData.find(x => x.gerencia === gerencia);
-    if (!item || !item.analistas || item.analistas.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas configurados para esta área.</td></tr>';
-        return;
-    }
-
-    let html = '';
-    item.analistas.forEach(a => {
-        html += `
-            <tr class="analista-row" style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;">
-                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.apellido}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.nombre}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.mail}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.ocupacion}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.numero_cuit}</td>
-                <td style="padding: 12px 14px; text-align: center;">
-                    <button type="button" onclick="deleteAnalistaFromGerencia('${gerencia}', '${a.usuario}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-trash"></i> Eliminar
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-    tableBody.innerHTML = html;
-}
-
-function filterAdminAnalistasTable() {
-    const query = (document.getElementById('admin-analistas-table-search').value || '').toLowerCase().trim();
-    const rows = document.querySelectorAll('#admin-analistas-table-body .analista-row');
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(query)) {
-            row.style.display = 'table-row';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
-
-async function searchSadeUsersForAnalistas(q) {
-    const resultsPanel = document.getElementById('admin-analistas-search-results');
-    const clearBtn = document.getElementById('btn-clear-analistas-search');
-    if (!resultsPanel) return;
-
-    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
-
-    if (q.trim().length < 2) {
-        resultsPanel.style.display = 'none';
-        resultsPanel.innerHTML = '';
-        return;
-    }
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
-        if (res && res.ok) {
-            const users = await res.json();
-            if (users.length === 0) {
-                resultsPanel.innerHTML = '<div style="padding: 12px; color: #64748b; font-style: italic; font-size: 0.85rem; text-align: center;">No se encontraron usuarios.</div>';
-                resultsPanel.style.display = 'block';
-                return;
-            }
-
-            let html = '';
-            users.forEach(u => {
-                html += `
-                    <div class="search-result-item" onclick="addAnalistaToGerencia('${u.usuario}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px;">
-                        <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
-                        <span style="color: #64748b; font-size: 0.8rem;">${u.apellido_nombre || ""}</span>
-                    </div>
-                `;
-            });
-            resultsPanel.innerHTML = html;
-            resultsPanel.style.display = 'block';
-        }
-    } catch (err) {
-        console.error("Error searching SADE users:", err);
-    }
-}
-
-function clearAdminAnalistasUserSearch() {
-    const input = document.getElementById('admin-analistas-user-search');
-    const resultsPanel = document.getElementById('admin-analistas-search-results');
-    const clearBtn = document.getElementById('btn-clear-analistas-search');
-    if (input) input.value = '';
-    if (resultsPanel) {
-        resultsPanel.style.display = 'none';
-        resultsPanel.innerHTML = '';
-    }
-    if (clearBtn) clearBtn.style.display = 'none';
-}
-
-async function addAnalistaToGerencia(username) {
-    const select = document.getElementById('admin-analistas-gerencia-select');
-    if (!select) return;
-    const gerencia = select.value;
-    
-    if (!confirm(`¿Está seguro de que desea agregar al usuario "${username.toUpperCase()}" como analista de ${gerencia.toUpperCase()}?`)) return;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario: username })
-        });
-
-        if (res && res.ok) {
-            alert('Analista agregado con éxito.');
-            clearAdminAnalistasUserSearch();
-            await loadAdminAnalistas();
-        } else {
-            const err = await res.json();
-            alert(`Error: ${err.detail || "No se pudo agregar el analista."}`);
-        }
-    } catch (err) {
-        console.error("Error adding analyst:", err);
-        alert("Error de red al agregar el analista.");
-    }
-}
-
-async function deleteAnalistaFromGerencia(gerencia, username) {
-    if (!confirm(`¿Está seguro de que desea eliminar al analista "${username.toUpperCase()}" de la gerencia ${gerencia.toUpperCase()}?`)) return;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}`, {
-            method: 'DELETE'
-        });
-
-        if (res && res.ok) {
-            alert('Analista eliminado con éxito.');
-            await loadAdminAnalistas();
-        } else {
-            const err = await res.json();
-            alert(`Error: ${err.detail || "No se pudo eliminar el analista."}`);
-        }
-    } catch (err) {
-        console.error("Error removing analyst:", err);
-        alert("Error de red al eliminar el analista.");
-    }
-}
-
-window.loadAdminAnalistas = loadAdminAnalistas;
-window.onAdminAnalistasGerenciaChange = onAdminAnalistasGerenciaChange;
-window.filterAdminAnalistasTable = filterAdminAnalistasTable;
-window.searchSadeUsersForAnalistas = searchSadeUsersForAnalistas;
-window.clearAdminAnalistasUserSearch = clearAdminAnalistasUserSearch;
-window.addAnalistaToGerencia = addAnalistaToGerencia;
-window.deleteAnalistaFromGerencia = deleteAnalistaFromGerencia;
 
 
 // --- REPORTES RRHH ---
@@ -16308,7 +19678,9 @@ async function loadLandingStats() {
     const now    = new Date();
     const hour   = now.getHours();
     const greet  = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
-    const user   = (window.currentUser?.nombre || window.currentUser?.username || '');
+    const cu     = window.currentUser || JSON.parse(localStorage.getItem('sgdu_user') || '{}');
+    const rawName = cu?.full_name || cu?.nombre || cu?.username || '';
+    const user   = rawName ? rawName.trim().split(' ')[0] : '';
     const gEl    = document.getElementById('landing-greeting');
     const dEl    = document.getElementById('landing-date-str');
     if (gEl) gEl.textContent = user ? `${greet}, ${user}` : 'Bienvenido al Tablero SGDU';
@@ -18202,6 +21574,19 @@ function renderPlanifTiemposGrid(tratas) {
         const descEscaped = (t.descripcion_trata || '').replace(/'/g, "\\'");
         const mesCerradoLabel = t.ultimo_mes_cerrado || 'Último Mes';
 
+        const promPropio = (t.dias_propio_sector !== undefined && t.dias_propio_sector !== null) ? t.dias_propio_sector : 0.0;
+        const promSubs = (t.dias_subsanacion !== undefined && t.dias_subsanacion !== null) ? t.dias_subsanacion : 0.0;
+        const promInterv = (t.dias_intervenciones !== undefined && t.dias_intervenciones !== null) ? t.dias_intervenciones : 0.0;
+        const promTotal = (t.dias_totales !== undefined && t.dias_totales !== null) ? t.dias_totales : (promPropio + promSubs + promInterv).toFixed(1);
+        const resueltosMes = t.total_resueltos_ultimo_mes || 0;
+
+        // Métricas Año en Curso (2026)
+        const promPropioAno = (t.dias_propio_sector_este_ano !== undefined && t.dias_propio_sector_este_ano !== null) ? t.dias_propio_sector_este_ano : 0.0;
+        const promSubsAno = (t.dias_subsanacion_este_ano !== undefined && t.dias_subsanacion_este_ano !== null) ? t.dias_subsanacion_este_ano : 0.0;
+        const promIntervAno = (t.dias_intervenciones_este_ano !== undefined && t.dias_intervenciones_este_ano !== null) ? t.dias_intervenciones_este_ano : 0.0;
+        const promTotalAno = (t.dias_totales_este_ano !== undefined && t.dias_totales_este_ano !== null) ? t.dias_totales_este_ano : (promPropioAno + promSubsAno + promIntervAno).toFixed(1);
+        const resueltosAno = t.total_resueltos_este_ano || 0;
+
         return `
             <div onclick="openPlanifTrataTiemposModal('${t.trata}', '${descEscaped}', '${t.gerencia}')" 
                  style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
@@ -18209,11 +21594,16 @@ function renderPlanifTiemposGrid(tratas) {
                  onmouseout="this.style.borderColor='#cbd5e1'; this.style.transform='translateY(0)';">
                 
                 <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem;">
-                    <div>
-                        <span style="font-family: 'Courier New', monospace; font-weight: 800; font-size: 0.85rem; color: var(--primary-dark); background: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">
-                            ${t.trata}
-                        </span>
-                        <h4 style="margin: 8px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #0f172a; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-family: 'Courier New', monospace; font-weight: 800; font-size: 0.85rem; color: var(--primary-dark); background: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">
+                                ${t.trata}
+                            </span>
+                            <span style="font-size: 0.72rem; color: #0284c7; font-weight: 700; background: #f0f9ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #e0f2fe;">
+                                <i class="fa-solid fa-check-circle" style="font-size: 0.65rem;"></i> ${resueltosMes} resueltos (${mesCerradoLabel})
+                            </span>
+                        </div>
+                        <h4 style="margin: 8px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #0f172a; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${t.descripcion_trata}">
                             ${t.descripcion_trata}
                         </h4>
                     </div>
@@ -18222,44 +21612,73 @@ function renderPlanifTiemposGrid(tratas) {
                     </span>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <span style="font-size: 0.7rem; font-weight: 700; color: #475569; text-transform: uppercase;">
-                        <i class="fa-solid fa-calendar-check" style="color: #0284c7;"></i> Mediana Mes Cerrado (${mesCerradoLabel})
-                    </span>
+                <!-- BLOQUE 1: Último Mes Completo Cerrado -->
+                <div style="margin-bottom: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 0.68rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.3px;">
+                            <i class="fa-solid fa-calendar-check" style="color: #0284c7; margin-right: 3px;"></i> Promedios Último Mes (${mesCerradoLabel})
+                        </span>
+                    </div>
+
+                    <!-- 3 Métricas: Sector, Subsanación, Intervención -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #f8fafc; padding: 8px; border-radius: 10px; border: 1px solid #f1f5f9; margin-bottom: 6px;">
+                        <div style="text-align: center;">
+                            <span style="font-size: 0.63rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Propio Sector</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #0369a1;">${promPropio} <span style="font-size: 0.7rem; font-weight: 600;">días</span></div>
+                        </div>
+                        <div style="text-align: center; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+                            <span style="font-size: 0.63rem; font-weight: 700; color: #ea580c; text-transform: uppercase;">Subsanación</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #c2410c;">${promSubs} <span style="font-size: 0.7rem; font-weight: 600;">días</span></div>
+                        </div>
+                        <div style="text-align: center;">
+                            <span style="font-size: 0.63rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase;">Intervención</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #6d28d9;">${promInterv} <span style="font-size: 0.7rem; font-weight: 600;">días</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Tiempo de Resolución (Suma de los 3 Promedios) -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #334155;">
+                            Tiempo de Resolución (Total):
+                        </span>
+                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #0f172a;">
+                            ${promTotal} <span style="font-size: 0.75rem; font-weight: 600;">días</span>
+                        </span>
+                    </div>
                 </div>
 
-                <!-- 3 Métricas de Tiempo (Mediana Último Mes Cerrado) -->
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: #f8fafc; padding: 10px; border-radius: 12px; border: 1px solid #f1f5f9; margin-bottom: 0.75rem;">
-                    <div style="text-align: center;">
-                        <span style="font-size: 0.68rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Propio Sector</span>
-                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: #0369a1;">${t.dias_propio_sector} <span style="font-size: 0.75rem; font-weight: 600;">días</span></div>
+                <!-- BLOQUE 2: Expedientes Ingresados en el Año en Curso (2026) -->
+                <div style="background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0; padding: 8px 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.68rem; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.3px;">
+                            <i class="fa-solid fa-hourglass-half" style="color: #16a34a; margin-right: 3px;"></i> Ingresados en el Año en Curso (2026)
+                        </span>
+                        <span style="font-size: 0.65rem; color: #15803d; font-weight: 700;">${resueltosAno} resueltos</span>
                     </div>
-                    <div style="text-align: center; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
-                        <span style="font-size: 0.68rem; font-weight: 700; color: #ea580c; text-transform: uppercase;">Subsanación</span>
-                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: #c2410c;">${t.dias_subsanacion} <span style="font-size: 0.75rem; font-weight: 600;">días</span></div>
-                    </div>
-                    <div style="text-align: center;">
-                        <span style="font-size: 0.68rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase;">Intervenciones</span>
-                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.1rem; color: #6d28d9;">${t.dias_intervenciones} <span style="font-size: 0.75rem; font-weight: 600;">días</span></div>
-                    </div>
-                </div>
 
-                <!-- Mediana Total y Mediana Ingresados Este Año -->
-                <div style="display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed #e2e8f0; padding-top: 8px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <span style="font-size: 0.78rem; font-weight: 600; color: #475569;">
-                            Mediana Total Mes Cerrado (${mesCerradoLabel}):
-                        </span>
-                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #0f172a;">
-                            ${t.dias_totales} <span style="font-size: 0.75rem; font-weight: 600;">días</span>
-                        </span>
+                    <!-- 3 Métricas Año -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; text-align: center; margin-bottom: 6px;">
+                        <div>
+                            <span style="font-size: 0.6rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Sector</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">${promPropioAno}d</div>
+                        </div>
+                        <div style="border-left: 1px solid #dcfce7; border-right: 1px solid #dcfce7;">
+                            <span style="font-size: 0.6rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Subs.</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">${promSubsAno}d</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.6rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Interv.</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">${promIntervAno}d</div>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: space-between; background: #f0fdf4; padding: 4px 8px; border-radius: 6px; border: 1px solid #bbf7d0;">
-                        <span style="font-size: 0.78rem; font-weight: 700; color: #166534;">
-                            <i class="fa-solid fa-hourglass-half" style="color: #16a34a;"></i> Mediana Ingresados Este Año:
+
+                    <!-- Tiempo Total Año en curso -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed #bbf7d0; padding-top: 4px;">
+                        <span style="font-size: 0.72rem; font-weight: 700; color: #166534;">
+                            Tiempo de Resolución Año:
                         </span>
-                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">
-                            ${t.dias_mediana_ingresados_este_ano} <span style="font-size: 0.75rem; font-weight: 600;">días</span>
+                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.98rem; color: #14532d;">
+                            ${promTotalAno} <span style="font-size: 0.72rem; font-weight: 600;">días</span>
                         </span>
                     </div>
                 </div>
@@ -18576,12 +21995,811 @@ function renderPlanifMetasV2Table(tratas) {
     if (kpiMetaTotal) kpiMetaTotal.innerText = totMetaPeriodo.toLocaleString('es-AR');
 }
 
+// ──────────────────────────────────────────────────────────────
+// DGIUR - MONITOREO Y PRODUCCIÓN POR ANALISTA (PÚBLICO PRIVADO, COPUA, PRIVADA)
+// ──────────────────────────────────────────────────────────────
 
+let _gprodCurrentGerencia = 'publico_privado';
+let _gprodDataMap = {};
+let _gprodChartInstances = {};
+let _gprodTratasChartInstances = {};
 
+// Compatibilidad
+let _pppData = {
+    analistas: [],
+    produccion_mensual: [],
+    tratas_distribucion: [],
+    stock_actual: [],
+    expedientes: []
+};
+let _pppChartInstance = null;
+let _pppTratasChartInstance = null;
 
+async function loadGenericGerenciaProdView(gerenciaId) {
+    if (!gerenciaId) gerenciaId = 'publico_privado';
+    _gprodCurrentGerencia = gerenciaId;
 
+    const prefix = gerenciaId === 'publico_privado' ? 'ppp' : gerenciaId;
 
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/${gerenciaId}/analisis_produccion`);
+        if (!res) {
+            // Error de autenticación o red manejado por def_fetch
+            return;
+        }
+        if (!res.ok) {
+            console.error(`Error HTTP ${res.status} al cargar datos de ${gerenciaId}`);
+            return;
+        }
 
+        const data = await res.json();
+        _gprodDataMap[gerenciaId] = data;
 
+        if (gerenciaId === 'publico_privado') {
+            _pppData = data;
+        }
 
+        // 1. Renderizar KPIs
+        renderGProdKPIs(data, prefix);
 
+        // 2. Poblar selectores de filtro
+        populateGProdFilters(data, prefix);
+
+        // 3. Renderizar gráficos
+        renderGProdCharts(data, prefix);
+
+        // 4. Renderizar Matriz de Producción
+        renderGProdMatrixTable(data, prefix);
+
+        // 5. Renderizar Detalle de Expedientes
+        filterGProdExpedientesTable(prefix);
+
+        // 6. Renderizar Stock Actual
+        renderGProdStockTable(data.stock_actual || [], prefix);
+    } catch (err) {
+        console.error(`Error al cargar datos de ${gerenciaId}:`, err);
+    }
+}
+
+async function loadPublicoPrivadoView() {
+    return loadGenericGerenciaProdView('publico_privado');
+}
+
+function reloadCurrentGProdView() {
+    loadGenericGerenciaProdView(_gprodCurrentGerencia);
+}
+
+function renderGProdKPIs(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const currYear = new Date().getFullYear();
+    const prodList = data.produccion_mensual || [];
+
+    // Total expedientes 2026
+    const totalAnio = prodList
+        .filter(r => r.anio === currYear)
+        .reduce((sum, r) => sum + (r.exp_intervenidos || 0), 0);
+
+    const kpiAnio = document.getElementById(`${prefix}-kpi-prod-anio`);
+    if (kpiAnio) kpiAnio.innerText = totalAnio.toLocaleString('es-AR');
+
+    // Último mes completo
+    const now = new Date();
+    const lastMNum = now.getMonth() === 0 ? 12 : now.getMonth();
+    const lastMYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const lastMLabel = `${lastMYear}-${lastMNum.toString().padStart(2, '0')}`;
+
+    const totalLastMonth = prodList
+        .filter(r => r.mes_label === lastMLabel)
+        .reduce((sum, r) => sum + (r.exp_intervenidos || 0), 0);
+
+    const kpiMes = document.getElementById(`${prefix}-kpi-prod-mes`);
+    const kpiMesSub = document.getElementById(`${prefix}-kpi-prod-mes-sub`);
+    if (kpiMes) kpiMes.innerText = totalLastMonth.toLocaleString('es-AR');
+    if (kpiMesSub) {
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        kpiMesSub.innerText = `Expedientes en ${monthNames[lastMNum - 1]} ${lastMYear}`;
+    }
+
+    // Stock actual
+    const stockList = data.stock_actual || [];
+    const kpiStock = document.getElementById(`${prefix}-kpi-stock-actual`);
+    const tabStockCount = document.getElementById(`${prefix}-tab-stock-count`);
+    if (kpiStock) kpiStock.innerText = stockList.length.toLocaleString('es-AR');
+    if (tabStockCount) tabStockCount.innerText = stockList.length.toLocaleString('es-AR');
+
+    // Tratas distintas atendidas
+    const tratasList = data.tratas_distribucion || [];
+    const uniqueTratas = new Set(tratasList.map(t => t.trata).filter(Boolean));
+    const kpiTratas = document.getElementById(`${prefix}-kpi-tratas-count`);
+    if (kpiTratas) kpiTratas.innerText = uniqueTratas.size.toLocaleString('es-AR');
+}
+
+function renderPPPKPIs(data) {
+    renderGProdKPIs(data, 'ppp');
+}
+
+function populateGProdFilters(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const analystSelects = [`${prefix}-chart-filter-analyst`, `${prefix}-filter-analyst`];
+    const mesSelect = document.getElementById(`${prefix}-filter-mes`);
+    const trataSelect = document.getElementById(`${prefix}-filter-trata`);
+
+    const analistas = data.analistas || [];
+    analystSelects.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let html = `<option value="ALL">Todos los analistas (${analistas.length})</option>`;
+        analistas.forEach(a => {
+            html += `<option value="${a.usuario}">${a.nombre || a.usuario}</option>`;
+        });
+        sel.innerHTML = html;
+        sel.value = 'ALL';
+    });
+
+    // Meses únicos
+    if (mesSelect) {
+        const monthsSet = new Set((data.produccion_mensual || []).map(r => r.mes_label));
+        const sortedMonths = Array.from(monthsSet).sort().reverse();
+        let html = `<option value="ALL">Todos los períodos (${sortedMonths.length})</option>`;
+        sortedMonths.forEach(m => {
+            const parts = m.split('-');
+            const mIdx = parseInt(parts[1], 10) - 1;
+            const mName = MESES[mIdx] || parts[1];
+            html += `<option value="${m}">${mName} ${parts[0]}</option>`;
+        });
+        mesSelect.innerHTML = html;
+        mesSelect.value = 'ALL';
+    }
+
+    // Tratas únicas
+    if (trataSelect) {
+        const tratasMap = new Map();
+        (data.tratas_distribucion || []).forEach(t => {
+            if (t.trata && !tratasMap.has(t.trata)) {
+                tratasMap.set(t.trata, t.descripcion_trata || t.trata);
+            }
+        });
+        let html = `<option value="ALL">Todas las tratas (${tratasMap.size})</option>`;
+        Array.from(tratasMap.entries())
+            .sort((a, b) => (a[1] || a[0]).localeCompare(b[1] || b[0]))
+            .forEach(([code, desc]) => {
+                const label = desc && desc !== 'Sin descripción' ? desc : code;
+                html += `<option value="${code}">${label.substring(0, 45)}</option>`;
+            });
+        trataSelect.innerHTML = html;
+        trataSelect.value = 'ALL';
+    }
+}
+
+function populatePPPFilters(data) {
+    populateGProdFilters(data, 'ppp');
+}
+
+function renderGProdCharts(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const prodList = data.produccion_mensual || [];
+    const analistas = data.analistas || [];
+
+    // Meses ordenados cronológicamente (últimos 12 meses)
+    const monthsSet = new Set(prodList.map(r => r.mes_label));
+    const sortedMonths = Array.from(monthsSet).sort().slice(-12);
+
+    const monthLabels = sortedMonths.map(m => {
+        const parts = m.split('-');
+        const mIdx = parseInt(parts[1], 10) - 1;
+        return `${(MESES[mIdx] || '').substring(0, 3)} ${parts[0]}`;
+    });
+
+    const colors = ['#0076bb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0284c7', '#6366f1'];
+
+    const datasets = analistas.map((a, idx) => {
+        const dataValues = sortedMonths.map(m => {
+            const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
+            return found ? (found.exp_intervenidos || 0) : 0;
+        });
+
+        const color = colors[idx % colors.length];
+        return {
+            label: a.nombre || a.usuario,
+            data: dataValues,
+            backgroundColor: color,
+            borderColor: color,
+            borderWidth: 2,
+            borderRadius: 4,
+            tension: 0.3
+        };
+    });
+
+    // 1. Gráfico de Producción
+    const canvasProd = document.getElementById(`${prefix}-production-chart`);
+    if (canvasProd) {
+        if (_gprodChartInstances[prefix]) _gprodChartInstances[prefix].destroy();
+        _gprodChartInstances[prefix] = new Chart(canvasProd, {
+            type: 'bar',
+            data: {
+                labels: monthLabels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Outfit', size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} expedientes`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { family: 'Outfit', size: 11 } } },
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Outfit', size: 11 } } }
+                }
+            }
+        });
+        if (prefix === 'ppp') _pppChartInstance = _gprodChartInstances[prefix];
+    }
+
+    // 2. Gráfico Donut de Tratas Intervenidas
+    const canvasTratas = document.getElementById(`${prefix}-tratas-chart`);
+    if (canvasTratas) {
+        if (_gprodTratasChartInstances[prefix]) _gprodTratasChartInstances[prefix].destroy();
+
+        const tratasMap = {};
+        (data.tratas_distribucion || []).forEach(t => {
+            const desc = t.descripcion_trata && t.descripcion_trata !== 'Sin descripción'
+                ? t.descripcion_trata
+                : t.trata;
+            tratasMap[desc] = (tratasMap[desc] || 0) + (t.exp_intervenidos || 0);
+        });
+
+        const sortedTratas = Object.entries(tratasMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6);
+
+        const trataLabels = sortedTratas.map(t => t[0]);
+        const trataValues = sortedTratas.map(t => t[1]);
+
+        _gprodTratasChartInstances[prefix] = new Chart(canvasTratas, {
+            type: 'doughnut',
+            data: {
+                labels: trataLabels,
+                datasets: [{
+                    data: trataValues,
+                    backgroundColor: ['#0076bb', '#002d47', '#10b981', '#f59e0b', '#8b5cf6', '#94a3b8'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'bottom', 
+                        labels: { 
+                            boxWidth: 10, 
+                            font: { family: 'Outfit', size: 10.5 },
+                            generateLabels: (chart) => {
+                                const orig = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+                                orig.forEach(l => {
+                                    if (l.text && l.text.length > 28) {
+                                        l.text = l.text.substring(0, 26) + '...';
+                                    }
+                                });
+                                return orig;
+                            }
+                        } 
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.label}: ${ctx.parsed} expedientes`
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+        if (prefix === 'ppp') _pppTratasChartInstance = _gprodTratasChartInstances[prefix];
+    }
+}
+
+function renderPPPCharts(data) {
+    renderGProdCharts(data, 'ppp');
+}
+
+function updateGProdChart(prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const chart = _gprodChartInstances[prefix];
+    const data = _gprodDataMap[_gprodCurrentGerencia];
+    if (!chart || !data) return;
+
+    const selectedAnalyst = document.getElementById(`${prefix}-chart-filter-analyst`)?.value || 'ALL';
+    const prodList = data.produccion_mensual || [];
+    const analistas = data.analistas || [];
+    const monthsSet = new Set(prodList.map(r => r.mes_label));
+    const sortedMonths = Array.from(monthsSet).sort().slice(-12);
+
+    const colors = ['#0076bb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0284c7', '#6366f1'];
+
+    const targetAnalistas = selectedAnalyst === 'ALL'
+        ? analistas
+        : analistas.filter(a => a.usuario === selectedAnalyst);
+
+    chart.data.datasets = targetAnalistas.map((a, idx) => {
+        const dataValues = sortedMonths.map(m => {
+            const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
+            return found ? (found.exp_intervenidos || 0) : 0;
+        });
+        const color = colors[idx % colors.length];
+        return {
+            label: a.nombre || a.usuario,
+            data: dataValues,
+            backgroundColor: color,
+            borderColor: color,
+            borderWidth: 2,
+            borderRadius: 4,
+            tension: 0.3
+        };
+    });
+
+    chart.update();
+}
+
+function updatePPPChart() {
+    updateGProdChart('ppp');
+}
+
+function renderGProdMatrixTable(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const container = document.getElementById(`${prefix}-matrix-container`);
+    if (!container) return;
+
+    const prodList = data.produccion_mensual || [];
+    const analistas = data.analistas || [];
+
+    // Meses únicos cronológicos desde Marzo 2026 (izq a der)
+    const monthsSet = new Set(prodList.map(r => r.mes_label));
+    const sortedMonths = Array.from(monthsSet).sort();
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.88rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                    <th style="padding: 12px 14px; font-weight: 600; min-width: 200px;">Analista / Buzón</th>
+    `;
+
+    sortedMonths.forEach(m => {
+        const parts = m.split('-');
+        const mIdx = parseInt(parts[1], 10) - 1;
+        const mName = (MESES[mIdx] || '').substring(0, 3);
+        html += `
+            <th style="padding: 10px 8px; font-weight: 600; text-align: center; min-width: 120px; border-left: 1px solid #e2e8f0;">
+                <div style="font-size: 0.88rem; color: #1e293b; margin-bottom: 4px;">${mName} ${parts[0]}</div>
+                <div style="display: flex; justify-content: center; gap: 8px; font-size: 0.72rem;">
+                    <span style="color: #0284c7; font-weight: 700;">ING</span>
+                    <span style="color: #10b981; font-weight: 700;">EGR</span>
+                </div>
+            </th>
+        `;
+    });
+
+    html += `
+                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary-dark); background: #f1f5f9; min-width: 130px; border-left: 1px solid #e2e8f0;">
+                        <div>Total Período</div>
+                        <div style="display: flex; justify-content: center; gap: 12px; font-size: 0.72rem; margin-top: 4px;">
+                            <span style="color: #0284c7; font-weight: 700;">ING</span>
+                            <span style="color: #10b981; font-weight: 700;">EGR</span>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    // Totales por columna
+    const colTotalsIng = {};
+    const colTotalsEgr = {};
+    sortedMonths.forEach(m => { colTotalsIng[m] = 0; colTotalsEgr[m] = 0; });
+    let grandTotalIng = 0;
+    let grandTotalEgr = 0;
+
+    analistas.forEach((a, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        let rowTotalIng = 0;
+        let rowTotalEgr = 0;
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 10px 14px; font-weight: 600; color: #1e293b;">
+                    <i class="fa-solid fa-user-circle" style="color: #64748b; margin-right: 6px;"></i>
+                    ${a.nombre || a.usuario}
+                    <span style="display: block; font-size: 0.75rem; color: #94a3b8; font-weight: 400;">${a.usuario}</span>
+                </td>
+        `;
+
+        sortedMonths.forEach(m => {
+            const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
+            const ingCount = found ? (found.cant_ingresos || 0) : 0;
+            const egrCount = found ? (found.cant_egresos || 0) : 0;
+
+            rowTotalIng += ingCount;
+            rowTotalEgr += egrCount;
+            colTotalsIng[m] = (colTotalsIng[m] || 0) + ingCount;
+            colTotalsEgr[m] = (colTotalsEgr[m] || 0) + egrCount;
+
+            const ingBadge = ingCount > 0
+                ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'ING', '${prefix}')" title="Ver ${ingCount} ingresos">${ingCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+            const egrBadge = egrCount > 0
+                ? `<span style="background: #dcfce7; color: #10b981; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'EGR', '${prefix}')" title="Ver ${egrCount} egresos">${egrCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+            html += `
+                <td style="padding: 10px 8px; text-align: center; border-left: 1px solid #f1f5f9;">
+                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                        ${ingBadge}
+                        ${egrBadge}
+                    </div>
+                </td>
+            `;
+        });
+
+        grandTotalIng += rowTotalIng;
+        grandTotalEgr += rowTotalEgr;
+
+        html += `
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; background: #f8fafc; border-left: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: center; gap: 12px; align-items: center;">
+                        <span style="color: #0284c7;">${rowTotalIng.toLocaleString('es-AR')}</span>
+                        <span style="color: #10b981;">${rowTotalEgr.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    // Fila de Totales Generales
+    html += `
+            <tr style="background: #f1f5f9; border-top: 2px solid #cbd5e1; font-weight: 700; color: #0f172a;">
+                <td style="padding: 12px 14px;">Total Gerencia</td>
+    `;
+
+    sortedMonths.forEach(m => {
+        const totIng = colTotalsIng[m] || 0;
+        const totEgr = colTotalsEgr[m] || 0;
+        html += `
+            <td style="padding: 12px 8px; text-align: center; border-left: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                    <span style="color: #0284c7; font-weight: 800;">${totIng.toLocaleString('es-AR')}</span>
+                    <span style="color: #10b981; font-weight: 800;">${totEgr.toLocaleString('es-AR')}</span>
+                </div>
+            </td>
+        `;
+    });
+
+    html += `
+                <td style="padding: 12px 14px; text-align: center; font-size: 0.95rem; background: #e2e8f0; border-left: 1px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: center; gap: 12px; align-items: center;">
+                        <span style="color: #0284c7; font-weight: 800;">${grandTotalIng.toLocaleString('es-AR')}</span>
+                        <span style="color: #10b981; font-weight: 800;">${grandTotalEgr.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+function renderPPPMatrixTable(data) {
+    renderGProdMatrixTable(data, 'ppp');
+}
+
+function filterGProdByAnalystAndMonth(analyst, mes, tipoEvento, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    switchGProdSection('expedientes', prefix);
+    const selAnalyst = document.getElementById(`${prefix}-filter-analyst`);
+    const selMes = document.getElementById(`${prefix}-filter-mes`);
+    const selTipo = document.getElementById(`${prefix}-filter-tipo-evento`);
+
+    if (selAnalyst) selAnalyst.value = analyst;
+    if (selMes) selMes.value = mes;
+    if (selTipo && tipoEvento) selTipo.value = tipoEvento;
+
+    filterGProdExpedientesTable(prefix);
+}
+
+function filterByAnalystAndMonth(analyst, mes, tipoEvento) {
+    filterGProdByAnalystAndMonth(analyst, mes, tipoEvento, 'ppp');
+}
+
+function switchGProdSection(sectionId, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    
+    // Ocultar todas las secciones bajo la vista actual
+    const currentViewElem = document.getElementById(_gprodCurrentGerencia) || document;
+    const sections = currentViewElem.querySelectorAll(`.${prefix}-section`);
+    sections.forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
+
+    const buttons = currentViewElem.querySelectorAll(`.tab-btn`);
+    buttons.forEach(b => {
+        b.classList.remove('active');
+        b.style.color = '#64748b';
+        b.style.borderBottom = 'none';
+    });
+
+    const targetSection = currentViewElem.querySelector(`#${prefix}-section-${sectionId}`);
+    const targetBtn = currentViewElem.querySelector(`#${prefix}-tab-btn-${sectionId}`);
+
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+    }
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+        targetBtn.style.color = '#0076bb';
+        targetBtn.style.borderBottom = '2px solid #0076bb';
+    }
+}
+
+function switchPPPSection(sectionId) {
+    switchGProdSection(sectionId, 'ppp');
+}
+
+function filterGProdExpedientesTable(prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const query = (document.getElementById(`${prefix}-search-input`)?.value || '').toLowerCase().trim();
+    const selectedAnalyst = document.getElementById(`${prefix}-filter-analyst`)?.value || 'ALL';
+    const selectedMes = document.getElementById(`${prefix}-filter-mes`)?.value || 'ALL';
+    const selectedTipo = document.getElementById(`${prefix}-filter-tipo-evento`)?.value || 'ALL';
+    const selectedTrata = document.getElementById(`${prefix}-filter-trata`)?.value || 'ALL';
+
+    const data = _gprodDataMap[_gprodCurrentGerencia] || _pppData;
+    const expedientes = data.expedientes || [];
+
+    let filtered = expedientes.filter(exp => {
+        if (selectedAnalyst !== 'ALL' && exp.analista !== selectedAnalyst) return false;
+        if (selectedMes !== 'ALL' && exp.mes_label !== selectedMes) return false;
+        if (selectedTipo !== 'ALL' && exp.tipo_evento !== selectedTipo) return false;
+        if (selectedTrata !== 'ALL' && exp.trata !== selectedTrata) return false;
+
+        if (query) {
+            const expNum = (exp.expediente || '').toLowerCase();
+            const motivo = (exp.motivo || '').toLowerCase();
+            const trataDesc = (exp.descripcion_trata || '').toLowerCase();
+            const dest = (exp.destinatario || '').toLowerCase();
+            if (!expNum.includes(query) && !motivo.includes(query) && !trataDesc.includes(query) && !dest.includes(query)) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    const counter = document.getElementById(`${prefix}-expedientes-counter`);
+    if (counter) counter.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${expedientes.length.toLocaleString('es-AR')} eventos`;
+
+    renderGProdExpedientesTable(filtered, prefix);
+}
+
+function filterPPPExpedientesTable() {
+    filterGProdExpedientesTable('ppp');
+}
+
+function renderGProdExpedientesTable(items, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const container = document.getElementById(`${prefix}-expedientes-table-container`);
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                <p>No se encontraron expedientes con los filtros seleccionados.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const displayItems = items.slice(0, 300);
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.86rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                    <th style="padding: 10px 12px; font-weight: 600;">Expediente</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: center;">Tipo</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Trata</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Analista / Buzón</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Fecha de Evento</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Días en Gerencia</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Contraparte</th>
+                    <th style="padding: 10px 12px; font-weight: 600; min-width: 220px;">Motivo</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    displayItems.forEach((exp, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const dias = Number(exp.dias_en_gerencia || 0);
+        const tipoBadge = exp.tipo_evento === 'ING'
+            ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;"><i class="fa-solid fa-arrow-down-long"></i> ING</span>`
+            : `<span style="background: #dcfce7; color: #10b981; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;"><i class="fa-solid fa-arrow-up-long"></i> EGR</span>`;
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 10px 12px; font-weight: 700; color: #0076bb; white-space: nowrap;">
+                    <i class="fa-solid fa-file-lines" style="color: #64748b; margin-right: 6px; font-size: 0.8rem;"></i>
+                    ${exp.expediente || 'Sin número'}
+                </td>
+                <td style="padding: 10px 12px; text-align: center;">
+                    ${tipoBadge}
+                </td>
+                <td style="padding: 10px 12px;">
+                    <span style="font-weight: 600; color: #1e293b; display: block;">${exp.trata}</span>
+                    <span style="font-size: 0.75rem; color: #64748b;">${(exp.descripcion_trata || '').substring(0, 28)}</span>
+                </td>
+                <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
+                    ${exp.analista_nombre || exp.analista}
+                </td>
+                <td style="padding: 10px 12px; color: #0f172a; font-weight: 500; white-space: nowrap; font-size: 0.8rem;">
+                    ${exp.fecha_pase || '—'}
+                </td>
+                <td style="padding: 10px 12px; text-align: right;">
+                    <span style="background: #f1f5f9; color: #334155; font-weight: 600; padding: 2px 7px; border-radius: 5px; font-size: 0.8rem;">
+                        ${dias} d
+                    </span>
+                </td>
+                <td style="padding: 10px 12px; color: #334155; font-weight: 500;">
+                    <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${exp.destinatario || '—'}</span>
+                </td>
+                <td style="padding: 10px 12px; color: #475569; font-size: 0.82rem; line-height: 1.35; max-width: 260px;">
+                    ${exp.motivo || '<span style="color:#cbd5e1;">Sin motivo</span>'}
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    if (items.length > 300) {
+        html += `
+            <div style="padding: 0.75rem; text-align: center; color: #64748b; font-size: 0.82rem; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+                Mostrando los primeros 300 resultados de ${items.length.toLocaleString('es-AR')}. Utilizá los filtros para acotar la búsqueda.
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderPPPExpedientesTable(items) {
+    renderGProdExpedientesTable(items, 'ppp');
+}
+
+function renderGProdStockTable(stockItems, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const container = document.getElementById(`${prefix}-stock-table-container`);
+    if (!container) return;
+
+    if (!stockItems || stockItems.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                <i class="fa-solid fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; color: #10b981;"></i>
+                <p>No hay expedientes pendientes en buzón actualmente.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.86rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                    <th style="padding: 10px 12px; font-weight: 600;">Expediente</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Trata</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Analista / Buzón Actual</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Fecha Último Pase</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Días en Bandeja</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    stockItems.forEach((item, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const dias = Number(item.dias_en_poder || 0);
+        const badgeColor = dias > 30 ? '#ef4444' : dias > 15 ? '#f59e0b' : '#10b981';
+        const badgeBg = dias > 30 ? '#fef2f2' : dias > 15 ? '#fffbeb' : '#f0fdf4';
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 10px 12px; font-weight: 700; color: #0076bb; white-space: nowrap;">
+                    <i class="fa-solid fa-folder" style="color: #64748b; margin-right: 6px; font-size: 0.8rem;"></i>
+                    ${item.expediente || 'Sin número'}
+                </td>
+                <td style="padding: 10px 12px;">
+                    <span style="font-weight: 600; color: #1e293b; display: block;">${item.trata}</span>
+                    <span style="font-size: 0.75rem; color: #64748b;">${(item.descripcion_trata || '').substring(0, 30)}</span>
+                </td>
+                <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
+                    ${item.analista_nombre || item.analista}
+                </td>
+                <td style="padding: 10px 12px; color: #64748b; white-space: nowrap;">
+                    ${item.fecha_ultimo_pase || '—'}
+                </td>
+                <td style="padding: 10px 12px; text-align: right;">
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem;">
+                        ${dias} días
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+function renderPPPStockTable(stockItems) {
+    renderGProdStockTable(stockItems, 'ppp');
+}
+
+function exportGProdToExcel(prefix) {
+    const data = _gprodDataMap[_gprodCurrentGerencia] || _pppData;
+    if (!data || !data.expedientes || data.expedientes.length === 0) {
+        alert("No hay datos de expedientes para exportar.");
+        return;
+    }
+
+    try {
+        const rows = data.expedientes.map(exp => ({
+            "Expediente": exp.expediente || '',
+            "Tipo": exp.tipo_evento === 'ING' ? 'Ingreso (ING)' : 'Egreso (EGR)',
+            "Trata": exp.trata || '',
+            "Descripción Trata": exp.descripcion_trata || '',
+            "Analista / Buzón": exp.analista_nombre || exp.analista || '',
+            "Usuario": exp.analista || '',
+            "Fecha Evento": exp.fecha_pase || '',
+            "Fecha Primer Ingreso": exp.fecha_primer_ingreso || '',
+            "Fecha Último Egreso": exp.fecha_ultimo_egreso || '',
+            "Días en Gerencia": exp.dias_en_gerencia || 0,
+            "Período": exp.mes_label || '',
+            "Contraparte (Remitente/Destinatario)": exp.destinatario || '',
+            "Motivo": exp.motivo || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        const gName = (_gprodCurrentGerencia || 'Gerencia').toUpperCase();
+        XLSX.utils.book_append_sheet(wb, ws, `Producción ${gName}`);
+        XLSX.writeFile(wb, `Produccion_${gName}_${new Date().toISOString().substring(0, 10)}.xlsx`);
+    } catch (e) {
+        console.error("Error exportando a Excel:", e);
+        alert("Ocurrió un error al generar el archivo Excel.");
+    }
+}
+
+function exportPPPToExcel() {
+    exportGProdToExcel('ppp');
+}
+
+// Exponer funciones en window
+window.loadGenericGerenciaProdView = loadGenericGerenciaProdView;
+window.loadPublicoPrivadoView = loadPublicoPrivadoView;
+window.reloadCurrentGProdView = reloadCurrentGProdView;
+window.updateGProdChart = updateGProdChart;
+window.updatePPPChart = updatePPPChart;
+window.switchGProdSection = switchGProdSection;
+window.switchPPPSection = switchPPPSection;
+window.filterGProdExpedientesTable = filterGProdExpedientesTable;
+window.filterPPPExpedientesTable = filterPPPExpedientesTable;
+window.filterGProdByAnalystAndMonth = filterGProdByAnalystAndMonth;
+window.filterByAnalystAndMonth = filterByAnalystAndMonth;
+window.exportGProdToExcel = exportGProdToExcel;
+window.exportPPPToExcel = exportPPPToExcel;

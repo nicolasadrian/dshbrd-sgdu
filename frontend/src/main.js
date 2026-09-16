@@ -1,19 +1,23 @@
 import { state, loadAuthToken } from './state.js';
-import { renderLandingView } from './views/landing.js';
-import { renderRRHHView } from './views/rrhh.js';
+import { mountView } from './router.js';
+import { renderLandingView, loadLandingStats } from './views/landing/landing.js';
+import { renderRRHHView, initRRHHReportView } from './views/reportes/reporte_rrhh/rrhh.js';
 
-// Exponer renderers en window para ser consumidos por el router showView
+// Exponer en window para interoperabilidad total
 window.renderLandingView = renderLandingView;
+window.loadLandingStats = loadLandingStats;
 window.renderRRHHView = renderRRHHView;
+window.initRRHHReportView = initRRHHReportView;
+window.mountView = mountView;
 
-// Sincronizar estado con las variables globales del layout heredado (app.js)
+// Sincronizar estado con variables globales del layout heredado (app.js)
 function syncState() {
-    state.currentUser = window.currentUser || null;
+    state.currentUser = window.currentUser || JSON.parse(localStorage.getItem('sgdu_user') || 'null');
     state.authToken = window.authToken || loadAuthToken();
 }
 
-// Sincronización continua
+// Sincronización periódica
 setInterval(syncState, 500);
 syncState();
 
-console.log("Tablero SGDU - Frontend Modular cargado correctamente.");
+console.log("Tablero SGDU - Frontend Modular cargado y Router Activo.");

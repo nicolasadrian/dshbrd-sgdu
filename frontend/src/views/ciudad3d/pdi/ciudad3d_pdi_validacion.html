@@ -1,0 +1,61 @@
+<div class="breadcrumbs" style="font-family: 'Outfit', sans-serif;">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('ciudad3d_home')" style="cursor: pointer; text-decoration: underline;">Ciudad 3D</span> / <b>Backend PDI - Validación de Datos</b>
+</div>
+
+<!-- Header Principal -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; font-family: 'Outfit', sans-serif;">
+    <div>
+        <h1 style="margin: 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px; display: flex; align-items: center; gap: 12px;">
+            <i class="fa-solid fa-code-compare" style="color: #0284c7;"></i> Validación de Datos & Espejado
+        </h1>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.92rem; font-family: 'Outfit', sans-serif;">
+            Control de consistencia entre tablas del modelo operativo PDI y tablas del CUR.
+        </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <button type="button" class="btn-primary" onclick="loadPDIValidations(true)" style="display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-family: 'Outfit', sans-serif; cursor: pointer;">
+            <i class="fa-solid fa-rotate" id="pdi-val-refresh-icon"></i> Revalidar Espejado
+        </button>
+    </div>
+</div>
+
+<!-- Navegación por Páginas Independientes del Módulo PDI -->
+<div style="display: flex; gap: 8px; margin-bottom: 2rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 0; font-family: 'Outfit', sans-serif;">
+    <button type="button" onclick="showView('ciudad3d_pdi')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-table-list"></i> Inventario & Estado
+    </button>
+    <button type="button" onclick="showView('ciudad3d_pdi_validacion')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 700; color: #0284c7; border-bottom: 3px solid #0284c7; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-code-compare"></i> Validación de Datos
+    </button>
+    <button type="button" onclick="showView('ciudad3d_pdi_validacion_c3d')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-cube"></i> Validación Ciudad 3D
+    </button>
+    <button type="button" onclick="showView('ciudad3d_manzanas_atipicas')" style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: -2px;">
+        <i class="fa-solid fa-shapes"></i> Manzanas Atípicas
+    </button>
+</div>
+
+<!-- Alerta Destacada de VPN (Visible solo si hay error de conexión) -->
+<div id="pdi-vpn-alert-val" style="display: none; margin-bottom: 2.5rem; background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); border: 2px solid #fecaca; border-radius: 18px; padding: 1.75rem; box-shadow: 0 10px 15px -3px rgba(239,68,68,0.08); font-family: 'Outfit', sans-serif;">
+    <div style="display: flex; align-items: flex-start; gap: 18px;">
+        <div style="width: 52px; height: 52px; border-radius: 14px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0;">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div style="flex: 1;">
+            <h3 style="margin: 0; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 1.25rem; color: #991b1b;">
+                Verifica estar conectado a la red GCBA o tener la VPN activa
+            </h3>
+            <p style="margin: 8px 0 14px 0; color: #7f1d1d; font-size: 0.95rem; line-height: 1.5; font-family: 'Outfit', sans-serif;">
+                No se pudo establecer comunicación con el servidor de base de datos corporativo. Para consultar esta información territorial es necesario contar con conexión a la red interna de GCBA o tener el cliente VPN corporativo conectado.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Contenedor dinámico de validaciones -->
+<div id="pdi-validations-container" style="display: flex; flex-direction: column; gap: 0.75rem; font-family: 'Outfit', sans-serif;">
+    <div style="text-align: center; padding: 2rem; color: #94a3b8;">
+        <span class="loader"></span>
+        <p style="margin-top: 8px;">Calculando consistencia y discrepancias de datos...</p>
+    </div>
+</div>

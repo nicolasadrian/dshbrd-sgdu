@@ -1,0 +1,85 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Ciudad 3D / Home
+            </div>
+
+            <div style="margin-bottom: 2.5rem;">
+                <h1
+                    style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">
+                    Ciudad 3D</h1>
+                <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem; max-width: 700px; line-height: 1.5;">
+                    Plataforma analítica e informativa para el análisis territorial e identificaciones espaciales en la
+                    Ciudad.</p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="admin-grid"
+                style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem; display: grid; margin-bottom: 3rem;">
+                <!-- Card: Parcelas -->
+                <div class="analyst-card-premium"
+                    style="padding: 30px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 20px; transition: all 0.2s; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); position: relative; overflow: hidden;">
+                    <div
+                        style="position: absolute; right: -10px; top: -10px; font-size: 8rem; color: #f1f5f9; opacity: 0.5; z-index: 1; pointer-events: none;">
+                        <i class="fa-solid fa-draw-polygon"></i>
+                    </div>
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; z-index: 2;">
+                        <i class="fa-solid fa-draw-polygon"></i>
+                    </div>
+                    <div style="z-index: 2;">
+                        <span
+                            style="color: #64748b; font-size: 0.88rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cantidad
+                            de Parcelas</span>
+                        <h2 id="c3d-stat-parcelas"
+                            style="margin: 8px 0 0 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.8rem; line-height: 1;">
+                            ---</h2>
+                    </div>
+                </div>
+
+                <!-- Card: Manzanas -->
+                <div class="analyst-card-premium"
+                    style="padding: 30px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 20px; transition: all 0.2s; background: white; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); position: relative; overflow: hidden;">
+                    <div
+                        style="position: absolute; right: -10px; top: -10px; font-size: 8rem; color: #f1f5f9; opacity: 0.5; z-index: 1; pointer-events: none;">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #fef3c7; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; z-index: 2;">
+                        <i class="fa-solid fa-cubes"></i>
+                    </div>
+                    <div style="z-index: 2;">
+                        <span
+                            style="color: #64748b; font-size: 0.88rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cantidad
+                            de Manzanas</span>
+                        <h2 id="c3d-stat-manzanas"
+                            style="margin: 8px 0 0 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 2.8rem; line-height: 1;">
+                            ---</h2>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Welcome/Promo Section -->
+            <div
+                style="background: linear-gradient(135deg, var(--primary-dark) 0%, #1e1b4b 100%); border-radius: 24px; padding: 3rem; color: white; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+                <div style="max-width: 600px;">
+                    <h2 style="font-family: 'Outfit'; font-weight: 800; font-size: 1.8rem; margin: 0; color: #38bdf8;">
+                        Módulos de Ciudad 3D</h2>
+                    <p style="margin: 1rem 0 2rem 0; color: #cbd5e1; font-size: 1rem; line-height: 1.6;">Explore las
+                        herramientas de análisis de morfología y tejido urbano mediante nuestros módulos especializados
+                        en línea de frente interno y manzanas atípicas.</p>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <button onclick="showView('c3d_extensiones_hub')" class="btn-primary"
+                            style="padding: 12px 24px; font-weight: 700; border-radius: 12px; cursor: pointer; border: none; background: #38bdf8; color: var(--primary-dark);">Ir
+                            a Extensión Irregular (Esquinas)</button>
+                        <button onclick="showView('ciudad3d_manzanas_atipicas')" class="btn-primary"
+                            style="padding: 12px 24px; font-weight: 700; border-radius: 12px; cursor: pointer; border: none; background: rgba(255,255,255,0.1); color: white;">Ver
+                            Manzanas Atípicas (LFI)</button>
+                        <button onclick="showView('ciudad3d_pdi')" class="btn-primary"
+                            style="padding: 12px 24px; font-weight: 700; border-radius: 12px; cursor: pointer; border: none; background: rgba(56,189,248,0.2); color: #38bdf8; border: 1px solid #38bdf8;">
+                            <i class="fa-solid fa-server" style="margin-right: 6px;"></i> Backend PDI
+                        </button>
+                    </div>
+                </div>
+                <div style="font-size: 8rem; color: rgba(56, 189, 248, 0.15);">
+                    <i class="fa-solid fa-city"></i>
+                </div>
+            </div>

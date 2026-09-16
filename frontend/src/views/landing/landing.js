@@ -1,4 +1,4 @@
-import { state } from '../state.js';
+import { state } from '../../state.js';
 import landingHtml from './landing.html?raw';
 
 export function renderLandingView() {
@@ -100,7 +100,8 @@ export async function loadLandingStats() {
     const now    = new Date();
     const hour   = now.getHours();
     const greet  = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
-    const user   = (state.currentUser?.nombre || state.currentUser?.username || '');
+    const rawName = state.currentUser?.full_name || state.currentUser?.nombre || state.currentUser?.username || '';
+    const user   = rawName ? rawName.trim().split(' ')[0] : '';
     const gEl    = document.getElementById('landing-greeting');
     const dEl    = document.getElementById('landing-date-str');
     if (gEl) gEl.textContent = user ? `${greet}, ${user}` : 'Bienvenido al Tablero SGDU';

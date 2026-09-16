@@ -1,0 +1,304 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="window.location.hash='#/backlog'" style="cursor: pointer;">Backlog</span> / Configuración de Tratas
+</div>
+
+<div class="admin-page-container" style="margin-top: 1rem;">
+    
+
+                <!-- Vista 1: Listado de Tratas -->
+                <!-- Vista 1: Navegación Jerárquica de Tratas -->
+                <div id="metas-list-container">
+
+                    <!-- Nivel 1: Direcciones -->
+                    <div id="metas-nav-direcciones">
+                        <button type="button" onclick="window.location.hash='#/backlog'"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                        </button>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <div>
+                                <h3
+                                    style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                                    Configuración de Tratas por Dirección</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona una
+                                    dirección para gestionar sus áreas y trámites.</p>
+                            </div>
+                            <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary"
+                                style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Configuración
+                            </button>
+                        </div>
+                        <div id="metas-direcciones-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+
+                    <!-- Nivel 2: Gerencias / Áreas -->
+                    <div id="metas-nav-gerencias" style="display: none;">
+                        <button type="button" onclick="goBackToDirecciones()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Direcciones
+                        </button>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <div>
+                                <h3 id="metas-gerencias-title"
+                                    style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                                    Áreas de la Dirección</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona un área
+                                    para configurar sus códigos de trámite.</p>
+                            </div>
+                            <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary"
+                                style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Configuración
+                            </button>
+                        </div>
+                        <div id="metas-gerencias-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+
+                    <!-- Nivel 3: Tratas / Trámites -->
+                    <div id="metas-nav-tratas" style="display: none;">
+                        <button type="button" onclick="goBackToGerencias()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Áreas
+                        </button>
+                        <div class="admin-card" style="width: 100%;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                                <div>
+                                    <h3 id="metas-tratas-title"
+                                        style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                                        Configuración de Trámites</h3>
+                                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Haz click en un
+                                        trámite para configurar analistas, firmantes, acrónimos o descripciones válidas.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <div style="position: relative; width: 250px;">
+                                        <input type="text" id="search-metas-input" placeholder="Buscar trámite..."
+                                            oninput="filterAdminMetas()"
+                                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    </div>
+                                    <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary"
+                                        style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                        <i class="fa-solid fa-plus"></i> Nueva Configuración
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr
+                                            style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left;">
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Trata
+                                                (Código)</th>
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569;">
+                                                Descripción de trata</th>
+                                            <th
+                                                style="padding: 12px 10px; font-weight: 700; color: #475569; text-align: center;">
+                                                Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="metas-table-body">
+                                        <!-- Se llenará dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Vista 2: Edición de Trata -->
+                <div id="metas-edit-container" style="display: none;">
+                    <button type="button" onclick="showMetasList()"
+                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a la Lista
+                    </button>
+                    <div class="admin-card"
+                        style="width: 100%; padding: 30px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px;">
+                            <h2
+                                style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem;">
+                                Editar Configuración de Trata</h2>
+                            <p id="edit-meta-subtitle"
+                                style="color: #64748b; font-size: 0.95rem; margin: 6px 0 0 0; font-family: 'Outfit'; font-weight: 600;">
+                            </p>
+                        </div>
+
+                        <form id="edit-meta-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <input type="hidden" id="edit-meta-id-hidden">
+
+                            <!-- Activo toggle switch -->
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div>
+                                    <span
+                                        style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">Estado
+                                        Activo</span>
+                                    <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">Si se desactiva,
+                                        esta trata no se calculará ni mostrará en los reportes.</p>
+                                </div>
+                                <label class="switch-premium"
+                                    style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                                    <input type="checkbox" id="edit-meta-activo"
+                                        style="opacity: 0; width: 0; height: 0;">
+                                    <span class="slider-premium"></span>
+                                </label>
+                            </div>
+
+                            <!-- Dirección, Gerencia, y Trata Reporte -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Dirección</label>
+                                    <input type="text" id="edit-meta-direccion" placeholder="Ej: DGROC o DGIUR"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: uppercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Gerencia
+                                        / Área</label>
+                                    <input type="text" id="edit-meta-gerencia" placeholder="Ej: catastro"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: lowercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Trata
+                                        (Código Acrónimo)</label>
+                                    <input type="text" id="edit-meta-trata-reporte" placeholder="Ej: CATASTRO"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: uppercase;">
+                                </div>
+                            </div>
+
+                            <!-- Descripción de Trata -->
+                            <div class="form-group">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Descripción
+                                    de Trata</label>
+                                <input type="text" id="edit-meta-descripcion-trata"
+                                    placeholder="Ingrese una descripción personalizada para esta trata..."
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+
+                            <!-- Dos columnas para inputs tipo lista -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Tratas
+                                        Incluidas (Separadas por coma)</label>
+                                    <input type="text" id="edit-meta-tratas-incluidas"
+                                        placeholder="MDUG0107A, MDUG0107B"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Buzones
+                                        Ingreso (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-buzones-ingreso" placeholder="DGIUR-03, DGIUR-04"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Acrónimos
+                                        Egreso (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-acronimos-egreso" placeholder="DI, ANEXO, IF"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Buzones
+                                        Ingreso Intervenciones (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-buzones-intervenciones"
+                                        placeholder="DGIUR-ADMISIBILIDAD"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Descripciones
+                                    Válidas de Trámite (Una por línea)</label>
+                                <textarea id="edit-meta-descripciones" rows="3"
+                                    placeholder="Registro de plano conforme a obra civil&#10;Registro de plano de obra civil"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; resize: vertical;"></textarea>
+                            </div>
+
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 10px 0;">
+
+                            <!-- Autocompletado de Analistas Oficiales -->
+                            <div class="form-group" style="position: relative;">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span>Analistas Oficiales</span>
+                                    <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">Buscar y
+                                        seleccionar usuarios de SADE</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="text" id="analistas-search-input"
+                                        placeholder="Buscar por nombre o usuario..."
+                                        oninput="handleSadeSearch(event, 'analistas')"
+                                        style="width: 100%; padding: 10px 14px 10px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <i class="fa-solid fa-magnifying-glass"
+                                        style="position: absolute; left: 12px; top: 14px; color: #94a3b8; font-size: 0.85rem;"></i>
+                                </div>
+                                <div id="analistas-suggestions" class="autocomplete-suggestions"
+                                    style="display: none; position: absolute; left: 0; right: 0; z-index: 1050; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; margin-top: 2px;">
+                                </div>
+                                <div id="analistas-chips-container"
+                                    style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 34px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px;">
+                                </div>
+                            </div>
+
+                            <!-- Autocompletado de Firmantes Egreso -->
+                            <div class="form-group" style="position: relative;">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span>Firmantes Egreso</span>
+                                    <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">Buscar y
+                                        seleccionar usuarios de SADE</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="text" id="firmantes-search-input"
+                                        placeholder="Buscar por nombre o usuario..."
+                                        oninput="handleSadeSearch(event, 'firmantes')"
+                                        style="width: 100%; padding: 10px 14px 10px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <i class="fa-solid fa-magnifying-glass"
+                                        style="position: absolute; left: 12px; top: 14px; color: #94a3b8; font-size: 0.85rem;"></i>
+                                </div>
+                                <div id="firmantes-suggestions" class="autocomplete-suggestions"
+                                    style="display: none; position: absolute; left: 0; right: 0; z-index: 1050; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; margin-top: 2px;">
+                                </div>
+                                <div id="firmantes-chips-container"
+                                    style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 34px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px;">
+                                </div>
+                            </div>
+
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                                <button type="button" id="edit-meta-delete-btn" class="btn-primary"
+                                    onclick="deleteAdminMeta()"
+                                    style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 0.7rem 1.4rem; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-trash"></i> Eliminar Configuración
+                                </button>
+                                <div style="display: flex; gap: 12px;">
+                                    <button type="button" class="btn-primary" onclick="showMetasList()"
+                                        style="background: #e2e8f0; color: #475569; padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Cancelar</button>
+                                    <button type="submit" class="btn-primary" id="edit-meta-save-btn"
+                                        style="padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Guardar
+                                        Cambios</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            
+</div>

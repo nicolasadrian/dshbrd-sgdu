@@ -1,7 +1,7 @@
 const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1') 
     ? 'http://127.0.0.1:8000/api' 
-    : 'https://api.geo-epesege.com.ar/api';
-window.API_BASE = API_BASE; // Expose globally so Vite modules use the absolute URL (prevents Vercel from stripping Authorization headers on rewrites)
+    : (window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) ? `${window.location.origin}/api` : 'https://api.geo-epesege.com.ar/api');
+window.API_BASE = API_BASE;
 
 // --- ESTADO DE AUTENTICACIÓN ---
 let authToken = localStorage.getItem('sgdu_token');
@@ -96,48 +96,74 @@ function initAuth() {
         if (adminLink) {
             adminLink.style.display = perms.admin ? 'block' : 'none';
         }
+        
+        // 1. Toggles for Seguimiento dropdown and its contents
+        const hasDgrocSeg = perms.dgroc || perms.seguimiento_catastro || perms.seguimiento_instalaciones || perms.seguimiento_conforme || perms.seguimiento_contable || perms.seguimiento_etapa_proyecto || perms.seguimiento_aviso_obra;
+        const hasDgiurSeg = perms.dgiur || perms.seguimiento_morfologia || perms.seguimiento_aph || perms.seguimiento_usos || perms.publico_privado || perms.copua || perms.privada;
+        const hasFamily = perms.family || perms.familia_tramites;
+        const hasSeguimientoAccess = hasDgrocSeg || hasDgiurSeg || hasFamily || perms.seguimiento;
 
-        // Toggles for Seguimiento dropdown and its contents
-        const hasSeguimientoAccess = perms.dgroc || perms.dgiur || perms.family || perms.publico_privado || perms.copua || perms.seguimiento;
         const navSeguimiento = document.getElementById('nav-dropdown-seguimiento');
         if (navSeguimiento) navSeguimiento.style.display = hasSeguimientoAccess ? 'inline-block' : 'none';
 
-        const linkDgroc = document.querySelector('a[onclick*="showView(\'dgroc\')"]');
-        if (linkDgroc) linkDgroc.style.display = perms.dgroc ? 'block' : 'none';
-        const linkDgiur = document.querySelector('a[onclick*="showView(\'dgiur\')"]');
-        if (linkDgiur) linkDgiur.style.display = perms.dgiur ? 'block' : 'none';
-        const linkPublicoPrivado = document.querySelector('a[onclick*="showView(\'publico_privado\')"]');
-        if (linkPublicoPrivado) linkPublicoPrivado.style.display = (perms.publico_privado || perms.seguimiento) ? 'block' : 'none';
-        const linkCopua = document.querySelector('a[onclick*="showView(\'copua\')"]');
-        if (linkCopua) linkCopua.style.display = (perms.copua || perms.seguimiento) ? 'block' : 'none';
-        const linkFamily = document.querySelector('a[onclick*="showView(\'family\')"]');
-        if (linkFamily) linkFamily.style.display = perms.family ? 'block' : 'none';
+        const subSegDgroc = document.getElementById('menu-sub-seguimiento-dgroc');
+        if (subSegDgroc) subSegDgroc.style.display = hasDgrocSeg ? 'block' : 'none';
 
-        // Toggles for Buzones dropdown and its contents
-        const hasBuzonesAccess = perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || perms.publico_privado || perms.copua || perms.seguimiento;
+        const subSegDgiur = document.getElementById('menu-sub-seguimiento-dgiur');
+        if (subSegDgiur) subSegDgiur.style.display = hasDgiurSeg ? 'block' : 'none';
+
+        // Granular links inside Seguimiento DGROC
+        const setDisplay = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? 'block' : 'none'; };
+        setDisplay('link-seg-catastro', perms.dgroc || perms.seguimiento_catastro);
+        setDisplay('link-seg-instalaciones', perms.dgroc || perms.seguimiento_instalaciones);
+        setDisplay('link-seg-conforme', perms.dgroc || perms.seguimiento_conforme);
+        setDisplay('link-seg-contable', perms.dgroc || perms.seguimiento_contable);
+        setDisplay('link-seg-etapa_proyecto', perms.dgroc || perms.seguimiento_etapa_proyecto);
+        setDisplay('link-seg-aviso_obra', perms.dgroc || perms.seguimiento_aviso_obra);
+
+        // Granular links inside Seguimiento DGIUR
+        setDisplay('link-seg-morfologia', perms.dgiur || perms.seguimiento_morfologia);
+        setDisplay('link-seg-aph', perms.dgiur || perms.seguimiento_aph);
+        setDisplay('link-seg-usos', perms.dgiur || perms.seguimiento_usos);
+        setDisplay('link-seg-publico_privado', perms.dgiur || perms.publico_privado);
+        setDisplay('link-seg-copua', perms.dgiur || perms.copua);
+        setDisplay('link-seg-privada', perms.dgiur || perms.privada);
+
+        const linkFamily = document.getElementById('link-familia-tramites');
+        if (linkFamily) linkFamily.style.display = hasFamily ? 'block' : 'none';
+
+        // 2. Toggles for Buzones dropdown and its contents
+        const hasDgrocBuzon = perms.buzon_dgroc || perms.dgroc || perms.buzon_catastro || perms.buzon_instalaciones || perms.buzon_conforme || perms.buzon_contable || perms.buzon_etapa_proyecto || perms.buzon_aviso_obra;
+        const hasDgiurBuzon = perms.buzon_dgiur || perms.dgiur || perms.buzon_morfologia || perms.buzon_aph || perms.buzon_usos || perms.buzon_publico_privado || perms.buzon_copua || perms.buzon_privada;
+        const hasBuzonesAccess = hasDgrocBuzon || hasDgiurBuzon || perms.buzones_analisis || perms.secgdu;
+
         const navBuzones = document.getElementById('nav-dropdown-buzones');
         if (navBuzones) navBuzones.style.display = hasBuzonesAccess ? 'inline-block' : 'none';
 
-        const linkBuzonesDgroc = document.getElementById('link-buzones-dgroc');
-        if (linkBuzonesDgroc) linkBuzonesDgroc.style.display = perms.dgroc ? 'block' : 'none';
+        const subBuzonDgroc = document.getElementById('menu-sub-buzones-dgroc');
+        if (subBuzonDgroc) subBuzonDgroc.style.display = hasDgrocBuzon ? 'block' : 'none';
 
-        const linkBuzonesDgiur = document.getElementById('link-buzones-dgiur');
-        if (linkBuzonesDgiur) linkBuzonesDgiur.style.display = perms.dgiur ? 'block' : 'none';
+        const subBuzonDgiur = document.getElementById('menu-sub-buzones-dgiur');
+        if (subBuzonDgiur) subBuzonDgiur.style.display = hasDgiurBuzon ? 'block' : 'none';
 
-        const linkBuzonesPublicoPrivado = document.getElementById('link-buzones-publico-privado');
-        if (linkBuzonesPublicoPrivado) linkBuzonesPublicoPrivado.style.display = (perms.publico_privado || perms.seguimiento) ? 'block' : 'none';
+        // Granular links inside Buzones DGROC
+        setDisplay('link-buzon-catastro', perms.buzon_dgroc || perms.dgroc || perms.buzon_catastro);
+        setDisplay('link-buzon-instalaciones', perms.buzon_dgroc || perms.dgroc || perms.buzon_instalaciones);
+        setDisplay('link-buzon-conforme', perms.buzon_dgroc || perms.dgroc || perms.buzon_conforme);
+        setDisplay('link-buzon-contable', perms.buzon_dgroc || perms.dgroc || perms.buzon_contable);
+        setDisplay('link-buzon-etapa_proyecto', perms.buzon_dgroc || perms.dgroc || perms.buzon_etapa_proyecto);
+        setDisplay('link-buzon-aviso_obra', perms.buzon_dgroc || perms.dgroc || perms.buzon_aviso_obra);
 
-        const linkBuzonesCopua = document.getElementById('link-buzones-copua');
-        if (linkBuzonesCopua) linkBuzonesCopua.style.display = (perms.copua || perms.seguimiento) ? 'block' : 'none';
+        // Granular links inside Buzones DGIUR
+        setDisplay('link-buzon-morfologia', perms.buzon_dgiur || perms.dgiur || perms.buzon_morfologia);
+        setDisplay('link-buzon-aph', perms.buzon_dgiur || perms.dgiur || perms.buzon_aph);
+        setDisplay('link-buzon-usos', perms.buzon_dgiur || perms.dgiur || perms.buzon_usos);
+        setDisplay('link-buzon-publico_privado', perms.buzon_dgiur || perms.dgiur || perms.buzon_publico_privado || perms.publico_privado);
+        setDisplay('link-buzon-copua', perms.buzon_dgiur || perms.dgiur || perms.buzon_copua || perms.copua);
+        setDisplay('link-buzon-privada', perms.buzon_dgiur || perms.dgiur || perms.buzon_privada || perms.privada);
 
-        const linkBuzonesSecgdu = document.getElementById('link-buzones-secgdu');
-        if (linkBuzonesSecgdu) linkBuzonesSecgdu.style.display = perms.secgdu ? 'block' : 'none';
-
-        const linkBuzonesAnalisis = document.getElementById('link-buzones-analisis');
-        if (linkBuzonesAnalisis) linkBuzonesAnalisis.style.display = perms.buzones_analisis ? 'block' : 'none';
-
-        // Toggles for Reportes dropdown and its contents
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.pendientes_asociacion || perms.productividad_analistas;
+        // 3. Toggles for Reportes dropdown and its contents
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026 || perms.reportes_rrhh || perms.carga_reportes_rrhh;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
@@ -153,24 +179,25 @@ function initAuth() {
         const linkSub = document.querySelector('a[onclick*="showView(\'subsanaciones\')"]');
         if (linkSub) linkSub.style.display = perms.subsanaciones ? 'block' : 'none';
 
-        const pendientesAsocLink = document.getElementById('pendientes-asoc-link');
-        if (pendientesAsocLink) pendientesAsocLink.style.display = perms.pendientes_asociacion ? 'block' : 'none';
-
         const prodLink = document.getElementById('productividad-link');
         if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
 
-        // Toggles for Analytics dropdown and its contents
-        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo;
+        const rrhhLink = document.getElementById('rrhh-link');
+        if (rrhhLink) rrhhLink.style.display = (perms.reportes_rrhh || perms.carga_reportes_rrhh) ? 'block' : 'none';
+
+        const linkUniversoTratas = document.getElementById('universo-tratas-link');
+        if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
+
+        const linkPlanifNov2026 = document.getElementById('planificacion-nov-2026-link');
+        if (linkPlanifNov2026) linkPlanifNov2026.style.display = perms.planificacion_nov_2026 ? 'block' : 'none';
+
+        // 4. Toggles for Analytics dropdown and its contents
+        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo;
         const navAnalytics = document.getElementById('nav-dropdown-analytics');
         if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
 
-        // Toggles for Ciudad 3D dropdown and its contents
-        const hasCiudad3DAccess = perms.ciudad_3d;
-        const navCiudad3D = document.getElementById('nav-dropdown-ciudad3d');
-        if (navCiudad3D) navCiudad3D.style.display = hasCiudad3DAccess ? 'inline-block' : 'none';
-
         const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
-        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo) ? 'block' : 'none';
+        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo) ? 'block' : 'none';
         const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
         if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
 
@@ -183,9 +210,31 @@ function initAuth() {
         if (cardLeyBlanqueo) {
             cardLeyBlanqueo.style.display = perms.ley_blanqueo ? 'flex' : 'none';
         }
+        const cardM2Permisados = document.getElementById('card-goto-m2-permisados');
+        if (cardM2Permisados) {
+            cardM2Permisados.style.display = perms.analytics_m2_permisados ? 'flex' : 'none';
+        }
+        const cardAvisosObra = document.getElementById('card-goto-avisos-obra');
+        if (cardAvisosObra) {
+            cardAvisosObra.style.display = perms.analytics_avisos_obra ? 'flex' : 'none';
+        }
+        const cardPdlBlanqueo = document.getElementById('card-goto-pdl-blanqueo');
+        if (cardPdlBlanqueo) {
+            cardPdlBlanqueo.style.display = perms.analytics_pdl_blanqueo ? 'flex' : 'none';
+        }
 
-        // Toggles for Mis Expedientes dropdown and its contents
-        const hasExpedientesAccess = perms.buscador || perms.favoritos;
+        // 5. Toggles for Ciudad 3D dropdown and its contents
+        const hasC3DGeneral = perms.ciudad_3d || perms.c3d_home || perms.c3d_extensiones_todas || perms.c3d_extensiones_mis_trazados || perms.c3d_extensiones_revision || perms.c3d_extensiones_equipo || perms.c3d_extensiones_mapa || perms.ciudad3d_manzanas_atipicas || perms.ciudad3d_pdi || perms.lfi_dibujar || perms.lfi_revisar;
+        const navCiudad3D = document.getElementById('nav-dropdown-ciudad3d');
+        if (navCiudad3D) navCiudad3D.style.display = hasC3DGeneral ? 'inline-block' : 'none';
+
+        // 6. Toggles for Contable dropdown and its contents
+        const hasContableAccess = perms.contable_calculadora || perms.contable_plusvalia || perms.contable_derechos || perms.contable_seguimiento;
+        const navContable = document.getElementById('nav-dropdown-contable');
+        if (navContable) navContable.style.display = hasContableAccess ? 'inline-block' : 'none';
+
+        // 7. Toggles for Mis Expedientes dropdown and its contents
+        const hasExpedientesAccess = perms.buscador || perms.favoritos || perms['favoritos-seguimiento'] || perms['asignados-mi'];
         const navExpedientes = document.getElementById('nav-dropdown-expedientes');
         if (navExpedientes) navExpedientes.style.display = hasExpedientesAccess ? 'inline-block' : 'none';
 
@@ -293,38 +342,84 @@ const ANALYSTS_DOCS = {
     'aviso_obra': ["DGROC-AUTOMAT"]
 };
 
-function showView(viewId, updateHash = true) {
-    const views = document.querySelectorAll('.view-container');
-    const targetView = document.getElementById(viewId);
-    if (!targetView) {
-        console.error("View not found:", viewId);
-        return;
-    }
-
+async function showView(viewId, updateHash = true) {
     // Seguridad: Validar contra los permisos dinámicos del usuario
     if (currentUser && currentUser.permissions) {
-        // Mapeos para sub-vistas de gerencias
-        const dgrocViews = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'regularizacion'];
-        const dgiurViews = ['morfologia', 'aph', 'usos'];
-        const ciudad3DViews = ['ciudad3d_home', 'ciudad3d_troneras', 'ciudad3d_manzanas_atipicas'];
+        const perms = currentUser.permissions;
+        const role = (currentUser.role || '').toLowerCase();
+        const isAdmin = role === 'administrador' || role === 'admin';
+
+        // Mapeos para sub-vistas de gerencias DGROC
+        const dgrocMap = {
+            'catastro': 'seguimiento_catastro',
+            'instalaciones': 'seguimiento_instalaciones',
+            'conforme': 'seguimiento_conforme',
+            'contable': 'seguimiento_contable',
+            'etapa_proyecto': 'seguimiento_etapa_proyecto',
+            'aviso_obra': 'seguimiento_aviso_obra',
+            'regularizacion': 'seguimiento_conforme'
+        };
+
+        // Mapeos para sub-vistas de gerencias DGIUR
+        const dgiurMap = {
+            'morfologia': 'seguimiento_morfologia',
+            'aph': 'seguimiento_aph',
+            'usos': 'seguimiento_usos',
+            'publico_privado': 'publico_privado',
+            'copua': 'copua',
+            'privada': 'privada'
+        };
+
+        const ciudad3DViews = [
+            'ciudad3d_home', 
+            'ciudad3d_troneras', 
+            'c3d_extensiones_todas', 
+            'c3d_extensiones_mis_trazados', 
+            'c3d_extensiones_revision', 
+            'c3d_extensiones_equipo', 
+            'c3d_extensiones_mapa', 
+            'ciudad3d_manzanas_atipicas'
+        ];
         
-        let hasPermission = !!currentUser.permissions[viewId];
-        if (viewId === 'publico_privado' || viewId === 'copua') {
-            hasPermission = !!(currentUser.permissions[viewId] || currentUser.permissions['seguimiento']);
+        let hasPermission = !!perms[viewId] || isAdmin;
+
+        if (viewId === 'dgroc') {
+            hasPermission = !!(perms.dgroc || Object.values(dgrocMap).some(k => perms[k]) || isAdmin);
+        } else if (viewId === 'dgiur') {
+            hasPermission = !!(perms.dgiur || Object.values(dgiurMap).some(k => perms[k]) || isAdmin);
+        } else if (dgrocMap[viewId]) {
+            const specificKey = dgrocMap[viewId];
+            hasPermission = !!(perms[specificKey] || perms.dgroc || perms[viewId] || isAdmin);
+        } else if (dgiurMap[viewId]) {
+            const specificKey = dgiurMap[viewId];
+            hasPermission = !!(perms[specificKey] || perms.dgiur || perms[viewId] || perms.seguimiento || isAdmin);
+        } else if (viewId.startsWith('c3d_extensiones_') || viewId === 'c3d_extensiones_hub' || viewId === 'ciudad3d_troneras') {
+            const specificKey = viewId === 'ciudad3d_troneras' ? 'c3d_extensiones_todas' : viewId;
+            hasPermission = !!(perms.ciudad_3d || perms[specificKey] || perms.lfi_dibujar || perms.lfi_revisar || isAdmin);
+        } else if (viewId === 'ciudad3d_home') {
+            hasPermission = !!(perms.ciudad_3d || perms.c3d_home || isAdmin);
+        } else if (viewId === 'ciudad3d_manzanas_atipicas') {
+            hasPermission = !!(perms.ciudad_3d || perms.ciudad3d_manzanas_atipicas || isAdmin);
+        } else if (viewId.startsWith('contable_')) {
+            hasPermission = !!(perms.contable_calculadora || perms[viewId] || isAdmin);
         } else if (viewId === 'analytics_estadistica') {
-            hasPermission = !!(currentUser.permissions['analytics_estadistica'] || currentUser.permissions['ley_blanqueo']);
+            hasPermission = !!(perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo || perms.analytics_datasets || isAdmin);
+        } else if (viewId === 'analytics_m2_permisados' || viewId === 'analytics_avisos_obra' || viewId === 'analytics_pdl_blanqueo' || viewId === 'ley_blanqueo' || viewId === 'analytics_datasets') {
+            hasPermission = !!(perms[viewId] || perms.analytics_estadistica || isAdmin);
         } else if (viewId === 'asignados-mi') {
-            hasPermission = !!currentUser.permissions['asignados-mi'];
-        } else if (dgrocViews.includes(viewId)) {
-            hasPermission = !!currentUser.permissions['dgroc'];
-        } else if (dgiurViews.includes(viewId)) {
-            hasPermission = !!currentUser.permissions['dgiur'];
-        } else if (ciudad3DViews.includes(viewId)) {
-            hasPermission = !!currentUser.permissions['ciudad_3d'];
-        } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle') {
-            hasPermission = !!(currentUser.permissions['dgroc'] || currentUser.permissions['dgiur'] || currentUser.permissions['buzones_analisis'] || currentUser.permissions['secgdu']);
+            hasPermission = !!(perms['asignados-mi'] || isAdmin);
+        } else if (viewId === 'favoritos' || viewId === 'favoritos-seguimiento' || viewId === 'buscador') {
+            hasPermission = !!(perms[viewId] || isAdmin);
+        } else if (viewId === 'buzones' || viewId === 'buzon-analista-detalle' || viewId === 'buzones_dgroc_hub' || viewId === 'buzones_dgiur_hub') {
+            hasPermission = !!(perms.buzon_dgroc || perms.buzon_dgiur || perms.dgroc || perms.dgiur || perms.buzones_analisis || perms.secgdu || isAdmin);
         } else if (viewId === 'reportes_rrhh') {
-            hasPermission = !!(currentUser.permissions['reportes_rrhh'] || currentUser.permissions['carga_reportes_rrhh']);
+            hasPermission = !!(perms.reportes_rrhh || perms.carga_reportes_rrhh || isAdmin);
+        } else if (viewId === 'familia_tramites' || viewId === 'family') {
+            hasPermission = !!(perms.family || perms.familia_tramites || perms.seguimiento || isAdmin);
+        } else if (viewId === 'seguimiento' || viewId === 'cierre' || viewId === 'sla' || viewId === 'subsanaciones' || viewId === 'productividad_analistas' || viewId === 'universo_tratas' || viewId === 'planificacion_nov_2026') {
+            hasPermission = !!(perms[viewId] || isAdmin);
+        } else if (viewId === 'mis_datos' || viewId === 'backlog' || viewId === 'admin' || viewId.startsWith('backlog_')) {
+            hasPermission = isAdmin || (viewId === 'mis_datos');
         }
 
         // Si no tiene permiso para la vista solicitada, redirigir a 'landing'
@@ -340,11 +435,45 @@ function showView(viewId, updateHash = true) {
             showView('landing');
             return;
         }
-        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado o COPUA
-        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado, COPUA o Privada
+        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
             showView('landing');
             return;
         }
+    }
+
+    if (updateHash) {
+        const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+        const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
+        if (dgiurGerencias.includes(viewId)) {
+            window.location.hash = `#/dgiur/${viewId}`;
+        } else if (dgrocGerencias.includes(viewId)) {
+            window.location.hash = `#/dgroc/${viewId}`;
+        } else if (viewId === 'c3d_extensiones_todas' || viewId === 'ciudad3d_troneras') {
+            window.location.hash = `#/ciudad3d/extensiones/todas`;
+        } else if (viewId === 'c3d_extensiones_mis_trazados') {
+            window.location.hash = `#/ciudad3d/extensiones/mis-trazados`;
+        } else if (viewId === 'c3d_extensiones_revision') {
+            window.location.hash = `#/ciudad3d/extensiones/revision`;
+        } else if (viewId === 'c3d_extensiones_equipo') {
+            window.location.hash = `#/ciudad3d/extensiones/equipo`;
+        } else if (viewId === 'c3d_extensiones_mapa') {
+            window.location.hash = `#/ciudad3d/extensiones/mapa`;
+        } else {
+            window.location.hash = `#/${viewId}`;
+        }
+    }
+
+    if (typeof window.mountView === 'function') {
+        await window.mountView(viewId);
+        return;
+    }
+
+    const views = document.querySelectorAll('.view-container');
+    const targetView = document.getElementById(viewId);
+    if (!targetView) {
+        console.warn("View element not found:", viewId);
+        return;
     }
 
     views.forEach(v => {
@@ -354,10 +483,6 @@ function showView(viewId, updateHash = true) {
 
     targetView.style.display = 'block';
     setTimeout(() => targetView.classList.add('active'), 10);
-
-    if (updateHash) {
-        window.location.hash = `#/${viewId}`;
-    }
 
     if (viewId === 'admin') {
         showBacklogMenu();
@@ -375,6 +500,14 @@ function showView(viewId, updateHash = true) {
         loadAnalyticsDatasets();
     }
 
+    if (viewId === 'analytics_m2_permisados') {
+        loadM2Permisados(true);
+    }
+
+    if (viewId === 'analytics_avisos_obra') {
+        loadAvisosObra(true);
+    }
+
     if (viewId === 'seguimiento') {
         loadSeguimientoData();
     }
@@ -389,10 +522,6 @@ function showView(viewId, updateHash = true) {
 
     if (viewId === 'subsanaciones') {
         loadSubsanacionesReport();
-    }
-
-    if (viewId === 'pendientes_asociacion') {
-        loadPendientesAsociacionData();
     }
 
     if (viewId === 'productividad_analistas') {
@@ -415,7 +544,7 @@ function showView(viewId, updateHash = true) {
         }
     }
 
-    if (viewId === 'family') {
+    if (viewId === 'familia_tramites' || viewId === 'family') {
         backToFamilySelector();
     }
 
@@ -435,8 +564,12 @@ function showView(viewId, updateHash = true) {
         loadCiudad3DStats();
     }
 
-    if (viewId === 'ciudad3d_troneras') {
-        loadCiudad3DTroneras();
+    if (viewId === 'ciudad3d_troneras' || viewId === 'c3d_extensiones_todas' || viewId === 'c3d_extensiones_mis_trazados' || viewId === 'c3d_extensiones_revision' || viewId === 'c3d_extensiones_equipo' || viewId === 'c3d_extensiones_mapa') {
+        loadCiudad3DTroneras().then(() => {
+            if (viewId === 'c3d_extensiones_mapa') {
+                setTimeout(() => initLFIMap(), 150);
+            }
+        });
     }
 
     if (viewId === 'ciudad3d_manzanas_atipicas') {
@@ -454,10 +587,25 @@ function showView(viewId, updateHash = true) {
         }
     }
 
-    // Carga de reportes si es una vista de gerencia
-    const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos', 'publico_privado', 'copua'];
-    if (gerencias.includes(viewId)) {
-        setTimeout(() => loadConsolidatedReport(viewId), 50);
+    if (viewId === 'universo_tratas') {
+        if (_universoCurrentTab === 'buzones') {
+            loadUniversoBuzones();
+        } else {
+            loadUniversoTratas();
+        }
+    }
+
+    if (viewId === 'planificacion_nov_2026') {
+        loadPlanificacionNov2026Data();
+    }
+
+    if (viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') {
+        setTimeout(() => loadGenericGerenciaProdView(viewId), 50);
+    } else {
+        const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+        if (gerencias.includes(viewId)) {
+            setTimeout(() => loadConsolidatedReport(viewId), 50);
+        }
     }
 }
 
@@ -754,26 +902,89 @@ async function handleRouting() {
     }
 
     const parts = hash.split('/');
-    const viewId = parts[0];
+    const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+    const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
 
-    if (parts.length === 2) {
-        if (viewId === 'buzones') {
-            const area = parts[1];
-            showBuzonesView(area, false);
+    if (parts.length === 3) {
+        const first = parts[0];
+        const second = parts[1];
+        const third = parts[2];
+
+        if (first === 'buzones') {
+            // Formato: #/buzones/dgroc/catastro o #/buzones/dgiur/morfologia
+            await showBuzonesView(second, third, false);
+        } else if (first === 'ciudad3d' && second === 'extensiones') {
+            // Formato: #/ciudad3d/extensiones/todas, mis-trazados, revision, equipo, mapa
+            if (third === 'mis-trazados' || third === 'mis_trazados') {
+                await showView('c3d_extensiones_mis_trazados', false);
+            } else if (third === 'revision') {
+                await showView('c3d_extensiones_revision', false);
+            } else if (third === 'equipo') {
+                await showView('c3d_extensiones_equipo', false);
+            } else if (third === 'mapa') {
+                await showView('c3d_extensiones_mapa', false);
+            } else {
+                await showView('c3d_extensiones_todas', false);
+            }
         } else {
-            // Detalle de trámite: #/gerencia/trataCode
-            const gerencia = parts[0];
-            const trataCode = parts[1];
-
-            // Primero mostramos la vista base por si acaso
-            showView(gerencia, false);
-
-            // Intentamos obtener el nombre del trámite desde la configuración (o fallback)
+            // Formato: #/dgiur/morfologia/DGIUR-03 o #/dgroc/catastro/DGROC-CIC
+            const dir = first;
+            const gerencia = second;
+            const trataCode = third;
             const trataName = "...";
-            showTrataDetail(gerencia, trataCode, trataName, false);
+            await showTrataDetail(gerencia, trataCode, trataName, false);
+        }
+    } else if (parts.length === 2) {
+        const first = parts[0];
+        const second = parts[1];
+
+        if (first === 'buzones') {
+            // Formato: #/buzones/dgroc o #/buzones/dgiur
+            await showBuzonesView(second, null, false);
+        } else if (first === 'ciudad3d' && second === 'extensiones') {
+            await showView('c3d_extensiones_todas', false);
+        } else if (first === 'dgiur' || first === 'dgroc') {
+            // Formato: #/dgiur/morfologia o #/dgroc/catastro
+            await showView(second, false);
+        } else if (first === 'backlog' || first === 'admin') {
+            const backlogMap = {
+                'usuarios': 'backlog_users',
+                'users': 'backlog_users',
+                'tratas': 'backlog_metas',
+                'metas': 'backlog_metas',
+                'roles': 'backlog_roles',
+                'buzones': 'backlog_buzones',
+                'familias': 'backlog_familias',
+                'analistas': 'backlog_analistas',
+                'universo_tratas': 'backlog_universo_tratas',
+                'universo': 'backlog_universo_tratas'
+            };
+            const target = backlogMap[second] || 'backlog_hub';
+            await showView(target, false);
+        } else {
+            // Formato antiguo de 2 partes: #/gerencia/trataCode -> Redirigir a 3 partes si corresponde
+            const gerencia = first;
+            const trataCode = second;
+            showView(gerencia, false);
+            const trataName = "...";
+            showTrataDetail(gerencia, trataCode, trataName, true);
         }
     } else {
-        showView(viewId, false);
+        const viewId = parts[0];
+        if (viewId === 'buzones') {
+            window.location.hash = '#/buzones/dgroc';
+        } else if (viewId === 'family') {
+            window.location.hash = '#/familia_tramites';
+        } else if (viewId === 'ciudad3d_troneras') {
+            window.location.hash = '#/ciudad3d/extensiones/todas';
+        } else if (dgiurGerencias.includes(viewId)) {
+            // Si entra con ruta antigua de 1 parte a una gerencia (ej: #/morfologia), redirigir a URL jerárquica
+            window.location.hash = `#/dgiur/${viewId}`;
+        } else if (dgrocGerencias.includes(viewId)) {
+            window.location.hash = `#/dgroc/${viewId}`;
+        } else {
+            showView(viewId, false);
+        }
     }
 }
 
@@ -1087,12 +1298,21 @@ let currentTrataCode = "";
 let currentTrataName = "";
 
 async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true, fromSeguimiento = false) {
+    if (typeof window.mountView === 'function') {
+        const trataElem = document.getElementById('trata_detail');
+        if (!trataElem || !trataElem.dataset.loaded) {
+            await window.mountView('trata_detail');
+        }
+    }
+
     const views = document.querySelectorAll('.view-container');
     views.forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
 
     const detailView = document.getElementById('trata_detail');
-    detailView.style.display = 'block';
-    detailView.classList.add('active');
+    if (detailView) {
+        detailView.style.display = 'block';
+        detailView.classList.add('active');
+    }
 
     currentGerencia = gerencia; // Guardar gerencia actual para el módulo de metas
     currentTrataCode = trataCode; // Guardar trata actual
@@ -1115,8 +1335,13 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         metasTabBtn.style.display = canSeeMetas ? 'block' : 'none';
     }
 
+    // Determinar la dirección superior (DGROC o DGIUR)
+    const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+    const isDGIUR = dgiurGerencias.includes(gerencia);
+    const parentDir = isDGIUR ? 'dgiur' : 'dgroc';
+
     if (updateHash) {
-        window.location.hash = `#/${gerencia}/${trataCode}`;
+        window.location.hash = `#/${parentDir}/${gerencia}/${trataCode}`;
     }
 
     if (currentChart) { currentChart.destroy(); currentChart = null; }
@@ -1139,11 +1364,6 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         document.getElementById('trata_detail_title').innerText = trataName;
     }
     document.getElementById('trata_detail_subtitle').innerText = trataCode;
-
-    // Determinar la dirección superior (DGROC o DGIUR)
-    const dgiurGerencias = ['morfologia', 'aph', 'usos'];
-    const isDGIUR = dgiurGerencias.includes(gerencia);
-    const parentDir = isDGIUR ? 'dgiur' : 'dgroc';
 
     // Actualizar Breadcrumbs
     const parentLink = document.getElementById('trata_detail_parent_link');
@@ -1174,7 +1394,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             const cleanGerencia = gerencia.toLowerCase() === 'aph' ? 'APH' : (gerencia.charAt(0).toUpperCase() + gerencia.slice(1).replace('_', ' '));
             backBtn.innerText = cleanGerencia;
             backBtn.onclick = () => {
-                window.location.hash = `#/${gerencia}`;
+                window.location.hash = `#/${parentDir}/${gerencia}`;
             };
         }
     }
@@ -1191,7 +1411,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
 
     try {
         const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}`);
-        if (!response.ok) throw new Error(`Status ${response.status}`);
+        if (!response || !response.ok) return;
 
         const data = await response.json();
 
@@ -1208,7 +1428,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             document.getElementById('breadcrumb_trata_name').innerText = latest["DETALLE TRATA"];
         }
 
-        animateValue('header-stock-propio', 0, latest.STOCK_PROPIO || 0, 1500);
+        // Subsanaciones (sin cambios)
         animateValue('header-stock-subs', 0, latest.STOCK_SUBS || 0, 1500);
 
         // --- TOTALES 12 MESES ---
@@ -1235,6 +1455,12 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
         const chartCanvas = document.getElementById('trata-chart');
         if (!chartCanvas) return;
 
+        // Destruir cualquier instancia previa registrada en este canvas (race condition)
+        const existingChart = Chart.getChart(chartCanvas);
+        if (existingChart) existingChart.destroy();
+        if (currentChart && currentChart !== existingChart) { currentChart.destroy(); }
+        currentChart = null;
+
         const ctx = chartCanvas.getContext('2d');
         currentChart = new Chart(ctx, {
             type: 'bar',
@@ -1256,17 +1482,348 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             }
         });
 
-        // Cargar detalles de stock
+        // Cargar detalles de stock y clasificaciones (Stock, Flujo, Tiempo de Tramitación)
         const stockResp = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/stock_detail`);
-        if (stockResp.ok) {
+        if (stockResp && stockResp.ok) {
             const stockData = await stockResp.json();
-            currentStockData = { expedientes: stockData.expedientes || [], trataName, trataCode };
+            currentStockData = { 
+                expedientes: stockData.expedientes || [], 
+                trataName, 
+                trataCode, 
+                gerencia,
+                tiempo_resolucion: stockData.tiempo_resolucion || 0,
+                stock_count: stockData.stock_count || 0,
+                flujo_count: stockData.flujo_count || 0,
+                stock_propio_count: stockData.stock_propio_count || 0,
+                analyst_distribution: stockData.analyst_distribution || []
+            };
+
+            // Animar las 3 tarjetas dependientes del análisis de stock:
+            // 1. Tiempo de Tramitación (en días)
+            const elTiempo = document.getElementById('header-stock-tiempo');
+            if (elTiempo) {
+                const tResVal = stockData.tiempo_resolucion !== undefined ? Math.ceil(Number(stockData.tiempo_resolucion)) : 0;
+                elTiempo.innerText = `${tResVal} d`;
+            }
+
+            // 2. Stock (expedientes con tiempo en gerencia > tiempo resolución)
+            animateValue('header-stock-propio', 0, stockData.stock_count !== undefined ? stockData.stock_count : (latest.STOCK_PROPIO || 0), 1500);
+
+            // 3. Flujo (expedientes con tiempo en gerencia <= tiempo resolución)
+            animateValue('header-stock-flujo', 0, stockData.flujo_count || 0, 1500);
+
             renderStockAgeChart(stockData.month_distribution);
             renderAnalystTable(stockData.analyst_distribution);
+            
+            // Si la sección activa es stock-analistas o flujo, o para precargar el stock y flujo
+            renderStockTab();
+            renderFlujoTab();
         }
+
+        // Resetear bandera de egresos y subsanaciones para cargar bajo demanda
+        currentEgresosData.loadedTrata = "";
+        currentTrataSubsanacionesData.loadedTrata = "";
     } catch (error) {
         console.warn("Error cargando detalle:", error.message);
     }
+}
+
+// Variables globales para la sección de Egresos
+let currentEgresosData = { metricas_historicas: {}, metricas_2026: {}, expedientes: [], trataName: "", trataCode: "", gerencia: "", loadedTrata: "" };
+
+async function loadEgresosDetail(gerencia, trataCode, trataName) {
+    const tableContainer = document.getElementById('egresos-table-container');
+    if (!tableContainer) return;
+
+    // Si ya fue cargado para este trámite, no volver a pedirlo
+    if (currentEgresosData.loadedTrata === `${gerencia}_${trataCode}` && currentEgresosData.expedientes.length > 0) {
+        return;
+    }
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/egresos_detail`);
+        if (!response || !response.ok) return;
+
+        const data = await response.json();
+        currentEgresosData = {
+            ...data,
+            trataName: data.nombre_trata || trataName,
+            trataCode,
+            gerencia,
+            loadedTrata: `${gerencia}_${trataCode}`
+        };
+
+        renderEgresosCards(data);
+        populateEgresosYearAndMonthFilters(data.expedientes || []);
+        renderEgresosTable(data.expedientes || []);
+    } catch (err) {
+        console.error("Error al cargar detalle de egresos:", err);
+        if (tableContainer) {
+            tableContainer.innerHTML = `
+                <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                    <p>No se encontraron egresos efectivos registrados para este trámite.</p>
+                </div>`;
+        }
+    }
+}
+
+function populateEgresosYearAndMonthFilters(expedientes) {
+    const anioSelect = document.getElementById('egresos-filter-anio');
+    const mesSelect = document.getElementById('egresos-filter-mes');
+    if (!anioSelect || !mesSelect) return;
+
+    // Extraer años únicos presentes en las fechas de egreso
+    const yearsMap = new Map();
+    (expedientes || []).forEach(exp => {
+        const fe = exp.fecha_egreso;
+        if (fe && fe.length >= 4) {
+            const y = fe.substring(0, 4);
+            yearsMap.set(y, (yearsMap.get(y) || 0) + 1);
+        }
+    });
+
+    const sortedYears = Array.from(yearsMap.keys()).sort().reverse();
+
+    let anioOptions = `<option value="ALL">Todos los años (${(expedientes || []).length})</option>`;
+    sortedYears.forEach(y => {
+        const count = yearsMap.get(y);
+        anioOptions += `<option value="${y}">${y} (${count})</option>`;
+    });
+    anioSelect.innerHTML = anioOptions;
+    anioSelect.value = 'ALL';
+
+    // Poblar meses para todos los años inicialmente
+    populateEgresosMeses('ALL');
+}
+
+function populateEgresosMeses(selectedYear) {
+    const mesSelect = document.getElementById('egresos-filter-mes');
+    if (!mesSelect) return;
+
+    const expedientes = currentEgresosData.expedientes || [];
+
+    let options = `<option value="ALL">Todos los meses</option>`;
+    for (let m = 1; m <= 12; m++) {
+        const mStr = m.toString().padStart(2, '0');
+        const count = expedientes.filter(exp => {
+            const fe = exp.fecha_egreso;
+            if (!fe || fe.length < 7) return false;
+            const matchYear = (selectedYear === 'ALL' || !selectedYear) || fe.startsWith(selectedYear);
+            const matchMonth = fe.substring(5, 7) === mStr;
+            return matchYear && matchMonth;
+        }).length;
+
+        if (count > 0 || selectedYear === 'ALL') {
+            options += `<option value="${mStr}">${MESES[m - 1]} (${count})</option>`;
+        }
+    }
+    mesSelect.innerHTML = options;
+    mesSelect.value = 'ALL';
+}
+
+function onEgresosAnioChange() {
+    const selectedYear = document.getElementById('egresos-filter-anio')?.value || 'ALL';
+    populateEgresosMeses(selectedYear);
+    filterEgresosTable();
+}
+
+window.onEgresosAnioChange = onEgresosAnioChange;
+window.filterEgresosTable = filterEgresosTable;
+window.exportEgresosToExcel = exportEgresosToExcel;
+window.populateEgresosYearAndMonthFilters = populateEgresosYearAndMonthFilters;
+
+function filterEgresosTable() {
+    const query = (document.getElementById('egresos-search-input')?.value || '').toLowerCase().trim();
+    const selectedYear = document.getElementById('egresos-filter-anio')?.value || 'ALL';
+    const selectedMonth = document.getElementById('egresos-filter-mes')?.value || 'ALL';
+    
+    if (!currentEgresosData.expedientes) return;
+
+    let filtered = currentEgresosData.expedientes;
+
+    // Filtro por Año
+    if (selectedYear !== 'ALL') {
+        filtered = filtered.filter(exp => exp.fecha_egreso && exp.fecha_egreso.startsWith(selectedYear));
+    }
+
+    // Filtro por Mes
+    if (selectedMonth !== 'ALL') {
+        filtered = filtered.filter(exp => {
+            return exp.fecha_egreso && exp.fecha_egreso.length >= 7 && exp.fecha_egreso.substring(5, 7) === selectedMonth;
+        });
+    }
+
+    // Filtro por búsqueda de texto
+    if (query) {
+        filtered = filtered.filter(exp => {
+            return (exp.expediente || '').toLowerCase().includes(query) ||
+                   (exp.fecha_caratulacion || '').toLowerCase().includes(query) ||
+                   (exp.fecha_egreso || '').toLowerCase().includes(query);
+        });
+    }
+
+    renderEgresosTable(filtered);
+}
+
+function exportEgresosToExcel() {
+    const query = (document.getElementById('egresos-search-input')?.value || '').toLowerCase().trim();
+    const selectedYear = document.getElementById('egresos-filter-anio')?.value || 'ALL';
+    const selectedMonth = document.getElementById('egresos-filter-mes')?.value || 'ALL';
+    
+    if (!currentEgresosData.expedientes || currentEgresosData.expedientes.length === 0) {
+        alert("No hay expedientes para exportar.");
+        return;
+    }
+
+    let toExport = currentEgresosData.expedientes;
+
+    if (selectedYear !== 'ALL') {
+        toExport = toExport.filter(exp => exp.fecha_egreso && exp.fecha_egreso.startsWith(selectedYear));
+    }
+    if (selectedMonth !== 'ALL') {
+        toExport = toExport.filter(exp => exp.fecha_egreso && exp.fecha_egreso.length >= 7 && exp.fecha_egreso.substring(5, 7) === selectedMonth);
+    }
+    if (query) {
+        toExport = toExport.filter(exp => {
+            return (exp.expediente || '').toLowerCase().includes(query) ||
+                   (exp.fecha_caratulacion || '').toLowerCase().includes(query) ||
+                   (exp.fecha_egreso || '').toLowerCase().includes(query);
+        });
+    }
+
+    if (toExport.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros seleccionados para exportar.");
+        return;
+    }
+
+    const cleanData = toExport.map((r, i) => ({
+        '#': i + 1,
+        'Expediente': r.expediente,
+        'Trámite': r.trata,
+        'Descripción Trámite': r.descripcion_trata,
+        'Fecha Caratulación': r.fecha_caratulacion,
+        'Fecha Egreso': r.fecha_egreso,
+        'Cantidad Subsanaciones': r.cant_subsanaciones,
+        'Días en Área': r.dias_area,
+        'Días en Intervenciones': r.dias_intervenciones,
+        'Días en Subsanación': r.dias_subsanacion,
+        'Tiempo Total (Días)': r.dias_totales
+    }));
+
+    let periodSuffix = '';
+    if (selectedYear !== 'ALL') periodSuffix += `_${selectedYear}`;
+    if (selectedMonth !== 'ALL') periodSuffix += `_M${selectedMonth}`;
+    const filename = `Egresos_${currentEgresosData.gerencia.toUpperCase()}_${currentEgresosData.trataCode}${periodSuffix}`;
+    downloadExcel(filename, cleanData);
+}
+
+function renderEgresosCards(data) {
+    const mAll = data.metricas_historicas || {};
+    const m2026 = data.metricas_2026 || {};
+    const mesNom = data.mes_completo || "Último Mes Completo";
+
+    // Actualizar títulos de grupos
+    const titleAll = document.getElementById('egr-all-group-title');
+    if (titleAll) titleAll.innerText = `Egresados Efectivos (${mesNom})`;
+
+    const subtitleAll = document.getElementById('egr-all-group-subtitle');
+    if (subtitleAll) subtitleAll.innerText = `Todos los expedientes egresados en ${mesNom}`;
+
+    const title2026 = document.getElementById('egr-2026-group-title');
+    if (title2026) title2026.innerText = `Ingresados en 2026 (${mesNom})`;
+
+    const secDesc = document.getElementById('egresos-section-desc');
+    if (secDesc) {
+        secDesc.innerText = `Promedios de tiempo en días corridos por tramo de gestión del último mes cerrado (${mesNom}) y listado cronológico de expedientes resueltos.`;
+    }
+
+    // Grupo 1: Egresados en el Último Mes Completo
+    const countAllTag = document.getElementById('egresos-all-count-tag');
+    if (countAllTag) countAllTag.innerText = `${(mAll.total_expedientes || 0).toLocaleString('es-AR')} exp`;
+
+    const elAreaAll = document.getElementById('egr-all-dias-area');
+    const elIntAll = document.getElementById('egr-all-dias-int');
+    const elSubAll = document.getElementById('egr-all-dias-sub');
+    const elTotAll = document.getElementById('egr-all-dias-tot');
+
+    if (elAreaAll) elAreaAll.innerText = mAll.prom_dias_area !== undefined ? `${mAll.prom_dias_area} d` : '--';
+    if (elIntAll) elIntAll.innerText = mAll.prom_dias_intervenciones !== undefined ? `${mAll.prom_dias_intervenciones} d` : '--';
+    if (elSubAll) elSubAll.innerText = mAll.prom_dias_subsanacion !== undefined ? `${mAll.prom_dias_subsanacion} d` : '--';
+    if (elTotAll) elTotAll.innerText = mAll.prom_dias_totales !== undefined ? `${mAll.prom_dias_totales} d` : '--';
+
+    // Grupo 2: Ingresados 2026 Egresados en el Último Mes Completo
+    const count2026Tag = document.getElementById('egresos-2026-count-tag');
+    if (count2026Tag) count2026Tag.innerText = `${(m2026.total_expedientes || 0).toLocaleString('es-AR')} exp`;
+
+    const elArea2026 = document.getElementById('egr-2026-dias-area');
+    const elInt2026 = document.getElementById('egr-2026-dias-int');
+    const elSub2026 = document.getElementById('egr-2026-dias-sub');
+    const elTot2026 = document.getElementById('egr-2026-dias-tot');
+
+    if (elArea2026) elArea2026.innerText = m2026.prom_dias_area !== undefined ? `${m2026.prom_dias_area} d` : '--';
+    if (elInt2026) elInt2026.innerText = m2026.prom_dias_intervenciones !== undefined ? `${m2026.prom_dias_intervenciones} d` : '--';
+    if (elSub2026) elSub2026.innerText = m2026.prom_dias_subsanacion !== undefined ? `${m2026.prom_dias_subsanacion} d` : '--';
+    if (elTot2026) elTot2026.innerText = m2026.prom_dias_totales !== undefined ? `${m2026.prom_dias_totales} d` : '--';
+}
+
+function renderEgresosTable(expedientes) {
+    const container = document.getElementById('egresos-table-container');
+    const subtitle = document.getElementById('egresos-table-subtitle');
+    if (!container) return;
+
+    if (subtitle) {
+        subtitle.innerText = `Mostrando ${expedientes.length.toLocaleString('es-AR')} expedientes resueltos`;
+    }
+
+    if (!expedientes || expedientes.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                <p>No hay expedientes para mostrar con el filtro actual.</p>
+            </div>`;
+        return;
+    }
+
+    let html = `
+        <table class="report-table" style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; text-align: left; font-family: 'Outfit', sans-serif;">
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">#</th>
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">Número de Expediente</th>
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">Fecha Caratulación</th>
+                    <th style="padding: 10px 14px; font-weight: 700; font-family: 'Outfit', sans-serif;">Fecha Egreso</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: center; font-family: 'Outfit', sans-serif;">Subs.</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; font-family: 'Outfit', sans-serif;">Días Área</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; font-family: 'Outfit', sans-serif;">Días Interv.</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; font-family: 'Outfit', sans-serif;">Días Subs.</th>
+                    <th style="padding: 10px 14px; font-weight: 700; text-align: right; color: var(--primary); font-family: 'Outfit', sans-serif;">Tiempo Total</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    expedientes.forEach((exp, idx) => {
+        const rowBg = idx % 2 === 0 ? 'background: #ffffff;' : 'background: #fcfdfe;';
+        html += `
+            <tr style="${rowBg} border-bottom: 1px solid #f1f5f9; transition: background 0.15s; font-family: 'Outfit', sans-serif;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${idx % 2 === 0 ? '#ffffff' : '#fcfdfe'}'">
+                <td style="padding: 9px 14px; color: #94a3b8; font-weight: 600; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">${idx + 1}</td>
+                <td style="padding: 9px 14px; font-weight: 700; color: #1e293b; font-family: 'Outfit', sans-serif;">
+                    <span style="font-family: 'Outfit', sans-serif; font-size: 0.88rem; letter-spacing: 0.2px;">${exp.expediente}</span>
+                </td>
+                <td style="padding: 9px 14px; color: #475569; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${exp.fecha_caratulacion || '--'}</td>
+                <td style="padding: 9px 14px; color: #475569; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">${exp.fecha_egreso || '--'}</td>
+                <td style="padding: 9px 14px; text-align: center; font-family: 'Outfit', sans-serif;">
+                    <span style="background: ${exp.cant_subsanaciones > 0 ? '#fef3c7' : '#f1f5f9'}; color: ${exp.cant_subsanaciones > 0 ? '#b45309' : '#64748b'}; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.78rem; font-family: 'Outfit', sans-serif;">
+                        ${exp.cant_subsanaciones}
+                    </span>
+                </td>
+                <td style="padding: 9px 14px; text-align: right; color: #334155; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">${exp.dias_area} d</td>
+                <td style="padding: 9px 14px; text-align: right; color: #334155; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">${exp.dias_intervenciones} d</td>
+                <td style="padding: 9px 14px; text-align: right; color: #f59e0b; font-weight: 600; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">${exp.dias_subsanacion} d</td>
+                <td style="padding: 9px 14px; text-align: right; font-weight: 800; color: #0284c7; font-family: 'Outfit', sans-serif; font-size: 0.9rem;">${exp.dias_totales} d</td>
+            </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
 }
 
 function switchTrataSection(sectionId) {
@@ -1278,17 +1835,27 @@ function switchTrataSection(sectionId) {
         return;
     }
 
-    // Ocultar todas las secciones
-    document.querySelectorAll('.trata-section').forEach(s => s.classList.remove('active'));
+    // Ocultar todas las secciones de trata_detail
+    const allSections = document.querySelectorAll('#trata_detail .trata-section');
+    allSections.forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
+
     // Desactivar todos los botones
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const buttons = document.querySelectorAll('#trata_detail .tab-btn');
+    buttons.forEach(b => b.classList.remove('active'));
 
-    // Mostrar la seleccionada
+    // Mostrar la sección seleccionada
     const targetSection = document.getElementById(`section-${sectionId}`);
-    if (targetSection) targetSection.classList.add('active');
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+    } else {
+        console.warn(`No se encontró el elemento #section-${sectionId}`);
+    }
 
-    // Activar botón (buscando por el texto o el onclick)
-    const buttons = document.querySelectorAll('.tab-btn');
+    // Activar botón correspondiente
     buttons.forEach(btn => {
         const clickAttr = btn.getAttribute('onclick') || "";
         if (clickAttr.includes(`'${sectionId}'`)) {
@@ -1298,6 +1865,14 @@ function switchTrataSection(sectionId) {
 
     if (sectionId === 'metas') {
         loadMetasData();
+    } else if (sectionId === 'egresos') {
+        loadEgresosDetail(currentGerencia, currentTrataCode, currentTrataName);
+    } else if (sectionId === 'subsanaciones') {
+        loadSubsanacionesDetail(currentGerencia, currentTrataCode, currentTrataName);
+    } else if (sectionId === 'stock-analistas') {
+        renderStockTab();
+    } else if (sectionId === 'flujo') {
+        renderFlujoTab();
     }
 }
 
@@ -1530,14 +2105,1228 @@ function openTrataDrillDown(trataCode) {
     filtered.forEach(e => {
         html += `<tr><td class="code-cell">${e.expediente}</td><td class="code-cell">${e.id_expediente}</td><td>${e.analista || 'SIN ASIGNAR'}</td><td>${e.dias}</td></tr>`;
     });
-
     document.getElementById('modal-table-container').innerHTML = html + `</tbody></table>`;
     modal.style.display = 'flex';
 }
 
 function closeModal(id) { document.getElementById(id || 'stock-drilldown-modal').style.display = 'none'; }
 
-// --- FUNCIONES DESCARGA POR ANTIGÜEDAD DE STOCK ---
+// --- SECCIÓN: STOCK (VISTA DETALLADA POR USUARIOS Y EXPEDIENTES) ---
+let selectedStockAnalystCard = 'ALL';
+
+function renderStockTab() {
+    try {
+        const expedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+        
+        // Contadores rápidos en cabecera
+        const totalCount = expedientes.length;
+        const stockCount = currentStockData.stock_count !== undefined ? currentStockData.stock_count : expedientes.filter(e => e.tipo_flujo === 'STOCK').length;
+        const flujoCount = currentStockData.flujo_count !== undefined ? currentStockData.flujo_count : expedientes.filter(e => e.tipo_flujo === 'FLUJO').length;
+
+        const elPropio = document.getElementById('tab-stock-num-propio');
+        if (elPropio) elPropio.innerText = totalCount.toLocaleString('es-AR');
+
+        const elEstancado = document.getElementById('tab-stock-num-estancado');
+        if (elEstancado) elEstancado.innerText = stockCount.toLocaleString('es-AR');
+
+        const elFlujo = document.getElementById('tab-stock-num-flujo');
+        if (elFlujo) elFlujo.innerText = flujoCount.toLocaleString('es-AR');
+
+        // Agrupar por analista / buzón
+        const usersMap = {};
+        expedientes.forEach(e => {
+            const u = (e.analista || 'SIN ASIGNAR').trim();
+            const uName = e.analista_nombre || u;
+            if (!usersMap[u]) {
+                usersMap[u] = {
+                    usuario: u,
+                    nombre: uName,
+                    total: 0,
+                    cant_subs: 0,
+                    stock: 0,
+                    flujo: 0
+                };
+            }
+            usersMap[u].total++;
+            if (e.tipo_flujo === 'STOCK') usersMap[u].stock++;
+            if (e.tipo_flujo === 'FLUJO') usersMap[u].flujo++;
+            if (e.cant_subsanaciones > 0) {
+                usersMap[u].cant_subs += (e.cant_subsanaciones || 0);
+            }
+        });
+
+        const usersList = Object.values(usersMap).sort((a, b) => b.total - a.total);
+
+        const elUsers = document.getElementById('tab-stock-num-users');
+        if (elUsers) elUsers.innerText = usersList.length;
+
+        // Renderizar tarjetas de analistas / buzones
+        const cardsGrid = document.getElementById('stock-analysts-cards-grid');
+        const countUsersEl = document.getElementById('stock-users-count');
+        if (countUsersEl) countUsersEl.innerText = `${usersList.length} ${usersList.length === 1 ? 'usuario / buzón' : 'usuarios y buzones'}`;
+
+        if (cardsGrid) {
+            if (usersList.length === 0) {
+                cardsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: #64748b; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <i class="fa-solid fa-folder-open" style="font-size: 2rem; color: #94a3b8; margin-bottom: 8px; display: block;"></i>
+                        No hay expedientes en stock actualmente para este trámite.
+                    </div>`;
+            } else {
+                let cardsHtml = `
+                    <!-- Tarjeta Todos -->
+                    <div class="stock-analyst-card ${selectedStockAnalystCard === 'ALL' ? 'active' : ''}" 
+                        onclick="selectStockAnalystCard('ALL')"
+                        style="background: ${selectedStockAnalystCard === 'ALL' ? '#eff6ff' : 'white'}; border: 1.5px solid ${selectedStockAnalystCard === 'ALL' ? 'var(--primary)' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </span>
+                                <div>
+                                    <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #1e293b;">Todos los usuarios</h5>
+                                    <span style="font-size: 0.75rem; color: #64748b;">Nómina completa</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 1.35rem; font-weight: 800; color: #0284c7; font-family: 'Outfit';">
+                                ${totalCount}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                            <span style="color: #b91c1c;"><i class="fa-solid fa-circle" style="font-size: 6px; vertical-align: middle;"></i> Stock: ${stockCount}</span>
+                            <span style="color: #15803d;"><i class="fa-solid fa-circle" style="font-size: 6px; vertical-align: middle;"></i> Flujo: ${flujoCount}</span>
+                        </div>
+                    </div>
+                `;
+
+                usersList.forEach(u => {
+                    const isSelected = selectedStockAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                    const isBuzon = u.usuario.startsWith('BUZON_') || u.usuario.includes('DG') || u.usuario.includes('GERENCIA');
+                    const iconBg = isBuzon ? '#fef3c7' : '#f1f5f9';
+                    const iconColor = isBuzon ? '#d97706' : '#475569';
+                    const iconClass = isBuzon ? 'fa-inbox' : 'fa-user';
+                    const uEsc = u.usuario.replace(/'/g, "\\'");
+
+                    cardsHtml += `
+                        <div class="stock-analyst-card ${isSelected ? 'active' : ''}" 
+                            onclick="selectStockAnalystCard('${uEsc}')"
+                            style="background: ${isSelected ? '#eff6ff' : 'white'}; border: 1.5px solid ${isSelected ? 'var(--primary)' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                                    <span style="width: 32px; height: 32px; border-radius: 8px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                                        <i class="fa-solid ${iconClass}"></i>
+                                    </span>
+                                    <div style="overflow: hidden;">
+                                        <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.9rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.nombre}">
+                                            ${u.nombre}
+                                        </h5>
+                                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; font-family: 'Outfit';">${u.usuario}</span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 800; color: ${isSelected ? 'var(--primary)' : '#0f172a'}; font-family: 'Outfit'; flex-shrink: 0;">
+                                    ${u.total}
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px; color: #64748b;">
+                                <span style="color: #b91c1c;">Stk: ${u.stock}</span>
+                                <span style="color: #15803d;">Flj: ${u.flujo}</span>
+                                <span style="color: #0284c7; background: #f0f9ff; padding: 1px 6px; border-radius: 6px;">${u.total} exp</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardsGrid.innerHTML = cardsHtml;
+            }
+        }
+
+        // Llenar select de filtro de analistas
+        const selectAnalista = document.getElementById('stock-filter-analista');
+        if (selectAnalista) {
+            let optHtml = `<option value="ALL">Todos los usuarios (${totalCount})</option>`;
+            usersList.forEach(u => {
+                const isSel = selectedStockAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                optHtml += `<option value="${u.usuario}" ${isSel ? 'selected' : ''}>${u.nombre} (${u.total})</option>`;
+            });
+            selectAnalista.innerHTML = optHtml;
+        }
+
+        filterStockTable();
+    } catch (err) {
+        console.error("Error en renderStockTab:", err);
+    }
+}
+
+function selectStockAnalystCard(usuario) {
+    selectedStockAnalystCard = usuario;
+    const select = document.getElementById('stock-filter-analista');
+    if (select) select.value = usuario;
+
+    // Actualizar clase activa en tarjetas
+    document.querySelectorAll('.stock-analyst-card').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'white';
+        c.style.border = '1.5px solid #e2e8f0';
+    });
+
+    filterStockTable();
+}
+
+function filterStockTable() {
+    const tbody = document.getElementById('stock-expedientes-tbody');
+    const subtitle = document.getElementById('stock-table-subtitle');
+    if (!tbody) return;
+
+    const expedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+    
+    // Obtener valores de filtro
+    const selectTipo = document.getElementById('stock-filter-tipo')?.value || 'ALL';
+    const selectAnalista = document.getElementById('stock-filter-analista')?.value || 'ALL';
+    const searchVal = (document.getElementById('stock-search-input')?.value || '').trim().toLowerCase();
+
+    // Sincronizar estado global si el usuario cambió el select
+    if (selectAnalista !== selectedStockAnalystCard) {
+        selectedStockAnalystCard = selectAnalista;
+    }
+
+    const filtered = expedientes.filter(e => {
+        // Filtro Tipo (Stock / Flujo)
+        if (selectTipo !== 'ALL') {
+            if (e.tipo_flujo !== selectTipo) return false;
+        }
+
+        // Filtro Analista
+        if (selectedStockAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedStockAnalystCard.toUpperCase()) return false;
+        }
+
+        // Filtro Buscador
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !desc.includes(searchVal) && !motivo.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (subtitle) {
+        subtitle.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${expedientes.length.toLocaleString('es-AR')} expedientes en gestión`;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                    No se encontraron expedientes con los filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    // Ordenar por días en gerencia descendente
+    filtered.sort((a, b) => (b.dias_en_gerencia || 0) - (a.dias_en_gerencia || 0));
+
+    let html = '';
+    filtered.forEach(e => {
+        const fCaratula = e.fecha_caratulacion ? e.fecha_caratulacion.substring(0, 10) : (e.caratula ? String(e.caratula).substring(0, 10) : '-');
+        const fUltPase = e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : '-';
+        
+        const diasAnalista = e.dias !== null && e.dias !== undefined ? e.dias : '-';
+        const diasGerencia = e.dias_en_gerencia !== null && e.dias_en_gerencia !== undefined ? e.dias_en_gerencia : '-';
+        const cantSubs = e.cant_subsanaciones || 0;
+        const diasSubs = e.dias_en_subsanacion || 0;
+        const motivoPase = e.motivo_pase || 'Sin Motivo';
+
+        const uDisplayName = e.analista_nombre || e.analista || 'SIN ASIGNAR';
+
+        const isFlujo = e.tipo_flujo === 'FLUJO';
+        const badgeCondicion = isFlujo
+            ? `<span class="badge-tipo-flujo" title="Días en sector (${diasGerencia}d) ≤ tiempo de resolución (${currentStockData.tiempo_resolucion}d)"><i class="fa-solid fa-arrow-trend-up"></i> FLUJO</span>`
+            : `<span class="badge-tipo-stock" title="Días en sector (${diasGerencia}d) > tiempo de resolución (${currentStockData.tiempo_resolucion}d)"><i class="fa-solid fa-hourglass-half"></i> STOCK</span>`;
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 11px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span title="${e.descripcion || e.descripcion_trata || ''}">${e.expediente || '-'}</span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    ${badgeCondicion}
+                </td>
+                <td style="padding: 11px 14px; color: #334155;">
+                    <div style="font-weight: 600; font-size: 0.88rem;">${uDisplayName}</div>
+                    <div style="font-size: 0.74rem; color: #64748b; font-family: 'Outfit';">${e.analista || '-'}</div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fCaratula}</td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fUltPase}</td>
+                <td style="padding: 11px 14px; color: #475569; font-size: 0.82rem; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${motivoPase}">
+                    ${motivoPase}
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-weight: 700; color: ${diasAnalista > 30 ? '#dc2626' : diasAnalista > 15 ? '#d97706' : '#16a34a'};">
+                        ${diasAnalista} ${typeof diasAnalista === 'number' ? 'd' : ''}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #1e293b;">
+                    ${diasGerencia} ${typeof diasGerencia === 'number' ? 'd' : ''}
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 800; background: ${cantSubs > 0 ? '#fffbeb' : '#f1f5f9'}; color: ${cantSubs > 0 ? '#b45309' : '#64748b'}; border: 1px solid ${cantSubs > 0 ? '#fde68a' : '#e2e8f0'};">
+                        ${cantSubs}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-weight: 700; color: ${diasSubs > 0 ? '#b45309' : '#94a3b8'};">
+                        ${diasSubs} ${typeof diasSubs === 'number' ? 'd' : ''}
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function exportStockTabToExcel() {
+    const expedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+    if (expedientes.length === 0) {
+        alert("No hay expedientes para exportar.");
+        return;
+    }
+
+    const selectTipo = document.getElementById('stock-filter-tipo')?.value || 'ALL';
+    const searchVal = (document.getElementById('stock-search-input')?.value || '').trim().toLowerCase();
+
+    const filtered = expedientes.filter(e => {
+        if (selectTipo !== 'ALL' && e.tipo_flujo !== selectTipo) return false;
+        if (selectedStockAnalystCard !== 'ALL' && (e.analista || '').toUpperCase() !== selectedStockAnalystCard.toUpperCase()) return false;
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !motivo.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros para exportar.");
+        return;
+    }
+
+    const headers = ["Expediente", "Condicion", "Usuario SADE", "Nombre Analista", "Fecha Caratulacion", "Ultimo Pase", "Motivo Ultimo Pase", "Dias Analista", "Dias Gerencia", "Cantidad Subsanaciones", "Dias en Subsanacion", "Trata Codigo", "Descripcion Trata"];
+    const rows = filtered.map(e => [
+        `"${e.expediente || ''}"`,
+        `"${e.tipo_flujo || 'STOCK'}"`,
+        `"${e.analista || ''}"`,
+        `"${e.analista_nombre || ''}"`,
+        `"${e.fecha_caratulacion || e.caratula || ''}"`,
+        `"${e.fecha_ultimo_pase || ''}"`,
+        `"${(e.motivo_pase || '').replace(/"/g, '""')}"`,
+        e.dias || 0,
+        e.dias_en_gerencia || 0,
+        e.cant_subsanaciones || 0,
+        e.dias_en_subsanacion || 0,
+        `"${e.trata || currentStockData.trataCode || ''}"`,
+        `"${(e.descripcion_trata || currentStockData.trataName || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Stock_${currentStockData.trataCode || 'Trata'}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exponer en window
+window.renderStockTab = renderStockTab;
+window.selectStockAnalystCard = selectStockAnalystCard;
+window.filterStockTable = filterStockTable;
+window.exportStockTabToExcel = exportStockTabToExcel;
+
+// --- SECCIÓN: FLUJO (EXPEDIENTES ACTIVOS DENTRO DEL TIEMPO DE RESOLUCIÓN) ---
+let selectedFlujoAnalystCard = 'ALL';
+let isFlujoVencenEstaSemanaActive = false;
+
+function getDaysUntilFriday() {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Dom, 1 = Lun, 2 = Mar, 3 = Mie, 4 = Jue, 5 = Vie, 6 = Sab
+    if (dayOfWeek === 0) return 5;
+    if (dayOfWeek <= 5) return 5 - dayOfWeek;
+    return 6;
+}
+
+function renderFlujoTab() {
+    try {
+        const allExpedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+        const tResolucion = (currentStockData && currentStockData.tiempo_resolucion) ? Math.ceil(Number(currentStockData.tiempo_resolucion)) : 30;
+        
+        // Filtrar expedientes en Flujo (dias_en_gerencia <= tResolucion)
+        const flujoExpedientes = allExpedientes.filter(e => e.tipo_flujo === 'FLUJO' || Math.ceil(Number(e.dias_en_gerencia || 0)) <= tResolucion);
+        const daysUntilFriday = getDaysUntilFriday();
+
+        // Actualizar textos informativos de umbral SLA
+        const thresholdText = document.getElementById('flujo-sla-threshold-text');
+        if (thresholdText) thresholdText.innerText = tResolucion;
+
+        // Calcular métricas
+        const totalFlujo = flujoExpedientes.length;
+        const vencenEstaSemanaList = flujoExpedientes.filter(e => {
+            const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+            const dRest = Math.max(0, tResolucion - dGer);
+            return dRest <= daysUntilFriday;
+        });
+        const countVencenEstaSemana = vencenEstaSemanaList.length;
+
+        // KPI Badges superiores
+        const elTotalBadge = document.getElementById('tab-flujo-badge-total');
+        if (elTotalBadge) elTotalBadge.innerText = totalFlujo.toLocaleString('es-AR');
+
+        const elKpiTotal = document.getElementById('kpi-flujo-total-count');
+        if (elKpiTotal) elKpiTotal.innerText = totalFlujo.toLocaleString('es-AR');
+
+        const elKpiVence = document.getElementById('kpi-flujo-vence-semana-count');
+        if (elKpiVence) elKpiVence.innerText = countVencenEstaSemana.toLocaleString('es-AR');
+
+        const subVence = document.getElementById('flujo-vence-semana-subtitle');
+        if (subVence) {
+            subVence.innerText = daysUntilFriday === 0 
+                ? "Vencen hoy viernes" 
+                : `Vencen en los próximos ${daysUntilFriday} días (hasta el viernes)`;
+        }
+
+        // Agrupar por analista / buzón para expedientes de flujo
+        const usersMap = {};
+        flujoExpedientes.forEach(e => {
+            const u = (e.analista || 'SIN ASIGNAR').trim();
+            const uName = e.analista_nombre || u;
+            const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+            const dRest = Math.max(0, tResolucion - dGer);
+            const venceSemana = dRest <= daysUntilFriday;
+
+            if (!usersMap[u]) {
+                usersMap[u] = {
+                    usuario: u,
+                    nombre: uName,
+                    total: 0,
+                    vencen_semana: 0,
+                    cant_subs: 0
+                };
+            }
+            usersMap[u].total++;
+            if (venceSemana) usersMap[u].vencen_semana++;
+            if (e.cant_subsanaciones > 0) {
+                usersMap[u].cant_subs += (e.cant_subsanaciones || 0);
+            }
+        });
+
+        const usersList = Object.values(usersMap).sort((a, b) => b.total - a.total);
+
+        const elUsersBadge = document.getElementById('tab-flujo-num-users');
+        if (elUsersBadge) elUsersBadge.innerText = usersList.length;
+
+        const countUsersEl = document.getElementById('flujo-users-count');
+        if (countUsersEl) countUsersEl.innerText = `${usersList.length} ${usersList.length === 1 ? 'usuario / buzón' : 'usuarios y buzones'}`;
+
+        // Renderizar tarjetas de analistas de Flujo
+        const cardsGrid = document.getElementById('flujo-analysts-cards-grid');
+        if (cardsGrid) {
+            if (usersList.length === 0) {
+                cardsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: #64748b; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <i class="fa-solid fa-arrow-trend-up" style="font-size: 2rem; color: #94a3b8; margin-bottom: 8px; display: block;"></i>
+                        No hay expedientes en flujo actualmente para este trámite.
+                    </div>`;
+            } else {
+                let cardsHtml = `
+                    <!-- Tarjeta Todos -->
+                    <div class="flujo-analyst-card ${selectedFlujoAnalystCard === 'ALL' ? 'active' : ''}" 
+                        onclick="selectFlujoAnalystCard('ALL')"
+                        style="background: ${selectedFlujoAnalystCard === 'ALL' ? '#f0fdf4' : 'white'}; border: 1.5px solid ${selectedFlujoAnalystCard === 'ALL' ? '#16a34a' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 32px; height: 32px; border-radius: 8px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </span>
+                                <div>
+                                    <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #1e293b;">Todos los usuarios</h5>
+                                    <span style="font-size: 0.75rem; color: #64748b;">Nómina completa de flujo</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 1.35rem; font-weight: 800; color: #16a34a; font-family: 'Outfit';">
+                                ${totalFlujo}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                            <span style="color: #ea580c;"><i class="fa-solid fa-clock" style="font-size: 8px; vertical-align: middle;"></i> Vencen esta sem: ${countVencenEstaSemana}</span>
+                            <span style="color: #15803d;"><i class="fa-solid fa-circle-check" style="font-size: 8px; vertical-align: middle;"></i> Total: ${totalFlujo}</span>
+                        </div>
+                    </div>
+                `;
+
+                usersList.forEach(u => {
+                    const isSelected = selectedFlujoAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                    const isBuzon = u.usuario.startsWith('BUZON_') || u.usuario.includes('DG') || u.usuario.includes('GERENCIA');
+                    const iconBg = isBuzon ? '#fef3c7' : '#f0fdf4';
+                    const iconColor = isBuzon ? '#d97706' : '#16a34a';
+                    const iconClass = isBuzon ? 'fa-inbox' : 'fa-user';
+                    const uEsc = u.usuario.replace(/'/g, "\\'");
+
+                    cardsHtml += `
+                        <div class="flujo-analyst-card ${isSelected ? 'active' : ''}" 
+                            onclick="selectFlujoAnalystCard('${uEsc}')"
+                            style="background: ${isSelected ? '#f0fdf4' : 'white'}; border: 1.5px solid ${isSelected ? '#16a34a' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                                    <span style="width: 32px; height: 32px; border-radius: 8px; background: ${iconBg}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                                        <i class="fa-solid ${iconClass}"></i>
+                                    </span>
+                                    <div style="overflow: hidden;">
+                                        <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.9rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.nombre}">
+                                            ${u.nombre}
+                                        </h5>
+                                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; font-family: 'Outfit';">${u.usuario}</span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 800; color: ${isSelected ? '#16a34a' : '#0f172a'}; font-family: 'Outfit'; flex-shrink: 0;">
+                                    ${u.total}
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px; color: #64748b;">
+                                <span style="color: ${u.vencen_semana > 0 ? '#ea580c' : '#94a3b8'};">Vence sem: ${u.vencen_semana}</span>
+                                <span style="color: #15803d; background: #f0fdf4; padding: 1px 6px; border-radius: 6px;">${u.total} exp</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardsGrid.innerHTML = cardsHtml;
+            }
+        }
+
+        // Llenar select de filtro de analistas de Flujo
+        const selectAnalista = document.getElementById('flujo-filter-analista');
+        if (selectAnalista) {
+            let optHtml = `<option value="ALL">Todos los usuarios (${totalFlujo})</option>`;
+            usersList.forEach(u => {
+                const isSel = selectedFlujoAnalystCard.toUpperCase() === u.usuario.toUpperCase();
+                optHtml += `<option value="${u.usuario}" ${isSel ? 'selected' : ''}>${u.nombre} (${u.total})</option>`;
+            });
+            selectAnalista.innerHTML = optHtml;
+        }
+
+        filterFlujoTable();
+    } catch (err) {
+        console.error("Error en renderFlujoTab:", err);
+    }
+}
+
+function selectFlujoAnalystCard(usuario) {
+    selectedFlujoAnalystCard = usuario;
+    const select = document.getElementById('flujo-filter-analista');
+    if (select) select.value = usuario;
+
+    document.querySelectorAll('.flujo-analyst-card').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'white';
+        c.style.border = '1.5px solid #e2e8f0';
+    });
+
+    filterFlujoTable();
+}
+
+function toggleFlujoVencenEstaSemanaFilter() {
+    const card = document.getElementById('card-flujo-vence-semana');
+    const badge = document.getElementById('badge-flujo-filtro-activo');
+    const selectVenc = document.getElementById('flujo-filter-vencimiento');
+    
+    isFlujoVencenEstaSemanaActive = !isFlujoVencenEstaSemanaActive;
+    
+    if (isFlujoVencenEstaSemanaActive) {
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)';
+            card.style.borderColor = '#ea580c';
+            card.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.3)';
+        }
+        if (badge) badge.style.display = 'inline-block';
+        if (selectVenc) selectVenc.value = 'ESTA_SEMANA';
+    } else {
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+            card.style.borderColor = '#fdba74';
+            card.style.boxShadow = '0 4px 6px -1px rgba(249, 115, 22, 0.1)';
+        }
+        if (badge) badge.style.display = 'none';
+        if (selectVenc) selectVenc.value = 'ALL';
+    }
+    
+    filterFlujoTable();
+}
+
+function filterFlujoTable() {
+    const tbody = document.getElementById('flujo-expedientes-tbody');
+    const subtitle = document.getElementById('flujo-table-subtitle');
+    if (!tbody) return;
+
+    const allExpedientes = (currentStockData && currentStockData.expedientes) ? currentStockData.expedientes : [];
+    const tResolucion = (currentStockData && currentStockData.tiempo_resolucion) ? Math.ceil(Number(currentStockData.tiempo_resolucion)) : 30;
+    const daysUntilFriday = getDaysUntilFriday();
+
+    // Expedientes en Flujo
+    const flujoExpedientes = allExpedientes.filter(e => e.tipo_flujo === 'FLUJO' || Math.ceil(Number(e.dias_en_gerencia || 0)) <= tResolucion);
+    
+    // Obtener valores de filtros
+    const selectVenc = document.getElementById('flujo-filter-vencimiento')?.value || (isFlujoVencenEstaSemanaActive ? 'ESTA_SEMANA' : 'ALL');
+    const selectAnalista = document.getElementById('flujo-filter-analista')?.value || 'ALL';
+    const searchVal = (document.getElementById('flujo-search-input')?.value || '').trim().toLowerCase();
+
+    // Sincronizar estado si el usuario cambió directamente el select
+    if (selectVenc === 'ESTA_SEMANA' && !isFlujoVencenEstaSemanaActive) {
+        isFlujoVencenEstaSemanaActive = true;
+        const card = document.getElementById('card-flujo-vence-semana');
+        const badge = document.getElementById('badge-flujo-filtro-activo');
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%)';
+            card.style.borderColor = '#ea580c';
+            card.style.boxShadow = '0 0 0 3px rgba(234, 88, 12, 0.3)';
+        }
+        if (badge) badge.style.display = 'inline-block';
+    } else if (selectVenc !== 'ESTA_SEMANA' && isFlujoVencenEstaSemanaActive) {
+        isFlujoVencenEstaSemanaActive = false;
+        const card = document.getElementById('card-flujo-vence-semana');
+        const badge = document.getElementById('badge-flujo-filtro-activo');
+        if (card) {
+            card.style.background = 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)';
+            card.style.borderColor = '#fdba74';
+            card.style.boxShadow = '0 4px 6px -1px rgba(249, 115, 22, 0.1)';
+        }
+        if (badge) badge.style.display = 'none';
+    }
+
+    if (selectAnalista !== selectedFlujoAnalystCard) {
+        selectedFlujoAnalystCard = selectAnalista;
+    }
+
+    const filtered = flujoExpedientes.filter(e => {
+        const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const dRest = Math.max(0, tResolucion - dGer);
+
+        // Filtro Vencimiento
+        if (selectVenc === 'ESTA_SEMANA') {
+            if (dRest > daysUntilFriday) return false;
+        } else if (selectVenc === 'MAS_7_DIAS') {
+            if (dRest <= 7) return false;
+        }
+
+        // Filtro Analista
+        if (selectedFlujoAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedFlujoAnalystCard.toUpperCase()) return false;
+        }
+
+        // Filtro Buscador
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !desc.includes(searchVal) && !motivo.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (subtitle) {
+        subtitle.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${flujoExpedientes.length.toLocaleString('es-AR')} expedientes en flujo`;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                    No se encontraron expedientes en flujo con los filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    // Ordenar por días restantes ascendente (los más urgentes primero)
+    filtered.sort((a, b) => {
+        const dGerA = Math.ceil(Number(a.dias_en_gerencia || 0));
+        const dGerB = Math.ceil(Number(b.dias_en_gerencia || 0));
+        const dRestA = Math.max(0, tResolucion - dGerA);
+        const dRestB = Math.max(0, tResolucion - dGerB);
+        return dRestA - dRestB;
+    });
+
+    let html = '';
+    filtered.forEach(e => {
+        const fCaratula = e.fecha_caratulacion ? e.fecha_caratulacion.substring(0, 10) : (e.caratula ? String(e.caratula).substring(0, 10) : '-');
+        const fUltPase = e.fecha_ultimo_pase ? e.fecha_ultimo_pase.substring(0, 10) : '-';
+        
+        const diasAnalista = e.dias !== null && e.dias !== undefined ? Math.ceil(Number(e.dias)) : '-';
+        const diasGerencia = e.dias_en_gerencia !== null && e.dias_en_gerencia !== undefined ? Math.ceil(Number(e.dias_en_gerencia)) : 0;
+        const cantSubs = e.cant_subsanaciones || 0;
+        const diasSubs = e.dias_en_subsanacion ? Math.ceil(Number(e.dias_en_subsanacion)) : 0;
+        const motivoPase = e.motivo_pase || 'Sin Motivo';
+
+        const uDisplayName = e.analista_nombre || e.analista || 'SIN ASIGNAR';
+
+        const diasRestantes = Math.max(0, tResolucion - diasGerencia);
+        const venceEstaSemana = diasRestantes <= daysUntilFriday;
+
+        let badgeEstado;
+        if (diasRestantes === 0) {
+            badgeEstado = `<span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 99px; font-weight: 800; font-size: 0.75rem;"><i class="fa-solid fa-triangle-exclamation"></i> Límite hoy</span>`;
+        } else if (venceEstaSemana) {
+            badgeEstado = `<span style="background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; padding: 3px 8px; border-radius: 99px; font-weight: 800; font-size: 0.75rem;"><i class="fa-solid fa-clock"></i> Vence esta semana</span>`;
+        } else if (diasRestantes <= 7) {
+            badgeEstado = `<span style="background: #fefce8; color: #a16207; border: 1px solid #fef08a; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem;"><i class="fa-solid fa-hourglass-half"></i> Próxima sem (${diasRestantes}d)</span>`;
+        } else {
+            badgeEstado = `<span style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem;"><i class="fa-solid fa-check"></i> En plazo (+${diasRestantes}d)</span>`;
+        }
+
+        const colorDiasRestantes = venceEstaSemana ? '#ea580c' : (diasRestantes <= 7 ? '#d97706' : '#16a34a');
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 11px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span title="${e.descripcion || e.descripcion_trata || ''}">${e.expediente || '-'}</span>
+                </td>
+                <td style="padding: 11px 14px; color: #334155;">
+                    <div style="font-weight: 600; font-size: 0.88rem;">${uDisplayName}</div>
+                    <div style="font-size: 0.74rem; color: #64748b; font-family: 'Outfit';">${e.analista || '-'}</div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fCaratula}</td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fUltPase}</td>
+                <td style="padding: 11px 14px; color: #475569; font-size: 0.82rem; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${motivoPase}">
+                    ${motivoPase}
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-weight: 700; color: ${diasAnalista > 30 ? '#dc2626' : diasAnalista > 15 ? '#d97706' : '#16a34a'};">
+                        ${diasAnalista} ${typeof diasAnalista === 'number' ? 'd' : ''}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #1e293b;">
+                    ${diasGerencia} d
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 800; background: ${cantSubs > 0 ? '#fffbeb' : '#f1f5f9'}; color: ${cantSubs > 0 ? '#b45309' : '#64748b'}; border: 1px solid ${cantSubs > 0 ? '#fde68a' : '#e2e8f0'};" title="${diasSubs} días en subsanación">
+                        ${cantSubs} (${diasSubs}d)
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-size: 1.05rem; font-weight: 900; color: ${colorDiasRestantes}; font-family: 'Outfit';">
+                        ${diasRestantes} d
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    ${badgeEstado}
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function exportFlujoTabToExcel() {
+    if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
+        alert("No hay expedientes en flujo para exportar.");
+        return;
+    }
+
+    const allExpedientes = currentStockData.expedientes;
+    const tResolucion = (currentStockData && currentStockData.tiempo_resolucion) ? Math.ceil(Number(currentStockData.tiempo_resolucion)) : 30;
+    const daysUntilFriday = getDaysUntilFriday();
+
+    const flujoExpedientes = allExpedientes.filter(e => e.tipo_flujo === 'FLUJO' || Math.ceil(Number(e.dias_en_gerencia || 0)) <= tResolucion);
+    
+    const selectVenc = document.getElementById('flujo-filter-vencimiento')?.value || (isFlujoVencenEstaSemanaActive ? 'ESTA_SEMANA' : 'ALL');
+    const selectAnalista = document.getElementById('flujo-filter-analista')?.value || 'ALL';
+    const searchVal = (document.getElementById('flujo-search-input')?.value || '').trim().toLowerCase();
+
+    const filtered = flujoExpedientes.filter(e => {
+        const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const dRest = Math.max(0, tResolucion - dGer);
+
+        if (selectVenc === 'ESTA_SEMANA') {
+            if (dRest > daysUntilFriday) return false;
+        } else if (selectVenc === 'MAS_7_DIAS') {
+            if (dRest <= 7) return false;
+        }
+
+        if (selectedFlujoAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedFlujoAnalystCard.toUpperCase()) return false;
+        }
+
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const u = (e.analista || '').toLowerCase();
+            const uName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            const motivo = (e.motivo_pase || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !u.includes(searchVal) && !uName.includes(searchVal) && !desc.includes(searchVal) && !motivo.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros para exportar.");
+        return;
+    }
+
+    const headers = ["Expediente", "Condición", "Usuario SADE", "Nombre Analista", "Fecha Caratulación", "Último Pase", "Motivo Último Pase", "Días Analista", "Días Gerencia", "Cant. Subsanaciones", "Días Subsanación", "Días Restantes Flujo", "SLA Meta (Días)", "Vence Esta Semana (Viernes)", "Trata Código", "Descripción Trata"];
+    const rows = filtered.map(e => {
+        const dGer = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const dRest = Math.max(0, tResolucion - dGer);
+        const venceSem = dRest <= daysUntilFriday ? "SÍ" : "NO";
+        return [
+            `"${e.expediente || ''}"`,
+            `"FLUJO"`,
+            `"${e.analista || ''}"`,
+            `"${e.analista_nombre || ''}"`,
+            `"${e.fecha_caratulacion || e.caratula || ''}"`,
+            `"${e.fecha_ultimo_pase || ''}"`,
+            `"${(e.motivo_pase || '').replace(/"/g, '""')}"`,
+            Math.ceil(Number(e.dias || 0)),
+            dGer,
+            e.cant_subsanaciones || 0,
+            Math.ceil(Number(e.dias_en_subsanacion || 0)),
+            dRest,
+            tResolucion,
+            `"${venceSem}"`,
+            `"${e.trata || currentStockData.trataCode || ''}"`,
+            `"${(e.descripcion_trata || currentStockData.trataName || '').replace(/"/g, '""')}"`
+        ];
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Flujo_${currentStockData.trataCode || 'Trata'}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exponer funciones de Flujo en window
+window.renderFlujoTab = renderFlujoTab;
+window.selectFlujoAnalystCard = selectFlujoAnalystCard;
+window.toggleFlujoVencenEstaSemanaFilter = toggleFlujoVencenEstaSemanaFilter;
+window.filterFlujoTable = filterFlujoTable;
+window.exportFlujoTabToExcel = exportFlujoTabToExcel;
+window.switchTrataSection = switchTrataSection;
+
+// --- SECCIÓN: SUBSANACIONES (DETALLE DE EXPEDIENTES CON SUBSANACIÓN ABIERTA) ---
+let currentTrataSubsanacionesData = {
+    total: 0,
+    promedio_dias_actual: 0,
+    promedio_dias_total: 0,
+    analyst_distribution: [],
+    expedientes: [],
+    trataName: "",
+    trataCode: "",
+    gerencia: "",
+    loadedTrata: ""
+};
+let selectedSubsAnalystCard = 'ALL';
+
+async function loadSubsanacionesDetail(gerencia, trataCode, trataName) {
+    const tbody = document.getElementById('subsanaciones-expedientes-tbody');
+    if (tbody && (!currentTrataSubsanacionesData.expedientes || currentTrataSubsanacionesData.expedientes.length === 0)) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2.5rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando expedientes en subsanación...</p></td></tr>`;
+    }
+
+    // Si ya fue cargado para este trámite, solo renderizamos
+    if (currentTrataSubsanacionesData.loadedTrata === `${gerencia}_${trataCode}` && currentTrataSubsanacionesData.expedientes.length >= 0) {
+        renderSubsanacionesTab();
+        return;
+    }
+
+    try {
+        const response = await def_fetch(`${API_BASE}/reporte/${gerencia}/tramite/${trataCode}/subsanaciones_detail`);
+        if (!response || !response.ok) return;
+
+        const data = await response.json();
+        const exps = data.expedientes || [];
+        const total = data.total_subsanaciones_abiertas !== undefined ? data.total_subsanaciones_abiertas : exps.length;
+        
+        // Calcular promedios desde data o expedientes
+        let promActual = data.prom_dias_subsanacion_actual;
+        let promTotal = data.prom_dias_subsanacion_total;
+        if (promActual === undefined && exps.length > 0) {
+            const sumAct = exps.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_actual || 0)), 0);
+            promActual = Math.ceil(sumAct / exps.length);
+        }
+        if (promTotal === undefined && exps.length > 0) {
+            const sumTot = exps.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_total || 0)), 0);
+            promTotal = Math.ceil(sumTot / exps.length);
+        }
+
+        currentTrataSubsanacionesData = {
+            total: total,
+            promedio_dias_actual: promActual || 0,
+            promedio_dias_total: promTotal || 0,
+            analyst_distribution: data.analyst_distribution || [],
+            expedientes: exps,
+            trataName: data.nombre_trata || trataName,
+            trataCode,
+            gerencia,
+            loadedTrata: `${gerencia}_${trataCode}`
+        };
+
+        renderSubsanacionesTab();
+    } catch (err) {
+        console.error("Error al cargar detalle de subsanaciones:", err);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 2.5rem; color: #94a3b8;">No se encontraron subsanaciones abiertas para este trámite.</td></tr>`;
+        }
+    }
+}
+
+function renderSubsanacionesTab() {
+    try {
+        const expedientes = currentTrataSubsanacionesData.expedientes || [];
+        const totalSubs = currentTrataSubsanacionesData.total !== undefined && currentTrataSubsanacionesData.total > 0 
+            ? currentTrataSubsanacionesData.total 
+            : expedientes.length;
+
+        let promActual = currentTrataSubsanacionesData.promedio_dias_actual;
+        let promTotal = currentTrataSubsanacionesData.promedio_dias_total;
+
+        if ((!promActual || promActual === 0) && expedientes.length > 0) {
+            const sumAct = expedientes.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_actual || 0)), 0);
+            promActual = Math.ceil(sumAct / expedientes.length);
+        }
+        if ((!promTotal || promTotal === 0) && expedientes.length > 0) {
+            const sumTot = expedientes.reduce((acc, e) => acc + Math.ceil(Number(e.dias_subsanacion_total || 0)), 0);
+            promTotal = Math.ceil(sumTot / expedientes.length);
+        }
+
+        // KPI Badges superiores
+        const elTotalBadge = document.getElementById('tab-subs-num-total');
+        if (elTotalBadge) elTotalBadge.innerText = totalSubs.toLocaleString('es-AR');
+
+        const elPromActualBadge = document.getElementById('tab-subs-num-prom-actual');
+        if (elPromActualBadge) elPromActualBadge.innerText = Math.ceil(Number(promActual || 0));
+
+        const elPromTotalBadge = document.getElementById('tab-subs-num-prom-total');
+        if (elPromTotalBadge) elPromTotalBadge.innerText = Math.ceil(Number(promTotal || 0));
+
+        // Agrupar por analista que mandó a subsanar
+        const analystsMap = {};
+        expedientes.forEach(e => {
+            const a = (e.analista || 'SIN ESPECIFICAR').trim();
+            const aName = e.analista_nombre || a;
+            const dActual = Math.ceil(Number(e.dias_subsanacion_actual || 0));
+            const dTotal = Math.ceil(Number(e.dias_subsanacion_total || 0));
+
+            if (!analystsMap[a]) {
+                analystsMap[a] = {
+                    analista: a,
+                    nombre: aName,
+                    total: 0,
+                    dias_actual_sum: 0,
+                    dias_total_sum: 0
+                };
+            }
+            analystsMap[a].total++;
+            analystsMap[a].dias_actual_sum += dActual;
+            analystsMap[a].dias_total_sum += dTotal;
+        });
+
+        const analystsList = Object.values(analystsMap).sort((a, b) => b.total - a.total);
+
+        const countAnalystsEl = document.getElementById('subs-analysts-count');
+        if (countAnalystsEl) countAnalystsEl.innerText = `${analystsList.length} ${analystsList.length === 1 ? 'analista' : 'analistas'}`;
+
+        // Renderizar tarjetas de analistas solicitantes
+        const cardsGrid = document.getElementById('subs-analysts-cards-grid');
+        if (cardsGrid) {
+            if (analystsList.length === 0) {
+                cardsGrid.innerHTML = `
+                    <div style="grid-column: 1 / -1; padding: 2rem; text-align: center; color: #64748b; background: white; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                        <i class="fa-solid fa-clock-rotate-left" style="font-size: 2rem; color: #94a3b8; margin-bottom: 8px; display: block;"></i>
+                        No hay expedientes con subsanación abierta actualmente para este trámite.
+                    </div>`;
+            } else {
+                let cardsHtml = `
+                    <!-- Tarjeta Todos -->
+                    <div class="subs-analyst-card ${selectedSubsAnalystCard === 'ALL' ? 'active' : ''}" 
+                        onclick="selectSubsAnalystCard('ALL')"
+                        style="background: ${selectedSubsAnalystCard === 'ALL' ? '#fffbeb' : 'white'}; border: 1.5px solid ${selectedSubsAnalystCard === 'ALL' ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                                    <i class="fa-solid fa-layer-group"></i>
+                                </span>
+                                <div>
+                                    <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #1e293b;">Todos los analistas</h5>
+                                    <span style="font-size: 0.75rem; color: #64748b;">Nómina completa</span>
+                                </div>
+                            </div>
+                            <span style="font-size: 1.35rem; font-weight: 800; color: #b45309; font-family: 'Outfit';">
+                                ${totalSubs}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px;">
+                            <span style="color: #b45309;"><i class="fa-solid fa-hourglass-start" style="font-size: 8px; vertical-align: middle;"></i> Prom. Actual: ${Math.ceil(Number(promActual))}d</span>
+                            <span style="color: #1d4ed8;"><i class="fa-solid fa-calendar-days" style="font-size: 8px; vertical-align: middle;"></i> Prom. Total: ${Math.ceil(Number(promTotal))}d</span>
+                        </div>
+                    </div>
+                `;
+
+                analystsList.forEach(a => {
+                    const isSelected = selectedSubsAnalystCard.toUpperCase() === a.analista.toUpperCase();
+                    const aEsc = a.analista.replace(/'/g, "\\'");
+                    const promActA = a.total > 0 ? Math.ceil(a.dias_actual_sum / a.total) : 0;
+
+                    cardsHtml += `
+                        <div class="subs-analyst-card ${isSelected ? 'active' : ''}" 
+                            onclick="selectSubsAnalystCard('${aEsc}')"
+                            style="background: ${isSelected ? '#fffbeb' : 'white'}; border: 1.5px solid ${isSelected ? '#f59e0b' : '#e2e8f0'}; border-radius: 12px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 6px;">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                                    <span style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                                        <i class="fa-solid fa-user-pen"></i>
+                                    </span>
+                                    <div style="overflow: hidden;">
+                                        <h5 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.9rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${a.nombre}">
+                                            ${a.nombre}
+                                        </h5>
+                                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; font-family: 'Outfit';">${a.analista}</span>
+                                    </div>
+                                </div>
+                                <span style="font-size: 1.25rem; font-weight: 800; color: ${isSelected ? '#b45309' : '#0f172a'}; font-family: 'Outfit'; flex-shrink: 0;">
+                                    ${a.total}
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 700; border-top: 1px solid #f1f5f9; padding-top: 8px; color: #64748b;">
+                                <span style="color: #b45309;">Prom. en curso: ${promActA}d</span>
+                                <span style="color: #d97706; background: #fffbeb; padding: 1px 6px; border-radius: 6px;">${a.total} exp</span>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cardsGrid.innerHTML = cardsHtml;
+            }
+        }
+
+        // Llenar select de filtro de analistas
+        const selectAnalista = document.getElementById('subs-filter-analyst');
+        if (selectAnalista) {
+            let optHtml = `<option value="ALL">Todos los analistas (${totalSubs})</option>`;
+            analystsList.forEach(a => {
+                const isSel = selectedSubsAnalystCard.toUpperCase() === a.analista.toUpperCase();
+                optHtml += `<option value="${a.analista}" ${isSel ? 'selected' : ''}>${a.nombre} (${a.total})</option>`;
+            });
+            selectAnalista.innerHTML = optHtml;
+        }
+
+        filterSubsanacionesTable();
+    } catch (err) {
+        console.error("Error en renderSubsanacionesTab:", err);
+    }
+}
+
+function selectSubsAnalystCard(analista) {
+    selectedSubsAnalystCard = analista;
+    const select = document.getElementById('subs-filter-analyst');
+    if (select) select.value = analista;
+
+    document.querySelectorAll('.subs-analyst-card').forEach(c => {
+        c.classList.remove('active');
+        c.style.background = 'white';
+        c.style.border = '1.5px solid #e2e8f0';
+    });
+
+    filterSubsanacionesTable();
+}
+
+function filterSubsanacionesTable() {
+    const tbody = document.getElementById('subsanaciones-expedientes-tbody');
+    const label = document.getElementById('subs-table-count-label');
+    if (!tbody) return;
+
+    const expedientes = currentTrataSubsanacionesData.expedientes || [];
+    const selectAnalista = document.getElementById('subs-filter-analyst')?.value || 'ALL';
+    const searchVal = (document.getElementById('subs-search-input')?.value || '').trim().toLowerCase();
+
+    if (selectAnalista !== selectedSubsAnalystCard) {
+        selectedSubsAnalystCard = selectAnalista;
+    }
+
+    const filtered = expedientes.filter(e => {
+        // Filtro Analista
+        if (selectedSubsAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedSubsAnalystCard.toUpperCase()) return false;
+        }
+
+        // Filtro Buscador
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const a = (e.analista || '').toLowerCase();
+            const aName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !a.includes(searchVal) && !aName.includes(searchVal) && !desc.includes(searchVal)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (label) {
+        label.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${expedientes.length.toLocaleString('es-AR')} expedientes en subsanación`;
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 3rem 1.5rem; color: #64748b;">
+                    <i class="fa-solid fa-filter-circle-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 8px; display: block;"></i>
+                    No se encontraron expedientes en subsanación con los filtros aplicados.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    // Ordenar por días de la subsanación en curso descendente
+    filtered.sort((a, b) => {
+        const dA = Math.ceil(Number(a.dias_subsanacion_actual || 0));
+        const dB = Math.ceil(Number(b.dias_subsanacion_actual || 0));
+        return dB - dA;
+    });
+
+    let html = '';
+    filtered.forEach(e => {
+        const fApertura = e.fecha_apertura_subsanacion ? e.fecha_apertura_subsanacion.substring(0, 10) : '-';
+        const diasActual = Math.ceil(Number(e.dias_subsanacion_actual || 0));
+        const cantSubs = Math.ceil(Number(e.cant_subsanaciones || 1));
+        const diasTotalSubs = Math.ceil(Number(e.dias_subsanacion_total || diasActual));
+        const diasGerencia = Math.ceil(Number(e.dias_en_gerencia || 0));
+        const diasInterv = Math.ceil(Number(e.dias_intervenciones || 0));
+
+        const aDisplayName = e.analista_nombre || e.analista || 'SIN ESPECIFICAR';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#fffdf5'" onmouseout="this.style.background='white'">
+                <td style="padding: 11px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <span title="${e.descripcion || e.descripcion_trata || ''}">${e.expediente || '-'}</span>
+                </td>
+                <td style="padding: 11px 14px; color: #334155;">
+                    <div style="font-weight: 600; font-size: 0.88rem;">${aDisplayName}</div>
+                    <div style="font-size: 0.74rem; color: #64748b; font-family: 'Outfit';">${e.analista || '-'}</div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; color: #475569; font-weight: 500;">${fApertura}</td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="font-size: 1.05rem; font-weight: 900; color: ${diasActual > 60 ? '#dc2626' : (diasActual > 30 ? '#d97706' : '#b45309')}; font-family: 'Outfit';">
+                        ${diasActual} d
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center;">
+                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 800; background: #fffbeb; color: #b45309; border: 1px solid #fde68a;">
+                        ${cantSubs}
+                    </span>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #1e293b;">
+                    ${diasTotalSubs} d
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 700; color: #0284c7;">
+                    ${diasGerencia} d
+                </td>
+                <td style="padding: 11px 14px; text-align: center; font-weight: 600; color: ${diasInterv > 0 ? '#475569' : '#94a3b8'};">
+                    ${diasInterv} d
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function exportSubsanacionesTabToExcel() {
+    const expedientes = currentTrataSubsanacionesData.expedientes || [];
+    if (expedientes.length === 0) {
+        alert("No hay expedientes en subsanación para exportar.");
+        return;
+    }
+
+    const selectAnalista = document.getElementById('subs-filter-analyst')?.value || 'ALL';
+    const searchVal = (document.getElementById('subs-search-input')?.value || '').trim().toLowerCase();
+
+    const filtered = expedientes.filter(e => {
+        if (selectedSubsAnalystCard !== 'ALL') {
+            if ((e.analista || '').toUpperCase() !== selectedSubsAnalystCard.toUpperCase()) return false;
+        }
+
+        if (searchVal) {
+            const expNum = (e.expediente || '').toLowerCase();
+            const a = (e.analista || '').toLowerCase();
+            const aName = (e.analista_nombre || '').toLowerCase();
+            const desc = (e.descripcion || '').toLowerCase();
+            if (!expNum.includes(searchVal) && !a.includes(searchVal) && !aName.includes(searchVal) && !desc.includes(searchVal)) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        alert("No hay expedientes que coincidan con los filtros para exportar.");
+        return;
+    }
+
+    const headers = ["Expediente", "Analista Solicitante", "Nombre Analista", "Fecha Apertura Subsanacion", "Dias Subsanacion en Curso", "Cantidad Subsanaciones", "Dias Totales Subsanaciones", "Tiempo en Gerencia (Dias)", "Tiempo Intervenciones (Dias)", "Trata Codigo", "Descripcion Trata"];
+    const rows = filtered.map(e => [
+        `"${e.expediente || ''}"`,
+        `"${e.analista || ''}"`,
+        `"${e.analista_nombre || ''}"`,
+        `"${e.fecha_apertura_subsanacion || ''}"`,
+        Math.ceil(Number(e.dias_subsanacion_actual || 0)),
+        Math.ceil(Number(e.cant_subsanaciones || 1)),
+        Math.ceil(Number(e.dias_subsanacion_total || 0)),
+        Math.ceil(Number(e.dias_en_gerencia || 0)),
+        Math.ceil(Number(e.dias_intervenciones || 0)),
+        `"${e.trata || currentTrataSubsanacionesData.trataCode || ''}"`,
+        `"${(e.descripcion_trata || currentTrataSubsanacionesData.trataName || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Subsanaciones_${currentTrataSubsanacionesData.trataCode || 'Trata'}_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Exponer funciones de Subsanaciones en window
+window.loadSubsanacionesDetail = loadSubsanacionesDetail;
+window.renderSubsanacionesTab = renderSubsanacionesTab;
+window.selectSubsAnalystCard = selectSubsAnalystCard;
+window.filterSubsanacionesTable = filterSubsanacionesTable;
+window.exportSubsanacionesTabToExcel = exportSubsanacionesTabToExcel;
+
 function openStockAgeDownloadModal() {
     if (!currentStockData || !currentStockData.expedientes || currentStockData.expedientes.length === 0) {
         alert("No hay expedientes en el stock de esta trata para descargar.");
@@ -2029,68 +3818,174 @@ async function downloadCellDetail(gerencia, trata, metrica, periodo) {
 window.onclick = function (e) { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; }
 
 // --- FUNCIONES ADMIN ---
-// --- FUNCIONES ADMIN ---
 const PERMISSION_KEYS = {
-    dgroc: "Seguimiento DGROC",
-    dgiur: "Seguimiento DGIUR",
+    // Seguimiento DGROC
+    dgroc: "Seguimiento DGROC (Todas las gerencias)",
+    seguimiento_catastro: "Seguimiento: Catastro",
+    seguimiento_instalaciones: "Seguimiento: Instalaciones",
+    seguimiento_conforme: "Seguimiento: Conforme",
+    seguimiento_contable: "Seguimiento: Contable",
+    seguimiento_etapa_proyecto: "Seguimiento: Etapa Proyecto",
+    seguimiento_aviso_obra: "Seguimiento: Aviso de Obra",
+
+    // Seguimiento DGIUR
+    dgiur: "Seguimiento DGIUR (Todas las gerencias)",
+    seguimiento_morfologia: "Seguimiento: Morfología",
+    seguimiento_aph: "Seguimiento: APH",
+    seguimiento_usos: "Seguimiento: Usos",
+    publico_privado: "Seguimiento: Público Privado",
+    copua: "Seguimiento: COPUA",
+    privada: "Seguimiento: Privada",
     family: "Familia de Trámites",
-    seguimiento: "Reporte Metas",
-    cierre: "Cierre de Mes",
-    sla: "Tiempos de tramitación (SLA)",
-    subsanaciones: "Subsanaciones",
-    pendientes_asociacion: "Pendientes Asociación",
-    productividad_analistas: "Productividad Analistas",
+
+    // Buzones DGROC
+    buzon_dgroc: "Buzones DGROC (Todas las gerencias)",
+    buzon_catastro: "Buzón: Catastro",
+    buzon_instalaciones: "Buzón: Instalaciones",
+    buzon_conforme: "Buzón: Conforme",
+    buzon_contable: "Buzón: Contable",
+    buzon_etapa_proyecto: "Buzón: Etapa Proyecto",
+    buzon_aviso_obra: "Buzón: Aviso de Obra",
+
+    // Buzones DGIUR
+    buzon_dgiur: "Buzones DGIUR (Todas las gerencias)",
+    buzon_morfologia: "Buzón: Morfología",
+    buzon_aph: "Buzón: APH",
+    buzon_usos: "Buzón: Usos",
+    buzon_publico_privado: "Buzón: Público Privado",
+    buzon_copua: "Buzón: COPUA",
+    buzon_privada: "Buzón: Privada",
+
+    // Reportes
+    seguimiento: "Reportes: Metas",
+    cierre: "Reportes: Cierre de Mes",
+    sla: "Reportes: Tiempos de tramitación (SLA)",
+    subsanaciones: "Reportes: Subsanaciones",
+    productividad_analistas: "Reportes: Productividad Analistas",
+    reportes_rrhh: "Reportes: Reporte RRHH (Visualizar)",
+    carga_reportes_rrhh: "Reportes: Reporte RRHH (Cargar Excel)",
+    universo_tratas: "Reportes: Universo Tratas y Buzones",
+    planificacion_nov_2026: "Reportes: Planificación Noviembre 2026",
+
+    // Analytics
+    analytics_estadistica: "Analytics: Estadística",
+    ley_blanqueo: "Analytics: Ley de Blanqueo",
+    analytics_m2_permisados: "Analytics: M2 Permisados",
+    analytics_avisos_obra: "Analytics: Avisos de Obra",
+    analytics_pdl_blanqueo: "Analytics: PDL Blanqueo",
+    analytics_datasets: "Analytics: Datasets",
+
+    // Ciudad 3D
+    ciudad_3d: "Ciudad 3D (Acceso General)",
+    c3d_home: "Ciudad 3D: Home (Métricas y Estadísticas)",
+    c3d_extensiones_todas: "Ciudad 3D: Listado de Manzanas",
+    c3d_extensiones_mis_trazados: "Ciudad 3D: Mis Trazados",
+    c3d_extensiones_revision: "Ciudad 3D: Bandeja de Revisión",
+    c3d_extensiones_equipo: "Ciudad 3D: Avance por Analista",
+    c3d_extensiones_mapa: "Ciudad 3D: Mapa Geoespacial",
+    ciudad3d_manzanas_atipicas: "Ciudad 3D: Manzanas Atípicas",
+    lfi_dibujar: "Ciudad 3D: Dibujar Trazados (LFI)",
+    lfi_revisar: "Ciudad 3D: Revisar Trazados (LFI)",
+
+    // Contable
+    contable_calculadora: "Contable: Calculadora (Todas las opciones)",
+    contable_plusvalia: "Contable: Calculadora Plusvalía Urbana",
+    contable_derechos: "Contable: Calculadora Derechos DGROC",
+    contable_seguimiento: "Contable: Seguimiento de Trámites",
+
+    // Mis Expedientes
     buscador: "Buscador de Expedientes",
     favoritos: "Marcadores",
     'favoritos-seguimiento': "Gestión de Marcadores",
     'asignados-mi': "Asignados a Mí",
-    analytics_estadistica: "Analytics (Estadística)",
-    ley_blanqueo: "Analytics (Ley de Blanqueo)",
-    analytics_datasets: "Analytics (Datasets)",
-    buzones_analisis: "Buzones para Análisis",
-    secgdu: "Buzones SECGDU (Total Universo)",
-    publico_privado: "Seguimiento Público Privado",
-    copua: "Seguimiento COPUA",
-    ciudad_3d: "Ciudad 3D",
-    reportes_rrhh: "Reporte RRHH (Visualizar)",
-    carga_reportes_rrhh: "Reporte RRHH (Cargar Excel)",
-    admin: "Backlog (Administración)"
+
+    // Administración
+    admin: "Backlog (Administración del Sistema)"
 };
 
 const PERMISSION_GROUPS = {
-    "Monitoreo & Reportes": {
-        dgroc: { label: "Seguimiento DGROC", desc: "Ver indicadores clave y pases de la gerencia DGROC." },
-        dgiur: { label: "Seguimiento DGIUR", desc: "Ver indicadores clave y pases de la gerencia DGIUR." },
-        publico_privado: { label: "Seguimiento Público Privado", desc: "Acceder al panel de seguimiento de trámites Público Privado (DGPROPPU)." },
-        copua: { label: "Seguimiento COPUA", desc: "Acceder al panel de seguimiento de trámites de la COPUA." },
-        seguimiento: { label: "Reporte Metas", desc: "Acceder al informe consolidado de cumplimiento de metas." },
+    "Seguimiento DGROC": {
+        dgroc: { label: "DGROC (Completa)", desc: "Acceso total a todas las gerencias de DGROC." },
+        seguimiento_catastro: { label: "Catastro", desc: "Monitoreo y control de mensuras de Catastro." },
+        seguimiento_instalaciones: { label: "Instalaciones", desc: "Monitoreo y registro de planos de Instalaciones." },
+        seguimiento_conforme: { label: "Conforme", desc: "Monitoreo de planos conforme de obra civil." },
+        seguimiento_contable: { label: "Contable", desc: "Monitoreo de registro de profesionales y permisos." },
+        seguimiento_etapa_proyecto: { label: "Etapa Proyecto", desc: "Monitoreo de la gerencia Etapa Proyecto." },
+        seguimiento_aviso_obra: { label: "Aviso de Obra", desc: "Monitoreo de avisos de obra e inicios." }
+    },
+    "Seguimiento DGIUR": {
+        dgiur: { label: "DGIUR (Completa)", desc: "Acceso total a todas las gerencias de DGIUR." },
+        seguimiento_morfologia: { label: "Morfología", desc: "Monitoreo del área de Morfología Urbana." },
+        seguimiento_aph: { label: "APH", desc: "Monitoreo del área de Protección Histórica." },
+        seguimiento_usos: { label: "Usos", desc: "Monitoreo del área de Usos del Suelo." },
+        publico_privado: { label: "Público Privado", desc: "Monitoreo y productividad de Proyectos Público Privados." },
+        copua: { label: "COPUA", desc: "Monitoreo y productividad de la Comisión COPUA." },
+        privada: { label: "Privada", desc: "Monitoreo y productividad de la Gerencia Privada." },
+        family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites relacionados." }
+    },
+    "Buzones DGROC": {
+        buzon_dgroc: { label: "Buzones DGROC (Todos)", desc: "Acceso a todas las bandejas de buzones de DGROC." },
+        buzon_catastro: { label: "Buzón Catastro", desc: "Bandeja de stock y analistas de Catastro." },
+        buzon_instalaciones: { label: "Buzón Instalaciones", desc: "Bandeja de stock y analistas de Instalaciones." },
+        buzon_conforme: { label: "Buzón Conforme", desc: "Bandeja de stock y analistas de Conforme." },
+        buzon_contable: { label: "Buzón Contable", desc: "Bandeja de stock y analistas de Contable." },
+        buzon_etapa_proyecto: { label: "Buzón Etapa Proyecto", desc: "Bandeja de stock y analistas de Etapa Proyecto." },
+        buzon_aviso_obra: { label: "Buzón Aviso de Obra", desc: "Bandeja de stock y analistas de Aviso de Obra." }
+    },
+    "Buzones DGIUR": {
+        buzon_dgiur: { label: "Buzones DGIUR (Todos)", desc: "Acceso a todas las bandejas de buzones de DGIUR." },
+        buzon_morfologia: { label: "Buzón Morfología", desc: "Bandeja de stock y analistas de Morfología." },
+        buzon_aph: { label: "Buzón APH", desc: "Bandeja de stock y analistas de APH." },
+        buzon_usos: { label: "Buzón Usos", desc: "Bandeja de stock y analistas de Usos." },
+        buzon_publico_privado: { label: "Buzón Público Privado", desc: "Bandeja de stock y analistas de Público Privado." },
+        buzon_copua: { label: "Buzón COPUA", desc: "Bandeja de stock y analistas de COPUA." },
+        buzon_privada: { label: "Buzón Privada", desc: "Bandeja de stock y analistas de Privada." }
+    },
+    "Reportes & Gestión": {
+        seguimiento: { label: "Reporte Metas", desc: "Informe consolidado de cumplimiento de metas." },
         cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
-        pendientes_asociacion: { label: "Pendientes Asociación", desc: "Expedientes pendientes de asociar a analistas." },
-        productividad_analistas: { label: "Productividad Analistas", desc: "Ver rankings, bitácoras y metas de analistas." },
-        reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Ver estadísticas de asistencia, cobertura horaria y cumplimiento del personal." },
-        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar la base de datos de RRHH." }
+        productividad_analistas: { label: "Productividad Analistas", desc: "Rankings, bitácoras y metas de analistas." },
+        reportes_rrhh: { label: "Reporte RRHH (Visualizar)", desc: "Estadísticas de asistencia y cobertura del personal." },
+        carga_reportes_rrhh: { label: "Reporte RRHH (Cargar Excel)", desc: "Subir archivos Excel para poblar base de RRHH." },
+        universo_tratas: { label: "Universo Tratas y Buzones", desc: "Listado completo de tratas y buzones de la secretaría." },
+        planificacion_nov_2026: { label: "Planificación Noviembre 2026", desc: "Reporte de proyección y stock Noviembre 2026." }
     },
-    "Buzones & Gestión": {
+    "Analytics": {
+        analytics_estadistica: { label: "Analytics (Estadística)", desc: "Tableros estadísticos interactivos de trámites." },
+        ley_blanqueo: { label: "Ley de Blanqueo", desc: "Módulo de análisis de trámites de Ley de Blanqueo." },
+        analytics_m2_permisados: { label: "M2 Permisados", desc: "Consulta y análisis geoespacial de M2 Permisados." },
+        analytics_avisos_obra: { label: "Avisos de Obra", desc: "Estadísticas y mapas analíticos de Avisos de Obra." },
+        analytics_pdl_blanqueo: { label: "PDL Blanqueo (Análisis)", desc: "Análisis de parcelas y contravenciones CE/CUR." },
+        analytics_datasets: { label: "Datasets", desc: "Descarga de datasets crudos del tablero." }
+    },
+    "Ciudad 3D": {
+        ciudad_3d: { label: "Ciudad 3D (Completa)", desc: "Acceso total a todos los módulos y visores de Ciudad 3D." },
+        c3d_home: { label: "Home (Métricas)", desc: "Estadísticas generales de manzanas y parcelas." },
+        c3d_extensiones_todas: { label: "Listado de Manzanas", desc: "Listado general de extensiones irregulares por barrio." },
+        c3d_extensiones_mis_trazados: { label: "Mis Trazados", desc: "Manzanas asignadas al usuario para trazado y subida de archivos." },
+        c3d_extensiones_revision: { label: "Bandeja de Revisión", desc: "Trazados pendientes de visación y aprobación técnica." },
+        c3d_extensiones_equipo: { label: "Avance por Analista", desc: "Monitor de productividad y carga del equipo de trazadores." },
+        c3d_extensiones_mapa: { label: "Mapa Geoespacial", desc: "Visualizador de parcelas, troneras y líneas LFI." },
+        ciudad3d_manzanas_atipicas: { label: "Manzanas Atípicas", desc: "Módulo de gestión y consulta de manzanas atípicas." },
+        lfi_dibujar: { label: "LFI: Permiso Dibujar", desc: "Permiso para autoasignarse manzanas y subir borradores." },
+        lfi_revisar: { label: "LFI: Permiso Revisar", desc: "Permiso para visar, aprobar o rechazar trazados finalizados." }
+    },
+    "Contable (Calculadora)": {
+        contable_calculadora: { label: "Calculadora (Completa)", desc: "Acceso total a las herramientas contables." },
+        contable_plusvalia: { label: "Plusvalía Urbana", desc: "Cálculo y liquidación de Plusvalía Urbana." },
+        contable_derechos: { label: "Derechos DGROC", desc: "Calculadora de derechos de delineación y construcción." },
+        contable_seguimiento: { label: "Seguimiento", desc: "Monitor y seguimiento de trámites y pagos contables." }
+    },
+    "Mis Expedientes": {
         buscador: { label: "Buscador de Expedientes", desc: "Búsqueda universal de expedientes en el universo SADE." },
         favoritos: { label: "Marcadores", desc: "Marcar expedientes favoritos para seguimiento rápido." },
-        'favoritos-seguimiento': { label: "Gestión de Marcadores", desc: "Panel de administración y control de marcadores." },
-        'asignados-mi': { label: "Asignados a Mí", desc: "Buzón de tareas asignadas al usuario actual." },
-        buzones_analisis: { label: "Buzones para Análisis", desc: "Visualizar la bandeja de buzones configurados." },
-        secgdu: { label: "Buzones SECGDU (Total Universo)", desc: "Visualizar el universo total de expedientes de la secretaría." }
-    },
-    "Visualización & Datos": {
-        ciudad_3d: { label: "Ciudad 3D", desc: "Acceso al módulo de Línea de Frente Interno de Ciudad 3D." },
-        lfi_dibujar: { label: "LFI: Dibujar Trazados", desc: "Permiso para asignarse manzanas y subir borrador de trazado de LFI (Troneras)." },
-        lfi_revisar: { label: "LFI: Revisar Trazados", desc: "Permiso para revisar, aprobar/rechazar trazado finalizado de LFI (Visor)." },
-        analytics_estadistica: { label: "Analytics (Estadística)", desc: "Acceso a tableros estadísticos interactivos de trámites." },
-        ley_blanqueo: { label: "Analytics (Ley de Blanqueo)", desc: "Acceso a reportes del blanqueo de capitales." },
-        analytics_datasets: { label: "Analytics (Datasets)", desc: "Descarga de datasets crudos del tablero." },
-        family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites de un mismo expediente." }
+        'favoritos-seguimiento': { label: "Gestión de Marcadores", desc: "Panel de control y notas de marcadores." },
+        'asignados-mi': { label: "Asignados a Mí", desc: "Buzón de tareas asignadas al usuario actual." }
     },
     "Administración": {
-        admin: { label: "Backlog (Administración)", desc: "Acceso completo a la configuración del sistema, roles y usuarios." }
+        admin: { label: "Backlog (Administración)", desc: "Acceso completo a configuración del sistema, roles y usuarios." }
     }
 };
 
@@ -2134,73 +4029,198 @@ function toggleUserPermsOverrideUI() {
 
 async function loadUsers() {
     const container = document.getElementById('users-table-container');
+    const countEl = document.getElementById('admin-users-count');
     if (!container) return;
 
-    container.innerHTML = '<div style="padding: 2rem; text-align: center;"><span class="loader"></span><p style="margin-top: 1rem; color: #64748b;">Sincronizando registro de usuarios...</p></div>';
+    container.innerHTML = '<div style="padding: 2.5rem; text-align: center;"><span class="loader"></span><p style="margin-top: 1rem; color: #64748b;">Sincronizando registro de usuarios...</p></div>';
 
     try {
         // dynamic roles load
-        const rolesResp = await def_fetch(`${API_BASE}/admin/roles`);
-        if (rolesResp && rolesResp.ok) {
-            allAdminRoles = await rolesResp.json();
-            loadRolesDropdowns(allAdminRoles);
+        try {
+            const rolesResp = await def_fetch(`${API_BASE}/admin/roles`);
+            if (rolesResp && rolesResp.ok) {
+                allAdminRoles = await rolesResp.json();
+                loadRolesDropdowns(allAdminRoles);
 
-            // Auto initialize the new user role check boxes on load
-            const newRoleSelect = document.getElementById('new-role');
-            if (newRoleSelect && newRoleSelect.value) {
-                handleRoleSelectionChange('new', newRoleSelect.value);
+                // Auto initialize the new user role check boxes on load
+                const newRoleSelect = document.getElementById('new-role');
+                if (newRoleSelect && newRoleSelect.value) {
+                    handleRoleSelectionChange('new', newRoleSelect.value);
+                }
             }
+        } catch (rErr) {
+            console.warn("Could not load roles for dropdowns:", rErr);
         }
 
         const resp = await def_fetch(`${API_BASE}/admin/users`);
-        if (!resp || !resp.ok) return;
-
-        allAdminUsers = await resp.json();
-
-        if (allAdminUsers.length === 0) {
-            container.innerHTML = '<p style="padding: 2rem; text-align: center; color: #64748b;">No hay usuarios registrados.</p>';
+        if (!resp || !resp.ok) {
+            container.innerHTML = '<p style="padding: 2.5rem; text-align: center; color: #ef4444;">Error al consultar usuarios del sistema.</p>';
             return;
         }
 
-        let html = '<div class="users-grid">';
+        allAdminUsers = await resp.json();
 
-        allAdminUsers.forEach(u => {
-            const isMe = u.username === currentUser.username;
-            const roleLabel = (u.role || "").toUpperCase();
-            const roleClass = (u.role || "").toLowerCase() === 'administrador' ? 'role-admin' : 'role-user';
+        if (countEl) {
+            countEl.innerText = `${allAdminUsers.length} ${allAdminUsers.length === 1 ? 'Usuario' : 'Usuarios'}`;
+        }
 
-            html += `
-                <div class="user-card-premium">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div class="user-avatar ${roleClass}" style="width: 46px; height: 46px; border-radius: 12px; font-weight: 800; font-size: 1.1rem; color: white; display: flex; align-items: center; justify-content: center;">
-                            ${(u.full_name || u.username).substring(0, 1).toUpperCase()}
-                        </div>
-                        <div style="overflow: hidden;">
-                            <div style="font-weight: 700; color: var(--primary-dark); font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.full_name || 'Sin nombre'}">
-                                ${u.full_name || 'Sin nombre'}
-                                ${isMe ? '<span class="current-user-tag" style="background: var(--primary); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; margin-left: 4px;">TÚ</span>' : ''}
-                            </div>
-                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 600;">@${u.username}</div>
-                        </div>
-                    </div>
-                    
-                    <div style="font-size: 0.85rem; color: #475569; display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                        <div><strong>Sector:</strong> ${u.sector || 'S/D'}</div>
-                        <div><strong>Rol:</strong> <span class="badge-role ${roleClass}">${roleLabel}</span></div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 8px; margin-top: auto; border-top: 1px solid #f1f5f9; padding-top: 12px;">
-                        <button onclick="openEditUser('${u.username}')" class="btn-edit-user" style="flex: 1; padding: 8px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: white;">Editar</button>
-                        <button onclick="deleteUser('${u.username}')" class="btn-delete" ${isMe ? 'disabled' : ''} style="flex: 1; padding: 8px; border-radius: 6px; cursor: pointer;">Eliminar</button>
-                    </div>
-                </div>
-            `;
-        });
+        if (allAdminUsers.length === 0) {
+            container.innerHTML = '<p style="padding: 2.5rem; text-align: center; color: #64748b;">No hay usuarios registrados.</p>';
+            return;
+        }
 
-        container.innerHTML = html + '</div>';
+        renderAdminUsersGrid(allAdminUsers);
     } catch (error) {
-        container.innerHTML = '<p style="padding: 2rem; color: #ef4444;">Error al cargar usuarios. Por favor, reintenta.</p>';
+        console.error("Error in loadUsers:", error);
+        container.innerHTML = '<p style="padding: 2.5rem; text-align: center; color: #ef4444;">Error al cargar usuarios. Por favor, reintenta.</p>';
     }
+}
+
+function renderAdminUsersGrid(usersList) {
+    const container = document.getElementById('users-table-container');
+    if (!container) return;
+
+    if (!usersList || usersList.length === 0) {
+        container.innerHTML = `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 3rem; text-align: center; color: #64748b;">
+                <i class="fa-solid fa-user-xmark" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 0.75rem;"></i>
+                <p style="margin: 0; font-weight: 600; font-size: 0.95rem;">No se encontraron usuarios que coincidan con la búsqueda.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const currentUsername = (currentUser?.username || JSON.parse(localStorage.getItem('sgdu_user') || '{}')?.username || '').toLowerCase();
+
+    let rowsHtml = '';
+
+    usersList.forEach(u => {
+        const isMe = (u.username || '').toLowerCase() === currentUsername;
+        const roleLower = (u.role || "").toLowerCase();
+        const roleLabel = (u.role || "").toUpperCase();
+        const isAdmin = roleLower === 'administrador' || roleLower === 'admin';
+        const initial = (u.full_name || u.username || 'U').substring(0, 1).toUpperCase();
+        
+        // Permisos personalizados badge
+        const hasCustomPerms = u.permissions !== null && u.permissions !== undefined;
+        let permsBadge = '';
+        if (hasCustomPerms) {
+            const count = Object.values(u.permissions || {}).filter(Boolean).length;
+            permsBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 600; background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 12px; border: 1px solid #fde68a;"><i class="fa-solid fa-sliders" style="font-size: 0.65rem;"></i> ${count} personalizados</span>`;
+        } else {
+            permsBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 500; color: #64748b;"><i class="fa-solid fa-shield-halved" style="font-size: 0.65rem;"></i> Por Rol</span>`;
+        }
+
+        const roleBadge = isAdmin
+            ? `<span style="font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-crown" style="font-size: 0.7rem;"></i> ${roleLabel}</span>`
+            : `<span style="font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 6px; background: #eff6ff; color: #1d4ed8; border: 1px solid #dbeafe; display: inline-flex; align-items: center; gap: 5px;"><i class="fa-solid fa-user-check" style="font-size: 0.7rem;"></i> ${roleLabel}</span>`;
+
+        rowsHtml += `
+            <tr class="admin-user-item" 
+                data-username="${(u.username || '').toLowerCase()}"
+                data-fullname="${(u.full_name || '').toLowerCase()}"
+                data-sector="${(u.sector || '').toLowerCase()}"
+                data-role="${(u.role || '').toLowerCase()}"
+                style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;"
+                onmouseover="this.style.background='#f8fafc'" 
+                onmouseout="this.style.background='white'">
+                
+                <!-- Usuario y Nombre -->
+                <td style="padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 38px; height: 38px; border-radius: 10px; font-weight: 800; font-size: 1rem; color: white; display: flex; align-items: center; justify-content: center; background: ${isAdmin ? 'linear-gradient(135deg, #1e293b, #0f172a)' : 'linear-gradient(135deg, var(--primary), #0284c7)'}; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.06);">
+                            ${initial}
+                        </div>
+                        <div style="min-width: 0;">
+                            <div style="font-weight: 700; color: var(--primary-dark); font-size: 0.92rem; font-family: 'Outfit'; display: flex; align-items: center; gap: 6px;">
+                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${u.full_name || 'Sin nombre'}">
+                                    ${u.full_name || 'Sin nombre'}
+                                </span>
+                                ${isMe ? '<span style="background: var(--primary); color: white; font-size: 0.62rem; padding: 2px 6px; border-radius: 4px; font-weight: 800; letter-spacing: 0.5px;">TÚ</span>' : ''}
+                            </div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 600; font-family: monospace;">@${u.username}</div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Sector -->
+                <td style="padding: 12px 16px;">
+                    <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; color: #334155; font-weight: 500;">
+                        <i class="fa-solid fa-building" style="color: #94a3b8; font-size: 0.78rem;"></i>
+                        ${u.sector || '<span style="color: #94a3b8; font-style: italic;">Sin sector</span>'}
+                    </span>
+                </td>
+
+                <!-- Rol Asignado -->
+                <td style="padding: 12px 16px;">
+                    ${roleBadge}
+                </td>
+
+                <!-- Tipo de Permisos -->
+                <td style="padding: 12px 16px;">
+                    ${permsBadge}
+                </td>
+
+                <!-- Acciones -->
+                <td style="padding: 12px 16px; text-align: right;">
+                    <div style="display: inline-flex; gap: 6px; align-items: center;">
+                        <button onclick="openEditUser('${u.username}')" 
+                            title="Editar usuario y permisos"
+                            style="padding: 6px 12px; border-radius: 6px; cursor: pointer; border: 1px solid #cbd5e1; background: white; color: #334155; font-weight: 600; font-size: 0.82rem; font-family: 'Outfit'; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s;" 
+                            onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#94a3b8'" 
+                            onmouseout="this.style.background='white'; this.style.borderColor='#cbd5e1'">
+                            <i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Editar
+                        </button>
+                        
+                        <button onclick="deleteUser('${u.username}')" ${isMe ? 'disabled' : ''} 
+                            title="${isMe ? 'No puedes eliminar tu propia cuenta' : 'Eliminar usuario'}"
+                            style="padding: 6px 10px; border-radius: 6px; cursor: ${isMe ? 'not-allowed' : 'pointer'}; border: 1px solid #fecaca; background: #fef2f2; color: #ef4444; font-weight: 600; font-size: 0.82rem; font-family: 'Outfit'; display: inline-flex; align-items: center; gap: 5px; opacity: ${isMe ? '0.4' : '1'}; transition: all 0.2s;" 
+                            onmouseover="if(!${isMe}) { this.style.background='#fee2e2'; this.style.borderColor='#f87171'; }" 
+                            onmouseout="if(!${isMe}) { this.style.background='#fef2f2'; this.style.borderColor='#fecaca'; }">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    container.innerHTML = `
+        <div class="admin-card" style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); overflow: hidden;">
+            <div style="overflow-x: auto;">
+                <table class="table-premium" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                    <thead>
+                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-family: 'Outfit'; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <th style="padding: 14px 16px; font-weight: 700;">Usuario / Nombre</th>
+                            <th style="padding: 14px 16px; font-weight: 700;">Sector</th>
+                            <th style="padding: 14px 16px; font-weight: 700;">Rol</th>
+                            <th style="padding: 14px 16px; font-weight: 700;">Permisos</th>
+                            <th style="padding: 14px 16px; font-weight: 700; text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function filterAdminUsersGrid() {
+    const query = (document.getElementById('admin-users-search')?.value || '').toLowerCase().trim();
+    if (!query) {
+        renderAdminUsersGrid(allAdminUsers);
+        return;
+    }
+    const filtered = allAdminUsers.filter(u => {
+        const un = (u.username || '').toLowerCase();
+        const fn = (u.full_name || '').toLowerCase();
+        const sc = (u.sector || '').toLowerCase();
+        const rl = (u.role || '').toLowerCase();
+        return un.includes(query) || fn.includes(query) || sc.includes(query) || rl.includes(query);
+    });
+    renderAdminUsersGrid(filtered);
 }
 
 async function deleteUser(username) {
@@ -2655,6 +4675,10 @@ function enterBacklogSection(sectionName) {
         loadAdminFamilias();
     } else if (sectionName === 'analistas') {
         loadAdminAnalistas();
+    } else if (sectionName === 'universo_tratas') {
+        loadBacklogUniversoTratas();
+    } else if (sectionName === 'planificacion_nov_2026') {
+        showView('planificacion_nov_2026');
     }
 }
 
@@ -3249,7 +5273,7 @@ async function loadMetasData() {
             const duracion = data.metas.duracion_resolucion;
 
             updateVal('meta-obj-ing-prom-val', avgIng);
-            updateVal('meta-obj-duracion-val', duracion !== undefined ? `${duracion} días` : '--');
+            updateVal('meta-obj-duracion-val', (duracion !== undefined && duracion !== null && !isNaN(duracion)) ? `${Math.ceil(Number(duracion))} días` : '--');
             updateVal('meta-obj-tot-val', totalMeta);
 
             const diffTotEgr = totalMeta - avgEgr;
@@ -3745,43 +5769,35 @@ async function loadSLAReporte() {
 }
 
 function filterAndRenderSLA() {
-    const searchVal = document.getElementById('sla-search').value.toLowerCase().trim();
-    const sortVal = document.getElementById('sla-sort').value;
+    const searchVal = (document.getElementById('sla-search') ? document.getElementById('sla-search').value : '').toLowerCase().trim();
+    const sortVal = document.getElementById('sla-sort') ? document.getElementById('sla-sort').value : 'AVG_DESC';
 
     // 1. Filtrar por búsqueda
     let filtered = slaReporteData.filter(t => {
-        const name = (t["DETALLE TRATA"] || '').toLowerCase();
-        const code = (t["COD TRATA"] || '').toLowerCase();
+        const name = (t["DETALLE TRATA"] || t.descripcion_trata || '').toLowerCase();
+        const code = (t["COD TRATA"] || t.trata || '').toLowerCase();
         return code.includes(searchVal) || name.includes(searchVal);
     });
 
     // 2. Ordenar
     if (sortVal === 'AVG_DESC') {
-        filtered.sort((a, b) => {
-            const valA = a.duracion_total_mediana !== undefined ? a.duracion_total_mediana : (a.promedio_dias || 0);
-            const valB = b.duracion_total_mediana !== undefined ? b.duracion_total_mediana : (b.promedio_dias || 0);
-            return valB - valA;
-        });
+        filtered.sort((a, b) => (b.dias_totales || 0) - (a.dias_totales || 0));
     } else if (sortVal === 'AVG_ASC') {
-        filtered.sort((a, b) => {
-            const valA = a.duracion_total_mediana !== undefined ? a.duracion_total_mediana : (a.promedio_dias || 0);
-            const valB = b.duracion_total_mediana !== undefined ? b.duracion_total_mediana : (b.promedio_dias || 0);
-            return valA - valB;
-        });
+        filtered.sort((a, b) => (a.dias_totales || 0) - (b.dias_totales || 0));
     } else if (sortVal === 'RESOLVED_DESC') {
-        filtered.sort((a, b) => (b.total_resueltos || 0) - (a.total_resueltos || 0));
+        filtered.sort((a, b) => (b.total_resueltos || b.total_resueltos_ultimo_mes || 0) - (a.total_resueltos || a.total_resueltos_ultimo_mes || 0));
     } else if (sortVal === 'NAME_ASC') {
-        filtered.sort((a, b) => (a["DETALLE TRATA"] || '').localeCompare(b["DETALLE TRATA"] || ''));
+        filtered.sort((a, b) => (a["DETALLE TRATA"] || a.descripcion_trata || '').localeCompare(b["DETALLE TRATA"] || b.descripcion_trata || ''));
     }
 
-    // 3. Contar rangos de SLA basados en duracion_total_mediana
+    // 3. Contar rangos de SLA basados en dias_totales (tiempo promedio de resolución)
     let countFast = 0;
     let countNormal = 0;
     let countSlow = 0;
     let countDelayed = 0;
 
     filtered.forEach(t => {
-        const val = t.duracion_total_mediana !== undefined ? t.duracion_total_mediana : (t.promedio_dias || 0);
+        const val = t.dias_totales !== undefined ? t.dias_totales : 0;
         if (val <= 15) countFast++;
         else if (val <= 45) countNormal++;
         else if (val <= 90) countSlow++;
@@ -3801,7 +5817,7 @@ function filterAndRenderSLA() {
     // 4. Aplicar filtro por rango de SLA si está activo
     if (activeSlaRangeFilter) {
         filtered = filtered.filter(t => {
-            const val = t.duracion_total_mediana !== undefined ? t.duracion_total_mediana : (t.promedio_dias || 0);
+            const val = t.dias_totales !== undefined ? t.dias_totales : 0;
             if (activeSlaRangeFilter === 'fast') return val <= 15;
             if (activeSlaRangeFilter === 'normal') return val > 15 && val <= 45;
             if (activeSlaRangeFilter === 'slow') return val > 45 && val <= 90;
@@ -3832,79 +5848,393 @@ function filterAndRenderSLA() {
         }
     });
 
-    // 6. Renderizar las tarjetas
+    // 6. Renderizar como Tabla estructurada por bloques comparativos
     const container = document.getElementById('sla-grid-container');
+    if (!container) return;
+
     if (filtered.length === 0) {
         container.innerHTML = `
-            <div class="error-message" style="grid-column: 1 / -1; margin: 2rem auto; width: 100%;">
-                <div class="error-icon">i</div>
+            <div class="error-message" style="margin: 2rem auto; width: 100%;">
+                <div class="error-icon">ℹ️</div>
                 <h3>Sin trámites coincidentes</h3>
                 <p>Modifica los filtros de búsqueda o de área para encontrar lo que buscas.</p>
             </div>`;
         return;
     }
 
-    let html = '';
+    let tableRows = '';
     filtered.forEach(t => {
-        const totalMed = (t.duracion_total_mediana !== undefined && t.duracion_total_mediana !== null) ? t.duracion_total_mediana : 0;
-        const netaMed = (t.duracion_neta_mediana !== undefined && t.duracion_neta_mediana !== null) ? t.duracion_neta_mediana : 0;
-        const subsMed = (t.duracion_subsanaciones_mediana !== undefined && t.duracion_subsanaciones_mediana !== null) ? t.duracion_subsanaciones_mediana : 0;
+        const gCode = t.gerencia || 'catastro';
+        const tCode = t["COD TRATA"] || t.trata;
+        const tDesc = t["DETALLE TRATA"] || t.descripcion_trata || tCode;
+        const descEscaped = (tDesc || '').replace(/'/g, "\\'");
 
-        const totalMedStr = `${totalMed}d`;
-        const netaMedStr = `${netaMed}d`;
-        const subsMedStr = subsMed > 0 ? `${subsMed}d` : 'Sin subs.';
+        // 1. Métricas de Expedientes Egresados Efectivamente en el Último Mes Completo
+        const promPropioNum = Math.ceil(Number(t.dias_propio_sector || 0));
+        const promSubsNum = Math.ceil(Number(t.dias_subsanacion || 0));
+        const promIntervNum = Math.ceil(Number(t.dias_intervenciones || 0));
+        const promTotalNum = Math.ceil(Number(t.dias_totales !== undefined && t.dias_totales !== null ? t.dias_totales : (promPropioNum + promSubsNum + promIntervNum)));
+        const promPropio = String(promPropioNum);
+        const promSubs = String(promSubsNum);
+        const promInterv = String(promIntervNum);
+        const promTotal = String(promTotalNum);
+        const resueltosMes = t.total_resueltos_ultimo_mes || t.total_resueltos || 0;
 
-        let perfClass = 'perf-mid';
-        if (totalMed <= 15) {
-            perfClass = 'perf-high';
-        } else if (totalMed > 45) {
-            perfClass = 'perf-low';
+        // 2. Métricas de Expedientes Caratulados en 2026 (Año en curso)
+        const promPropioAnoNum = Math.ceil(Number(t.dias_propio_sector_este_ano || 0));
+        const promSubsAnoNum = Math.ceil(Number(t.dias_subsanacion_este_ano || 0));
+        const promIntervAnoNum = Math.ceil(Number(t.dias_intervenciones_este_ano || 0));
+        const promTotalAnoNum = Math.ceil(Number(t.dias_totales_este_ano !== undefined && t.dias_totales_este_ano !== null ? t.dias_totales_este_ano : (promPropioAnoNum + promSubsAnoNum + promIntervAnoNum)));
+        const promPropioAno = String(promPropioAnoNum);
+        const promSubsAno = String(promSubsAnoNum);
+        const promIntervAno = String(promIntervAnoNum);
+        const promTotalAno = String(promTotalAnoNum);
+        const resueltosAno = t.total_resueltos_este_ano || 0;
+
+        let gerenciaDisplay = gCode.toUpperCase();
+        if (gCode === 'etapa_proyecto') gerenciaDisplay = 'ETAPA PROYECTO';
+        if (gCode === 'aviso_obra') gerenciaDisplay = 'AVISO OBRA';
+        if (gCode === 'regularizacion') gerenciaDisplay = 'REGULARIZACIÓN';
+
+        // Badge semafórico de SLA (Último mes)
+        let slaBadgeClass = 'comp-low';
+        let slaBadgeLabel = '>90d';
+        if (promTotalNum <= 15) {
+            slaBadgeClass = 'comp-high';
+            slaBadgeLabel = '≤15d';
+        } else if (promTotalNum <= 45) {
+            slaBadgeClass = 'comp-mid-high';
+            slaBadgeLabel = '16-45d';
+        } else if (promTotalNum <= 90) {
+            slaBadgeClass = 'comp-mid-low';
+            slaBadgeLabel = '46-90d';
         }
 
-        const gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : t.gerencia.toUpperCase());
+        // Badge semafórico de SLA (Año 2026)
+        let slaBadgeClassAno = 'comp-low';
+        let slaBadgeLabelAno = '>90d';
+        if (promTotalAnoNum <= 15) {
+            slaBadgeClassAno = 'comp-high';
+            slaBadgeLabelAno = '≤15d';
+        } else if (promTotalAnoNum <= 45) {
+            slaBadgeClassAno = 'comp-mid-high';
+            slaBadgeLabelAno = '16-45d';
+        } else if (promTotalAnoNum <= 90) {
+            slaBadgeClassAno = 'comp-mid-low';
+            slaBadgeLabelAno = '46-90d';
+        }
 
-        html += `
-            <article class="trata-track-card" onclick="showTrataFromSla('${t.gerencia}', '${t["COD TRATA"]}', '${(t["DETALLE TRATA"] || t["COD TRATA"]).replace(/'/g, "\\'")}')" style="cursor: pointer; padding: 1.5rem;">
-                <div class="trata-track-header" style="margin-bottom: 1.2rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-                    <div class="trata-track-title-block" style="flex: 1;">
-                        <h3 class="trata-track-name" style="font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); line-height: 1.2;">${(t["DETALLE TRATA"] || t["COD TRATA"]).toUpperCase()}</h3>
-                        <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px;">
-                            <span class="trata-track-code" style="font-size: 0.75rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${t["COD TRATA"]}</span>
-                            <span style="font-size: 0.75rem; color: #0284c7; font-weight: 600; background: #f0f9ff; padding: 2px 6px; border-radius: 4px;">${t.total_resueltos} resueltos</span>
-                        </div>
+        tableRows += `
+            <tr class="sla-table-row" style="border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background 0.15s ease;"
+                onmouseover="this.style.background='#f8fafc'" 
+                onmouseout="this.style.background='white'"
+                onclick="openSlaTrataModal('${tCode}', '${descEscaped}', '${gCode}')">
+                
+                <!-- Identificación: Área -->
+                <td style="padding: 10px 10px; vertical-align: middle; white-space: nowrap;">
+                    <span class="badge-gerencia ${gCode}" style="font-size: 0.65rem; font-weight: 700; text-transform: uppercase; padding: 4px 7px; border-radius: 6px; white-space: nowrap;">
+                        ${gerenciaDisplay}
+                    </span>
+                </td>
+
+                <!-- Identificación: Código Trata -->
+                <td style="padding: 10px 10px; vertical-align: middle; text-align: center; white-space: nowrap;">
+                    <span style="font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.78rem; color: var(--primary-dark); background: #f0f9ff; padding: 3px 8px; border-radius: 5px; border: 1px solid #bae6fd; letter-spacing: 0.3px; display: inline-block;">
+                        ${tCode}
+                    </span>
+                </td>
+
+                <!-- Identificación: Descripción Trámite (en una sola línea) -->
+                <td style="padding: 10px 12px; vertical-align: middle; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.84rem; color: #0f172a; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid #e2e8f0;" title="${tDesc}">
+                    ${tDesc.toUpperCase()}
+                </td>
+
+                <!-- BLOQUE 1: Egresados Último Mes Completo -->
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa; border-left: 1px solid #e2e8f0;">
+                    <span style="font-size: 0.9rem; font-weight: 800; color: #0284c7; font-family: 'Outfit';">
+                        ${resueltosMes}
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #0369a1; font-family: 'Outfit';">
+                        ${promPropio}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #c2410c; font-family: 'Outfit';">
+                        ${promSubs}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #fafafa;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #6d28d9; font-family: 'Outfit';">
+                        ${promInterv}d
+                    </span>
+                </td>
+                <td style="padding: 10px 10px; text-align: center; vertical-align: middle; background: #f1f5f9; border-right: 1.5px solid #cbd5e1;">
+                    <div style="font-size: 0.98rem; font-weight: 800; color: #0f172a; font-family: 'Outfit';">
+                        ${promTotal}d
                     </div>
-                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                        <span class="badge-gerencia ${t.gerencia}">${gerenciaDisplay}</span>
-                        <button class="btn-cell-download" onclick="exportSlaCardDetail(event, '${t.gerencia}', '${t["COD TRATA"]}')" title="Descargar validación Excel" style="background: rgba(0, 118, 187, 0.05); border: none; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.2s; font-size: 0.7rem; font-weight: 700; gap: 4px;">
-                            Excel
+                    <span class="compliance-badge ${slaBadgeClass}" style="display: inline-block; font-size: 0.62rem; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 1px;">
+                        ${slaBadgeLabel}
+                    </span>
+                </td>
+
+                <!-- BLOQUE 2: Expedientes Caratulados en 2026 -->
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.9rem; font-weight: 800; color: #166534; font-family: 'Outfit';">
+                        ${resueltosAno}
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #15803d; font-family: 'Outfit';">
+                        ${promPropioAno}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #c2410c; font-family: 'Outfit';">
+                        ${promSubsAno}d
+                    </span>
+                </td>
+                <td style="padding: 10px 8px; text-align: center; vertical-align: middle; background: #f0fdf4;">
+                    <span style="font-size: 0.88rem; font-weight: 700; color: #6d28d9; font-family: 'Outfit';">
+                        ${promIntervAno}d
+                    </span>
+                </td>
+                <td style="padding: 10px 10px; text-align: center; vertical-align: middle; background: #dcfce7; border-right: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.98rem; font-weight: 800; color: #14532d; font-family: 'Outfit';">
+                        ${promTotalAno}d
+                    </div>
+                    <span class="compliance-badge ${slaBadgeClassAno}" style="display: inline-block; font-size: 0.62rem; padding: 1px 5px; border-radius: 4px; font-weight: 700; margin-top: 1px;">
+                        ${slaBadgeLabelAno}
+                    </span>
+                </td>
+
+                <!-- Acciones -->
+                <td style="padding: 10px 12px; text-align: center; vertical-align: middle; white-space: nowrap;" onclick="event.stopPropagation()">
+                    <div style="display: inline-flex; align-items: center; gap: 4px;">
+                        <button onclick="openSlaTrataModal('${tCode}', '${descEscaped}', '${gCode}')"
+                            title="Ver evolución histórica mensual"
+                            style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 8px; border-radius: 6px; font-family: 'Outfit'; font-size: 0.72rem; font-weight: 700; color: #334155; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;"
+                            onmouseover="this.style.background='#e2e8f0'; this.style.color='#0f172a'"
+                            onmouseout="this.style.background='#f1f5f9'; this.style.color='#334155'">
+                            <i class="fa-solid fa-chart-line" style="color: var(--primary);"></i>
+                        </button>
+                        <button class="btn-cell-download" onclick="exportSlaCardDetail(event, '${gCode}', '${tCode}')"
+                            title="Descargar validación Excel"
+                            style="background: rgba(0, 118, 187, 0.08); border: 1px solid rgba(0, 118, 187, 0.2); padding: 5px 8px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--primary); cursor: pointer; transition: all 0.2s; font-size: 0.72rem; font-weight: 700; gap: 4px;"
+                            onmouseover="this.style.background='var(--primary)'; this.style.color='white'"
+                            onmouseout="this.style.background='rgba(0, 118, 187, 0.08)'; this.style.color='var(--primary)'">
+                            <i class="fa-solid fa-file-excel"></i>
                         </button>
                     </div>
-                </div>
-                
-                <div class="trata-track-metrics" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; border-top: 1px solid #f1f5f9; padding-top: 1rem;">
-                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">Duración Trámite</span>
-                        <span class="metric-mini-value" style="font-size: 1.25rem; font-weight: 800; color: #334155;">${totalMedStr}</span>
-                    </div>
-                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">En Gerencia</span>
-                        <span class="metric-mini-value ${perfClass}" style="font-size: 1.25rem; font-weight: 800;">${netaMedStr}</span>
-                    </div>
-                    <div class="metric-mini-box" style="display: flex; flex-direction: column; gap: 4px;">
-                        <span class="metric-mini-label" style="font-size: 0.65rem; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;">En Subsanación</span>
-                        <span class="metric-mini-value" style="font-size: 1.25rem; font-weight: 800; color: #475569;">${subsMedStr}</span>
-                    </div>
-                </div>
-            </article>
+                </td>
+            </tr>
         `;
     });
 
-    container.innerHTML = html;
-    gsap.from("#sla-grid-container .trata-track-card", { opacity: 0, scale: 0.95, duration: 0.4, stagger: 0.03, ease: "power2.out" });
+    const tableHTML = `
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Outfit', sans-serif; text-align: left; font-size: 0.85rem;">
+            <thead>
+                <!-- Nivel 1: Grupos Principales -->
+                <tr style="background: #f8fafc; border-bottom: 1px solid #cbd5e1; color: #334155; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <th colspan="3" style="padding: 10px 12px; font-weight: 800; border-right: 1px solid #e2e8f0;">Identificación del Trámite</th>
+                    <th colspan="5" style="padding: 10px 12px; font-weight: 800; text-align: center; background: #f1f5f9; color: var(--primary-dark); border-right: 1.5px solid #cbd5e1;">
+                        <i class="fa-solid fa-calendar-check" style="margin-right: 4px; color: var(--primary);"></i> Egresados Efectivamente (Último Mes Completo)
+                    </th>
+                    <th colspan="5" style="padding: 10px 12px; font-weight: 800; text-align: center; background: #dcfce7; color: #166534; border-right: 1px solid #e2e8f0;">
+                        <i class="fa-solid fa-hourglass-half" style="margin-right: 4px; color: #16a34a;"></i> Caratulados en 2026 (Año en Curso)
+                    </th>
+                    <th rowspan="2" style="padding: 10px 12px; font-weight: 800; text-align: center; vertical-align: middle; width: 90px;">Acciones</th>
+                </tr>
+                <!-- Nivel 2: Columnas de Métricas Individuales -->
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1; color: #475569; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.3px;">
+                    <th style="padding: 8px 10px; font-weight: 700; width: 95px;">Área</th>
+                    <th style="padding: 8px 10px; font-weight: 700; width: 105px; text-align: center;">Código</th>
+                    <th style="padding: 8px 12px; font-weight: 700; border-right: 1px solid #e2e8f0; min-width: 200px;">Descripción</th>
+                    
+                    <!-- Sub-columnas Último Mes -->
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; border-left: 1px solid #e2e8f0;">Resueltos</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; color: #0284c7;">T. Gerencia</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; color: #ea580c;">T. Subsanación</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #fafafa; color: #8b5cf6;">T. Intervención</th>
+                    <th style="padding: 8px 10px; font-weight: 800; text-align: center; background: #e2e8f0; color: #0f172a; border-right: 1.5px solid #cbd5e1;">Tiempo Total</th>
+
+                    <!-- Sub-columnas Caratulados 2026 -->
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4;">Resueltos</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4; color: #15803d;">T. Gerencia</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4; color: #ea580c;">T. Subsanación</th>
+                    <th style="padding: 8px 8px; font-weight: 700; text-align: center; background: #f0fdf4; color: #8b5cf6;">T. Intervención</th>
+                    <th style="padding: 8px 10px; font-weight: 800; text-align: center; background: #bbf7d0; color: #14532d; border-right: 1px solid #e2e8f0;">Tiempo Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = tableHTML;
+}
+
+let _slaTrataChartInstance = null;
+
+async function openSlaTrataModal(trata, descripcionTrata, gerencia) {
+    const modal = document.getElementById('sla-trata-modal');
+    const modalTitle = document.getElementById('sla-modal-title');
+    const modalSub = document.getElementById('sla-modal-subtitle');
+    const seriesTbody = document.getElementById('sla-modal-series-tbody');
+
+    if (!modal) {
+        // Si no está en sla.html (e.g. index global), abrir en pestaña detalle
+        window.open(`#/${gerencia}/${trata}`, '_blank');
+        return;
+    }
+
+    modal.style.display = 'flex';
+    if (modalTitle) modalTitle.innerText = `${trata} - ${descripcionTrata}`;
+    if (modalSub) modalSub.innerText = `Evolución mensual de tiempos de tramitación (Gerencia: ${gerencia.toUpperCase()})`;
+    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico mensual...</p></td></tr>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/tiempos-tramitacion/trata/${trata}?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        const series = data.series || [];
+
+        renderSlaTrataChart(series);
+
+        if (seriesTbody) {
+            if (series.length === 0) {
+                seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 1.5rem; text-align: center; color: #94a3b8;">No se registran egresos efectivos en meses cerrados para este trámite.</td></tr>`;
+                return;
+            }
+            seriesTbody.innerHTML = series.map(s => {
+                const numVal = (v) => Math.ceil(typeof v === 'number' ? v : parseFloat(v || 0));
+                const p = numVal(s.dias_propio_sector);
+                const sub = numVal(s.dias_subsanacion);
+                const intv = numVal(s.dias_intervenciones);
+                const total = p + sub + intv;
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${p} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${sub} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #8b5cf6; font-weight: 700;">${intv} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0f172a; font-weight: 800; background: #f8fafc;">${total} d</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (e) {
+        console.error("Error cargando detalle mensual SLA de trata:", e);
+        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar histórico: ${e.message}</td></tr>`;
+    }
+}
+
+function closeSlaTrataModal() {
+    const modal = document.getElementById('sla-trata-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderSlaTrataChart(series) {
+    const canvas = document.getElementById('slaTrataChart');
+    if (!canvas) return;
+
+    if (_slaTrataChartInstance) {
+        _slaTrataChartInstance.destroy();
+        _slaTrataChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = series.map(s => s.mes_label);
+    const numVal = (v) => Math.ceil(typeof v === 'number' ? v : parseFloat(v || 0));
+    const propioData = series.map(s => numVal(s.dias_propio_sector));
+    const subsData = series.map(s => numVal(s.dias_subsanacion));
+    const intervData = series.map(s => numVal(s.dias_intervenciones));
+    const totalData = series.map(s => (numVal(s.dias_propio_sector) + numVal(s.dias_subsanacion) + numVal(s.dias_intervenciones)));
+
+    _slaTrataChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    type: 'line',
+                    label: 'Tiempo Resolución (Promedio Total)',
+                    data: totalData,
+                    borderColor: '#0f172a',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#0f172a',
+                    pointRadius: 4,
+                    tension: 0.1,
+                    order: 1
+                },
+                {
+                    type: 'bar',
+                    label: 'Propio Sector (días promedio)',
+                    data: propioData,
+                    backgroundColor: '#0284c7',
+                    stack: 'stack0',
+                    order: 2
+                },
+                {
+                    type: 'bar',
+                    label: 'Subsanaciones (días promedio)',
+                    data: subsData,
+                    backgroundColor: '#ea580c',
+                    stack: 'stack0',
+                    order: 2
+                },
+                {
+                    type: 'bar',
+                    label: 'Intervenciones (días promedio)',
+                    data: intervData,
+                    backgroundColor: '#8b5cf6',
+                    stack: 'stack0',
+                    order: 2
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw} días`;
+                        }
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        font: { family: 'Outfit', size: 11, weight: '600' }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false }
+                },
+                y: {
+                    stacked: true,
+                    title: { display: true, text: 'Días Corridos Promedio' },
+                    beginAtZero: true
+                }
+            }
+        }
+    });
 }
 
 function showTrataFromSla(gerencia, trataCode, trataName) {
-    window.open(`#/${gerencia}/${trataCode}`, '_blank');
+    openSlaTrataModal(trataCode, trataName, gerencia);
 }
 
 function toggleSlaRangeFilter(range) {
@@ -3932,24 +6262,28 @@ async function exportSlaCardDetail(event, gerencia, trataCode) {
         }
         const data = await response.json();
         if (!data || data.length === 0) {
-            alert("No hay expedientes resueltos registrados en el último año para este trámite.");
+            alert("No hay expedientes resueltos registrados en el último mes analizado para este trámite.");
             return;
         }
 
-        // Formatear datos para exportación clara
+        const mesLabel = data[0].mes_analizado || 'Ultimo_Mes';
+
+        // Formatear datos para exportación detallada con todos los tiempos analizados como enteros redondeados hacia arriba
         const cleanData = data.map(r => ({
-            'Gerencia': r.gerencia.toUpperCase(),
+            'Gerencia': (r.gerencia || gerencia).toUpperCase(),
             'Expediente': r.expediente,
-            'Trámite (Trata)': r.trata,
+            'Código Trata': r.trata,
             'Descripción Trámite': r.descripcion_trata,
+            'Mes Analizado': r.mes_analizado || mesLabel,
             'Fecha Carátula': r.fecha_caratula,
             'Fecha Egreso': r.fecha_egreso,
-            'Días Brutos': r.dias_brutos,
-            'Días Subsanación (Descontados)': r.dias_subsanacion,
-            'Días Netos (SLA)': r.dias_netos_sla
+            'Tiempo en Gerencia (días)': Math.ceil(Number(r.dias_gerencia || 0)),
+            'Tiempo en Subsanación (días)': Math.ceil(Number(r.dias_subsanacion || 0)),
+            'Tiempo en Intervención (días)': Math.ceil(Number(r.dias_intervenciones || 0)),
+            'Tiempo Total (días)': Math.ceil(Number(r.dias_totales !== undefined ? r.dias_totales : ((r.dias_gerencia || 0) + (r.dias_subsanacion || 0) + (r.dias_intervenciones || 0))))
         }));
 
-        const filename = `Val_SLA_${gerencia.toUpperCase()}_${trataCode}`;
+        const filename = `SLA_${gerencia.toUpperCase()}_${trataCode}_${mesLabel}`;
         downloadExcel(filename, cleanData);
     } catch (err) {
         console.error("Error al exportar SLA:", err);
@@ -3965,56 +6299,66 @@ async function exportSlaCardDetail(event, gerencia, trataCode) {
 let FAMILIAS_CONFIG = {};
 
 const TRATA_NAMES_LOOKUP = {
-    "MDUG0134N": "Constitución De Estado Parcelario",
-    "MDUG3001A": "P. Obra E. Proy. / Conforme / R. Obras En Contra",
-    "MDUG0146A": "Solicitud De Copia De Plano",
-    "MDUG2101A": "Registro De Proyecto De Prevención Contra Incendios",
-    "MDUG0141A": "Registro De Plano Conforme A Obra Civil",
-    "MDUG2901A": "Registro De Proyecto De Elementos Guiados De Transporte",
-    "MDUG2301A": "Registro De Proyecto De Instalación Térmica",
-    "MDUG0104A": "Regularización De Obra En Contravención Ley 6478",
-    "MDUG0131B": "Plano De Propiedad Horizontal Nuevo",
-    "MDUG2201A": "Registro De Proyecto De Instalación Ventilación Mecánica",
-    "MDUG0901A": "Inscripción Al Registro De Profesionales De DGROC",
-    "MDUG4001A": "Consulta De Usos",
-    "MDUG0115B": "Plano De Mensura Particular",
-    "MDUG0120A": "Examen De Foguista",
-    "MDUG1501J": "Permiso De Ejecución De Obra Civil",
-    "MDUG3601A": "Interpretación Urbanística",
-    "MDUG1501H": "Certificado Catastral",
-    "MDUG0135A": "Solicitud De Consideración A La Dirección De Catastro",
-    "MDUG4102A": "Solicitud De Consulta De Usos",
-    "MDUG0102B": "Trámite Aviso De Obra",
-    "MDUG3301A": "Registro De Proyecto De Salas De Máquinas",
-    "MDUG0107A": "Fijación Línea De Frente Interno",
-    "MDUG2601A": "Registro De Proyecto De Instalación Sanitaria",
-    "MDUG2401A": "Registro De Proyecto De Instalación Electromecánica",
-    "MDUG3701A": "Consulta Obligatoria Para Inmuebles En APH O Catal",
-    "MDUG1501K": "Permiso De Demolición",
-    "MDUG0131A": "Plano De Propiedad Horizontal Modificatorio",
+    "MDUG0115C": "Anulación de Propiedad Horizontal",
+    "MDUG1501L": "Certificado de cota de parcela nivel cero",
+    "MDUG0115G": "Certificado de Determinación de Cinturón Digital",
+    "MDUG1501H": "Certificado de información catastral",
+    "MDUG0134C": "Certificado de numeración domiciliaria",
+    "MDUG0134N": "Constitución de Estado Parcelario",
+    "MDUG0146A": "Copia de plano",
+    "GENE0702C": "Mensura Regularización Urbana Dominial",
+    "MDUG0115F": "Plano de mensura de objeto territorial",
+    "MDUG0115B": "Plano de Mensura Particular",
+    "MDUG0132A": "Plano de prehorizontalidad nuevo",
+    "MDUG0131A": "Plano de Propiedad Horizontal modificatorio/complementario",
+    "MDUG0131B": "Plano de propiedad horizontal nuevo",
+    "MDUG0115E": "Rectificación de Plano de Mensura",
+    "MDUG0134E": "Solicitud de Certificado de fijación de línea",
+    "MDUG0135A": "Solicitud de consideración a la Dirección General Registros de Obra y Catastro",
+    "MDUG2101A": "Registro de Plano de Prevención contra Incendios",
+    "MDUG2901A": "Registro de Plano de Elementos Guiados de Transporte",
+    "MDUG2501A": "Registro de Plano de Instalación de Inflamables",
+    "MDUG2201A": "Registro de Plano de Instalación de Ventilación Mecánica",
+    "MDUG2701A": "Registro de Plano de Instalación Eléctrica",
+    "MDUG2401A": "Registro de Plano de Instalación Electromecánica",
+    "MDUG2601A": "Registro de Plano de Instalación Sanitaria",
+    "MDUG2301A": "Registro de Plano de Instalación Térmica / Técnica",
+    "MDUG3301A": "Registro de Plano de Sala de Máquinas",
+    "MDUG0904A": "Ascenso de Categoría de Foguistas",
+    "MDUG0120A": "Solicitud Examen de Foguista",
+    "MJGG1601A": "Registro de planos de prototipo de equipos",
+    "MDUG0101D": "Ajuste De Instalacion Elementos Guiados De Transporte",
+    "MDUG0101G": "Ajuste De Instalacion Termica",
+    "MJGG1701A": "Transferencia de Titularidad de Instalación",
+    "MDUG0104A": "Regularización de Plano de Obra Civil",
+    "MDUG0141A": "Registro de plano Conforme",
+    "MDUG3001A": "Registro de Plano de Obra Civil: Registro en Etapa Proyecto",
+    "MDUG1501K": "Permiso de Demolición",
+    "MDUG0901A": "Registro de Profesionales de Obras y Catastro",
+    "MDUG1501J": "Permiso de Ejecución de Obra Civil",
+    "MDUG3402A": "Permiso Temprano de Ejecución de Obra Civil",
+    "MDUG1502A": "Inicio de Micro Obra bajo Responsabilidad Profesional",
+    "MDUG4003A": "MODEL BA / Registro Etapa Proyecto",
+    "MDUG0142A": "Modificación de obra en curso bajo responsabilidad profesional",
+    "MDUG1801A": "Informe urbanístico",
+    "MDUG0107A": "Fijación de Línea de Frente Interno",
     "MDUG3501A": "Consulta Obligatoria General",
-    "MDUG2501A": "Registro De Proyecto De Instalaciones Inflamables",
-    "MDUG2701A": "Registro De Proyecto De Instalación Eléctrica",
-    "MDUG3402A": "Permiso Temprano De Ejecución De Obra Civil",
-    "MJGG0302A": "Consulta De Uso No Conforme",
-    "MDUG0115F": "Plano De Mensura De Objeto Territorial",
-    "MDUG1502A": "Inicio De Obra Bajo Responsabilidad Profesional",
-    "MDUG0136B": "Consulta De Emplazamiento De Estructuras Soportes De Antenas",
-    "MJGG1601A": "Registro De Plano De Homologación De Equipos",
-    "MJGG0303A": "Consulta De Usos Con Intervención Del Consejo",
-    "MDUG0904A": "Ascenso De Categoría De Foguistas",
-    "MDUG0134C": "Solicitud De Certificado De Numeración Domiciliaria",
-    "MDUG0134E": "Solicitud De Certificado De Fijación De Línea",
-    "MDUG3801A": "Solicitudes Especiales Para Inmuebles En APH O Cat",
-    "MDUG0142A": "Modificación De Obra En Curso Bajo Responsabilidad Profesional",
-    "MDUG1501L": "Certificado De Cota De Parcela Nivel Cero",
-    "MDUG0115E": "Corrección Plano De Mensura",
-    "MDUG1801A": "Informe Urbanístico",
-    "MDUG0115G": "Determinación Del Límite En Altura En Zona Afectada Al Cinturón",
-    "MDUG0115C": "Anulación Plano De Mensura",
-    "MJGG1701A": "Transferencia De Titularidad De Instalación",
-    "MDUG4003A": "Registro Etapa Proyecto - Model BA",
-    "MDUG1802A": "Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor"
+    "MDUG3601A": "Interpretación Urbanística",
+    "MDUG3901A": "Solicitud De Certificado Urbanístico",
+    "MDUG1802A": "Consulta No Obligatoria De Capacidad Constructiva Adicional Proyecto Emisor",
+    "MDUG1804A": "Permiso De Ejecución De Obra Civil - Proyecto Emisor Zona Sur",
+    "MDUG1803A": "Registro Etapa Proyecto - Emisor Zona Sur",
+    "MDUG1805A": "Evaluación Vinculante De Capacidad Constructiva Adicional - Proyecto Emisor Zona Sur",
+    "MDUG1806A": "Certificado De Capacidad Constructiva Adicional",
+    "MDUG3701A": "Consulta Obligatoria para Inmuebles en APH o Catalogados",
+    "MDUG3801A": "Solicitudes Especiales para Inmuebles en APH o Catalogados",
+    "MDUG0136B": "Consulta de emplazamiento de estructuras soportes de antenas",
+    "MDUG4102A": "Consulta de usos - visado de anuncio publicitario / publico-privado",
+    "MDUG4001A": "Consulta de usos",
+    "MDUG4002A": "Consulta de usos B",
+    "MJGG0302A": "Consulta de Usos No conforme",
+    "MJGG0303A": "Consulta de Usos con Intervención del consejo",
+    "MDUG0102B": "Aviso de obra"
 };
 
 let familyChart = null;
@@ -4452,7 +6796,7 @@ function populateCierreMonths() {
     }
     
     const startYear = 2026;
-    const startMonth = 1; // Febrero (0-indexed es 1)
+    const startMonth = 1; // Febrero 2026 (0-indexed es 1)
     
     const mesesNombres = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     
@@ -4478,11 +6822,13 @@ function changeCierreMes(mes) {
 
 async function loadCierreMesData(mes) {
     const select = document.getElementById('cierre-mes-select');
-    if (select && select.children.length <= 4) {
+    if (select) {
         populateCierreMonths();
     }
     if (!mes) {
-        mes = select ? select.value : '2026-06';
+        mes = (select && select.value) ? select.value : '2026-08';
+    } else if (select && select.value !== mes) {
+        select.value = mes;
     }
     currentCierreMes = mes;
 
@@ -4598,9 +6944,9 @@ async function loadCierreMesData(mes) {
         const manualEgr = Math.max(0, data.totales.egresos - autoEgr);
         const manualEgrPrev = Math.max(0, data.totales.egresos_prev - autoEgrPrev);
 
-        // Renderizar Manuales
-        renderKpiAndDelta('cierre-val-ingresos', 'cierre-delta-ingresos', manualIng, manualIngPrev);
-        renderKpiAndDelta('cierre-val-egresos', 'cierre-delta-egresos', manualEgr, manualEgrPrev);
+        // Renderizar KPI principal: TOTAL (manual + automatizados)
+        renderKpiAndDelta('cierre-val-ingresos', 'cierre-delta-ingresos', data.totales.ingresos, data.totales.ingresos_prev);
+        renderKpiAndDelta('cierre-val-egresos', 'cierre-delta-egresos', data.totales.egresos, data.totales.egresos_prev);
 
         // Renderizar Automatizados
         function renderAutoKpiAndDelta(valId, deltaId, val, valPrev) {
@@ -4640,6 +6986,11 @@ async function loadCierreMesData(mes) {
         // Renderizar Stock y Subsanaciones
         renderKpiAndDelta('cierre-val-stock', 'cierre-delta-stock', data.totales.stock, data.totales.stock_prev, true);
         renderKpiAndDelta('cierre-val-subsanaciones', 'cierre-delta-subsanaciones', data.totales.subsanaciones, data.totales.subsanaciones_prev, true);
+
+        // Stock Total = Stock al Cierre + Subsanaciones
+        const stockTotal     = (data.totales.stock || 0) + (data.totales.subsanaciones || 0);
+        const stockTotalPrev = (data.totales.stock_prev || 0) + (data.totales.subsanaciones_prev || 0);
+        renderKpiAndDelta('cierre-val-stock-total', 'cierre-delta-stock-total', stockTotal, stockTotalPrev, true);
 
         // Helper para resolver la clase CSS del semáforo por nivel de cumplimiento
         function getSemaforoClass(pctVal) {
@@ -5888,9 +8239,13 @@ function updateFavoriteStars(expediente) {
     stars.forEach(star => {
         if (isFav) {
             star.classList.add('active');
+            star.style.color = '#eab308';
+            star.title = 'Quitar de favoritos';
             star.innerHTML = '<i class="fa-solid fa-bookmark"></i>';
         } else {
             star.classList.remove('active');
+            star.style.color = '#cbd5e1';
+            star.title = 'Marcar como favorito';
             star.innerHTML = '<i class="fa-regular fa-bookmark"></i>';
         }
     });
@@ -7928,6 +10283,8 @@ let currentBuzonesArea = '';
 let currentBuzonesGerencia = '';
 let currentBuzonesData = [];
 let currentActiveBuzonAnalyst = null;
+let _buzonesSortField = null;
+let _buzonesSortAsc = true;
 
 const BUZONES_GERENCIAS = {
     dgroc: [
@@ -7941,94 +10298,141 @@ const BUZONES_GERENCIAS = {
     dgiur: [
         { id: 'morfologia', label: 'Morfología' },
         { id: 'aph', label: 'APH' },
-        { id: 'usos', label: 'Usos' }
-    ],
-    publico_privado: [
-        { id: 'publico_privado', label: 'Público Privado' }
-    ],
-    copua: [
-        { id: 'copua', label: 'COPUA' }
-    ],
-    analisis: [
-        { id: 'analisis_archivo', label: 'Buzones de Archivo' }
-    ],
-    secgdu: [
-        { id: 'secgdu_todos', label: 'Todos los Buzones' }
+        { id: 'usos', label: 'Usos' },
+        { id: 'publico_privado', label: 'Público Privado' },
+        { id: 'copua', label: 'COPUA' },
+        { id: 'privada', label: 'Privada' }
     ]
 };
 
-async function showBuzonesView(area, updateHash = true) {
-    currentBuzonesArea = area.toLowerCase();
+async function showBuzonesView(area, gerencia = null, updateHash = true) {
+    let targetArea = (area || 'dgroc').toLowerCase();
+    let targetGerencia = gerencia ? gerencia.toLowerCase() : null;
+
+    // Si entran por URL antigua a sub-áreas directas de DGIUR, ubicarlos en DGIUR
+    if (['publico_privado', 'copua', 'privada'].includes(targetArea)) {
+        targetGerencia = targetArea;
+        targetArea = 'dgiur';
+    } else if (['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'].includes(targetArea)) {
+        targetGerencia = targetArea;
+        targetArea = 'dgroc';
+    } else if (['morfologia', 'aph', 'usos'].includes(targetArea)) {
+        targetGerencia = targetArea;
+        targetArea = 'dgiur';
+    } else if (targetArea !== 'dgroc' && targetArea !== 'dgiur') {
+        targetArea = 'dgroc';
+    }
+
+    currentBuzonesArea = targetArea;
+
+    // Si NO se especificó gerencia, mostrar el Hub de la Dirección General correspondiente
+    if (!targetGerencia) {
+        const hubViewId = targetArea === 'dgiur' ? 'buzones_dgiur_hub' : 'buzones_dgroc_hub';
+        showView(hubViewId, false);
+        if (updateHash) {
+            window.location.hash = `#/buzones/${targetArea}`;
+        }
+        return;
+    }
+
+    // Si se especificó gerencia, validar permisos específicos
+    if (currentUser && currentUser.permissions) {
+        const perms = currentUser.permissions;
+        const role = (currentUser.role || '').toLowerCase();
+        const isAdmin = role === 'administrador' || role === 'admin';
+        const buzonPermKey = `buzon_${targetGerencia}`;
+        const areaPermKey = targetArea === 'dgiur' ? 'buzon_dgiur' : 'buzon_dgroc';
+        const legacyAreaKey = targetArea; // 'dgroc' or 'dgiur'
+
+        const hasBuzonPerm = isAdmin || perms[buzonPermKey] || perms[areaPermKey] || perms[legacyAreaKey] || perms[targetGerencia] || perms.buzones_analisis || perms.secgdu;
+        if (!hasBuzonPerm) {
+            console.warn(`Acceso denegado al buzón de ${targetGerencia} (${targetArea}) para ${currentUser.username}`);
+            showView('landing');
+            return;
+        }
+    }
+
+    currentBuzonesGerencia = targetGerencia;
+
+    // Primero montar/mostrar la vista 'buzones' en el DOM para que existan los elementos
+    await showView('buzones', false);
+
     const titleEl = document.getElementById('buzones-title');
     const subtitleEl = document.getElementById('buzones-subtitle');
     const breadcrumbArea = document.getElementById('buzones-breadcrumbs-area');
-    const tabsContainer = document.getElementById('buzones-tabs');
+    const breadcrumbGerencia = document.getElementById('buzones-breadcrumbs-gerencia');
     const tableContainer = document.getElementById('buzones-analysts-table-container');
     const emptyState = document.getElementById('buzones-empty-state');
-    
-    if (!titleEl || !subtitleEl || !breadcrumbArea || !tabsContainer) return;
 
-    // Reset view
+    // Reset view containers
     if (tableContainer) tableContainer.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
     const metricsContainer = document.getElementById('buzones-metrics-container');
     if (metricsContainer) metricsContainer.style.display = 'none';
 
-    // Set title and breadcrumbs based on area
-    const areaLabels = {
-        analisis: 'Análisis',
-        publico_privado: 'Público Privado',
-        copua: 'COPUA',
-        secgdu: 'SECGDU',
-        dgroc: 'DGROC',
-        dgiur: 'DGIUR'
-    };
-    const uppercaseArea = areaLabels[area] || area.toUpperCase();
-    titleEl.innerText = `Buzones ${uppercaseArea}`;
-    breadcrumbArea.innerText = uppercaseArea;
-
-    // Render Gerencias Tabs
+    // Obtener información de la gerencia seleccionada
     const gerencias = BUZONES_GERENCIAS[currentBuzonesArea] || [];
-    let tabsHtml = '';
-    gerencias.forEach((g, idx) => {
-        const activeClass = idx === 0 ? 'active' : '';
-        tabsHtml += `
-            <button class="buzones-tab-btn ${activeClass}" data-gerencia="${g.id}" onclick="loadBuzonesData('${g.id}')">
-                ${g.label}
-            </button>
-        `;
-    });
-    tabsContainer.innerHTML = tabsHtml;
+    const gObj = gerencias.find(g => g.id === targetGerencia);
+    const gerenciaLabel = gObj ? gObj.label : targetGerencia.toUpperCase();
+    const uppercaseArea = currentBuzonesArea.toUpperCase();
 
-    // Show view
-    showView('buzones', false);
+    // Set title and breadcrumbs
+    updateBuzonesViewHeader();
 
     if (updateHash) {
-        window.location.hash = `#/buzones/${currentBuzonesArea}`;
+        window.location.hash = `#/buzones/${currentBuzonesArea}/${targetGerencia}`;
     }
 
-    // Load first gerencia by default
-    if (gerencias.length > 0) {
-        await loadBuzonesData(gerencias[0].id);
+    // Cargar datos de la gerencia seleccionada
+    await loadBuzonesData(targetGerencia);
+}
+
+function updateBuzonesViewHeader() {
+    const titleEl = document.getElementById('buzones-title');
+    const subtitleEl = document.getElementById('buzones-subtitle');
+    const breadcrumbArea = document.getElementById('buzones-breadcrumbs-area');
+    const breadcrumbGerencia = document.getElementById('buzones-breadcrumbs-gerencia');
+
+    const area = currentBuzonesArea || 'dgroc';
+    const gerencia = currentBuzonesGerencia || 'catastro';
+
+    const gerencias = BUZONES_GERENCIAS[area] || [];
+    const gObj = gerencias.find(g => g.id === gerencia);
+    const gerenciaLabel = gObj ? gObj.label : gerencia.toUpperCase();
+    const uppercaseArea = area.toUpperCase();
+
+    if (titleEl) titleEl.innerText = `Buzones ${gerenciaLabel}`;
+    if (subtitleEl) subtitleEl.innerText = `Stock actual de expedientes distribuido por analistas oficiales e intervenciones en ${gerenciaLabel} (${uppercaseArea}).`;
+    
+    if (breadcrumbArea) {
+        breadcrumbArea.innerText = uppercaseArea;
+        breadcrumbArea.onclick = () => {
+            window.location.hash = `#/buzones/${area}`;
+        };
+    }
+
+    if (breadcrumbGerencia) {
+        breadcrumbGerencia.innerText = gerenciaLabel;
     }
 }
+window.updateBuzonesViewHeader = updateBuzonesViewHeader;
 
 async function loadBuzonesData(gerencia) {
     currentBuzonesGerencia = gerencia;
+    _buzonesSortField = null;
+    _buzonesSortAsc = true;
     
     // Clear analyst search input
     const searchInput = document.getElementById('buzones-analyst-search');
     if (searchInput) searchInput.value = '';
-    
-    // Update active tab styling
-    const tabs = document.querySelectorAll('.buzones-tab-btn');
-    tabs.forEach(btn => {
-        if (btn.getAttribute('data-gerencia') === gerencia) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
+
+    // Update Gerencia breadcrumb
+    const breadcrumbGerencia = document.getElementById('buzones-breadcrumbs-gerencia');
+    if (breadcrumbGerencia) {
+        const gerencias = BUZONES_GERENCIAS[currentBuzonesArea] || [];
+        const gObj = gerencias.find(g => g.id === gerencia);
+        breadcrumbGerencia.innerText = gObj ? gObj.label : gerencia.toUpperCase();
+    }
 
     const loader = document.getElementById('buzones-loader');
     const tableContainer = document.getElementById('buzones-analysts-table-container');
@@ -8049,74 +10453,9 @@ async function loadBuzonesData(gerencia) {
             currentBuzonesEgresadoFilter = null;
             const diasFilterInput = document.getElementById('buzones-dias-filter');
             if (diasFilterInput) diasFilterInput.value = '';
-            const cardEgr = document.getElementById('buzones-card-egresados');
-            const cardNoEgr = document.getElementById('buzones-card-no-egresados');
-            const cardFuera = document.getElementById('buzones-card-fuera-tablero');
-            
-            if (cardEgr) {
-                cardEgr.style.borderColor = '#e2e8f0';
-                cardEgr.style.backgroundColor = 'white';
-                cardEgr.style.boxShadow = '';
-                const ind = cardEgr.querySelector('.filter-indicator');
-                if (ind) ind.style.display = 'none';
-            }
-            if (cardNoEgr) {
-                cardNoEgr.style.borderColor = '#e2e8f0';
-                cardNoEgr.style.backgroundColor = 'white';
-                cardNoEgr.style.boxShadow = '';
-                const ind = cardNoEgr.querySelector('.filter-indicator');
-                if (ind) ind.style.display = 'none';
-            }
-            if (cardFuera) {
-                cardFuera.style.borderColor = '#e2e8f0';
-                cardFuera.style.backgroundColor = 'white';
-                cardFuera.style.boxShadow = '';
-                const ind = cardFuera.querySelector('.filter-indicator');
-                if (ind) ind.style.display = 'none';
-            }
 
-            // Calculate metrics for loaded dataset
-            let totalExpedientes = 0;
-            let totalEgresados = 0;
-            let totalNoEgresados = 0;
-            let totalFueraTablero = 0;
-            let totalMailboxes = currentBuzonesData.length;
-
-            currentBuzonesData.forEach(an => {
-                const exps = an.expedientes || [];
-                totalExpedientes += (an.count || 0);
-                exps.forEach(exp => {
-                    if (exp.estado_tablero === 'FUERA DE TABLERO') {
-                        totalFueraTablero++;
-                    } else if (exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO')) {
-                        totalEgresados++;
-                    } else {
-                        totalNoEgresados++;
-                    }
-                });
-            });
-
-            const metricsContainer = document.getElementById('buzones-metrics-container');
-            if (metricsContainer) {
-                const totalExpsEl = document.getElementById('buzones-metric-total-expedientes');
-                if (totalExpsEl) totalExpsEl.innerText = totalExpedientes;
-                
-                const egresadosEl = document.getElementById('buzones-metric-egresados');
-                if (egresadosEl) egresadosEl.innerText = totalEgresados;
-                
-                const noEgresadosEl = document.getElementById('buzones-metric-no-egresados');
-                if (noEgresadosEl) noEgresadosEl.innerText = totalNoEgresados;
-                
-                const fueraTableroEl = document.getElementById('buzones-metric-fuera-tablero');
-                if (fueraTableroEl) fueraTableroEl.innerText = totalFueraTablero;
-                
-                const totalMailsEl = document.getElementById('buzones-metric-total-mailboxes');
-                if (totalMailsEl) totalMailsEl.innerText = totalMailboxes;
-                
-                metricsContainer.style.display = 'grid';
-            }
-
-            renderBuzonesAnalysts(currentBuzonesData, gerencia);
+            renderBuzonesKPIs(currentBuzonesData);
+            filterBuzonesAnalysts();
         } else {
             throw new Error("No se pudo obtener el stock de analistas.");
         }
@@ -8124,7 +10463,7 @@ async function loadBuzonesData(gerencia) {
         console.error("Error loading buzones data:", e);
         const tbody = document.getElementById('buzones-analysts-tbody');
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ef4444; padding: 2rem; font-weight: 600;">Error al cargar datos: ${e.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444; padding: 2rem; font-weight: 600;">Error al cargar datos: ${e.message}</td></tr>`;
         }
         if (tableContainer) tableContainer.style.display = 'block';
     } finally {
@@ -8132,11 +10471,60 @@ async function loadBuzonesData(gerencia) {
     }
 }
 
+function renderBuzonesKPIs(data) {
+    const el = document.getElementById('buzones-metrics-container');
+    if (!el) return;
+
+    let totalExpedientes = 0;
+    let totalStockPropio = 0;
+    let totalSubs = 0;
+    const totalConfigurados = data.length;
+    const activosCount = data.filter(an => (an.count || 0) > 0).length;
+
+    data.forEach(an => {
+        totalExpedientes += (an.count || 0);
+        const stockP = an.stock_propio ?? (an.count - (an.stock_subs || 0));
+        totalStockPropio += stockP;
+        totalSubs += (an.stock_subs || 0);
+    });
+
+    const kpiList = [
+        { label: 'Buzones con Stock', value: `${activosCount.toLocaleString('es-AR')} <span style="font-size: 0.85rem; font-weight: 500; color: #64748b;">/ ${totalConfigurados}</span>`, color: '#6366f1', bg: '#eef2ff', icon: 'fa-user-tie' },
+        { label: 'Stock Propio Activo', value: totalStockPropio.toLocaleString('es-AR'), color: '#2563eb', bg: '#eff6ff', icon: 'fa-inbox' },
+        { label: 'En Subsanación TAD', value: totalSubs.toLocaleString('es-AR'), color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+        { label: 'Total Expedientes', value: totalExpedientes.toLocaleString('es-AR'), color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' },
+    ];
+
+    el.innerHTML = kpiList.map(k => `
+        <div style="background: ${k.bg}; border: 1px solid ${k.color}22; border-radius: 12px; padding: 12px 18px; display: flex; align-items: center; gap: 14px; min-width: 170px; font-family: 'Outfit', sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="width: 38px; height: 38px; border-radius: 9px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; flex-shrink: 0;">
+                <i class="fa-solid ${k.icon}"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
+                <div style="font-size: 1.35rem; font-weight: 800; color: #1e293b; line-height: 1.2;">${k.value}</div>
+            </div>
+        </div>
+    `).join('');
+    
+    el.style.display = 'flex';
+}
+
+function _sortBuzonesAnalystsBy(field) {
+    if (_buzonesSortField === field) {
+        _buzonesSortAsc = !_buzonesSortAsc;
+    } else {
+        _buzonesSortField = field;
+        _buzonesSortAsc = field === 'name' || field === 'username';
+    }
+    filterBuzonesAnalysts();
+}
+
 function renderBuzonesAnalysts(analysts, gerencia) {
     const tableContainer = document.getElementById('buzones-analysts-table-container');
     const emptyState = document.getElementById('buzones-empty-state');
     const tbody = document.getElementById('buzones-analysts-tbody');
-    const metricsContainer = document.getElementById('buzones-metrics-container');
+    const tableInfo = document.getElementById('buzones-table-info');
     
     if (!tableContainer || !emptyState || !tbody) return;
     
@@ -8151,63 +10539,55 @@ function renderBuzonesAnalysts(analysts, gerencia) {
     tableContainer.style.display = 'block';
     emptyState.style.display = 'none';
 
-    // Update table headers dynamically
-    const tableHeader = document.querySelector('#buzones-analysts-table-container thead tr');
-    if (tableHeader) {
-        if (currentBuzonesArea === 'secgdu') {
-            tableHeader.innerHTML = `
-                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Buzón / Destinatario</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Egresados Efectivos</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Egresados No Ef.</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Pendientes Actividad</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 180px;">Total Stock</th>
-            `;
-        } else {
-            tableHeader.innerHTML = `
-                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569;">Analista Asignado</th>
-                <th style="padding: 16px 20px; text-align: left; font-size: 0.85rem; font-weight: 700; color: #475569; width: 220px;">Usuario SADE</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #2563eb; width: 160px;">Stock Propio</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #d97706; width: 160px;">Subs. Abierta</th>
-                <th style="padding: 16px 20px; text-align: center; font-size: 0.85rem; font-weight: 700; color: #475569; width: 160px;">Total</th>
-            `;
-        }
+    if (tableInfo) {
+        tableInfo.innerHTML = `<strong style="color: #334155;">${analysts.length.toLocaleString('es-AR')}</strong> analistas/buzones con stock activo — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de expedientes y favoritos</em>`;
     }
 
-    analysts.forEach(an => {
+    const sf = _buzonesSortField;
+    const sa = _buzonesSortAsc;
+    const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc; font-family: 'Outfit', sans-serif;`;
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; white-space: nowrap; font-family: 'Outfit', sans-serif;`;
+
+    // Update table headers dynamically
+    const theadTr = document.querySelector('#buzones-analysts-table-container thead tr');
+    if (theadTr) {
+        theadTr.innerHTML = `
+            <th style="${thStyle}" onclick="_sortBuzonesAnalystsBy('name')">Analista Asignado ${_sortIcon('name', sf, sa)}</th>
+            <th style="${thStyle}; width: 220px;" onclick="_sortBuzonesAnalystsBy('username')">Usuario SADE ${_sortIcon('username', sf, sa)}</th>
+            <th style="${thStyle}; text-align: right; width: 150px; color: #2563eb;" onclick="_sortBuzonesAnalystsBy('stock_propio')">Stock Propio ${_sortIcon('stock_propio', sf, sa)}</th>
+            <th style="${thStyle}; text-align: right; width: 150px; color: #d97706;" onclick="_sortBuzonesAnalystsBy('stock_subs')">Subs. Abierta ${_sortIcon('stock_subs', sf, sa)}</th>
+            <th style="${thStyle}; text-align: right; width: 150px;" onclick="_sortBuzonesAnalystsBy('count')">Total Stock ${_sortIcon('count', sf, sa)}</th>
+        `;
+    }
+
+    analysts.forEach((an, idx) => {
         const tr = document.createElement('tr');
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        tr.style.background = rowBg;
         tr.style.cursor = 'pointer';
-        tr.style.transition = 'background-color 0.15s ease';
-        tr.onmouseover = () => { tr.style.backgroundColor = '#f8fafc'; };
-        tr.onmouseout = () => { tr.style.backgroundColor = ''; };
+        tr.style.transition = 'all 0.15s ease';
+        tr.onmouseover = () => { tr.style.background = '#f0f9ff'; tr.style.color = 'var(--primary)'; };
+        tr.onmouseout = () => { tr.style.background = rowBg; tr.style.color = 'inherit'; };
         tr.onclick = () => showBuzonAnalystDetail(an.username);
         
-        if (currentBuzonesArea === 'secgdu') {
-            tr.innerHTML = `
-                <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
-                    <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
-                        ${(an.name || 'SIN ASIGNAR').toUpperCase()}
-                    </span>
-                </td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #10b981; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.egresados_efectivos ?? 0}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #ef4444; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.egresados_no_efectivos ?? 0}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 600; color: #f59e0b; font-family: 'Outfit'; font-size: 1rem; line-height: 1.5;">${an.pendientes_actividad ?? 0}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
-            `;
-        } else {
-            const stockPropio = an.stock_propio ?? (an.count - (an.stock_subs ?? 0));
-            const stockSubs = an.stock_subs ?? 0;
-            tr.innerHTML = `
-                <td style="padding: 18px 20px; font-weight: 700; color: #1e293b; font-family: 'Outfit'; line-height: 1.5;">
-                    <span class="analyst-name-link" style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 2px;">
-                        ${(an.name || 'SIN ASIGNAR').toUpperCase()}
-                    </span>
-                </td>
-                <td style="padding: 18px 20px; color: #64748b; font-family: 'Outfit'; line-height: 1.5;">@${an.username}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #2563eb; font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${stockPropio}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: #d97706; font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${stockSubs}</td>
-                <td style="padding: 18px 20px; text-align: center; font-weight: 800; color: var(--primary); font-family: 'Outfit'; font-size: 1.05rem; line-height: 1.5;">${an.count}</td>
-            `;
-        }
+        const numCell = (val, color = 'inherit') => `<span style="font-variant-numeric: tabular-nums; font-weight: 700; color: ${color}; font-family: 'Outfit', sans-serif;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
+
+        const stockPropio = an.stock_propio ?? (an.count - (an.stock_subs ?? 0));
+        const stockSubs = an.stock_subs ?? 0;
+        const subsBadge = stockSubs > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-family: 'Outfit', sans-serif;">${stockSubs.toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8; font-weight: 600; font-family: 'Outfit', sans-serif;">0</span>`;
+
+        tr.innerHTML = `
+            <td style="${tdStyle}; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-tie" style="color: var(--primary); opacity: 0.85; font-size: 0.95rem;"></i>
+                <span style="border-bottom: 1px dashed #cbd5e1; padding-bottom: 1px;">${(an.name || 'SIN ASIGNAR').toUpperCase()}</span>
+            </td>
+            <td style="${tdStyle}; color: #64748b; font-weight: 500;">@${an.username}</td>
+            <td style="${tdStyle}; text-align: right;">${numCell(stockPropio, '#2563eb')}</td>
+            <td style="${tdStyle}; text-align: right;">${subsBadge}</td>
+            <td style="${tdStyle}; text-align: right;">${numCell(an.count, '#0f172a')}</td>
+        `;
         tbody.appendChild(tr);
     });
 }
@@ -8225,23 +10605,22 @@ async function showBuzonAnalystDetail(username) {
     
     if (bcArea) bcArea.innerText = currentBuzonesArea.toUpperCase();
     if (bcGerencia) {
-        // Resolve gerencia label
         const gerenciasList = BUZONES_GERENCIAS[currentBuzonesArea] || [];
         const gObj = gerenciasList.find(g => g.id === currentBuzonesGerencia);
         bcGerencia.innerText = gObj ? gObj.label : currentBuzonesGerencia.toUpperCase();
     }
     if (bcName) bcName.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
  
-     // Set Presentation Block
-     const nameHeader = document.getElementById('buzon-analista-header-name');
-     const sadeHeader = document.getElementById('buzon-analista-header-sade');
-     const countBadge = document.getElementById('buzon-analista-header-count');
- 
-     if (nameHeader) nameHeader.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
-     if (sadeHeader) sadeHeader.innerText = `Usuario SADE: @${analyst.username}`;
-     if (countBadge) {
-         countBadge.innerText = `${analyst.count} ${analyst.count === 1 ? 'Expediente en Stock' : 'Expedientes en Stock'}`;
-     }
+    // Set Presentation Block
+    const nameHeader = document.getElementById('buzon-analista-header-name');
+    const sadeHeader = document.getElementById('buzon-analista-header-sade');
+    const countBadge = document.getElementById('buzon-analista-header-count');
+
+    if (nameHeader) nameHeader.innerText = (analyst.name || 'SIN ASIGNAR').toUpperCase();
+    if (sadeHeader) sadeHeader.innerText = `Usuario SADE: @${analyst.username}`;
+    if (countBadge) {
+        countBadge.innerText = `${analyst.count} ${analyst.count === 1 ? 'Expediente en Stock' : 'Expedientes en Stock'}`;
+    }
 
     // Reset filters
     const searchInput = document.getElementById('buzon-detalle-search');
@@ -8249,21 +10628,6 @@ async function showBuzonAnalystDetail(username) {
 
     // Switch View
     showView('buzon-analista-detalle');
-
-    // On-demand load for secgdu if not loaded
-    if (currentBuzonesArea === 'secgdu' && (!analyst.expedientes || analyst.expedientes.length === 0) && analyst.count > 0) {
-        const tbody = document.getElementById('buzon-analista-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 10px; color: #64748b; font-weight: 500;">Cargando expedientes...</p></td></tr>';
-        
-        try {
-            const res = await def_fetch(`${API_BASE}/reporte/secgdu/buzones/${encodeURIComponent(username)}/expedientes`);
-            if (res && res.ok) {
-                analyst.expedientes = await res.json();
-            }
-        } catch (e) {
-            console.error("Error loading mailbox details:", e);
-        }
-    }
 
     // Populate SADE state filter dropdown
     const selectEstado = document.getElementById('buzon-detalle-filter-estado');
@@ -8273,7 +10637,7 @@ async function showBuzonAnalystDetail(username) {
             const status = exp.estado_tablero || 'STOCK PROPIO';
             states.add(status);
         });
-        let selectHtml = '<option value="ALL">Todos</option>';
+        let selectHtml = '<option value="ALL">Todos los estados</option>';
         [...states].sort().forEach(st => {
             selectHtml += `<option value="${st}">${st}</option>`;
         });
@@ -8318,188 +10682,206 @@ function filterAndRenderBuzonDetalle() {
         countBadge.innerText = `${filtered.length} ${filtered.length === 1 ? 'Expediente' : 'Expedientes'} (Filtrados)`;
     }
 
+    const tableInfo = document.getElementById('buzon-detalle-table-info');
+    if (tableInfo) {
+        tableInfo.innerHTML = `Mostrando <strong style="color: #334155;">${filtered.length.toLocaleString('es-AR')}</strong> expedientes en poder de este analista/buzón.`;
+    }
+
     // Render table rows
     tbody.innerHTML = '';
-    filtered.forEach(exp => {
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2.5rem; color: #94a3b8; font-family: 'Outfit';"><i class="fa-solid fa-circle-info" style="font-size: 1.5rem; margin-bottom: 6px; display: block;"></i>No se encontraron expedientes con los filtros aplicados.</td></tr>`;
+        return;
+    }
+
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;`;
+
+    filtered.forEach((exp, idx) => {
         const tr = document.createElement('tr');
+        tr.style.background = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        tr.style.transition = 'background-color 0.15s ease';
+        tr.onmouseover = () => { tr.style.backgroundColor = '#f0f9ff'; };
+        tr.onmouseout = () => { tr.style.backgroundColor = idx % 2 === 0 ? '#ffffff' : '#fafbfc'; };
         
         const isFav = userFavorites.has(exp.expediente);
-        const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.1rem; transition: transform 0.15s ease; display: inline-block; user-select: none;">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
+        const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${exp.expediente}" onclick="event.stopPropagation(); toggleFavorite('${exp.expediente}')" style="cursor: pointer; font-size: 1.15rem; color: ${isFav ? '#eab308' : '#cbd5e1'}; transition: transform 0.15s ease; display: inline-block; user-select: none;" title="${isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
         
-        const expLink = `<a href="#" style="font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onclick="event.preventDefault(); openDetalleExpedienteModal('${exp.expediente}')"> ${exp.expediente}</a>`;
-        const copySpan = `<span onclick="copyToClipboard('${exp.expediente}', this)" style="cursor: pointer; margin-left: 6px; font-size: 0.85rem; color: #94a3b8; transition: color 0.2s; display: inline-block; vertical-align: middle;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#94a3b8'" title="Copiar Expediente"><i class="fa-regular fa-copy"></i></span>`;
+        const rawExp = (exp.expediente || '').replace(/'/g, "\\'");
+        const expLink = `<span onclick="openDetalleExpedienteModal('${rawExp}')" style="cursor: pointer; font-weight: 700; color: #1e293b; border-bottom: 1px dashed #cbd5e1; text-decoration: none;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#1e293b'">${exp.expediente}</span>`;
+        const copySpan = `<button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" title="Copiar número de expediente" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 2px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; margin-left: 6px; transition: all 0.15s;" onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'"><i class="fa-regular fa-copy"></i></button>`;
         
-        const catStyle = exp.estado_tablero === 'SUBSANACION'
-            ? 'color:#d97706; font-weight:700; background:#fffbeb; border-radius:4px; padding:2px 8px; font-size:0.82rem;'
-            : 'color:#2563eb; font-weight:700; background:#eff6ff; border-radius:4px; padding:2px 8px; font-size:0.82rem;';
-        const catLabel = exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO');
+        let catBadge = '';
+        if (exp.estado_tablero === 'SUBSANACION') {
+            catBadge = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+        } else if (exp.estado_tablero === 'FUERA DE TABLERO') {
+            catBadge = `<span style="background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">Fuera de Tablero</span>`;
+        } else {
+            catBadge = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;">Stock Propio</span>`;
+        }
         
         tr.innerHTML = `
-            <td style="padding: 16px 20px; text-align: center; vertical-align: middle;">${starSpan}</td>
-            <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5; white-space: nowrap;">${expLink}${copySpan}</td>
-            <td style="padding: 16px 20px; vertical-align: middle; line-height: 1.5;"><span style="${catStyle}">${catLabel}</span></td>
-            <td style="padding: 16px 20px; font-weight: 600; color: #475569; vertical-align: middle; line-height: 1.5;">${exp.trata}</td>
-            <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.9rem; line-height: 1.5;">${exp.descripcion_trata}</td>
-            <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias}d</td>
-            <td style="padding: 16px 20px; text-align: center; font-weight: 800; color: #6366f1; vertical-align: middle; font-size: 0.95rem; line-height: 1.5;">${exp.dias_en_gerencia}d</td>
-            <td style="padding: 16px 20px; color: #64748b; vertical-align: middle; font-size: 0.85rem; line-height: 1.5;">${exp.fecha_ultimo_pase || '-'}</td>
-            <td style="padding: 16px 20px; color: #475569; vertical-align: middle; font-size: 0.88rem; line-height: 1.5; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${exp.motivo_pase || 'Sin Motivo'}">${exp.motivo_pase || 'Sin Motivo'}</td>
+            <td style="${tdStyle}; text-align: center; vertical-align: middle;">${starSpan}</td>
+            <td style="${tdStyle}; vertical-align: middle; white-space: nowrap;">
+                <div style="display: inline-flex; align-items: center;">${expLink}${copySpan}</div>
+            </td>
+            <td style="${tdStyle}; text-align: center; vertical-align: middle;">${catBadge}</td>
+            <td style="${tdStyle}; font-weight: 700; color: var(--primary-dark); vertical-align: middle; white-space: nowrap;">${exp.trata || ''}</td>
+            <td style="${tdStyle}; color: #475569; vertical-align: middle; font-size: 0.85rem; line-height: 1.35; max-width: 280px;">${exp.descripcion_trata || '—'}</td>
+            <td style="${tdStyle}; text-align: center; font-weight: 800; color: var(--primary); vertical-align: middle; font-size: 0.95rem; white-space: nowrap;">${exp.dias || 0}d</td>
+            <td style="${tdStyle}; text-align: center; font-weight: 800; color: #6366f1; vertical-align: middle; font-size: 0.95rem; white-space: nowrap;">${exp.dias_en_gerencia || 0}d</td>
+            <td style="${tdStyle}; color: #64748b; vertical-align: middle; font-size: 0.8rem; white-space: nowrap;">${exp.fecha_ultimo_pase || '—'}</td>
+            <td style="${tdStyle}; color: #475569; vertical-align: middle; font-size: 0.85rem; line-height: 1.3; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${exp.motivo_pase || 'Sin Motivo'}">${exp.motivo_pase || 'Sin Motivo'}</td>
         `;
         tbody.appendChild(tr);
     });
 }
 
-
 function backToBuzonGerencia() {
-    showView('buzones');
+    window.location.hash = `#/buzones/${currentBuzonesArea}/${currentBuzonesGerencia}`;
 }
 
 let currentBuzonesEgresadoFilter = null;
 
-function toggleBuzonEgresadoFilter(type) {
-    const cardEgr = document.getElementById('buzones-card-egresados');
-    const cardNoEgr = document.getElementById('buzones-card-no-egresados');
-    const cardFuera = document.getElementById('buzones-card-fuera-tablero');
-    
-    if (currentBuzonesEgresadoFilter === type) {
-        currentBuzonesEgresadoFilter = null;
-    } else {
-        currentBuzonesEgresadoFilter = type;
-    }
-    
-    if (cardEgr) {
-        const ind = cardEgr.querySelector('.filter-indicator');
-        if (currentBuzonesEgresadoFilter === 'egresado') {
-            cardEgr.style.borderColor = '#10b981';
-            cardEgr.style.backgroundColor = '#f0fdf4';
-            cardEgr.style.boxShadow = '0 0 12px rgba(16, 185, 129, 0.2)';
-            if (ind) ind.style.display = 'block';
-        } else {
-            cardEgr.style.borderColor = '#e2e8f0';
-            cardEgr.style.backgroundColor = 'white';
-            cardEgr.style.boxShadow = '';
-            if (ind) ind.style.display = 'none';
-        }
-    }
-    
-    if (cardNoEgr) {
-        const ind = cardNoEgr.querySelector('.filter-indicator');
-        if (currentBuzonesEgresadoFilter === 'no_egresado') {
-            cardNoEgr.style.borderColor = '#f59e0b';
-            cardNoEgr.style.backgroundColor = '#fffbeb';
-            cardNoEgr.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.2)';
-            if (ind) ind.style.display = 'block';
-        } else {
-            cardNoEgr.style.borderColor = '#e2e8f0';
-            cardNoEgr.style.backgroundColor = 'white';
-            cardNoEgr.style.boxShadow = '';
-            if (ind) ind.style.display = 'none';
-        }
-    }
-
-    if (cardFuera) {
-        const ind = cardFuera.querySelector('.filter-indicator');
-        if (currentBuzonesEgresadoFilter === 'fuera_tablero') {
-            cardFuera.style.borderColor = '#64748b';
-            cardFuera.style.backgroundColor = '#f8fafc';
-            cardFuera.style.boxShadow = '0 0 12px rgba(100, 116, 139, 0.2)';
-            if (ind) ind.style.display = 'block';
-        } else {
-            cardFuera.style.borderColor = '#e2e8f0';
-            cardFuera.style.backgroundColor = 'white';
-            cardFuera.style.boxShadow = '';
-            if (ind) ind.style.display = 'none';
-        }
-    }
-    
-    filterBuzonesAnalysts();
-}
-
 function onBuzonesDiasFilterChange() {
-    updateBuzonesMetrics();
     filterBuzonesAnalysts();
 }
 
-function updateBuzonesMetrics() {
-    const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
-    
-    let totalExpedientes = 0;
-    let totalEgresados = 0;
-    let totalNoEgresados = 0;
-    let totalFueraTablero = 0;
-    
-    currentBuzonesData.forEach(an => {
-        const exps = an.expedientes || [];
-        exps.forEach(exp => {
-            const days = exp.dias || 0;
-            if (days >= diasVal) {
-                totalExpedientes++;
-                if (exp.estado_tablero === 'FUERA DE TABLERO') {
-                    totalFueraTablero++;
-                } else if (exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO')) {
-                    totalEgresados++;
-                } else {
-                    totalNoEgresados++;
-                }
-            }
-        });
-    });
-
-    const totalExpEl = document.getElementById('buzones-metric-total-expedientes');
-    const egrEl = document.getElementById('buzones-metric-egresados');
-    const noEgrEl = document.getElementById('buzones-metric-no-egresados');
-    const fueraEl = document.getElementById('buzones-metric-fuera-tablero');
-
-    if (totalExpEl) totalExpEl.innerText = totalExpedientes;
-    if (egrEl) egrEl.innerText = totalEgresados;
-    if (noEgrEl) noEgrEl.innerText = totalNoEgresados;
-    if (fueraEl) fueraEl.innerText = totalFueraTablero;
-}
+let currentZeroStockAnalysts = [];
 
 function filterBuzonesAnalysts() {
     const searchInput = document.getElementById('buzones-analyst-search');
-    if (!searchInput) return;
-    const query = searchInput.value.toLowerCase().trim();
+    const query = (searchInput?.value || '').toLowerCase().trim();
     const diasVal = parseInt(document.getElementById('buzones-dias-filter')?.value || '0', 10) || 0;
     
-    let filtered = currentBuzonesData;
-    
-    // Map analysts with filtered expedientes list to adjust counts
-    filtered = filtered.map(an => {
+    // Procesar todos los analistas asignados
+    let processed = currentBuzonesData.map(an => {
         const filteredExps = (an.expedientes || []).filter(exp => (exp.dias || 0) >= diasVal);
+        const stockSubs = filteredExps.filter(e => e.estado_tablero === 'SUBSANACION').length;
+        const stockPropio = filteredExps.length - stockSubs;
         return {
             ...an,
             filteredExpedientes: filteredExps,
-            count: filteredExps.length
+            count: filteredExps.length,
+            stock_propio: stockPropio,
+            stock_subs: stockSubs
         };
     });
 
-    if (diasVal > 0) {
-        filtered = filtered.filter(an => an.count > 0);
+    // Separar analistas con stock 0 de los que tienen stock > 0
+    currentZeroStockAnalysts = processed.filter(an => an.count === 0);
+    let activeAnalysts = processed.filter(an => an.count > 0);
+
+    // Actualizar el banner informativo de buzones con stock cero
+    const banner = document.getElementById('buzones-zero-stock-banner');
+    const bannerText = document.getElementById('buzones-zero-stock-text');
+    const bannerBtnText = document.getElementById('buzones-zero-stock-btn-text');
+
+    if (banner) {
+        if (currentZeroStockAnalysts.length > 0) {
+            banner.style.display = 'flex';
+            if (bannerText) {
+                bannerText.innerHTML = `Se ocultan <strong>${currentZeroStockAnalysts.length}</strong> buzones/analistas de esta área por no poseer expedientes en stock actualmente.`;
+            }
+            if (bannerBtnText) {
+                bannerBtnText.innerText = `Ver los ${currentZeroStockAnalysts.length} buzones sin stock`;
+            }
+        } else {
+            banner.style.display = 'none';
+        }
     }
-    
+
+    // Filtrar la lista activa por búsqueda de texto
     if (query) {
-        filtered = filtered.filter(an => 
+        activeAnalysts = activeAnalysts.filter(an => 
             (an.name && an.name.toLowerCase().includes(query)) || 
             (an.username && an.username.toLowerCase().includes(query))
         );
     }
     
-    if (currentBuzonesEgresadoFilter === 'egresado') {
-        filtered = filtered.filter(an => 
-            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero && exp.estado_tablero.startsWith('EGRESADO'))
-        );
-    } else if (currentBuzonesEgresadoFilter === 'no_egresado') {
-        filtered = filtered.filter(an => 
-            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero && !exp.estado_tablero.startsWith('EGRESADO') && exp.estado_tablero !== 'FUERA DE TABLERO')
-        );
-    } else if (currentBuzonesEgresadoFilter === 'fuera_tablero') {
-        filtered = filtered.filter(an => 
-            (an.filteredExpedientes || an.expedientes || []).some(exp => exp.estado_tablero === 'FUERA DE TABLERO')
-        );
+    // Ordenar lista activa
+    if (_buzonesSortField) {
+        activeAnalysts = [...activeAnalysts].sort((a, b) => {
+            let va = a[_buzonesSortField], vb = b[_buzonesSortField];
+            if (va === null || va === undefined) va = -1;
+            if (vb === null || vb === undefined) vb = -1;
+            if (typeof va === 'string') return _buzonesSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+            return _buzonesSortAsc ? va - vb : vb - va;
+        });
     }
     
-    renderBuzonesAnalysts(filtered, currentBuzonesGerencia);
+    renderBuzonesAnalysts(activeAnalysts, currentBuzonesGerencia);
+}
+
+// --- POPUP / MODAL PARA BUZONES CON STOCK CERO ---
+function showZeroStockBuzonesModal() {
+    const modal = document.getElementById('buzones-zero-stock-modal');
+    const title = document.getElementById('buzones-zero-stock-modal-title');
+    const subtitle = document.getElementById('buzones-zero-stock-modal-subtitle');
+    const searchInput = document.getElementById('buzones-zero-modal-search');
+    
+    if (!modal) return;
+
+    if (searchInput) searchInput.value = '';
+
+    const gerenciasList = BUZONES_GERENCIAS[currentBuzonesArea] || [];
+    const gObj = gerenciasList.find(g => g.id === currentBuzonesGerencia);
+    const areaName = gObj ? gObj.label : currentBuzonesGerencia.toUpperCase();
+
+    if (title) title.innerText = `Buzones sin Expedientes — ${areaName}`;
+    if (subtitle) {
+        subtitle.innerHTML = `Se encontraron <strong>${currentZeroStockAnalysts.length}</strong> analistas/buzones asignados a <strong>${areaName}</strong> que no poseen expedientes activos.`;
+    }
+
+    renderZeroStockModalList(currentZeroStockAnalysts);
+    modal.style.display = 'flex';
+}
+
+function filterZeroStockModalList() {
+    const query = (document.getElementById('buzones-zero-modal-search')?.value || '').toLowerCase().trim();
+    if (!query) {
+        renderZeroStockModalList(currentZeroStockAnalysts);
+        return;
+    }
+    const filtered = currentZeroStockAnalysts.filter(an => 
+        (an.name && an.name.toLowerCase().includes(query)) || 
+        (an.username && an.username.toLowerCase().includes(query))
+    );
+    renderZeroStockModalList(filtered);
+}
+
+function renderZeroStockModalList(list) {
+    const container = document.getElementById('buzones-zero-stock-list-container');
+    if (!container) return;
+
+    if (!list || list.length === 0) {
+        container.innerHTML = '<div style="padding: 2rem; text-align: center; color: #94a3b8; font-family: \'Outfit\';"><i class="fa-solid fa-inbox" style="font-size: 1.5rem; margin-bottom: 6px; display: block;"></i>No se encontraron buzones.</div>';
+        return;
+    }
+
+    let html = '<div style="display: flex; flex-direction: column;">';
+    list.forEach((an, idx) => {
+        html += `
+            <div style="padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f1f5f9; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 6px; background: #f1f5f9; color: #64748b; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight: 700; color: #1e293b; font-size: 0.88rem; font-family: 'Outfit';">${(an.name || an.username).toUpperCase()}</div>
+                        <div style="color: #64748b; font-size: 0.78rem; font-family: 'Outfit';">@${an.username}</div>
+                    </div>
+                </div>
+                <div>
+                    <span style="background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-family: 'Outfit';">
+                        0 Expedientes
+                    </span>
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    container.innerHTML = html;
 }
 
 window.showBuzonesView = showBuzonesView;
@@ -8508,8 +10890,10 @@ window.showBuzonAnalystDetail = showBuzonAnalystDetail;
 window.backToBuzonGerencia = backToBuzonGerencia;
 window.filterBuzonesAnalysts = filterBuzonesAnalysts;
 window.filterAndRenderBuzonDetalle = filterAndRenderBuzonDetalle;
-window.toggleBuzonEgresadoFilter = toggleBuzonEgresadoFilter;
 window.onBuzonesDiasFilterChange = onBuzonesDiasFilterChange;
+window._sortBuzonesAnalystsBy = _sortBuzonesAnalystsBy;
+window.showZeroStockBuzonesModal = showZeroStockBuzonesModal;
+window.filterZeroStockModalList = filterZeroStockModalList;
 
 function exportBuzonAnalistaExcel() {
     if (!currentActiveBuzonAnalyst || !currentActiveBuzonAnalyst.expedientes || currentActiveBuzonAnalyst.expedientes.length === 0) {
@@ -8519,31 +10903,38 @@ function exportBuzonAnalistaExcel() {
     
     const columns = [
         { key: 'expediente', label: 'Expediente' },
+        { key: 'tipo_stock', label: 'Tipo de Stock' },
         { key: 'trata', label: 'Trata' },
         { key: 'descripcion_trata', label: 'Descripción Trata' },
         { key: 'dias', label: 'Días Stock' },
         { key: 'dias_en_gerencia', label: 'Días en Gerencia' },
         { key: 'fecha_ultimo_pase', label: 'Último Pase' },
-        { key: 'estado_expediente', label: 'Estado' }
+        { key: 'motivo_pase', label: 'Motivo de Pase' }
     ];
     
     try {
         const query = (document.getElementById('buzon-detalle-search')?.value || '').toLowerCase().trim();
         const filterEstado = document.getElementById('buzon-detalle-filter-estado')?.value || 'ALL';
-        const filteredExpedientes = currentActiveBuzonAnalyst.expedientes.filter(exp => {
+        const filteredExpedientes = (currentActiveBuzonAnalyst.expedientes || []).filter(exp => {
             const matchesQuery = !query || 
                 (exp.expediente || '').toLowerCase().includes(query) ||
                 (exp.trata || '').toLowerCase().includes(query) ||
                 (exp.descripcion_trata || '').toLowerCase().includes(query) ||
                 (exp.motivo_pase || '').toLowerCase().includes(query);
-            const matchesEstado = filterEstado === 'ALL' || exp.estado_expediente === filterEstado;
+            const status = exp.estado_tablero || 'STOCK PROPIO';
+            const matchesEstado = filterEstado === 'ALL' || status === filterEstado;
             return matchesQuery && matchesEstado;
         });
 
         const rows = filteredExpedientes.map(exp => {
             const rowObj = {};
+            const tipoStock = exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO');
             columns.forEach(c => {
-                rowObj[c.label] = exp[c.key] ?? '';
+                if (c.key === 'tipo_stock') {
+                    rowObj[c.label] = tipoStock;
+                } else {
+                    rowObj[c.label] = exp[c.key] ?? '';
+                }
             });
             return rowObj;
         });
@@ -8554,7 +10945,9 @@ function exportBuzonAnalistaExcel() {
         const colWidths = columns.map(col => {
             let maxLen = col.label.length;
             filteredExpedientes.forEach(exp => {
-                const val = exp[col.key];
+                const val = col.key === 'tipo_stock' 
+                    ? (exp.estado_tablero === 'SUBSANACION' ? 'SUBSANACIÓN' : (exp.estado_tablero || 'STOCK PROPIO'))
+                    : exp[col.key];
                 const strVal = val !== null && val !== undefined ? String(val) : '';
                 if (strVal.length > maxLen) maxLen = strVal.length;
             });
@@ -8565,7 +10958,7 @@ function exportBuzonAnalistaExcel() {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Analista");
         
-        const nameClean = currentActiveBuzonAnalyst.name.replace(/\s+/g, '_').toLowerCase();
+        const nameClean = (currentActiveBuzonAnalyst.name || 'analista').replace(/\s+/g, '_').toLowerCase();
         XLSX.writeFile(workbook, `stock_${nameClean}_${currentBuzonesGerencia}.xlsx`);
     } catch (e) {
         alert("Error exportando a Excel: " + e.message);
@@ -8573,305 +10966,7 @@ function exportBuzonAnalistaExcel() {
 }
 window.exportBuzonAnalistaExcel = exportBuzonAnalistaExcel;
 
-// --- REPORT PENDIENTES ASOCIACION ---
-let currentPendientesAsociacionData = null;
-let expandedPendientesArea = null;
-let expandedPendientesTrata = null;
 
-async function loadPendientesAsociacionData() {
-    const container = document.getElementById('pendientes-content-container');
-    if (!container) return;
-
-    container.innerHTML = `
-        <div style="padding: 3rem; text-align: center;">
-            <div class="loader" style="margin: 0 auto 1.5rem auto;"></div>
-            <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">Cargando Pendientes de Asociación...</h3>
-            <p style="color: #64748b;">Consultando los GEDOs de egreso pendientes en el servidor...</p>
-        </div>
-    `;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/reporte/pendientes_asociacion`);
-        if (!res || !res.ok) {
-            throw new Error("Error en la respuesta del servidor");
-        }
-        currentPendientesAsociacionData = await res.json();
-        renderPendientesAsociacion();
-    } catch (e) {
-        container.innerHTML = `
-            <div style="padding: 3rem; text-align: center; color: #ef4444; font-weight: 600;">
-                Error al cargar el reporte: ${e.message}
-                <br>
-                <button class="btn-primary" style="margin-top: 1.5rem; padding: 8px 16px;" onclick="loadPendientesAsociacionData()">Reintentar Carga</button>
-            </div>
-        `;
-    }
-}
-window.loadPendientesAsociacionData = loadPendientesAsociacionData;
-
-function renderPendientesAsociacion() {
-    const container = document.getElementById('pendientes-content-container');
-    if (!container) return;
-
-    if (!currentPendientesAsociacionData || Object.keys(currentPendientesAsociacionData).length === 0) {
-        container.innerHTML = `
-            <div style="padding: 3rem; text-align: center; color: #64748b; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow);">
-                🎉 No hay GEDOs de egreso pendientes de asociación en este momento.
-            </div>
-        `;
-        return;
-    }
-
-    const searchVal = document.getElementById('pendientes-search')?.value.toLowerCase() || '';
-
-    // Filtrar y agrupar los datos según la búsqueda
-    let hasData = false;
-    let html = `
-        <div class="pendientes-areas-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
-    `;
-
-    const GERENCIA_TITLES = {
-        catastro: "Catastro",
-        instalaciones: "Instalaciones",
-        regularizacion: "Regularización",
-        contable: "Contable",
-        etapa_proyecto: "Etapa Proyecto",
-        morfologia: "Morfología",
-        aph: "Protección Histórica APH",
-        usos: "Usos del Suelo",
-        aviso_obra: "Aviso de Obra"
-    };
-
-    Object.keys(currentPendientesAsociacionData).forEach(areaKey => {
-        const area = currentPendientesAsociacionData[areaKey];
-        let totalPendingInArea = 0;
-        const filteredTratas = {};
-
-        Object.keys(area.tratas).forEach(trataCode => {
-            const trata = area.tratas[trataCode];
-            const filteredExps = trata.expedientes.filter(exp => {
-                return exp.expediente.toLowerCase().includes(searchVal) ||
-                       trataCode.toLowerCase().includes(searchVal) ||
-                       trata.trata_nombre.toLowerCase().includes(searchVal) ||
-                       exp.gedo.toLowerCase().includes(searchVal) ||
-                       (exp.usuario_creador || '').toLowerCase().includes(searchVal);
-            });
-
-            if (filteredExps.length > 0) {
-                filteredTratas[trataCode] = {
-                    ...trata,
-                    expedientes: filteredExps
-                };
-                totalPendingInArea += filteredExps.length;
-            }
-        });
-
-        if (totalPendingInArea > 0) {
-            hasData = true;
-            const areaTitle = GERENCIA_TITLES[areaKey] || area.area_nombre;
-            const isExpanded = expandedPendientesArea === areaKey;
-
-            html += `
-                <div class="analyst-card-premium area-card-item" onclick="togglePendientesArea('${areaKey}')" style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: ${isExpanded ? '2px solid var(--primary)' : '1px solid #cbd5e1'}; border-radius: 16px; transition: all 0.2s; background: ${isExpanded ? '#f0f9ff' : 'white'}; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="width: 50px; height: 50px; border-radius: 12px; background: ${isExpanded ? 'var(--primary)' : '#eff6ff'}; color: ${isExpanded ? 'white' : '#1d4ed8'}; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
-                            <i class="fa-solid fa-folder-open"></i>
-                        </div>
-                        <span class="badge" style="background: ${isExpanded ? 'var(--primary-dark)' : 'var(--primary)'}; color: white; padding: 4px 10px; border-radius: 9999px; font-weight: bold; font-size: 0.8rem;">
-                            ${totalPendingInArea} GEDOs
-                        </span>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">${areaTitle}</h3>
-                        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 0.85rem;">Gerencia de ${areaTitle}</p>
-                    </div>
-                    <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
-                        ${isExpanded ? 'Contraer' : 'Ver Detalles'} <i class="fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}"></i>
-                    </div>
-                </div>
-            `;
-        }
-    });
-
-    html += `</div>`;
-
-    // Renderizar detalles si hay un área expandida
-    if (expandedPendientesArea && currentPendientesAsociacionData[expandedPendientesArea]) {
-        const area = currentPendientesAsociacionData[expandedPendientesArea];
-        const areaTitle = GERENCIA_TITLES[expandedPendientesArea] || area.area_nombre;
-        
-        let tratasHtml = `
-            <div class="pendientes-details-wrapper" style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 2rem; box-shadow: var(--card-shadow); margin-top: 1.5rem;">
-                <h3 style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin-top: 0; margin-bottom: 1.5rem; border-left: 4px solid var(--primary); padding-left: 0.75rem;">
-                    Trámites de Gerencia: ${areaTitle}
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
-        `;
-
-        let activeTrataFound = false;
-
-        Object.keys(area.tratas).forEach(trataCode => {
-            const trata = area.tratas[trataCode];
-            
-            // Aplicar búsqueda al listado interno
-            const filteredExps = trata.expedientes.filter(exp => {
-                return exp.expediente.toLowerCase().includes(searchVal) ||
-                       trataCode.toLowerCase().includes(searchVal) ||
-                       trata.trata_nombre.toLowerCase().includes(searchVal) ||
-                       exp.gedo.toLowerCase().includes(searchVal) ||
-                       (exp.usuario_creador || '').toLowerCase().includes(searchVal);
-            });
-
-            if (filteredExps.length > 0) {
-                const isTrataExpanded = expandedPendientesTrata === trataCode;
-                if (isTrataExpanded) activeTrataFound = true;
-
-                tratasHtml += `
-                    <div style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
-                        <div onclick="togglePendientesTrata('${trataCode}')" style="background: #f8fafc; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
-                            <div>
-                                <span style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit'; font-size: 1rem;">${trataCode}</span>
-                                <span style="color: #64748b; font-size: 0.9rem; margin-left: 10px;">${trata.trata_nombre}</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <span style="background: #e2e8f0; color: #475569; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">
-                                    ${filteredExps.length} pend.
-                                </span>
-                                <i class="fa-solid ${isTrataExpanded ? 'fa-chevron-up' : 'fa-chevron-down'}" style="color: #64748b; font-size: 0.85rem;"></i>
-                            </div>
-                        </div>
-                `;
-
-                if (isTrataExpanded) {
-                    tratasHtml += `
-                        <div style="padding: 1rem; border-top: 1px solid #e2e8f0; overflow-x: auto;">
-                            <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
-                                <button class="btn-download-excel" onclick="exportPendientesExcel('${expandedPendientesArea}', '${trataCode}')" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; cursor: pointer; border-radius: 6px; font-weight: bold;">
-                                    <i class="fa-solid fa-file-excel"></i> Exportar Trámite
-                                </button>
-                            </div>
-                            <table class="minimal-table" style="width: 100%; margin-top: 0;">
-                                <thead>
-                                    <tr>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Expediente</th>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Documento GEDO de Egreso</th>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Usuario Creador</th>
-                                        <th style="padding: 10px; text-align: left; font-size: 0.75rem;">Fecha Creación</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-
-                    filteredExps.forEach(exp => {
-                        tratasHtml += `
-                            <tr>
-                                <td style="padding: 10px; font-weight: 600; color: #1e293b; font-size: 0.85rem;">${exp.expediente}</td>
-                                <td style="padding: 10px; font-family: monospace; color: var(--primary-dark); font-size: 0.85rem;">${exp.gedo}</td>
-                                <td style="padding: 10px; color: #475569; font-size: 0.85rem;">${exp.usuario_creador || '-'}</td>
-                                <td style="padding: 10px; color: #64748b; font-size: 0.85rem;">${exp.fecha_creacion}</td>
-                            </tr>
-                        `;
-                    });
-
-                    tratasHtml += `
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
-                }
-
-                tratasHtml += `</div>`;
-            }
-        });
-
-        tratasHtml += `
-                </div>
-            </div>
-        `;
-
-        html += tratasHtml;
-        
-        // Reset expanded trata if it doesn't exist anymore under the search/filter
-        if (!activeTrataFound) {
-            expandedPendientesTrata = null;
-        }
-    }
-
-    if (!hasData) {
-        container.innerHTML = `
-            <div style="padding: 3rem; text-align: center; color: #64748b; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow);">
-                No se encontraron pendientes de asociación que coincidan con la búsqueda.
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = html;
-    
-    // Quick GSAP Entry animation
-    gsap.from(".area-card-item", { opacity: 0, y: 10, stagger: 0.05, duration: 0.3, ease: "power2.out" });
-}
-window.renderPendientesAsociacion = renderPendientesAsociacion;
-
-function filterPendientes() {
-    renderPendientesAsociacion();
-}
-window.filterPendientes = filterPendientes;
-
-function togglePendientesArea(areaKey) {
-    if (expandedPendientesArea === areaKey) {
-        expandedPendientesArea = null;
-        expandedPendientesTrata = null;
-    } else {
-        expandedPendientesArea = areaKey;
-        expandedPendientesTrata = null; // Reset nested selection
-    }
-    renderPendientesAsociacion();
-}
-window.togglePendientesArea = togglePendientesArea;
-
-function togglePendientesTrata(trataCode) {
-    if (expandedPendientesTrata === trataCode) {
-        expandedPendientesTrata = null;
-    } else {
-        expandedPendientesTrata = trataCode;
-    }
-    renderPendientesAsociacion();
-}
-window.togglePendientesTrata = togglePendientesTrata;
-
-function exportPendientesExcel(areaKey, trataCode) {
-    try {
-        if (!currentPendientesAsociacionData || !currentPendientesAsociacionData[areaKey]) return;
-        const trata = currentPendientesAsociacionData[areaKey].tratas[trataCode];
-        if (!trata || !trata.expedientes) return;
-
-        const rows = trata.expedientes.map(exp => ({
-            "Expediente": exp.expediente,
-            "Documento GEDO": exp.gedo,
-            "Usuario Creador": exp.usuario_creador || '',
-            "Fecha Creación": exp.fecha_creacion
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        const workbook = XLSX.utils.book_new();
-        Xlimits = XLSX.utils.book_append_sheet(workbook, worksheet, "Pendientes");
-
-        // Auto-fit column widths
-        const colWidths = [
-            { wch: 30 },
-            { wch: 35 },
-            { wch: 20 },
-            { wch: 25 }
-        ];
-        worksheet['!cols'] = colWidths;
-
-        XLSX.writeFile(workbook, `pendientes_asociacion_${trataCode}.xlsx`);
-    } catch (e) {
-        alert("Error exportando a Excel: " + e.message);
-    }
-}
-window.exportPendientesExcel = exportPendientesExcel;
 
 // ==========================================
 // SECCIÓN: ANALYTICS (ESTADÍSTICAS & DATASETS)
@@ -9630,8 +11725,906 @@ function switchAnalyticsTab(tabId) {
         loadAnalyticsEstadistica();
     } else if (tabId === 'ley_blanqueo') {
         loadAnalyticsLeyBlanqueo();
+    } else if (tabId === 'pdl_blanqueo') {
+        loadAnalyticsPdlBlanqueo();
     }
 }
+
+// Global variable for PDL charts
+let pdlCharts = {};
+let pdlSimData = { ce_records: [], cur_records: [] };
+
+function switchPdlSubtab(subtabId) {
+    const subtabs = ['parcelas', 'ce', 'cur', 'simulador'];
+    subtabs.forEach(st => {
+        const btn = document.getElementById(`btn-pdl-subtab-${st}`);
+        const content = document.getElementById(`pdl-subtab-${st}`);
+        if (btn) {
+            btn.style.borderBottom = st === subtabId ? '3px solid var(--primary)' : '3px solid transparent';
+            btn.style.color = st === subtabId ? 'var(--primary)' : '#64748b';
+        }
+        if (content) {
+            content.style.display = st === subtabId ? 'flex' : 'none';
+        }
+    });
+}
+window.switchPdlSubtab = switchPdlSubtab;
+
+function getScaleIndex(supTerreno) {
+    const sup = parseFloat(supTerreno) || 0;
+    if (sup < 150) return 1;
+    if (sup <= 250) return 2;
+    if (sup <= 400) return 3;
+    if (sup <= 500) return 4;
+    if (sup <= 700) return 5;
+    return 6;
+}
+
+function updateCeSimulation() {
+    const coefs = {
+        1: parseFloat(document.getElementById('coef-ce-1')?.value) || 0,
+        2: parseFloat(document.getElementById('coef-ce-2')?.value) || 0,
+        3: parseFloat(document.getElementById('coef-ce-3')?.value) || 0,
+        4: parseFloat(document.getElementById('coef-ce-4')?.value) || 0,
+        5: parseFloat(document.getElementById('coef-ce-5')?.value) || 0,
+        6: parseFloat(document.getElementById('coef-ce-6')?.value) || 0
+    };
+
+    const tbody = document.getElementById('sim-ce-table-body');
+    if (!tbody || !pdlSimData.ce_records) return;
+
+    let totalRegCoef = 0;
+    let totalRemanente = 0;
+
+    let html = '';
+    pdlSimData.ce_records.forEach(r => {
+        const supTerreno = parseFloat(r.sup_terreno) || 0;
+        const supContra = parseFloat(r.sup_contra_no_reg_ce) || 0;
+        const scaleIdx = getScaleIndex(supTerreno);
+        const coef = coefs[scaleIdx] || 0;
+
+        const m2RegCoef = Math.round((supTerreno * coef) * 100) / 100;
+        const m2Remanente = Math.round((m2RegCoef - supContra) * 100) / 100;
+
+        // Porcentaje remanente respecto del tope segun coeficiente
+        const pctRemanente = m2RegCoef > 0 ? Math.round((m2Remanente / m2RegCoef) * 1000) / 10 : 0;
+
+        totalRegCoef += m2RegCoef;
+        totalRemanente += m2Remanente;
+
+        const remColor = m2Remanente >= 0 ? '#15803d' : '#b91c1c';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 12px; font-weight: 600; color: #334155;">${r.seccion}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.manzana}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.parcela}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.barrio}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.comuna}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.ley_6478}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #1e293b;">${supTerreno.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #ef4444;">${supContra.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: #2563eb; background: #f8fafc;">${m2RegCoef.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f8fafc;">${m2Remanente.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f0fdf4;">${pctRemanente.toLocaleString('es-AR')}%</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html || `<tr><td colspan="11" style="text-align: center; padding: 20px; color: #94a3b8;">No hay registros CE en contravención.</td></tr>`;
+
+    const totalCoefEl = document.getElementById('ce-total-coef-val');
+    const totalRemEl = document.getElementById('ce-total-rem-val');
+    if (totalCoefEl) totalCoefEl.textContent = `${Math.round(totalRegCoef).toLocaleString('es-AR')} m²`;
+    if (totalRemEl) totalRemEl.textContent = `${Math.round(totalRemanente).toLocaleString('es-AR')} m²`;
+}
+window.updateCeSimulation = updateCeSimulation;
+
+function updateCurSimulation() {
+    const coefs = {
+        1: parseFloat(document.getElementById('coef-cur-1')?.value) || 0,
+        2: parseFloat(document.getElementById('coef-cur-2')?.value) || 0,
+        3: parseFloat(document.getElementById('coef-cur-3')?.value) || 0,
+        4: parseFloat(document.getElementById('coef-cur-4')?.value) || 0,
+        5: parseFloat(document.getElementById('coef-cur-5')?.value) || 0,
+        6: parseFloat(document.getElementById('coef-cur-6')?.value) || 0
+    };
+
+    const tbody = document.getElementById('sim-cur-table-body');
+    if (!tbody || !pdlSimData.cur_records) return;
+
+    let totalRegCoef = 0;
+    let totalRemanente = 0;
+
+    let html = '';
+    pdlSimData.cur_records.forEach(r => {
+        const supTerreno = parseFloat(r.sup_terreno) || 0;
+        const supContra = parseFloat(r.sup_contra_no_reg_cur) || 0;
+        const scaleIdx = getScaleIndex(supTerreno);
+        const coef = coefs[scaleIdx] || 0;
+
+        const m2RegCoef = Math.round((supTerreno * coef) * 100) / 100;
+        const m2Remanente = Math.round((m2RegCoef - supContra) * 100) / 100;
+
+        // Porcentaje remanente respecto del tope segun coeficiente
+        const pctRemanente = m2RegCoef > 0 ? Math.round((m2Remanente / m2RegCoef) * 1000) / 10 : 0;
+
+        totalRegCoef += m2RegCoef;
+        totalRemanente += m2Remanente;
+
+        const remColor = m2Remanente >= 0 ? '#15803d' : '#b91c1c';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 12px; font-weight: 600; color: #334155;">${r.seccion}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.manzana}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.parcela}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.barrio}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.comuna}</td>
+                <td style="padding: 8px 12px; color: #475569;">${r.ley_6478}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #1e293b;">${supTerreno.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #3b82f6;">${supContra.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: #2563eb; background: #f8fafc;">${m2RegCoef.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f8fafc;">${m2Remanente.toLocaleString('es-AR')} m²</td>
+                <td style="padding: 8px 12px; font-weight: 800; color: ${remColor}; background: #f0fdf4;">${pctRemanente.toLocaleString('es-AR')}%</td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html || `<tr><td colspan="11" style="text-align: center; padding: 20px; color: #94a3b8;">No hay registros CUR en contravención.</td></tr>`;
+
+    const totalCoefEl = document.getElementById('cur-total-coef-val');
+    const totalRemEl = document.getElementById('cur-total-rem-val');
+    if (totalCoefEl) totalCoefEl.textContent = `${Math.round(totalRegCoef).toLocaleString('es-AR')} m²`;
+    if (totalRemEl) totalRemEl.textContent = `${Math.round(totalRemanente).toLocaleString('es-AR')} m²`;
+}
+window.updateCurSimulation = updateCurSimulation;
+
+let pdlFilters = { ue: [], area: [] };
+
+function togglePdlDropdown(type, evt) {
+    if (evt) evt.stopPropagation();
+    const ueMenu = document.getElementById('dropdown-pdl-ue-menu');
+    const areaMenu = document.getElementById('dropdown-pdl-area-menu');
+    
+    if (type === 'ue') {
+        if (areaMenu) areaMenu.style.display = 'none';
+        if (ueMenu) ueMenu.style.display = (ueMenu.style.display === 'flex') ? 'none' : 'flex';
+    } else if (type === 'area') {
+        if (ueMenu) ueMenu.style.display = 'none';
+        if (areaMenu) areaMenu.style.display = (areaMenu.style.display === 'flex') ? 'none' : 'flex';
+    }
+}
+window.togglePdlDropdown = togglePdlDropdown;
+
+// Close dropdown popovers when clicking outside
+document.addEventListener('click', (e) => {
+    const ueMenu = document.getElementById('dropdown-pdl-ue-menu');
+    const areaMenu = document.getElementById('dropdown-pdl-area-menu');
+    const ueBtn = document.getElementById('btn-pdl-dropdown-ue');
+    const areaBtn = document.getElementById('btn-pdl-dropdown-area');
+
+    if (ueMenu && !ueMenu.contains(e.target) && ueBtn && !ueBtn.contains(e.target)) {
+        ueMenu.style.display = 'none';
+    }
+    if (areaMenu && !areaMenu.contains(e.target) && areaBtn && !areaBtn.contains(e.target)) {
+        areaMenu.style.display = 'none';
+    }
+});
+
+function renderPdlFilterCheckboxes(data) {
+    const ueContainer = document.getElementById('container-pdl-ue-checkboxes');
+    const areaContainer = document.getElementById('container-pdl-area-checkboxes');
+    const lblUe = document.getElementById('lbl-pdl-ue-selected');
+    const lblArea = document.getElementById('lbl-pdl-area-selected');
+    const clearBtn = document.getElementById('btn-pdl-clear-filters');
+    const chipsContainer = document.getElementById('pdl-active-filter-chips');
+
+    // Populate UE Checkboxes
+    if (ueContainer && data.all_ue_options) {
+        let html = '';
+        data.all_ue_options.forEach(opt => {
+            const isChecked = (pdlFilters.ue.length === 0) || pdlFilters.ue.includes(opt);
+            html += `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #1e293b; padding: 4px 6px; border-radius: 6px; transition: background 0.15s;">
+                    <input type="checkbox" class="pdl-chk-ue" value="${opt}" ${isChecked ? 'checked' : ''} onchange="onPdlCheckboxChange('ue')" style="width: 16px; height: 16px; accent-color: #8b5cf6; cursor: pointer;">
+                    <span>${opt}</span>
+                </label>
+            `;
+        });
+        ueContainer.innerHTML = html;
+    }
+
+    // Populate Area Checkboxes
+    if (areaContainer && data.all_area_options) {
+        let html = '';
+        data.all_area_options.forEach(opt => {
+            const isChecked = (pdlFilters.area.length === 0) || pdlFilters.area.includes(opt);
+            html += `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: #1e293b; padding: 4px 6px; border-radius: 6px; transition: background 0.15s;">
+                    <input type="checkbox" class="pdl-chk-area" value="${opt}" ${isChecked ? 'checked' : ''} onchange="onPdlCheckboxChange('area')" style="width: 16px; height: 16px; accent-color: #f59e0b; cursor: pointer;">
+                    <span>${opt}</span>
+                </label>
+            `;
+        });
+        areaContainer.innerHTML = html;
+    }
+
+    // Label counts
+    const totalUeOpts = data.all_ue_options ? data.all_ue_options.length : 0;
+    if (lblUe) {
+        if (pdlFilters.ue.length === 0 || pdlFilters.ue.length === totalUeOpts) lblUe.textContent = 'Todas';
+        else if (pdlFilters.ue.length === 1 && pdlFilters.ue[0] !== '__NONE__') lblUe.textContent = pdlFilters.ue[0];
+        else if (pdlFilters.ue.includes('__NONE__')) lblUe.textContent = 'Ninguna';
+        else lblUe.textContent = `${pdlFilters.ue.length} / ${totalUeOpts}`;
+    }
+
+    const totalAreaOpts = data.all_area_options ? data.all_area_options.length : 0;
+    if (lblArea) {
+        if (pdlFilters.area.length === 0 || pdlFilters.area.length === totalAreaOpts) lblArea.textContent = 'Todas';
+        else if (pdlFilters.area.length === 1 && pdlFilters.area[0] !== '__NONE__') lblArea.textContent = pdlFilters.area[0];
+        else if (pdlFilters.area.includes('__NONE__')) lblArea.textContent = 'Ninguna';
+        else lblArea.textContent = `${pdlFilters.area.length} / ${totalAreaOpts}`;
+    }
+
+    // Clear button visibility
+    const hasActiveFilters = pdlFilters.ue.length > 0 || pdlFilters.area.length > 0;
+    if (clearBtn) clearBtn.style.display = hasActiveFilters ? 'inline-flex' : 'none';
+
+    // Chips tags
+    if (chipsContainer) {
+        if (!hasActiveFilters) {
+            chipsContainer.style.display = 'none';
+            chipsContainer.innerHTML = '';
+        } else {
+            chipsContainer.style.display = 'flex';
+            let chipsHtml = '<span style="font-size: 0.78rem; font-weight: 700; color: #64748b; margin-right: 4px; align-self: center;">Filtros activos:</span>';
+            
+            if (pdlFilters.ue.includes('__NONE__')) {
+                chipsHtml += `
+                    <span style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                        UE: Ninguna
+                        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="clearPdlFilters()"></i>
+                    </span>
+                `;
+            } else {
+                pdlFilters.ue.forEach(item => {
+                    chipsHtml += `
+                        <span style="background: #f3e8ff; color: #7c3aed; border: 1px solid #ddd6fe; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                            UE: ${item}
+                            <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="removePdlFilterChip('ue', '${item}')"></i>
+                        </span>
+                    `;
+                });
+            }
+
+            if (pdlFilters.area.includes('__NONE__')) {
+                chipsHtml += `
+                    <span style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                        Área: Ninguna
+                        <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="clearPdlFilters()"></i>
+                    </span>
+                `;
+            } else {
+                pdlFilters.area.forEach(item => {
+                    chipsHtml += `
+                        <span style="background: #fef3c7; color: #d97706; border: 1px solid #fde68a; padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                            Área: ${item}
+                            <i class="fa-solid fa-xmark" style="cursor: pointer;" onclick="removePdlFilterChip('area', '${item}')"></i>
+                        </span>
+                    `;
+                });
+            }
+
+            chipsContainer.innerHTML = chipsHtml;
+        }
+    }
+}
+
+function onPdlCheckboxChange(type) {
+    if (type === 'ue') {
+        const allChks = document.querySelectorAll('.pdl-chk-ue');
+        const checkedChks = document.querySelectorAll('.pdl-chk-ue:checked');
+        if (checkedChks.length === allChks.length) {
+            pdlFilters.ue = [];
+        } else if (checkedChks.length === 0) {
+            pdlFilters.ue = ['__NONE__'];
+        } else {
+            pdlFilters.ue = Array.from(checkedChks).map(c => c.value);
+        }
+    } else if (type === 'area') {
+        const allChks = document.querySelectorAll('.pdl-chk-area');
+        const checkedChks = document.querySelectorAll('.pdl-chk-area:checked');
+        if (checkedChks.length === allChks.length) {
+            pdlFilters.area = [];
+        } else if (checkedChks.length === 0) {
+            pdlFilters.area = ['__NONE__'];
+        } else {
+            pdlFilters.area = Array.from(checkedChks).map(c => c.value);
+        }
+    }
+    loadAnalyticsPdlBlanqueo();
+}
+window.onPdlCheckboxChange = onPdlCheckboxChange;
+
+function selectAllPdlCheckboxes(type) {
+    if (type === 'ue') pdlFilters.ue = [];
+    if (type === 'area') pdlFilters.area = [];
+    loadAnalyticsPdlBlanqueo();
+}
+window.selectAllPdlCheckboxes = selectAllPdlCheckboxes;
+
+function deselectAllPdlCheckboxes(type) {
+    if (type === 'ue') pdlFilters.ue = ['__NONE__'];
+    if (type === 'area') pdlFilters.area = ['__NONE__'];
+    loadAnalyticsPdlBlanqueo();
+}
+window.deselectAllPdlCheckboxes = deselectAllPdlCheckboxes;
+
+function removePdlFilterChip(type, val) {
+    if (type === 'ue') pdlFilters.ue = pdlFilters.ue.filter(v => v !== val);
+    if (type === 'area') pdlFilters.area = pdlFilters.area.filter(v => v !== val);
+    loadAnalyticsPdlBlanqueo();
+}
+window.removePdlFilterChip = removePdlFilterChip;
+
+function clearPdlFilters() {
+    pdlFilters.ue = [];
+    pdlFilters.area = [];
+    loadAnalyticsPdlBlanqueo();
+}
+window.clearPdlFilters = clearPdlFilters;
+
+async function loadAnalyticsPdlBlanqueo() {
+    switchPdlSubtab('parcelas');
+    const kpisParcelas = document.getElementById('pdl-parcelas-kpis');
+    if (kpisParcelas) {
+        kpisParcelas.innerHTML = `
+            <div class="loading-overlay" style="grid-column: 1/-1; min-height: 100px;">
+                <span class="loader"></span>
+                <p style="margin-top: 0.5rem; color: #64748b; font-size: 0.9rem;">Cargando datos de PDL Blanqueo...</p>
+            </div>
+        `;
+    }
+
+    try {
+        let fetchUrl = `${API_BASE}/analytics/pdl-blanqueo`;
+        const queryParams = [];
+        if (pdlFilters.ue.length > 0) queryParams.push(`ue=${encodeURIComponent(pdlFilters.ue.join(','))}`);
+        if (pdlFilters.area.length > 0) queryParams.push(`area=${encodeURIComponent(pdlFilters.area.join(','))}`);
+        if (queryParams.length > 0) fetchUrl += '?' + queryParams.join('&');
+
+        const res = await def_fetch(fetchUrl);
+        if (!res || !res.ok) {
+            throw new Error("Error al obtener los datos de PDL Blanqueo");
+        }
+        const data = await res.json();
+
+        // Render checkboxes & filter controls state
+        renderPdlFilterCheckboxes(data);
+
+        // 1. Subtab Parcelas KPIs
+        const totalParcelas = data.superficie_dist.reduce((acc, curr) => acc + curr.cant, 0);
+        const totalSupParcelas = data.superficie_dist.reduce((acc, curr) => acc + (parseFloat(curr.total_sup) || 0), 0);
+        
+        const kpisParcelas = document.getElementById('pdl-parcelas-kpis');
+        if (kpisParcelas) {
+            kpisParcelas.innerHTML = `
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Total Parcelas</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #1e293b;">${totalParcelas.toLocaleString()}</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Mediana de Superficie (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #10b981;">${(data.mediana_sup || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })} m²</div>
+                </div>
+            `;
+        }
+
+        // Definición de rangos estándar y paleta de colores
+        const rangosOrdenados = ['<150 m²', '150-250 m²', '250-400 m²', '400-500 m²', '500-700 m²', '>700 m²'];
+        const coloresRangos = {
+            '<150 m²': '#3b82f6',
+            '150-250 m²': '#10b981',
+            '250-400 m²': '#f59e0b',
+            '400-500 m²': '#ef4444',
+            '500-700 m²': '#8b5cf6',
+            '>700 m²': '#ec4899',
+            'S/D': '#94a3b8'
+        };
+
+        // Ordenar data.superficie_dist según la escala solicitada
+        if (data.superficie_dist) {
+            data.superficie_dist.sort((a, b) => {
+                let idxA = rangosOrdenados.indexOf(a.rango);
+                let idxB = rangosOrdenados.indexOf(b.rango);
+                if (idxA === -1) idxA = 99;
+                if (idxB === -1) idxB = 99;
+                return idxA - idxB;
+            });
+        }
+
+        // Render pdlSuperficieChart (con Porcentajes)
+        if (pdlCharts.superficie) pdlCharts.superficie.destroy();
+        const ctxSup = document.getElementById('pdlSuperficieChart')?.getContext('2d');
+        if (ctxSup) {
+            const totalSupCant = data.superficie_dist.reduce((acc, curr) => acc + curr.cant, 0);
+            pdlCharts.superficie = new Chart(ctxSup, {
+                type: 'doughnut',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: data.superficie_dist.map(d => d.rango),
+                    datasets: [{
+                        data: data.superficie_dist.map(d => d.cant),
+                        backgroundColor: data.superficie_dist.map(d => coloresRangos[d.rango] || '#64748b')
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'right' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const val = context.parsed || 0;
+                                    const pct = totalSupCant > 0 ? ((val / totalSupCant) * 100).toFixed(1) : 0;
+                                    return `${context.label}: ${val.toLocaleString('es-AR')} parcelas (${pct}%)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 11 },
+                            formatter: (value) => {
+                                const pct = totalSupCant > 0 ? ((value / totalSupCant) * 100).toFixed(1) : 0;
+                                return pct >= 3 ? `${pct}%` : '';
+                            }
+                        }
+                    } 
+                }
+            });
+        }
+
+        // Render pdlComunaChart (Barras apiladas con porcentajes por comuna y globales)
+        if (pdlCharts.comuna) pdlCharts.comuna.destroy();
+        const ctxComuna = document.getElementById('pdlComunaChart')?.getContext('2d');
+        if (ctxComuna && data.comuna_sup_dist && data.comuna_dist) {
+            const comunaLabels = data.comuna_dist.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`);
+            const rawComunaKeys = data.comuna_dist.map(d => d.comuna);
+
+            // Mapa con totales por comuna
+            const comunaTotalesMap = {};
+            data.comuna_dist.forEach(d => { comunaTotalesMap[d.comuna] = d.cant; });
+
+            const allRangos = [...rangosOrdenados];
+            if (data.comuna_sup_dist.some(d => d.rango === 'S/D')) allRangos.push('S/D');
+
+            const datasetsComuna = allRangos.map(rango => {
+                const dataPoints = rawComunaKeys.map(comKey => {
+                    const match = data.comuna_sup_dist.find(item => item.comuna === comKey && item.rango === rango);
+                    return match ? match.cant : 0;
+                });
+                return {
+                    label: rango,
+                    data: dataPoints,
+                    backgroundColor: coloresRangos[rango] || '#64748b'
+                };
+            });
+
+            pdlCharts.comuna = new Chart(ctxComuna, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: comunaLabels,
+                    datasets: datasetsComuna
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const comKey = rawComunaKeys[context.dataIndex];
+                                    const totalComuna = comunaTotalesMap[comKey] || 0;
+                                    const val = context.parsed.y || 0;
+                                    const pctComuna = totalComuna > 0 ? ((val / totalComuna) * 100).toFixed(1) : 0;
+                                    return `${context.dataset.label}: ${val.toLocaleString('es-AR')} parcelas (${pctComuna}% de la comuna)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 10 },
+                            formatter: (value, context) => {
+                                const comKey = rawComunaKeys[context.dataIndex];
+                                const totalComuna = comunaTotalesMap[comKey] || 0;
+                                if (totalComuna <= 0) return '';
+                                const pct = (value / totalComuna) * 100;
+                                return pct >= 5 ? `${pct.toFixed(0)}%` : '';
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render pdlBarrioChart (Barras apiladas con porcentajes por barrio)
+        if (pdlCharts.barrio) pdlCharts.barrio.destroy();
+        const ctxBarrio = document.getElementById('pdlBarrioChart')?.getContext('2d');
+        if (ctxBarrio && data.barrio_sup_dist && data.barrio_dist) {
+            const barrioLabels = data.barrio_dist.map(d => d.barrio);
+
+            // Mapa con totales por barrio
+            const barrioTotalesMap = {};
+            data.barrio_dist.forEach(d => { barrioTotalesMap[d.barrio] = d.cant; });
+
+            const allRangos = [...rangosOrdenados];
+            if (data.barrio_sup_dist.some(d => d.rango === 'S/D')) allRangos.push('S/D');
+
+            const datasetsBarrio = allRangos.map(rango => {
+                const dataPoints = barrioLabels.map(bKey => {
+                    const match = data.barrio_sup_dist.find(item => item.barrio === bKey && item.rango === rango);
+                    return match ? match.cant : 0;
+                });
+                return {
+                    label: rango,
+                    data: dataPoints,
+                    backgroundColor: coloresRangos[rango] || '#64748b'
+                };
+            });
+
+            pdlCharts.barrio = new Chart(ctxBarrio, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: barrioLabels,
+                    datasets: datasetsBarrio
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: { stacked: true },
+                        y: { stacked: true }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const bKey = barrioLabels[context.dataIndex];
+                                    const totalBarrio = barrioTotalesMap[bKey] || 0;
+                                    const val = context.parsed.x || 0;
+                                    const pctBarrio = totalBarrio > 0 ? ((val / totalBarrio) * 100).toFixed(1) : 0;
+                                    return `${context.dataset.label}: ${val.toLocaleString('es-AR')} parcelas (${pctBarrio}% del barrio)`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            color: '#ffffff',
+                            font: { weight: 'bold', size: 9 },
+                            formatter: (value, context) => {
+                                const bKey = barrioLabels[context.dataIndex];
+                                const totalBarrio = barrioTotalesMap[bKey] || 0;
+                                if (totalBarrio <= 0) return '';
+                                const pct = (value / totalBarrio) * 100;
+                                return pct >= 6 ? `${pct.toFixed(0)}%` : '';
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render pdlUeChart (con toggle al hacer clic)
+        if (pdlCharts.ue) pdlCharts.ue.destroy();
+        const ctxUe = document.getElementById('pdlUeChart')?.getContext('2d');
+        if (ctxUe) {
+            const isAllUeSelected = pdlFilters.ue.length === 0;
+            pdlCharts.ue = new Chart(ctxUe, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: data.ue_dist.map(d => d.edificabilidad),
+                    datasets: [{
+                        label: 'Parcelas',
+                        data: data.ue_dist.map(d => d.cant),
+                        backgroundColor: data.ue_dist.map(d => (isAllUeSelected || pdlFilters.ue.includes(d.edificabilidad)) ? '#6d28d9' : 'rgba(139, 92, 246, 0.3)')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onHover: (e, elements) => {
+                        if (e.native && e.native.target) {
+                            e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: (evt, activeElements) => {
+                        if (activeElements && activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedUe = data.ue_dist[index]?.edificabilidad;
+                            if (selectedUe) {
+                                if (pdlFilters.ue.length === 0) {
+                                    pdlFilters.ue = [selectedUe];
+                                } else {
+                                    const idx = pdlFilters.ue.indexOf(selectedUe);
+                                    if (idx >= 0) pdlFilters.ue.splice(idx, 1);
+                                    else pdlFilters.ue.push(selectedUe);
+                                }
+                                loadAnalyticsPdlBlanqueo();
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 11 },
+                            formatter: (val) => val.toLocaleString()
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render pdlAreaChart (con toggle al hacer clic)
+        if (pdlCharts.area) pdlCharts.area.destroy();
+        const ctxArea = document.getElementById('pdlAreaChart')?.getContext('2d');
+        if (ctxArea) {
+            const isAllAreaSelected = pdlFilters.area.length === 0;
+            pdlCharts.area = new Chart(ctxArea, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: data.area_dist.map(d => d.area_especial),
+                    datasets: [{
+                        label: 'Parcelas',
+                        data: data.area_dist.map(d => d.cant),
+                        backgroundColor: data.area_dist.map(d => (isAllAreaSelected || pdlFilters.area.includes(d.area_especial)) ? '#d97706' : 'rgba(245, 158, 11, 0.3)')
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onHover: (e, elements) => {
+                        if (e.native && e.native.target) {
+                            e.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+                        }
+                    },
+                    onClick: (evt, activeElements) => {
+                        if (activeElements && activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedArea = data.area_dist[index]?.area_especial;
+                            if (selectedArea) {
+                                if (pdlFilters.area.length === 0) {
+                                    pdlFilters.area = [selectedArea];
+                                } else {
+                                    const idx = pdlFilters.area.indexOf(selectedArea);
+                                    if (idx >= 0) pdlFilters.area.splice(idx, 1);
+                                    else pdlFilters.area.push(selectedArea);
+                                }
+                                loadAnalyticsPdlBlanqueo();
+                            }
+                        }
+                    },
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 11 },
+                            formatter: (val) => val.toLocaleString()
+                        }
+                    }
+                }
+            });
+        }
+
+        // 2. Subtab Antireglamentario CE KPIs & Charts
+        const kpisCE = document.getElementById('pdl-ce-kpis');
+        if (kpisCE) {
+            kpisCE.innerHTML = `
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Parcelas en Contravención CE</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #ef4444;">${data.ce_summary.cant_parcelas_ce.toLocaleString()}</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Total Superficie CE (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #ef4444;">${Math.round(data.ce_summary.total_sup_ce).toLocaleString()} m²</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Promedio Sup/Parcela (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #f59e0b;">${Math.round(data.ce_summary.avg_sup_ce).toLocaleString()} m²</div>
+                </div>
+            `;
+        }
+
+        if (pdlCharts.ceEscala) pdlCharts.ceEscala.destroy();
+        const ctxCeEscala = document.getElementById('pdlCeEscalaChart')?.getContext('2d');
+        if (ctxCeEscala) {
+            pdlCharts.ceEscala = new Chart(ctxCeEscala, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: (data.ce_escala || []).map(d => d.escala),
+                    datasets: [
+                        {
+                            label: 'Promedio (m²)',
+                            data: (data.ce_escala || []).map(d => Math.round(d.promedio * 100) / 100),
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)'
+                        },
+                        {
+                            label: 'Mediana (m²)',
+                            data: (data.ce_escala || []).map(d => Math.round(d.mediana * 100) / 100),
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 10 },
+                            formatter: (val) => val ? val.toLocaleString('es-AR') + ' m²' : ''
+                        }
+                    }
+                }
+            });
+        }
+
+        if (pdlCharts.ceBarrio) pdlCharts.ceBarrio.destroy();
+        const ctxCeBarrio = document.getElementById('pdlCeBarrioChart')?.getContext('2d');
+        if (ctxCeBarrio) {
+            pdlCharts.ceBarrio = new Chart(ctxCeBarrio, {
+                type: 'bar',
+                data: {
+                    labels: data.ce_barrio.map(d => d.barrio),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.ce_barrio.map(d => d.total_sup),
+                        backgroundColor: 'rgba(239, 68, 68, 0.75)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        if (pdlCharts.ceComuna) pdlCharts.ceComuna.destroy();
+        const ctxCeComuna = document.getElementById('pdlCeComunaChart')?.getContext('2d');
+        if (ctxCeComuna) {
+            pdlCharts.ceComuna = new Chart(ctxCeComuna, {
+                type: 'bar',
+                data: {
+                    labels: data.ce_comuna.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.ce_comuna.map(d => d.total_sup),
+                        backgroundColor: 'rgba(239, 68, 68, 0.85)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // 3. Subtab Antireglamentario CUR KPIs & Charts
+        const kpisCUR = document.getElementById('pdl-cur-kpis');
+        if (kpisCUR) {
+            kpisCUR.innerHTML = `
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Parcelas en Contravención CUR</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #3b82f6;">${data.cur_summary.cant_parcelas_cur.toLocaleString()}</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Total Superficie CUR (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #3b82f6;">${Math.round(data.cur_summary.total_sup_cur).toLocaleString()} m²</div>
+                </div>
+                <div class="meta-card" style="padding: 20px;">
+                    <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">Promedio Sup/Parcela (m²)</div>
+                    <div style="font-size: 1.8rem; font-family: 'Outfit'; font-weight: 800; color: #8b5cf6;">${Math.round(data.cur_summary.avg_sup_cur).toLocaleString()} m²</div>
+                </div>
+            `;
+        }
+
+        if (pdlCharts.curEscala) pdlCharts.curEscala.destroy();
+        const ctxCurEscala = document.getElementById('pdlCurEscalaChart')?.getContext('2d');
+        if (ctxCurEscala) {
+            pdlCharts.curEscala = new Chart(ctxCurEscala, {
+                type: 'bar',
+                plugins: window.ChartDataLabels ? [ChartDataLabels] : [],
+                data: {
+                    labels: (data.cur_escala || []).map(d => d.escala),
+                    datasets: [
+                        {
+                            label: 'Promedio (m²)',
+                            data: (data.cur_escala || []).map(d => Math.round(d.promedio * 100) / 100),
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                        },
+                        {
+                            label: 'Mediana (m²)',
+                            data: (data.cur_escala || []).map(d => Math.round(d.mediana * 100) / 100),
+                            backgroundColor: 'rgba(139, 92, 246, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        datalabels: {
+                            display: true,
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#1e293b',
+                            font: { family: 'Outfit', weight: 'bold', size: 10 },
+                            formatter: (val) => val ? val.toLocaleString('es-AR') + ' m²' : ''
+                        }
+                    }
+                }
+            });
+        }
+
+        if (pdlCharts.curBarrio) pdlCharts.curBarrio.destroy();
+        const ctxCurBarrio = document.getElementById('pdlCurBarrioChart')?.getContext('2d');
+        if (ctxCurBarrio) {
+            pdlCharts.curBarrio = new Chart(ctxCurBarrio, {
+                type: 'bar',
+                data: {
+                    labels: data.cur_barrio.map(d => d.barrio),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.cur_barrio.map(d => d.total_sup),
+                        backgroundColor: 'rgba(59, 130, 246, 0.75)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        if (pdlCharts.curComuna) pdlCharts.curComuna.destroy();
+        const ctxCurComuna = document.getElementById('pdlCurComunaChart')?.getContext('2d');
+        if (ctxCurComuna) {
+            pdlCharts.curComuna = new Chart(ctxCurComuna, {
+                type: 'bar',
+                data: {
+                    labels: data.cur_comuna.map(d => String(d.comuna).toLowerCase().startsWith('comuna') ? d.comuna : `Comuna ${d.comuna}`),
+                    datasets: [{
+                        label: 'Superficie (m²)',
+                        data: data.cur_comuna.map(d => d.total_sup),
+                        backgroundColor: 'rgba(59, 130, 246, 0.85)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // 4. Armar Simulador Coeficientes
+        pdlSimData.ce_records = data.ce_records || [];
+        pdlSimData.cur_records = data.cur_records || [];
+        updateCeSimulation();
+        updateCurSimulation();
+
+    } catch (err) {
+        console.error("Error loading PDL Blanqueo analytics:", err);
+    }
+}
+window.loadAnalyticsPdlBlanqueo = loadAnalyticsPdlBlanqueo;
 
 async function loadAnalyticsDatasets() {
     const selectEl = document.getElementById('filter-datasets-usuario');
@@ -9805,6 +12798,854 @@ async function downloadLeyBlanqueoExcel() {
     }
 }
 
+// --- M2 PERMISADOS ---
+let m2CurrentPage = 1;
+let m2SearchDebounceTimer = null;
+let m2BarrioChart = null;
+let m2ComunaChart = null;
+let m2EvolucionChart = null;
+let m2Map = null;
+let m2Markers = [];
+let m2MapPoints = [];
+let lastM2Data = null;
+
+async function loadM2Permisados(resetPage = false) {
+    if (resetPage) m2CurrentPage = 1;
+
+    const tableBody = document.getElementById('m2-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b;">Cargando registros...</p></td></tr>';
+
+    const searchVal = (document.getElementById('m2-filter-search')?.value || '').trim();
+    const anioVal = document.getElementById('m2-filter-anio')?.value || '';
+    const comunaVal = document.getElementById('m2-filter-comuna')?.value || '';
+    const barrioVal = document.getElementById('m2-filter-barrio')?.value || '';
+    const obraVal = document.getElementById('m2-filter-obra')?.value || '';
+    const tareaVal = document.getElementById('m2-filter-tarea')?.value || '';
+    const categoriaVal = document.getElementById('m2-filter-categoria')?.value || '';
+    const limitVal = document.getElementById('m2-table-limit')?.value || 10;
+
+    const queryParams = new URLSearchParams({
+        page: m2CurrentPage,
+        limit: limitVal
+    });
+
+    if (searchVal) queryParams.append('search', searchVal);
+    if (anioVal) queryParams.append('anio', anioVal);
+    if (comunaVal) queryParams.append('comuna', comunaVal);
+    if (barrioVal) queryParams.append('barrio', barrioVal);
+    if (obraVal) queryParams.append('tipo_obra', obraVal);
+    if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+    if (categoriaVal) queryParams.append('categoria', categoriaVal);
+
+    try {
+        const res = await def_fetch(`${API_BASE}/analytics/m2-permisados?${queryParams}`);
+        if (!res || !res.ok) throw new Error("Error fetching M2 Permisados");
+        const data = await res.json();
+        lastM2Data = data;
+
+        const totalRecords = data.total_records || 0;
+        const recordsList = data.records || [];
+        const summary = data.summary || {};
+        const filters = data.filters || {};
+
+        // 1. KPI Cards
+        const elExp = document.getElementById('m2-kpi-expedientes');
+        if (elExp) elExp.innerText = totalRecords.toLocaleString('es-AR');
+        
+        const elConst = document.getElementById('m2-kpi-construir');
+        if (elConst) elConst.innerText = `${Math.round(summary.total_construir || 0).toLocaleString('es-AR')} m²`;
+        
+        const elAmp = document.getElementById('m2-kpi-ampliar');
+        if (elAmp) elAmp.innerText = `${Math.round(summary.total_ampliar || 0).toLocaleString('es-AR')} m²`;
+        
+        const elMod = document.getElementById('m2-kpi-modificar');
+        if (elMod) elMod.innerText = `${Math.round(summary.total_modificar || 0).toLocaleString('es-AR')} m²`;
+        
+        const elDem = document.getElementById('m2-kpi-demoler');
+        if (elDem) elDem.innerText = `${Math.round(summary.total_demoler || 0).toLocaleString('es-AR')} m²`;
+
+        // 2. Populate filters
+        populateM2YearDropdown('m2-filter-anio', filters.anios || [], anioVal);
+        populateM2FilterDropdown('m2-filter-comuna', filters.comunas || [], comunaVal, 'Comuna');
+        populateM2FilterDropdown('m2-filter-barrio', filters.barrios || [], barrioVal, 'Barrio');
+        populateM2FilterDropdown('m2-filter-obra', filters.tipos_obra || [], obraVal, 'Tipo Obra');
+        populateM2FilterDropdown('m2-filter-tarea', filters.tipos_tarea || [], tareaVal, 'Tipo Tarea');
+
+        // 3. Render Table
+        if (recordsList.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron registros.</td></tr>';
+        } else {
+            tableBody.innerHTML = recordsList.map(row => {
+                const docPlano = row.plano || '-';
+                const docEncomienda = row.encomienda_profesional || '-';
+                const docPago = row.comprobante_pagos_derechos || '-';
+                const docDominio = row.informe_dominio || '-';
+                
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 12px 16px; font-weight:700; color:#1e293b; font-family:'Outfit';">
+                            ${row.expediente}<br>
+                            <span style="font-size:0.75rem; color:#94a3b8; font-weight:500;">ID: ${row.id_expediente}</span>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight:600; color:#475569;">${row.direccion || 'Sin dirección'}</div>
+                            <span style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:600;">SMP: ${row.smp}</span>
+                            ${row.es_uf ? '<span style="background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-size:0.72rem; font-weight:700; margin-left:4px;">UF</span>' : ''}
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            ${row.comuna || '-'}<br>
+                            <span style="font-size:0.78rem; color:#64748b; font-weight:600;">${row.barrio || 'Sin barrio'}</span>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight:600; color:#475569; font-size:0.82rem;">Uso: ${row.uso_particularizado || '-'}</div>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:500;">Obra: ${row.tipo_obra || '-'}</span><br>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:500;">Tarea: ${row.tipo_tarea || '-'}</span>
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:700; color:#16a34a;">
+                            ${row.sup_construir ? Math.round(row.sup_construir).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:700; color:#dc2626;">
+                            ${row.sup_demoler ? Math.round(row.sup_demoler).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_modificar ? Math.round(row.sup_modificar).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_ampliar ? Math.round(row.sup_ampliar).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_plusvalia ? Math.round(row.sup_plusvalia).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align:right; font-weight:600; color:#475569;">
+                            ${row.sup_anti_reglamentaria ? Math.round(row.sup_anti_reglamentaria).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <strong>${row.apellido_profesional || ''}, ${row.nombre_profesional || ''}</strong><br>
+                            <span style="font-size:0.75rem; color:#64748b; font-weight:600;">Matrícula: ${row.matricula_profesional || '-'}</span>
+                        </td>
+                        <td style="padding: 12px 16px; font-size:0.75rem; color:#475569; line-height:1.4;">
+                            <div><strong>Plano:</strong> ${docPlano}</div>
+                            <div><strong>Encomienda:</strong> ${docEncomienda}</div>
+                            <div><strong>Pago:</strong> ${docPago}</div>
+                            <div><strong>Dominio:</strong> ${docDominio}</div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 4. Pagination footer update
+        const fromRow = recordsList.length > 0 ? (m2CurrentPage - 1) * limitVal + 1 : 0;
+        const toRow = (m2CurrentPage - 1) * limitVal + recordsList.length;
+        
+        const elInfo = document.getElementById('m2-pagination-info');
+        if (elInfo) elInfo.innerText = `Mostrando ${fromRow} - ${toRow} de ${totalRecords.toLocaleString('es-AR')} registros`;
+        
+        const elPgCurr = document.getElementById('m2-pg-current');
+        if (elPgCurr) elPgCurr.innerText = m2CurrentPage;
+
+        const elPgPrev = document.getElementById('m2-pg-prev');
+        if (elPgPrev) elPgPrev.disabled = (m2CurrentPage === 1);
+        
+        const elPgNext = document.getElementById('m2-pg-next');
+        if (elPgNext) elPgNext.disabled = (toRow >= totalRecords);
+
+        // 5. Render Charts
+        if (data.charts) {
+            renderM2Charts(data.charts);
+        }
+
+        // 6. Guardar puntos y renderizar mapa solo si el panel está visible
+        m2MapPoints = data.map_points || recordsList;
+        const mapPanel = document.getElementById('m2-panel-map');
+        if (mapPanel && mapPanel.style.display !== 'none') {
+            renderM2Map(m2MapPoints);
+        }
+
+        // 7. Render Pastillas
+        renderM2Pastillas();
+
+    } catch (err) {
+        console.error("Error loading M2 Permisados:", err);
+        tableBody.innerHTML = '<tr><td colspan="12" style="text-align: center; color: #ef4444; padding: 2rem;">Error al conectar con el servidor.</td></tr>';
+    }
+}
+
+function renderM2Map(records) {
+    const mapContainer = document.getElementById('m2-map');
+    if (!mapContainer) return;
+
+    // Filtrar puntos válidos dentro de los límites de CABA
+    const validPoints = records.filter(row => 
+        row.x && row.y && !isNaN(row.x) && !isNaN(row.y) &&
+        row.x > -59.0 && row.x < -58.0 && row.y > -35.0 && row.y < -34.0
+    );
+
+    // Actualizar etiqueta del total de puntos georreferenciados
+    const labelEl = document.getElementById('m2-map-total-points');
+    if (labelEl) {
+        labelEl.innerText = `${validPoints.length.toLocaleString('es-AR')} puntos georreferenciados`;
+    }
+
+    // Crear el objeto GeoJSON
+    const geojson = {
+        type: 'FeatureCollection',
+        features: validPoints.map(row => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [row.x, row.y]
+            },
+            properties: {
+                expediente: row.expediente,
+                direccion: row.direccion,
+                smp: row.smp,
+                sup_construir: row.sup_construir || 0,
+                tipo_obra: row.tipo_obra,
+                tipo_tarea: row.tipo_tarea,
+                apellido_profesional: row.apellido_profesional || '',
+                nombre_profesional: row.nombre_profesional || ''
+            }
+        }))
+    };
+
+    const fitToData = () => {
+        if (validPoints.length > 0) {
+            const bounds = new maplibregl.LngLatBounds();
+            validPoints.forEach(p => bounds.extend([p.x, p.y]));
+            m2Map.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+        } else {
+            m2Map.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
+        }
+    };
+
+    if (!m2Map) {
+        m2Map = new maplibregl.Map({
+            container: 'm2-map',
+            style: {
+                version: 8,
+                sources: {
+                    'osm-tiles': {
+                        type: 'raster',
+                        tiles: [
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                        ],
+                        tileSize: 256,
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+                        maxzoom: 19
+                    }
+                },
+                layers: [{
+                    id: 'osm-basemap',
+                    type: 'raster',
+                    source: 'osm-tiles',
+                    minzoom: 0,
+                    maxzoom: 22
+                }]
+            },
+            center: [-58.4173, -34.6118],
+            zoom: 11.5,
+            attributionControl: false
+        });
+
+        m2Map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+
+        m2Map.on('load', () => {
+            m2Map.addSource('m2-points', {
+                type: 'geojson',
+                data: geojson
+            });
+
+            m2Map.addLayer({
+                id: 'm2-points-layer',
+                type: 'circle',
+                source: 'm2-points',
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': '#009fe3',
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.85
+                }
+            });
+
+            // Evento click para popups
+            m2Map.on('click', 'm2-points-layer', (e) => {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const props = e.features[0].properties;
+
+                const popupContent = `
+                    <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
+                        <h4 style="margin:0 0 5px 0; color:var(--primary); font-weight:700; font-size:0.9rem;">${props.expediente}</h4>
+                        <div style="margin-bottom:3px;"><strong>Dirección:</strong> ${props.direccion || ''}</div>
+                        <div style="margin-bottom:3px;"><strong>SMP:</strong> ${props.smp || ''}</div>
+                        <div style="margin-bottom:3px;"><strong>Superficie Construir:</strong> ${Math.round(props.sup_construir).toLocaleString('es-AR')} m²</div>
+                        <div style="margin-bottom:3px;"><strong>Obra:</strong> ${props.tipo_obra || ''} (${props.tipo_tarea || ''})</div>
+                        <div><strong>Profesional:</strong> ${props.apellido_profesional || ''}, ${props.nombre_profesional || ''}</div>
+                    </div>
+                `;
+
+                new maplibregl.Popup({ offset: 10 })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(m2Map);
+            });
+
+            // Cambiar cursor en hover
+            m2Map.on('mouseenter', 'm2-points-layer', () => {
+                m2Map.getCanvas().style.cursor = 'pointer';
+            });
+            m2Map.on('mouseleave', 'm2-points-layer', () => {
+                m2Map.getCanvas().style.cursor = '';
+            });
+
+            fitToData();
+        });
+    } else {
+        // Si ya existe, actualizamos la fuente GeoJSON directamente
+        if (m2Map.getSource('m2-points')) {
+            m2Map.getSource('m2-points').setData(geojson);
+            fitToData();
+        } else {
+            // Esperar a que el mapa termine de cargar si está en progreso
+            m2Map.once('idle', () => {
+                if (m2Map.getSource('m2-points')) {
+                    m2Map.getSource('m2-points').setData(geojson);
+                    fitToData();
+                }
+            });
+        }
+    }
+}
+
+function switchM2SubTab(tabName) {
+    document.querySelectorAll('.m2-subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottom = 'none';
+        btn.style.fontWeight = '600';
+        btn.style.color = '#64748b';
+    });
+
+    const activeBtn = Array.from(document.querySelectorAll('.m2-subtab-btn')).find(btn => 
+        btn.getAttribute('onclick').includes(tabName)
+    );
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.borderBottom = '3px solid var(--primary)';
+        activeBtn.style.fontWeight = '700';
+        activeBtn.style.color = 'var(--primary-dark)';
+    }
+
+    document.querySelectorAll('.m2-subview-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    const activePanel = document.getElementById(`m2-panel-${tabName}`);
+    if (activePanel) {
+        activePanel.style.display = 'block';
+    }
+
+    // Redimensionar e inicializar el mapa si se activa la pestaña del mapa
+    if (tabName === 'map') {
+        setTimeout(() => {
+            renderM2Map(m2MapPoints);
+            if (m2Map) {
+                m2Map.resize();
+            }
+        }, 150);
+    } else if (tabName === 'pastillas') {
+        renderM2Pastillas();
+    }
+}
+
+function renderM2Pastillas() {
+    if (!lastM2Data) return;
+
+    // 1. Ranking de barrios
+    const barrioBody = document.getElementById('m2-pastillas-barrios-body');
+    if (barrioBody && lastM2Data.charts && lastM2Data.charts.barrio) {
+        barrioBody.innerHTML = lastM2Data.charts.barrio.map((row, index) => {
+            const promM2 = row.cantidad_expedientes > 0 ? Math.round(row.total_m2 / row.cantidad_expedientes) : 0;
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; text-align: center; font-weight: 700; color: #64748b;">${index + 1}</td>
+                    <td style="padding: 10px; font-weight: 600; color: var(--primary-dark);">${row.barrio}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; color: var(--primary);">${Math.round(row.total_m2).toLocaleString('es-AR')} m²</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #475569;">${row.cantidad_expedientes.toLocaleString('es-AR')}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #10b981;">${promM2.toLocaleString('es-AR')} m²</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 2. Promedios y Totales Generales
+    if (lastM2Data.charts && lastM2Data.charts.barrio && lastM2Data.summary) {
+        const barriosList = lastM2Data.charts.barrio;
+        const totalM2Barrios = barriosList.reduce((acc, x) => acc + parseFloat(x.total_m2 || 0), 0);
+        const promM2Barrio = barriosList.length > 0 ? totalM2Barrios / barriosList.length : 0;
+        
+        const totalExpBarrios = barriosList.reduce((acc, x) => acc + parseInt(x.cantidad_expedientes || 0, 10), 0);
+        const promExpBarrio = barriosList.length > 0 ? totalExpBarrios / barriosList.length : 0;
+        
+        const totalM2Global = parseFloat(lastM2Data.summary.total_construir || 0) + parseFloat(lastM2Data.summary.total_ampliar || 0) + parseFloat(lastM2Data.summary.total_modificar || 0);
+        const totalExpGlobal = parseInt(lastM2Data.total_records || 0, 10);
+        const promM2Exp = totalExpGlobal > 0 ? totalM2Global / totalExpGlobal : 0;
+
+        document.getElementById('m2-pastilla-prom-m2-barrio').innerText = `${Math.round(promM2Barrio).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-pastilla-prom-exp-barrio').innerText = Math.round(promExpBarrio).toLocaleString('es-AR');
+        document.getElementById('m2-pastilla-prom-m2-exp').innerText = `${Math.round(promM2Exp).toLocaleString('es-AR')} m²`;
+        document.getElementById('m2-pastilla-total-m2').innerText = `${Math.round(totalM2Global).toLocaleString('es-AR')} m²`;
+    }
+
+    // 3. Evolución Mes a Mes
+    const evolucionBody = document.getElementById('m2-pastillas-evolucion-body');
+    if (evolucionBody && lastM2Data.charts && lastM2Data.charts.evolucion_mensual) {
+        const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        
+        evolucionBody.innerHTML = lastM2Data.charts.evolucion_mensual.map(row => {
+            const periodLabel = row.anio ? `${nombresMeses[row.mes - 1]} ${row.anio}` : `${nombresMeses[row.mes - 1]}`;
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; font-weight: 600; color: #475569;">${periodLabel}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; color: var(--primary);">${Math.round(row.total_m2).toLocaleString('es-AR')} m²</td>
+                </tr>
+            `;
+        }).join('');
+    }
+}
+
+function populateM2YearDropdown(elementId, items, currentVal) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 2) return; // Only populate once
+    
+    let html = '';
+    items.forEach(item => {
+        if (!item) return;
+        const selectedAttr = String(item) === String(currentVal) ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    html += `<option value="" ${!currentVal ? 'selected' : ''}>[Todos los Años]</option>`;
+    select.innerHTML = html;
+}
+
+function populateM2FilterDropdown(elementId, items, currentVal, placeholder) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 1) return; // Only populate once
+    
+    let html = `<option value="">[${placeholder}]</option>`;
+    items.forEach(item => {
+        if (!item) return;
+        const selectedAttr = item === currentVal ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    select.innerHTML = html;
+}
+
+function changeM2Page(delta) {
+    m2CurrentPage += delta;
+    if (m2CurrentPage < 1) m2CurrentPage = 1;
+    loadM2Permisados();
+}
+
+function debounceM2Search() {
+    clearTimeout(m2SearchDebounceTimer);
+    m2SearchDebounceTimer = setTimeout(() => {
+        loadM2Permisados(true);
+    }, 350);
+}
+
+function clearM2Filters() {
+    document.getElementById('m2-filter-search').value = '';
+    document.getElementById('m2-filter-anio').value = '2026';
+    document.getElementById('m2-filter-comuna').value = '';
+    document.getElementById('m2-filter-barrio').value = '';
+    document.getElementById('m2-filter-obra').value = '';
+    document.getElementById('m2-filter-tarea').value = '';
+    document.getElementById('m2-filter-categoria').value = '';
+    loadM2Permisados(true);
+}
+
+async function downloadM2PermisadosDataset() {
+    try {
+        const searchVal = document.getElementById('m2-filter-search').value.trim();
+        const anioVal = document.getElementById('m2-filter-anio').value;
+        const comunaVal = document.getElementById('m2-filter-comuna').value;
+        const barrioVal = document.getElementById('m2-filter-barrio').value;
+        const obraVal = document.getElementById('m2-filter-obra').value;
+        const tareaVal = document.getElementById('m2-filter-tarea').value;
+        const categoriaVal = document.getElementById('m2-filter-categoria').value;
+
+        const queryParams = new URLSearchParams();
+        if (searchVal) queryParams.append('search', searchVal);
+        if (anioVal) queryParams.append('anio', anioVal);
+        if (comunaVal) queryParams.append('comuna', comunaVal);
+        if (barrioVal) queryParams.append('barrio', barrioVal);
+        if (obraVal) queryParams.append('tipo_obra', obraVal);
+        if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+        if (categoriaVal) queryParams.append('categoria', categoriaVal);
+
+        const response = await def_fetch(`${API_BASE}/analytics/m2-permisados/download?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en el servidor: ${response ? response.status : 'Sin respuesta'}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'm2_permisados.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (err) {
+        console.error("Error al descargar dataset M2 Permisados:", err);
+        alert("No se pudo descargar el dataset. Verifique sus permisos e intente nuevamente.");
+    }
+}
+
+function updateKPICardsFromChartVisibility(chart) {
+    if (!lastM2Data || !lastM2Data.summary) return;
+    
+    const isConstruirVisible = chart.isDatasetVisible(0);
+    const isAmpliarVisible = chart.isDatasetVisible(1);
+    const isModificarVisible = chart.isDatasetVisible(2);
+    
+    const kpiConstruir = document.getElementById('m2-kpi-construir');
+    const kpiAmpliar = document.getElementById('m2-kpi-ampliar');
+    const kpiModificar = document.getElementById('m2-kpi-modificar');
+    const kpiExpedientes = document.getElementById('m2-kpi-expedientes');
+    
+    // Recalcular la cantidad de expedientes única según las categorías activas
+    if (kpiExpedientes && lastM2Data.summary_records) {
+        const matchedExpedientes = new Set();
+        lastM2Data.summary_records.forEach(row => {
+            const hasConstruir = isConstruirVisible && row.c > 0;
+            const hasAmpliar = isAmpliarVisible && row.a > 0;
+            const hasModificar = isModificarVisible && row.m > 0;
+            
+            if (hasConstruir || hasAmpliar || hasModificar) {
+                matchedExpedientes.add(row.id);
+            }
+        });
+        kpiExpedientes.innerText = matchedExpedientes.size.toLocaleString('es-AR');
+    }
+    
+    if (kpiConstruir) {
+        if (isConstruirVisible) {
+            kpiConstruir.style.opacity = '1';
+            kpiConstruir.innerText = `${Math.round(lastM2Data.summary.total_construir).toLocaleString('es-AR')} m²`;
+        } else {
+            kpiConstruir.style.opacity = '0.4';
+            kpiConstruir.innerText = `0 m²`;
+        }
+    }
+    if (kpiAmpliar) {
+        if (isAmpliarVisible) {
+            kpiAmpliar.style.opacity = '1';
+            kpiAmpliar.innerText = `${Math.round(lastM2Data.summary.total_ampliar).toLocaleString('es-AR')} m²`;
+        } else {
+            kpiAmpliar.style.opacity = '0.4';
+            kpiAmpliar.innerText = `0 m²`;
+        }
+    }
+    if (kpiModificar) {
+        if (isModificarVisible) {
+            kpiModificar.style.opacity = '1';
+            kpiModificar.innerText = `${Math.round(lastM2Data.summary.total_modificar).toLocaleString('es-AR')} m²`;
+        } else {
+            kpiModificar.style.opacity = '0.4';
+            kpiModificar.innerText = `0 m²`;
+        }
+    }
+}
+
+const customLegendClick = function(e, legendItem, legend) {
+    const index = legendItem.datasetIndex;
+    const ci = legend.chart;
+    
+    const isVisible = ci.isDatasetVisible(index);
+    if (isVisible) {
+        ci.hide(index);
+        legendItem.hidden = true;
+    } else {
+        ci.show(index);
+        legendItem.hidden = false;
+    }
+    
+    const otherChart = (ci === m2BarrioChart) ? m2ComunaChart : m2BarrioChart;
+    if (otherChart) {
+        if (isVisible) {
+            otherChart.hide(index);
+        } else {
+            otherChart.show(index);
+        }
+        const otherLegend = otherChart.legend;
+        if (otherLegend && otherLegend.legendItems && otherLegend.legendItems[index]) {
+            otherLegend.legendItems[index].hidden = isVisible;
+        }
+        otherChart.update();
+    }
+    
+    updateKPICardsFromChartVisibility(ci);
+    ci.update();
+};
+
+function renderM2Charts(chartsData) {
+    const ctxBarrio = document.getElementById('m2-chart-barrio')?.getContext('2d');
+    const ctxComuna = document.getElementById('m2-chart-comuna')?.getContext('2d');
+    const ctxEvolucion = document.getElementById('m2-chart-evolucion')?.getContext('2d');
+
+    const wrapperBarrio = document.getElementById('m2-chart-barrio-wrapper');
+    if (wrapperBarrio && chartsData.barrio) {
+        wrapperBarrio.style.height = `${Math.max(600, chartsData.barrio.length * 36)}px`;
+    }
+
+    if (m2BarrioChart) m2BarrioChart.destroy();
+    if (m2ComunaChart) m2ComunaChart.destroy();
+    if (m2EvolucionChart) m2EvolucionChart.destroy();
+
+    // Plugin personalizado para dibujar los valores acumulados a la derecha de las barras apiladas
+    const m2DatalabelsPlugin = {
+        id: 'm2Datalabels',
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = 'bold 9.5px Outfit, sans-serif';
+            ctx.fillStyle = '#1e293b';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+
+            const datasetCount = chart.data.datasets.length;
+            if (datasetCount === 0) return;
+
+            const labelsCount = chart.data.labels.length;
+            for (let index = 0; index < labelsCount; index++) {
+                let totalVal = 0;
+                let maxEndX = 0;
+                let barY = 0;
+
+                // Encontrar el final real de la barra apilada
+                for (let i = 0; i < datasetCount; i++) {
+                    const dataset = chart.data.datasets[i];
+                    const meta = chart.getDatasetMeta(i);
+                    const bar = meta.data[index];
+                    if (bar && dataset.data[index] > 0 && chart.isDatasetVisible(i)) {
+                        totalVal += dataset.data[index];
+                        if (bar.x > maxEndX) {
+                            maxEndX = bar.x;
+                        }
+                        barY = bar.y;
+                    }
+                }
+
+                if (totalVal > 0 && barY > 0) {
+                    const formatted = ' ' + Math.round(totalVal).toLocaleString('es-AR') + ' m²';
+                    ctx.fillText(formatted, maxEndX + 2, barY);
+                }
+            }
+            ctx.restore();
+        }
+    };
+
+    if (ctxBarrio && chartsData.barrio) {
+        m2BarrioChart = new Chart(ctxBarrio, {
+            type: 'bar',
+            data: {
+                labels: chartsData.barrio.map(x => x.barrio),
+                datasets: [
+                    {
+                        label: 'm² Construir',
+                        data: chartsData.barrio.map(x => x.total_construir),
+                        backgroundColor: 'rgba(0, 159, 227, 0.75)',
+                        borderColor: 'rgb(0, 159, 227)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 18
+                    },
+                    {
+                        label: 'm² Ampliar',
+                        data: chartsData.barrio.map(x => x.total_ampliar),
+                        backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                        borderColor: 'rgb(249, 115, 22)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 18
+                    },
+                    {
+                        label: 'm² Modificar',
+                        data: chartsData.barrio.map(x => x.total_modificar),
+                        backgroundColor: 'rgba(168, 85, 247, 0.75)',
+                        borderColor: 'rgb(168, 85, 247)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 18
+                    }
+                ]
+            },
+            plugins: [m2DatalabelsPlugin],
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        onClick: customLegendClick,
+                        labels: { font: { family: 'Outfit', size: 10, weight: '600' } }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' },
+                        grace: '10%'
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 9, weight: '600' } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    if (ctxComuna && chartsData.comuna) {
+        m2ComunaChart = new Chart(ctxComuna, {
+            type: 'bar',
+            data: {
+                labels: chartsData.comuna.map(x => x.comuna),
+                datasets: [
+                    {
+                        label: 'm² Construir',
+                        data: chartsData.comuna.map(x => x.total_construir),
+                        backgroundColor: 'rgba(34, 197, 94, 0.75)',
+                        borderColor: 'rgb(34, 197, 94)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 16
+                    },
+                    {
+                        label: 'm² Ampliar',
+                        data: chartsData.comuna.map(x => x.total_ampliar),
+                        backgroundColor: 'rgba(249, 115, 22, 0.75)',
+                        borderColor: 'rgb(249, 115, 22)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 16
+                    },
+                    {
+                        label: 'm² Modificar',
+                        data: chartsData.comuna.map(x => x.total_modificar),
+                        backgroundColor: 'rgba(168, 85, 247, 0.75)',
+                        borderColor: 'rgb(168, 85, 247)',
+                        borderWidth: 1.5,
+                        borderRadius: 4,
+                        barThickness: 16
+                    }
+                ]
+            },
+            plugins: [m2DatalabelsPlugin],
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        onClick: customLegendClick,
+                        labels: { font: { family: 'Outfit', size: 10, weight: '600' } }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' },
+                        grace: '10%'
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '600' } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    if (ctxEvolucion && chartsData.evolucion_mensual) {
+        const labels = chartsData.evolucion_mensual.map(x => {
+            if (x.anio) {
+                return `${x.mes}/${x.anio}`;
+            }
+            return MESES[x.mes - 1] || `Mes ${x.mes}`;
+        });
+        const datasetData = chartsData.evolucion_mensual.map(x => x.total_m2);
+
+        m2EvolucionChart = new Chart(ctxEvolucion, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'm² Permisados',
+                    data: datasetData,
+                    borderColor: 'rgb(249, 115, 22)',
+                    backgroundColor: 'rgba(249, 115, 22, 0.08)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: 'rgb(249, 115, 22)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '600' } },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    y: {
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' }
+                    }
+                }
+            }
+        });
+    }
+}
+
 // Exponer funciones globales
 window.loadAnalyticsEstadistica = loadAnalyticsEstadistica;
 window.loadAnalyticsLeyBlanqueo = loadAnalyticsLeyBlanqueo;
@@ -9813,228 +13654,1260 @@ window.loadAnalyticsDatasets = loadAnalyticsDatasets;
 window.downloadDataset = downloadDataset;
 window.exportChartToPNG = exportChartToPNG;
 window.downloadLeyBlanqueoExcel = downloadLeyBlanqueoExcel;
+window.loadM2Permisados = loadM2Permisados;
+window.changeM2Page = changeM2Page;
+window.debounceM2Search = debounceM2Search;
+window.clearM2Filters = clearM2Filters;
+window.downloadM2PermisadosDataset = downloadM2PermisadosDataset;
+window.switchM2SubTab = switchM2SubTab;
 
-// --- ACCESO A BUZONES (ADMIN BACKLOG) ---
-let allBuzonesCatalogo = [];
-let allBuzonesAccesos = [];
+// --- MÓDULO AVISOS DE OBRA ---
+let avisoCurrentPage = 1;
+let avisoLimit = 50;
+let lastAvisoData = null;
+let avisoMap = null;
+let avisoChartBarrio = null;
+let avisoChartComuna = null;
+let avisoChartEvolucion = null;
 
-async function loadBuzonesAccesoConfig() {
-    const checkboxesContainer = document.getElementById('buzones-checkboxes-container');
-    const accesosContainer = document.getElementById('buzon-accesos-list-container');
-    if (!checkboxesContainer || !accesosContainer) return;
+async function loadAvisosObra(resetPage = false) {
+    if (resetPage) {
+        avisoCurrentPage = 1;
+    }
 
-    checkboxesContainer.innerHTML = '<div style="padding: 10px; text-align: center;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b; font-size:0.85rem;">Cargando catálogo...</p></div>';
-    accesosContainer.innerHTML = '<div style="padding: 10px; text-align: center;"><span class="loader"></span><p style="margin-top:0.5rem; color:#64748b; font-size:0.85rem;">Cargando reglas...</p></div>';
+    const anioVal = document.getElementById('aviso-filter-anio') ? document.getElementById('aviso-filter-anio').value : '2026';
+    const acronimoVal = document.getElementById('aviso-filter-acronimo') ? document.getElementById('aviso-filter-acronimo').value : '';
+    const barrioVal = document.getElementById('aviso-filter-barrio') ? document.getElementById('aviso-filter-barrio').value : '';
+    const comunaVal = document.getElementById('aviso-filter-comuna') ? document.getElementById('aviso-filter-comuna').value : '';
+    const searchVal = document.getElementById('aviso-search-input') ? document.getElementById('aviso-search-input').value.trim() : '';
+
+    const queryParams = new URLSearchParams({
+        page: avisoCurrentPage,
+        limit: avisoLimit
+    });
+
+    if (anioVal) queryParams.append('anio', anioVal);
+    if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+    if (barrioVal) queryParams.append('barrio', barrioVal);
+    if (comunaVal) queryParams.append('comuna', comunaVal);
+    if (searchVal) queryParams.append('search', searchVal);
 
     try {
-        if (allBuzonesCatalogo.length === 0) {
-            const catResp = await def_fetch(`${API_BASE}/admin/buzones-analisis/catalogo`);
-            if (catResp && catResp.ok) {
-                allBuzonesCatalogo = await catResp.json();
-            }
+        const response = await def_fetch(`${API_BASE}/analytics/avisos-obra?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en servidor: ${response ? response.status : 'no response'}`);
         }
 
-        let cbHtml = '';
-        allBuzonesCatalogo.forEach(mb => {
-            cbHtml += `
-                <label class="admin-buzon-checkbox-label" style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background 0.15s, border-color 0.15s; user-select:none; background:#ffffff; border:1px solid #e2e8f0; margin-bottom:2px;">
-                    <input type="checkbox" class="buzon-checkbox" value="${mb}" id="chk-buzon-${mb}" style="accent-color: var(--primary); width:16px; height:16px;" onchange="styleCheckedBuzonLabel(this.parentNode)">
-                    <span style="color:#334155; line-height:1.2;"><strong>${mb}</strong></span>
-                </label>
-            `;
-        });
-        checkboxesContainer.innerHTML = cbHtml;
+        const data = await response.json();
+        lastAvisoData = data;
 
-        if (allAdminRoles.length === 0) {
-            const rResp = await def_fetch(`${API_BASE}/admin/roles`);
-            if (rResp && rResp.ok) allAdminRoles = await rResp.json();
-        }
-        if (allAdminUsers.length === 0) {
-            const uResp = await def_fetch(`${API_BASE}/admin/users`);
-            if (uResp && uResp.ok) allAdminUsers = await uResp.json();
+        // Populate dropdown filters dynamically
+        if (data.filters) {
+            populateAvisoDropdown('aviso-filter-barrio', data.filters.barrios || [], barrioVal, 'Todos los Barrios');
+            populateAvisoDropdown('aviso-filter-comuna', data.filters.comunas || [], comunaVal, 'Todas las Comunas');
         }
 
-        onBuzonTipoSujetoChange();
+        // Render KPI Cards
+        document.getElementById('aviso-kpi-total').innerText = (data.total_records || 0).toLocaleString('es-AR');
+        document.getElementById('aviso-kpi-ifcao').innerText = (data.acronyms?.IFCAO || 0).toLocaleString('es-AR');
+        document.getElementById('aviso-kpi-ifcfp').innerText = (data.acronyms?.IFCFP || 0).toLocaleString('es-AR');
+        document.getElementById('aviso-kpi-ifcac').innerText = (data.acronyms?.IFCAC || 0).toLocaleString('es-AR');
 
-        const accResp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`);
-        if (accResp && accResp.ok) {
-            allBuzonesAccesos = await accResp.json();
-            renderBuzonAccesosList();
+        // Render Table Records
+        renderAvisoTable(data.records || [], data.total_records || 0);
+
+        // Render Charts
+        renderAvisoCharts(data.charts || {});
+
+        // Render Map if active or points available
+        if (data.map_points) {
+            renderAvisoMap(data.map_points);
         }
 
     } catch (err) {
-        console.error(err);
-        checkboxesContainer.innerHTML = '<p style="color: #ef4444; padding: 10px;">Error al cargar datos.</p>';
+        console.error("Error al cargar Avisos de Obra:", err);
     }
 }
 
-function onBuzonTipoSujetoChange() {
-    const tipo = document.getElementById('buzon-tipo-sujeto').value;
-    const selectSujeto = document.getElementById('buzon-nombre-sujeto');
-    const labelSujeto = document.getElementById('buzon-nombre-sujeto-label');
-    if (!selectSujeto) return;
+function populateAvisoDropdown(elementId, items, currentVal, placeholder) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 1) return; // Populate once unless empty
+    
+    let html = `<option value="">[${placeholder}]</option>`;
+    items.forEach(item => {
+        if (!item) return;
+        const selectedAttr = item === currentVal ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    select.innerHTML = html;
+}
 
-    let html = '';
-    if (tipo === 'usuario') {
-        labelSujeto.innerText = 'Seleccionar Usuario';
-        allAdminUsers.forEach(u => {
-            html += `<option value="${u.username}">${u.apellido_nombre || u.username} (${u.username})</option>`;
-        });
+function renderAvisoTable(records, totalRecords) {
+    const tbody = document.getElementById('aviso-table-body');
+    if (!tbody) return;
+
+    if (records.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #94a3b8;">No se encontraron registros de Avisos de Obra con los filtros seleccionados.</td></tr>`;
     } else {
-        labelSujeto.innerText = 'Seleccionar Rol';
-        allAdminRoles.forEach(r => {
-            html += `<option value="${r.role_name}">${r.role_name.toUpperCase()}</option>`;
-        });
+        tbody.innerHTML = records.map(r => `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 10px 12px;"><span style="background: rgba(245, 158, 11, 0.12); color: #d97706; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">${r.acronimo}</span></td>
+                <td style="padding: 10px 12px; font-weight: 700; color: var(--primary-dark);">${r.expediente || '-'}</td>
+                <td style="padding: 10px 12px; font-size: 0.82rem; color: #475569;">${r.documento || '-'}</td>
+                <td style="padding: 10px 12px; font-weight: 600; color: #334155;">${r.direccion || '-'}</td>
+                <td style="padding: 10px 12px; color: #475569;">${r.barrio || '-'}</td>
+                <td style="padding: 10px 12px; color: #475569;">${r.comuna || '-'}</td>
+                <td style="padding: 10px 12px; color: #64748b; font-size: 0.82rem;">${r.fecha_asociacion ? r.fecha_asociacion.substring(0, 10) : '-'}</td>
+            </tr>
+        `).join('');
     }
-    selectSujeto.innerHTML = html;
+
+    // Pagination info
+    const start = totalRecords === 0 ? 0 : (avisoCurrentPage - 1) * avisoLimit + 1;
+    const end = Math.min(avisoCurrentPage * avisoLimit, totalRecords);
+    document.getElementById('aviso-pagination-info').innerText = `Mostrando ${start} - ${end} de ${totalRecords.toLocaleString('es-AR')} registros`;
+    
+    document.getElementById('aviso-page-num').innerText = `Página ${avisoCurrentPage}`;
+    document.getElementById('aviso-prev-page').disabled = (avisoCurrentPage <= 1);
+    document.getElementById('aviso-next-page').disabled = (end >= totalRecords);
 }
 
-function styleCheckedBuzonLabel(labelElement) {
-    if (!labelElement) return;
-    const checkbox = labelElement.querySelector('input[type="checkbox"]');
-    if (checkbox && checkbox.checked) {
-        labelElement.style.background = '#f0fdf4';
-        labelElement.style.borderColor = '#bbf7d0';
-    } else {
-        labelElement.style.background = '#ffffff';
-        labelElement.style.borderColor = '#e2e8f0';
+function changeAvisoPage(delta) {
+    avisoCurrentPage += delta;
+    if (avisoCurrentPage < 1) avisoCurrentPage = 1;
+    loadAvisosObra();
+}
+
+function switchAvisoSubTab(tabName) {
+    document.querySelectorAll('.aviso-subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottom = 'none';
+        btn.style.fontWeight = '600';
+        btn.style.color = '#64748b';
+    });
+
+    const activeBtn = Array.from(document.querySelectorAll('.aviso-subtab-btn')).find(btn => 
+        btn.getAttribute('onclick').includes(tabName)
+    );
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.borderBottom = '3px solid #f59e0b';
+        activeBtn.style.fontWeight = '700';
+        activeBtn.style.color = 'var(--primary-dark)';
+    }
+
+    document.querySelectorAll('.aviso-subview-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    const activePanel = document.getElementById(`aviso-panel-${tabName}`);
+    if (activePanel) {
+        activePanel.style.display = 'block';
+    }
+
+    if (tabName === 'map') {
+        setTimeout(() => {
+            if (lastAvisoData && lastAvisoData.map_points) {
+                renderAvisoMap(lastAvisoData.map_points);
+            }
+            if (avisoMap) {
+                avisoMap.resize();
+            }
+        }, 150);
     }
 }
 
-function filterAdminBuzones() {
-    const query = (document.getElementById('admin-buzon-search').value || '').toLowerCase().trim();
-    const labels = document.querySelectorAll('.admin-buzon-checkbox-label');
-    labels.forEach(label => {
-        const text = label.textContent.toLowerCase();
-        if (text.includes(query)) {
-            label.style.display = 'flex';
+function toggleAvisoMapLayer(acronimo) {
+    if (!avisoMap) return;
+    const layerId = `aviso-points-${acronimo}`;
+    const chk = document.getElementById(`layer-toggle-${acronimo.toLowerCase()}`);
+    if (chk && avisoMap.getLayer(layerId)) {
+        avisoMap.setLayoutProperty(layerId, 'visibility', chk.checked ? 'visible' : 'none');
+    }
+}
+
+function renderAvisoMap(points) {
+    const mapContainer = document.getElementById('aviso-leaflet-map');
+    if (!mapContainer || typeof maplibregl === 'undefined') return;
+
+    const validPoints = (points || []).filter(p => p && p.x && p.y);
+    document.getElementById('aviso-map-count').innerText = `${validPoints.length.toLocaleString('es-AR')} ubicaciones georreferenciadas`;
+
+    const geojson = {
+        type: 'FeatureCollection',
+        features: validPoints.map(row => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [row.x, row.y]
+            },
+            properties: {
+                acronimo: row.acronimo,
+                expediente: row.expediente || '',
+                documento: row.documento || '',
+                direccion: row.direccion || '',
+                barrio: row.barrio || '',
+                comuna: row.comuna || ''
+            }
+        }))
+    };
+
+    const fitToData = () => {
+        if (validPoints.length > 0) {
+            const bounds = new maplibregl.LngLatBounds();
+            validPoints.forEach(p => bounds.extend([p.x, p.y]));
+            avisoMap.fitBounds(bounds, { padding: 50, maxZoom: 15 });
         } else {
-            label.style.display = 'none';
+            avisoMap.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
         }
-    });
+    };
+
+    const acronymConfigs = [
+        { acr: 'IFCAO', color: '#3b82f6' },
+        { acr: 'IFCFP', color: '#10b981' },
+        { acr: 'IFCAC', color: '#a855f7' }
+    ];
+
+    const syncLayerVisibilities = () => {
+        acronymConfigs.forEach(cfg => {
+            const layerId = `aviso-points-${cfg.acr}`;
+            const chk = document.getElementById(`layer-toggle-${cfg.acr.toLowerCase()}`);
+            if (chk && avisoMap.getLayer(layerId)) {
+                avisoMap.setLayoutProperty(layerId, 'visibility', chk.checked ? 'visible' : 'none');
+            }
+        });
+    };
+
+    if (!avisoMap) {
+        avisoMap = new maplibregl.Map({
+            container: 'aviso-leaflet-map',
+            style: {
+                version: 8,
+                sources: {
+                    'osm-tiles': {
+                        type: 'raster',
+                        tiles: [
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                        ],
+                        tileSize: 256,
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+                        maxzoom: 19
+                    }
+                },
+                layers: [{
+                    id: 'osm-basemap',
+                    type: 'raster',
+                    source: 'osm-tiles',
+                    minzoom: 0,
+                    maxzoom: 22
+                }]
+            },
+            center: [-58.4173, -34.6118],
+            zoom: 11.5,
+            attributionControl: false
+        });
+
+        avisoMap.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+
+        avisoMap.on('load', () => {
+            avisoMap.addSource('aviso-points', {
+                type: 'geojson',
+                data: geojson
+            });
+
+            acronymConfigs.forEach(cfg => {
+                const layerId = `aviso-points-${cfg.acr}`;
+                const chk = document.getElementById(`layer-toggle-${cfg.acr.toLowerCase()}`);
+                const isVisible = chk ? chk.checked : true;
+
+                avisoMap.addLayer({
+                    id: layerId,
+                    type: 'circle',
+                    source: 'aviso-points',
+                    filter: ['==', ['get', 'acronimo'], cfg.acr],
+                    layout: {
+                        'visibility': isVisible ? 'visible' : 'none'
+                    },
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': cfg.color,
+                        'circle-stroke-width': 1.5,
+                        'circle-stroke-color': '#ffffff',
+                        'circle-opacity': 0.85
+                    }
+                });
+
+                avisoMap.on('click', layerId, (e) => {
+                    const coordinates = e.features[0].geometry.coordinates.slice();
+                    const props = e.features[0].properties;
+
+                    const popupContent = `
+                        <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
+                            <strong style="color:#d97706;">${props.acronimo}</strong> - <b>${props.expediente}</b><br/>
+                            <b>Dirección:</b> ${props.direccion}<br/>
+                            <b>Barrio:</b> ${props.barrio} (${props.comuna})<br/>
+                            <b>Documento:</b> ${props.documento}
+                        </div>
+                    `;
+
+                    new maplibregl.Popup({ offset: 10 })
+                        .setLngLat(coordinates)
+                        .setHTML(popupContent)
+                        .addTo(avisoMap);
+                });
+
+                avisoMap.on('mouseenter', layerId, () => {
+                    avisoMap.getCanvas().style.cursor = 'pointer';
+                });
+                avisoMap.on('mouseleave', layerId, () => {
+                    avisoMap.getCanvas().style.cursor = '';
+                });
+            });
+
+            fitToData();
+        });
+    } else {
+        if (avisoMap.getSource('aviso-points')) {
+            avisoMap.getSource('aviso-points').setData(geojson);
+            syncLayerVisibilities();
+            fitToData();
+        } else {
+            avisoMap.once('idle', () => {
+                if (avisoMap.getSource('aviso-points')) {
+                    avisoMap.getSource('aviso-points').setData(geojson);
+                    syncLayerVisibilities();
+                    fitToData();
+                }
+            });
+        }
+    }
 }
 
-function selectAllBuzones(checked) {
-    const checkboxes = document.querySelectorAll('.buzon-checkbox');
-    checkboxes.forEach(cb => {
-        const label = cb.parentNode;
-        if (label && label.style.display !== 'none') {
-            cb.checked = checked;
-            styleCheckedBuzonLabel(label);
+function renderAvisoCharts(charts) {
+    if (typeof Chart === 'undefined') return;
+
+    // 1. Chart Ranking Barrios (Top 15)
+    const ctxBarrio = document.getElementById('aviso-chart-barrio')?.getContext('2d');
+    if (ctxBarrio && charts.barrio) {
+        const topBarrios = charts.barrio.slice(0, 15);
+        const labels = topBarrios.map(b => b.barrio);
+        const totals = topBarrios.map(b => b.total);
+
+        if (avisoChartBarrio) avisoChartBarrio.destroy();
+
+        avisoChartBarrio = new Chart(ctxBarrio, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cantidad de Avisos',
+                    data: totals,
+                    backgroundColor: '#f59e0b',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { grid: { color: '#f1f5f9' } },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Populate table detail for barrios
+        const totalAvisosGlobal = charts.barrio.reduce((acc, x) => acc + x.total, 0);
+        const barrioTbody = document.getElementById('aviso-barrios-table-body');
+        if (barrioTbody) {
+            barrioTbody.innerHTML = charts.barrio.map((row, idx) => {
+                const pct = totalAvisosGlobal > 0 ? ((row.total / totalAvisosGlobal) * 100).toFixed(2) : 0;
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px 10px; font-weight: 700; color: #64748b;">${idx + 1}</td>
+                        <td style="padding: 8px 10px; font-weight: 600; color: var(--primary-dark);">${row.barrio}</td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #f59e0b;">${row.total.toLocaleString('es-AR')}</td>
+                        <td style="padding: 8px 10px; text-align: right; font-weight: 600; color: #475569;">${pct}%</td>
+                    </tr>
+                `;
+            }).join('');
         }
-    });
+    }
+
+    // 2. Chart Comunas
+    const ctxComuna = document.getElementById('aviso-chart-comuna')?.getContext('2d');
+    if (ctxComuna && charts.comuna) {
+        const labels = charts.comuna.map(c => c.comuna);
+        const totals = charts.comuna.map(c => c.total);
+
+        if (avisoChartComuna) avisoChartComuna.destroy();
+
+        avisoChartComuna = new Chart(ctxComuna, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cantidad de Avisos',
+                    data: totals,
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // 3. Chart Evolución Mensual
+    const ctxEvolucion = document.getElementById('aviso-chart-evolucion')?.getContext('2d');
+    if (ctxEvolucion && charts.evolucion_mensual) {
+        const labels = charts.evolucion_mensual.map(m => m.mes);
+        const totals = charts.evolucion_mensual.map(m => m.total);
+
+        if (avisoChartEvolucion) avisoChartEvolucion.destroy();
+
+        avisoChartEvolucion = new Chart(ctxEvolucion, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Avisos de Obra por Mes',
+                    data: totals,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { grid: { color: '#f1f5f9' } },
+                    x: { grid: { color: '#f1f5f9' } }
+                }
+            }
+        });
+
+        // Populate evolution table
+        const evoTbody = document.getElementById('aviso-evolucion-table-body');
+        if (evoTbody) {
+            evoTbody.innerHTML = charts.evolucion_mensual.map(row => `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 8px 10px; font-weight: 600; color: #475569;">${row.mes}</td>
+                    <td style="padding: 8px 10px; text-align: right; font-weight: 700; color: #f59e0b;">${row.total.toLocaleString('es-AR')}</td>
+                </tr>
+            `).join('');
+        }
+    }
 }
 
-function renderBuzonAccesosList() {
-    const container = document.getElementById('buzon-accesos-list-container');
-    if (!container) return;
+async function downloadAvisosObraDataset() {
+    try {
+        const searchVal = document.getElementById('aviso-search-input') ? document.getElementById('aviso-search-input').value.trim() : '';
+        const anioVal = document.getElementById('aviso-filter-anio') ? document.getElementById('aviso-filter-anio').value : '';
+        const comunaVal = document.getElementById('aviso-filter-comuna') ? document.getElementById('aviso-filter-comuna').value : '';
+        const barrioVal = document.getElementById('aviso-filter-barrio') ? document.getElementById('aviso-filter-barrio').value : '';
+        const acronimoVal = document.getElementById('aviso-filter-acronimo') ? document.getElementById('aviso-filter-acronimo').value : '';
 
-    if (allBuzonesAccesos.length === 0) {
-        container.innerHTML = '<p style="color: #64748b; font-style: italic; text-align: center; padding: 1rem;">No hay accesos especiales configurados.</p>';
+        const queryParams = new URLSearchParams();
+        if (searchVal) queryParams.append('search', searchVal);
+        if (anioVal) queryParams.append('anio', anioVal);
+        if (comunaVal) queryParams.append('comuna', comunaVal);
+        if (barrioVal) queryParams.append('barrio', barrioVal);
+        if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+
+        const response = await def_fetch(`${API_BASE}/analytics/avisos-obra/download?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en el servidor: ${response ? response.status : 'Sin respuesta'}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'avisos_de_obra.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (err) {
+        console.error("Error al descargar dataset Avisos de Obra:", err);
+        alert("No se pudo descargar el dataset. Verifique sus permisos e intente nuevamente.");
+    }
+}
+
+window.loadAvisosObra = loadAvisosObra;
+window.changeAvisoPage = changeAvisoPage;
+window.switchAvisoSubTab = switchAvisoSubTab;
+window.downloadAvisosObraDataset = downloadAvisosObraDataset;
+window.toggleAvisoMapLayer = toggleAvisoMapLayer;
+
+// --- CONFIGURACIÓN DE BUZONES / ANALISTAS POR GERENCIA (ADMIN BACKLOG) ---
+let allAdminGerenciasBuzonesData = [];
+
+const ADMIN_GERENCIAS_LABELS = {
+    catastro: 'DGROC - Catastro',
+    instalaciones: 'DGROC - Instalaciones',
+    conforme: 'DGROC - Conforme',
+    contable: 'DGROC - Contable',
+    etapa_proyecto: 'DGROC - Etapa Proyecto',
+    aviso_obra: 'DGROC - Aviso de Obra',
+    morfologia: 'DGIUR - Morfología',
+    aph: 'DGIUR - APH',
+    usos: 'DGIUR - Usos',
+    publico_privado: 'DGIUR - Público Privado',
+    copua: 'DGIUR - COPUA',
+    privada: 'DGIUR - Privada'
+};
+
+async function loadBuzonesAccesoConfig() {
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    const tableBody = document.getElementById('admin-buzones-table-body');
+    const subtitle = document.getElementById('admin-buzones-table-subtitle');
+    if (!select || !tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2.5rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando configuración de analistas y buzones...</p></td></tr>';
+    if (subtitle) subtitle.innerText = 'Cargando datos...';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones`);
+        if (res && res.ok) {
+            allAdminGerenciasBuzonesData = await res.json();
+
+            // Populate dropdown preserving selection
+            const currentSelVal = select.value;
+            let optionsHtml = '';
+            allAdminGerenciasBuzonesData.forEach(item => {
+                const label = ADMIN_GERENCIAS_LABELS[item.gerencia] || item.gerencia.toUpperCase();
+                optionsHtml += `<option value="${item.gerencia}">${label} (${item.total_analistas})</option>`;
+            });
+            select.innerHTML = optionsHtml;
+
+            if (currentSelVal && allAdminGerenciasBuzonesData.some(x => x.gerencia === currentSelVal)) {
+                select.value = currentSelVal;
+            } else if (allAdminGerenciasBuzonesData.length > 0) {
+                select.value = allAdminGerenciasBuzonesData[0].gerencia;
+            }
+
+            onAdminBuzonGerenciaChange();
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar datos del servidor.</td></tr>';
+        }
+    } catch (err) {
+        console.error("Error loading gerencias buzones config:", err);
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
+    }
+}
+
+function onAdminBuzonGerenciaChange() {
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    const tableBody = document.getElementById('admin-buzones-table-body');
+    const title = document.getElementById('admin-buzones-table-title');
+    const subtitle = document.getElementById('admin-buzones-table-subtitle');
+    if (!select || !tableBody) return;
+
+    const gerencia = select.value;
+    const item = allAdminGerenciasBuzonesData.find(x => x.gerencia === gerencia);
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+
+    if (title) title.innerText = `Analistas y Buzones en ${label}`;
+    
+    if (!item) {
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay información disponible.</td></tr>';
+        return;
+    }
+
+    const defaultList = item.default_analistas || [];
+    const adicList = item.adicionales_analistas || [];
+    const totalCount = defaultList.length + adicList.length;
+
+    if (subtitle) {
+        subtitle.innerHTML = `Total: <strong>${totalCount}</strong> configurados (<span style="color: #059669; font-weight: 700;">${defaultList.length} de tratas por default</span> + <span style="color: #2563eb; font-weight: 700;">${adicList.length} adicionales</span>).`;
+    }
+
+    if (totalCount === 0) {
+        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas configurados para esta área.</td></tr>';
         return;
     }
 
     let html = '';
-    allBuzonesAccesos.forEach(acc => {
-        const typeBadge = acc.tipo_sujeto === 'usuario' 
-            ? '<span style="background: #eff6ff; color: #1d4ed8; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #bfdbfe;">Usuario</span>'
-            : '<span style="background: #f3e8ff; color: #a855f7; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: bold; border: 1px solid #e9d5ff;">Rol</span>';
+
+    // Render Defaults
+    defaultList.forEach(a => {
+        html += `
+            <tr class="admin-buzon-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.nombre || a.usuario}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <span style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-lock"></i> Default Trata
+                    </span>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <span style="color: #94a3b8; font-size: 0.8rem; font-style: italic;" title="Configurado en las tratas de la gerencia">—</span>
+                </td>
+            </tr>
+        `;
+    });
+
+    // Render Adicionales
+    adicList.forEach(a => {
+        const uEsc = a.usuario.replace(/'/g, "\\'");
+        html += `
+            <tr class="admin-buzon-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 14px; font-weight: 700; color: #2563eb; font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
+                <td style="padding: 12px 14px; color: #334155;">${a.nombre || a.usuario}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-plus-circle"></i> Adicional Buzones
+                    </span>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <button type="button" onclick="deleteBuzonAdicionalFromGerencia('${gerencia}', '${uEsc}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-family: 'Outfit'; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;" title="Quitar de esta gerencia">
+                        <i class="fa-solid fa-trash"></i> Quitar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
+}
+
+function filterAdminBuzonesTable() {
+    const query = (document.getElementById('admin-buzones-table-search').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#admin-buzones-table-body .admin-buzon-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+async function searchSadeUsersForBuzonAdicional(q) {
+    const resultsPanel = document.getElementById('admin-buzon-search-results');
+    const clearBtn = document.getElementById('btn-clear-buzon-search');
+    if (!resultsPanel) return;
+
+    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
+
+    if (q.trim().length < 2) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+        return;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
+        if (res && res.ok) {
+            const users = await res.json();
+            if (users.length === 0) {
+                resultsPanel.innerHTML = '<div style="padding: 12px; color: #64748b; font-style: italic; font-size: 0.85rem; text-align: center;">No se encontraron usuarios SADE. Podés agregarlo directamente con el botón inferior.</div>';
+                resultsPanel.style.display = 'block';
+                return;
+            }
+
+            let html = '';
+            users.forEach(u => {
+                const uEsc = u.usuario.replace(/'/g, "\\'");
+                html += `
+                    <div class="search-result-item" onclick="addBuzonAdicionalToGerencia('${uEsc}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'">
+                        <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
+                        <span style="color: #64748b; font-size: 0.8rem;">${u.apellido_nombre || ""}</span>
+                    </div>
+                `;
+            });
+            resultsPanel.innerHTML = html;
+            resultsPanel.style.display = 'block';
+        }
+    } catch (err) {
+        console.error("Error searching SADE users:", err);
+    }
+}
+
+function clearAdminBuzonUserSearch() {
+    const input = document.getElementById('admin-buzon-user-search');
+    const resultsPanel = document.getElementById('admin-buzon-search-results');
+    const clearBtn = document.getElementById('btn-clear-buzon-search');
+    if (input) input.value = '';
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+}
+
+function addCustomBuzonCodeFromInput() {
+    const input = document.getElementById('admin-buzon-user-search');
+    const val = (input?.value || '').trim().toUpperCase();
+    if (!val) {
+        alert('Por favor ingresa un código de usuario o buzón.');
+        return;
+    }
+    addBuzonAdicionalToGerencia(val);
+}
+
+async function addBuzonAdicionalToGerencia(usernameOrBuzon) {
+    const select = document.getElementById('admin-buzon-gerencia-select');
+    if (!select) return;
+    const gerencia = select.value;
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    
+    if (!confirm(`¿Desea agregar "${usernameOrBuzon.toUpperCase()}" a la visualización de buzones de ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/${encodeURIComponent(gerencia)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario_buzon: usernameOrBuzon })
+        });
+
+        if (res && res.ok) {
+            clearAdminBuzonUserSearch();
+            await loadBuzonesAccesoConfig();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo agregar."}`);
+        }
+    } catch (err) {
+        console.error("Error adding buzon adicional:", err);
+        alert("Error de red al agregar.");
+    }
+}
+
+async function deleteBuzonAdicionalFromGerencia(gerencia, usernameOrBuzon) {
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    if (!confirm(`¿Está seguro de que desea remover a "${usernameOrBuzon.toUpperCase()}" de ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/gerencias-buzones/${encodeURIComponent(gerencia)}/${encodeURIComponent(usernameOrBuzon)}`, {
+            method: 'DELETE'
+        });
+
+        if (res && res.ok) {
+            await loadBuzonesAccesoConfig();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo remover."}`);
+        }
+    } catch (err) {
+        console.error("Error deleting buzon adicional:", err);
+        alert("Error de red al remover.");
+    }
+}
+
+window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
+window.onAdminBuzonGerenciaChange = onAdminBuzonGerenciaChange;
+window.filterAdminBuzonesTable = filterAdminBuzonesTable;
+window.searchSadeUsersForBuzonAdicional = searchSadeUsersForBuzonAdicional;
+window.clearAdminBuzonUserSearch = clearAdminBuzonUserSearch;
+window.addCustomBuzonCodeFromInput = addCustomBuzonCodeFromInput;
+window.addBuzonAdicionalToGerencia = addBuzonAdicionalToGerencia;
+window.deleteBuzonAdicionalFromGerencia = deleteBuzonAdicionalFromGerencia;
+
+// --- MAESTRO DE ANALISTAS POR ÁREA / GERENCIA (ADMIN BACKLOG) ---
+let allAdminAnalistasData = [];
+let currentAdminAnalistasFilterDir = 'ALL';
+let currentAdminAnalistasSelectedGerencia = null;
+
+async function loadAdminAnalistas() {
+    const areasList = document.getElementById('analistas-areas-list');
+    const tableBody = document.getElementById('admin-analistas-table-body');
+    const title = document.getElementById('admin-analistas-table-title');
+    if (!areasList || !tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2.5rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px;">Cargando maestro de analistas por área...</p></td></tr>';
+    areasList.innerHTML = '<div style="text-align: center; padding: 1.5rem; color: #94a3b8;"><span class="loader"></span></div>';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas`);
+        if (res && res.ok) {
+            allAdminAnalistasData = await res.json();
+
+            // Ordenar por direccion y luego gerencia
+            allAdminAnalistasData.sort((a, b) => {
+                const dirA = a.direccion || '';
+                const dirB = b.direccion || '';
+                if (dirA !== dirB) return dirA.localeCompare(dirB);
+                return (a.gerencia || '').localeCompare(b.gerencia || '');
+            });
+
+            // Actualizar Stats Globales
+            let totalRegistros = 0;
+            let totalActivos = 0;
+            let totalInactivos = 0;
+
+            allAdminAnalistasData.forEach(g => {
+                if (g.analistas) {
+                    totalRegistros += g.analistas.length;
+                    g.analistas.forEach(a => {
+                        if (a.activo !== false) {
+                            totalActivos++;
+                        } else {
+                            totalInactivos++;
+                        }
+                    });
+                }
+            });
+
+            const elTotal = document.getElementById('analistas-global-total');
+            const elActivos = document.getElementById('analistas-global-activos');
+            const elInactivos = document.getElementById('analistas-global-inactivos');
+            const elAreas = document.getElementById('analistas-global-areas');
+            if (elTotal) elTotal.innerText = totalRegistros.toLocaleString('es-AR');
+            if (elActivos) elActivos.innerText = totalActivos.toLocaleString('es-AR');
+            if (elInactivos) elInactivos.innerText = totalInactivos.toLocaleString('es-AR');
+            if (elAreas) elAreas.innerText = allAdminAnalistasData.length;
+
+            // Renderizar selector de áreas
+            renderAdminAnalistasAreasList();
+
+            // Seleccionar por defecto la primera o conservar la actual
+            if (!currentAdminAnalistasSelectedGerencia || !allAdminAnalistasData.some(x => x.gerencia === currentAdminAnalistasSelectedGerencia)) {
+                if (allAdminAnalistasData.length > 0) {
+                    currentAdminAnalistasSelectedGerencia = allAdminAnalistasData[0].gerencia;
+                }
+            }
+
+            selectAdminAnalistasGerencia(currentAdminAnalistasSelectedGerencia);
+        } else {
+            tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">Error al obtener los analistas.</td></tr>';
+        }
+    } catch (err) {
+        console.error("Error al cargar maestro de analistas:", err);
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
+    }
+}
+
+function filterAnalistasByDireccion(dir) {
+    currentAdminAnalistasFilterDir = dir;
+    ['all', 'dgroc', 'dgiur'].forEach(d => {
+        const btn = document.getElementById(`tab-dir-${d}`);
+        if (!btn) return;
+        if ((dir === 'ALL' && d === 'all') || dir.toLowerCase() === d) {
+            btn.classList.add('active');
+            btn.style.background = 'white';
+            btn.style.color = 'var(--primary-dark)';
+            btn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+        } else {
+            btn.classList.remove('active');
+            btn.style.background = 'transparent';
+            btn.style.color = '#64748b';
+            btn.style.boxShadow = 'none';
+        }
+    });
+
+    renderAdminAnalistasAreasList();
+
+    // Si el área seleccionada actualmente quedó excluida por el filtro, seleccionar la primera visible
+    const visibleData = getFilteredAdminAnalistasData();
+    if (visibleData.length > 0 && !visibleData.some(x => x.gerencia === currentAdminAnalistasSelectedGerencia)) {
+        selectAdminAnalistasGerencia(visibleData[0].gerencia);
+    }
+}
+
+function getFilteredAdminAnalistasData() {
+    if (currentAdminAnalistasFilterDir === 'ALL') return allAdminAnalistasData;
+    return allAdminAnalistasData.filter(x => (x.direccion || '').toUpperCase() === currentAdminAnalistasFilterDir);
+}
+
+function getAdminGerenciaLabel(item) {
+    if (!item) return '';
+    const g = typeof item === 'string' ? item : item.gerencia;
+    const d = (typeof item === 'object' && item.direccion) ? item.direccion : '';
+    if (ADMIN_GERENCIAS_LABELS && ADMIN_GERENCIAS_LABELS[g]) {
+        return ADMIN_GERENCIAS_LABELS[g];
+    }
+    const cleanG = (g || '').replace(/_/g, ' ').toUpperCase();
+    return d ? `${d} - ${cleanG}` : cleanG;
+}
+
+function renderAdminAnalistasAreasList() {
+    const container = document.getElementById('analistas-areas-list');
+    const countEl = document.getElementById('analistas-areas-count');
+    if (!container) return;
+
+    const visibleData = getFilteredAdminAnalistasData();
+    if (countEl) countEl.innerText = `${visibleData.length} ${visibleData.length === 1 ? 'área' : 'áreas'}`;
+
+    if (visibleData.length === 0) {
+        container.innerHTML = '<div style="padding: 1.5rem; text-align: center; color: #94a3b8; font-size: 0.85rem;">No hay áreas en esta dirección</div>';
+        return;
+    }
+
+    let html = '';
+    visibleData.forEach(item => {
+        const isSelected = item.gerencia === currentAdminAnalistasSelectedGerencia;
+        const total = item.analistas ? item.analistas.length : 0;
+        const activos = item.analistas ? item.analistas.filter(a => a.activo !== false).length : 0;
+        const inactivos = total - activos;
+        const label = getAdminGerenciaLabel(item);
+        const dir = item.direccion || 'SGDU';
         
-        const buzonesChips = acc.buzones.map(b => 
-            `<span style="background: #f8fafc; color: #1e293b; font-size: 0.78rem; padding: 4px 8px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: 'Outfit'; font-weight: 600; display: inline-block;">${b}</span>`
-        ).join(' ');
+        const cardBg = isSelected ? '#eff6ff' : 'white';
+        const cardBorder = isSelected ? 'var(--primary)' : '#e2e8f0';
+        const textWeight = isSelected ? '700' : '600';
+        const textColor = isSelected ? 'var(--primary-dark)' : '#334155';
+        const badgeBg = dir === 'DGROC' ? '#ecfdf5' : dir === 'DGIUR' ? '#f3e8ff' : '#f1f5f9';
+        const badgeColor = dir === 'DGROC' ? '#047857' : dir === 'DGIUR' ? '#7e22ce' : '#475569';
+
+        const gEsc = (item.gerencia || '').replace(/'/g, "\\'");
 
         html += `
-            <div class="admin-buzon-regla-card" data-sujeto="${acc.nombre_sujeto.toLowerCase()}" style="padding: 20px; border: 1px solid #cbd5e1; border-radius: 12px; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s, box-shadow 0.2s;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.05rem;">${acc.nombre_sujeto.toUpperCase()}</h4>
-                        ${typeBadge}
-                    </div>
-                    <button onclick="deleteBuzonAcceso('${acc.nombre_sujeto}')" class="btn-action-delete" style="background: #fee2e2; color: #b91c1c; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-trash"></i> Eliminar Regla
-                    </button>
+            <div onclick="selectAdminAnalistasGerencia('${gEsc}')" 
+                style="padding: 10px 12px; border-radius: 8px; border: 1.5px solid ${cardBorder}; background: ${cardBg}; cursor: pointer; transition: all 0.15s; display: flex; justify-content: space-between; align-items: center; gap: 8px;"
+                onmouseover="if('${gEsc}' !== currentAdminAnalistasSelectedGerencia) this.style.borderColor='#cbd5e1'"
+                onmouseout="if('${gEsc}' !== currentAdminAnalistasSelectedGerencia) this.style.borderColor='#e2e8f0'">
+                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                    <span style="font-size: 0.7rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; background: ${badgeBg}; color: ${badgeColor}; font-family: 'Outfit';">
+                        ${dir}
+                    </span>
+                    <span style="font-size: 0.88rem; font-weight: ${textWeight}; color: ${textColor}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${label}
+                    </span>
                 </div>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px; background: #fafafa; padding: 12px; border-radius: 8px; border: 1px solid #f1f5f9;">
-                    ${buzonesChips}
+                <div style="display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+                    <span title="${activos} activos" style="font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; background: ${isSelected ? '#059669' : '#ecfdf5'}; color: ${isSelected ? 'white' : '#047857'};">
+                        ${activos}
+                    </span>
+                    ${inactivos > 0 ? `
+                        <span title="${inactivos} inactivos" style="font-size: 0.72rem; font-weight: 700; padding: 2px 5px; border-radius: 10px; background: #f1f5f9; color: #94a3b8;">
+                            ${inactivos}
+                        </span>
+                    ` : ''}
                 </div>
             </div>
         `;
     });
+
     container.innerHTML = html;
 }
 
-function filterAdminReglas() {
-    const query = (document.getElementById('admin-reglas-search').value || '').toLowerCase().trim();
-    const cards = document.querySelectorAll('.admin-buzon-regla-card');
-    cards.forEach(card => {
-        const sujeto = card.getAttribute('data-sujeto') || '';
-        if (sujeto.includes(query)) {
-            card.style.display = 'block';
+function selectAdminAnalistasGerencia(gerencia) {
+    currentAdminAnalistasSelectedGerencia = gerencia;
+    renderAdminAnalistasAreasList();
+    renderAdminAnalistasCurrentTable();
+    clearAdminAnalistasUserSearch();
+}
+
+function renderAdminAnalistasCurrentTable() {
+    const tableBody = document.getElementById('admin-analistas-table-body');
+    const areaNameEl = document.getElementById('active-area-name');
+    const areaDirEl = document.getElementById('active-area-badge-dir');
+    const areaDescEl = document.getElementById('active-area-desc');
+    const areaCountEl = document.getElementById('active-area-analysts-count');
+    const areaActivosNumEl = document.getElementById('active-area-activos-num');
+    const areaInactivosNumEl = document.getElementById('active-area-inactivos-num');
+    if (!tableBody) return;
+
+    const gerencia = currentAdminAnalistasSelectedGerencia;
+    const gerenciaData = allAdminAnalistasData.find(x => x.gerencia === gerencia);
+
+    if (!gerenciaData) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">Seleccione un área para ver sus analistas.</td></tr>';
+        return;
+    }
+
+    const label = getAdminGerenciaLabel(gerenciaData);
+    const dir = gerenciaData.direccion || 'SGDU';
+    const analistasList = gerenciaData.analistas || [];
+    const totalCount = analistasList.length;
+    const activosCount = analistasList.filter(a => a.activo !== false).length;
+    const inactivosCount = totalCount - activosCount;
+
+    if (areaNameEl) areaNameEl.innerText = label;
+    if (areaDirEl) {
+        areaDirEl.innerText = dir;
+        areaDirEl.style.background = dir === 'DGROC' ? '#ecfdf5' : dir === 'DGIUR' ? '#f3e8ff' : '#e0f2fe';
+        areaDirEl.style.color = dir === 'DGROC' ? '#047857' : dir === 'DGIUR' ? '#7e22ce' : '#0284c7';
+    }
+    if (areaDescEl) areaDescEl.innerText = `Gerencia: ${(gerencia || '').toUpperCase()} • Sector: ${dir}`;
+    if (areaCountEl) areaCountEl.innerText = `${totalCount} Total`;
+    if (areaActivosNumEl) areaActivosNumEl.innerText = activosCount;
+    if (areaInactivosNumEl) areaInactivosNumEl.innerText = inactivosCount;
+
+    if (!gerenciaData.analistas || gerenciaData.analistas.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem 1.5rem; color: #64748b; font-style: italic;"><i class="fa-solid fa-users-slash" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 10px; display: block;"></i>No hay analistas asignados a esta gerencia actualmente.<br>Podés agregar uno buscando su usuario SADE arriba.</td></tr>';
+        return;
+    }
+
+    let html = '';
+    gerenciaData.analistas.forEach(a => {
+        const uEsc = (a.usuario || '').replace(/'/g, "\\'");
+        const gEsc = (gerencia || '').replace(/'/g, "\\'");
+        const isBuzon = (a.tipo === 'buzon') || (a.usuario && a.usuario.includes('-'));
+        const isActivo = a.activo !== false;
+        
+        const badgeHtml = isBuzon 
+            ? '<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa;">BUZÓN</span>'
+            : '<span style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;">ANALISTA</span>';
+
+        const fullName = (a.nombre && a.apellido) ? `${a.apellido}, ${a.nombre}` : (a.nombre_completo || a.nombre || a.apellido || "-");
+
+        html += `
+            <tr class="admin-analista-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s; ${!isActivo ? 'opacity: 0.65; background: #fcfcfc;' : ''}" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${!isActivo ? '#fcfcfc' : 'white'}'">
+                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">
+                    <i class="fa-solid ${isBuzon ? 'fa-inbox' : 'fa-user'}" style="margin-right: 6px; color: ${isBuzon ? '#ea580c' : '#0284c7'}; font-size: 0.85rem;"></i>
+                    ${a.usuario || '-'}
+                </td>
+                <td style="padding: 12px 14px; color: #334155; font-weight: 500;">${fullName}</td>
+                <td style="padding: 12px 14px; color: #64748b; font-size: 0.84rem;">${a.mail || "-"}</td>
+                <td style="padding: 12px 14px; text-align: center;">${badgeHtml}</td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <label class="switch-premium" style="position: relative; display: inline-block; width: 42px; height: 22px; margin: 0; flex-shrink: 0;">
+                            <input type="checkbox" ${isActivo ? 'checked' : ''} onchange="toggleAdminAnalistaStatus('${gEsc}', '${uEsc}', this.checked)" style="opacity: 0; width: 0; height: 0;">
+                            <span class="slider-premium" style="border-radius: 22px;"></span>
+                        </label>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: ${isActivo ? '#059669' : '#94a3b8'}; min-width: 48px; text-align: left;">
+                            ${isActivo ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </div>
+                </td>
+                <td style="padding: 12px 14px; text-align: center;">
+                    <button type="button" onclick="deleteAdminAnalistaFromGerencia('${gEsc}', '${uEsc}')" 
+                        title="Remover de esta gerencia"
+                        style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 5px 9px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;"
+                        onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
+}
+
+async function toggleAdminAnalistaStatus(gerencia, username, nuevoEstado) {
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activo: nuevoEstado })
+        });
+
+        if (res && res.ok) {
+            // Actualizar localmente en memoria
+            const gData = allAdminAnalistasData.find(x => x.gerencia === gerencia);
+            if (gData && gData.analistas) {
+                const aObj = gData.analistas.find(x => (x.usuario || '').toUpperCase() === username.toUpperCase());
+                if (aObj) aObj.activo = nuevoEstado;
+            }
+            
+            // Actualizar contadores globales en UI
+            let totalActivos = 0;
+            let totalInactivos = 0;
+            allAdminAnalistasData.forEach(g => {
+                if (g.analistas) {
+                    g.analistas.forEach(a => {
+                        if (a.activo !== false) totalActivos++;
+                        else totalInactivos++;
+                    });
+                }
+            });
+            const elActivos = document.getElementById('analistas-global-activos');
+            const elInactivos = document.getElementById('analistas-global-inactivos');
+            if (elActivos) elActivos.innerText = totalActivos.toLocaleString('es-AR');
+            if (elInactivos) elInactivos.innerText = totalInactivos.toLocaleString('es-AR');
+
+            renderAdminAnalistasAreasList();
+            renderAdminAnalistasCurrentTable();
         } else {
-            card.style.display = 'none';
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo actualizar el estado del analista."}`);
+            await loadAdminAnalistas();
+        }
+    } catch (err) {
+        console.error("Error toggling analista status:", err);
+        alert("Error de conexión al actualizar estado.");
+        await loadAdminAnalistas();
+    }
+}
+
+function filterAdminAnalistasTable() {
+    const query = (document.getElementById('admin-analistas-table-search').value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#admin-analistas-table-body .admin-analista-row');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        if (text.includes(query)) {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
         }
     });
 }
 
-async function saveBuzonAcceso(event) {
-    if (event) event.preventDefault();
-    const tipo_sujeto = document.getElementById('buzon-tipo-sujeto').value;
-    const nombre_sujeto = document.getElementById('buzon-nombre-sujeto').value;
-    
-    const checkedBoxes = document.querySelectorAll('.buzon-checkbox:checked');
-    const buzones = Array.from(checkedBoxes).map(cb => cb.value);
+async function searchSadeUsersForAnalistas(q) {
+    const resultsPanel = document.getElementById('admin-analistas-search-results');
+    const clearBtn = document.getElementById('btn-clear-analistas-search');
+    if (!resultsPanel) return;
 
-    if (buzones.length === 0) {
-        alert('Debes seleccionar al menos un buzón.');
+    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
+
+    if (q.trim().length < 2) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
         return;
     }
 
-    const data = {
-        tipo_sujeto,
-        nombre_sujeto,
-        buzones
-    };
-
     try {
-        const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
+        if (res && res.ok) {
+            const users = await res.json();
+            if (users.length === 0) {
+                const uTypedEsc = q.trim().toUpperCase().replace(/'/g, "\\'");
+                resultsPanel.innerHTML = `
+                    <div style="padding: 14px; color: #64748b; font-size: 0.85rem; text-align: center;">
+                        <p style="margin: 0 0 8px 0;">No se encontraron usuarios coincidentes en la base de SADE.</p>
+                        <button type="button" onclick="addAdminAnalistaToGerencia('${uTypedEsc}')" style="background: var(--primary); color: white; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.82rem; font-family: 'Outfit';">
+                            <i class="fa-solid fa-user-plus"></i> Forzar incorporación de "${q.trim().toUpperCase()}"
+                        </button>
+                    </div>`;
+                resultsPanel.style.display = 'block';
+                return;
+            }
 
-        if (resp && resp.ok) {
-            alert('Regla de acceso guardada correctamente');
-            loadBuzonesAccesoConfig();
-        } else {
-            const err = await resp.json();
-            alert('Error: ' + err.detail);
+            let html = '';
+            users.forEach(u => {
+                const uEsc = u.usuario.replace(/'/g, "\\'");
+                html += `
+                    <div class="search-result-item" onclick="addAdminAnalistaToGerencia('${uEsc}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='white'">
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
+                                <span style="font-size: 0.72rem; color: #94a3b8; background: #f1f5f9; padding: 1px 6px; border-radius: 4px;">${u.codigo_sector_interno || "SADE"}</span>
+                            </div>
+                            <span style="color: #64748b; font-size: 0.82rem; display: block; margin-top: 2px;">${u.apellido_nombre || ""}</span>
+                        </div>
+                        <span style="font-size: 0.78rem; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-plus"></i> Agregar</span>
+                    </div>
+                `;
+            });
+            resultsPanel.innerHTML = html;
+            resultsPanel.style.display = 'block';
         }
     } catch (err) {
-        console.error(err);
-        alert('Error al guardar la regla de acceso.');
+        console.error("Error searching SADE users for analistas:", err);
     }
 }
 
-async function deleteBuzonAcceso(nombreSujeto) {
-    if (!confirm(`¿Seguro que deseas eliminar la regla para "${nombreSujeto}"? Volverá al acceso general.`)) return;
+function clearAdminAnalistasUserSearch() {
+    const input = document.getElementById('admin-analistas-user-search');
+    const resultsPanel = document.getElementById('admin-analistas-search-results');
+    const clearBtn = document.getElementById('btn-clear-analistas-search');
+    if (input) input.value = '';
+    if (resultsPanel) {
+        resultsPanel.style.display = 'none';
+        resultsPanel.innerHTML = '';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+}
+
+async function addAdminAnalistaToGerencia(username) {
+    if (!currentAdminAnalistasSelectedGerencia) {
+        alert("Por favor seleccione un área primero.");
+        return;
+    }
+    const gerencia = currentAdminAnalistasSelectedGerencia;
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    
+    if (!confirm(`¿Desea agregar al analista/buzón "${username.toUpperCase()}" a ${label}?`)) return;
 
     try {
-        const resp = await def_fetch(`${API_BASE}/admin/buzones-analisis/accesos/${nombreSujeto}`, {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario: username })
+        });
+
+        if (res && res.ok) {
+            clearAdminAnalistasUserSearch();
+            await loadAdminAnalistas();
+        } else {
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo agregar el analista."}`);
+        }
+    } catch (err) {
+        console.error("Error adding admin analista:", err);
+        alert("Error de red al agregar analista.");
+    }
+}
+
+async function deleteAdminAnalistaFromGerencia(gerencia, username) {
+    const label = ADMIN_GERENCIAS_LABELS[gerencia] || gerencia.toUpperCase();
+    if (!confirm(`¿Está seguro de que desea remover a "${username.toUpperCase()}" de ${label}?`)) return;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}`, {
             method: 'DELETE'
         });
-        if (resp && resp.ok) {
-            alert('Regla eliminada correctamente');
-            loadBuzonesAccesoConfig();
+
+        if (res && res.ok) {
+            await loadAdminAnalistas();
         } else {
-            const err = await resp.json();
-            alert('Error: ' + err.detail);
+            const err = await res.json();
+            alert(`Error: ${err.detail || "No se pudo remover el analista."}`);
         }
     } catch (err) {
-        console.error(err);
-        alert('Error al intentar eliminar la regla.');
+        console.error("Error deleting admin analista:", err);
+        alert("Error de red al remover analista.");
     }
 }
+
+function onAdminAnalistasGerenciaChange(gerencia) {
+    if (gerencia) {
+        selectAdminAnalistasGerencia(gerencia);
+    } else {
+        renderAdminAnalistasCurrentTable();
+        clearAdminAnalistasUserSearch();
+    }
+}
+
+window.filterAnalistasByDireccion = filterAnalistasByDireccion;
+window.selectAdminAnalistasGerencia = selectAdminAnalistasGerencia;
+window.onAdminAnalistasGerenciaChange = onAdminAnalistasGerenciaChange;
+
+window.loadUsers = loadUsers;
+window.renderAdminUsersGrid = renderAdminUsersGrid;
+window.filterAdminUsersGrid = filterAdminUsersGrid;
+window.showUsersListView = showUsersListView;
+window.showCreateUserView = showCreateUserView;
+window.showEditUserView = showEditUserView;
+window.openEditUser = openEditUser;
+window.deleteUser = deleteUser;
+window.handleRoleSelectionChange = handleRoleSelectionChange;
+
+window.loadAdminAnalistas = loadAdminAnalistas;
+window.filterAdminAnalistasTable = filterAdminAnalistasTable;
+window.searchSadeUsersForAnalistas = searchSadeUsersForAnalistas;
+window.clearAdminAnalistasUserSearch = clearAdminAnalistasUserSearch;
+window.addAdminAnalistaToGerencia = addAdminAnalistaToGerencia;
+window.deleteAdminAnalistaFromGerencia = deleteAdminAnalistaFromGerencia;
+window.toggleAdminAnalistaStatus = toggleAdminAnalistaStatus;
 
 // --- PRODUCTIVIDAD ANALISTAS ---
 let selectedAnalystUser = null;
@@ -10478,9 +15351,6 @@ window.toggleAllUserPerms = toggleAllUserPerms;
 window.toggleRolePermission = toggleRolePermission;
 window.deleteRole = deleteRole;
 window.loadBuzonesAccesoConfig = loadBuzonesAccesoConfig;
-window.onBuzonTipoSujetoChange = onBuzonTipoSujetoChange;
-window.selectAllBuzones = selectAllBuzones;
-window.deleteBuzonAcceso = deleteBuzonAcceso;
 window.loadProductividadAnalistasView = loadProductividadAnalistasView;
 window.selectProductividadSector = selectProductividadSector;
 window.backToProdSectors = backToProdSectors;
@@ -10514,6 +15384,834 @@ async function loadCiudad3DStats() {
 }
 
 window.loadCiudad3DStats = loadCiudad3DStats;
+
+// ==========================================
+// CIUDAD 3D - BACKEND PDI (geodb 10.10.8.207)
+// ==========================================
+let pdiTablesData = [];
+
+async function loadCiudad3DPDI(forceRefresh = false) {
+    const vpnAlertEl = document.getElementById('pdi-vpn-alert');
+    const refreshIcon = document.getElementById('pdi-refresh-icon');
+
+    const kpiParcelasEl = document.getElementById('pdi-kpi-parcelas');
+    const kpiManzanasEl = document.getElementById('pdi-kpi-manzanas');
+    const kpiObjetosEl = document.getElementById('pdi-kpi-objetos');
+    const tbodyEl = document.getElementById('pdi-tables-tbody');
+
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+    if (kpiParcelasEl && kpiParcelasEl.innerText === '---') kpiParcelasEl.innerText = '...';
+    if (kpiManzanasEl && kpiManzanasEl.innerText === '---') kpiManzanasEl.innerText = '...';
+    if (kpiObjetosEl && kpiObjetosEl.innerText === '---') kpiObjetosEl.innerText = '...';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/pdi/stats`);
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+        const data = await res.json();
+        
+        if (data.connected) {
+            // Conexión exitosa
+            if (vpnAlertEl) vpnAlertEl.style.display = 'none';
+
+            // KPIs
+            const kpis = data.kpis || {};
+            if (kpiParcelasEl) kpiParcelasEl.innerText = Number(kpis.total_parcelas || 0).toLocaleString('es-AR');
+            if (kpiManzanasEl) kpiManzanasEl.innerText = Number(kpis.total_manzanas || 0).toLocaleString('es-AR');
+            if (kpiObjetosEl) kpiObjetosEl.innerText = Number(kpis.total_objetos_territoriales || 0).toLocaleString('es-AR');
+
+            // Tablas
+            pdiTablesData = data.tables || [];
+            renderPDITables(pdiTablesData);
+
+            // Cargar validaciones de consistencia
+            loadPDIValidations(forceRefresh);
+        } else {
+            // No conectado / Fuera de VPN
+            throw new Error(data.error || "Verifica estar conectado a la red GCBA o tener la VPN activa");
+        }
+    } catch (err) {
+        console.warn("Fallo de conexión a Backend PDI:", err);
+        if (vpnAlertEl) vpnAlertEl.style.display = 'block';
+
+        if (kpiParcelasEl) kpiParcelasEl.innerText = "---";
+        if (kpiManzanasEl) kpiManzanasEl.innerText = "---";
+        if (kpiObjetosEl) kpiObjetosEl.innerText = "---";
+
+        if (tbodyEl) {
+            tbodyEl.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 3rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>
+                        <h4 style="margin: 0 0 6px 0; font-family: 'Outfit', sans-serif; font-weight: 700;">Verifica estar conectado a la red GCBA o tener la VPN activa</h4>
+                        <p style="margin: 0; font-size: 0.88rem; color: #7f1d1d; font-family: 'Outfit', sans-serif;">No se pudieron consultar las tablas de la base de datos territorial.</p>
+                    </td>
+                </tr>`;
+        }
+
+        const valContainer = document.getElementById('pdi-validations-container');
+        if (valContainer) {
+            valContainer.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #dc2626; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; margin-bottom: 8px; display: block;"></i>
+                    <p style="margin: 0; font-weight: 600;">No se pudo verificar el espejado de tablas territoriales debido a falta de conexión.</p>
+                </div>`;
+        }
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderPDITables(tables) {
+    const tbody = document.getElementById('pdi-tables-tbody');
+    if (!tbody) return;
+
+    if (!tables || tables.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                    No se encontraron tablas registradas.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    let html = '';
+    tables.forEach((t, idx) => {
+        const rowBg = idx % 2 === 0 ? 'background: #ffffff;' : 'background: #fafbfc;';
+        const isOk = t.status === 'OK';
+        const statusBadge = isOk
+            ? `<span style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.72rem; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-circle-check" style="margin-right: 3px;"></i> OK</span>`
+            : `<span style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; padding: 2px 8px; border-radius: 99px; font-weight: 700; font-size: 0.72rem; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-circle-xmark" style="margin-right: 3px;"></i> Error</span>`;
+
+        html += `
+            <tr style="${rowBg} border-bottom: 1px solid #f1f5f9; transition: background 0.15s; font-family: 'Outfit', sans-serif;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}'">
+                <td style="padding: 8px 12px; color: #94a3b8; font-weight: 600; text-align: center; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">${idx + 1}</td>
+                <td style="padding: 8px 12px; font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif; font-size: 0.88rem;">
+                    ${t.table_name}
+                </td>
+                <td style="padding: 8px 12px; font-weight: 600; color: #334155; font-family: 'Outfit', sans-serif; font-size: 0.85rem;">
+                    ${t.display_name || t.table_name}
+                </td>
+                <td style="padding: 8px 12px; text-align: right; font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: ${isOk ? '#0284c7' : '#94a3b8'};">
+                    ${isOk ? Number(t.count || 0).toLocaleString('es-AR') : '--'}
+                </td>
+                <td style="padding: 8px 12px; text-align: center; font-family: 'Outfit', sans-serif;">
+                    ${statusBadge}
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function filterPDITables() {
+    const input = document.getElementById('pdi-search-input');
+    const query = (input?.value || '').toLowerCase().trim();
+    if (!query) {
+        renderPDITables(pdiTablesData);
+        return;
+    }
+    const filtered = pdiTablesData.filter(t => 
+        (t.table_name || '').toLowerCase().includes(query) ||
+        (t.display_name || '').toLowerCase().includes(query) ||
+        (t.description || '').toLowerCase().includes(query)
+    );
+    renderPDITables(filtered);
+}
+
+async function loadPDIValidations(forceRefresh = false) {
+    const container = document.getElementById('pdi-validations-container');
+    const refreshIcon = document.getElementById('pdi-val-refresh-icon');
+    if (!container) return;
+
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+    try {
+        const res = await def_fetch(`${API_BASE}/pdi/validations`);
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+        const data = await res.json();
+        if (data.connected && data.validations) {
+            renderPDIValidations(data.validations);
+        } else {
+            throw new Error(data.error || "No se pudo consultar validaciones");
+        }
+    } catch (err) {
+        console.warn("Error cargando validaciones PDI:", err);
+        container.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: #dc2626; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; margin-bottom: 8px; display: block;"></i>
+                <p style="margin: 0; font-weight: 600;">Verifica estar conectado a la red GCBA o tener la VPN activa para ejecutar las validaciones.</p>
+            </div>`;
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderPDIValidations(validations) {
+    const container = document.getElementById('pdi-validations-container');
+    if (!container) return;
+
+    const vKeys = Object.keys(validations);
+    if (vKeys.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 2rem; color: #94a3b8;">No hay validaciones disponibles.</div>`;
+        return;
+    }
+
+    // Estadísticas globales del catálogo
+    let totalGroups = vKeys.length;
+    let okGroups = 0;
+    let errorGroups = 0;
+    let categoriesSet = new Set();
+
+    vKeys.forEach(k => {
+        const v = validations[k];
+        if (!v) return;
+        const isOk = v.status === 'OK' || (v.error_count || 0) === 0;
+        if (isOk) okGroups++; else errorGroups++;
+        if (v.category) categoriesSet.add(v.category);
+    });
+
+    const categories = Array.from(categoriesSet);
+
+    let html = `
+        <!-- Barra de Resumen Global y Filtros -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="font-weight: 800; font-size: 0.95rem; color: #0f172a; font-family: 'Outfit', sans-serif;">
+                    Resumen del Catálogo:
+                </span>
+                <span style="background: #f1f5f9; color: #334155; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">
+                    ${totalGroups} Reglas
+                </span>
+                <span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-circle-check"></i> ${okGroups} Ok
+                </span>
+                <span style="background: ${errorGroups > 0 ? '#fff1f2' : '#f8fafc'}; color: ${errorGroups > 0 ? '#be123c' : '#64748b'}; border: 1px solid ${errorGroups > 0 ? '#fecdd3' : '#e2e8f0'}; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-circle-xmark"></i> ${errorGroups} Con errores
+                </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <select id="pdi-val-category-filter" onchange="filterPDIValidationsByCategory()" style="padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600; outline: none; background: white;">
+                    <option value="all">Todas las categorías (${totalGroups})</option>
+                    ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+                <button type="button" class="btn-secondary" onclick="toggleAllPDIValidationGroups(true)" style="padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.78rem; font-family: 'Outfit', sans-serif; cursor: pointer; background: white; border: 1px solid #cbd5e1;">
+                    <i class="fa-solid fa-angles-down"></i> Expandir
+                </button>
+                <button type="button" class="btn-secondary" onclick="toggleAllPDIValidationGroups(false)" style="padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.78rem; font-family: 'Outfit', sans-serif; cursor: pointer; background: white; border: 1px solid #cbd5e1;">
+                    <i class="fa-solid fa-angles-up"></i> Colapsar
+                </button>
+            </div>
+        </div>
+    `;
+
+    vKeys.forEach((key, idx) => {
+        const v = validations[key];
+        if (!v) return;
+
+        const isTwoWay = v.type === 'two_way';
+        const errorCount = v.error_count !== undefined ? v.error_count : (isTwoWay ? (v.missing_in_b_count || 0) + (v.missing_in_a_count || 0) : (v.records ? v.records.length : 0));
+        const isOk = errorCount === 0;
+
+        const statusBadge = isOk
+            ? `<span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                <i class="fa-solid fa-circle-check"></i> Ok
+               </span>`
+            : `<span style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                <i class="fa-solid fa-circle-xmark"></i> Con errores (${errorCount.toLocaleString('es-AR')})
+               </span>`;
+
+        let subtitle = `Tabla: <b>${v.table_a}</b> | Campo: <b>${(v.key_field || 'smp').toUpperCase()}</b>`;
+        if (isTwoWay) {
+            subtitle = `Campo: <b>${(v.key_field || 'smp').toUpperCase()}</b> | <span style="font-weight: 600; color: #334155;">${v.table_a}</span> (${Number(v.total_table_a || 0).toLocaleString('es-AR')}) vs <span style="font-weight: 600; color: #334155;">${v.table_b}</span> (${Number(v.total_table_b || 0).toLocaleString('es-AR')})`;
+        }
+
+        html += `
+        <div class="pdi-val-card" data-category="${v.category || 'General'}" style="border: 1px solid ${!isOk ? '#fca5a5' : '#e2e8f0'}; border-radius: 10px; background: white; overflow: hidden; font-family: 'Outfit', sans-serif; box-shadow: 0 1px 3px rgba(0,0,0,0.02); transition: border-color 0.2s;">
+            
+            <!-- Cabecera Compacta Anidada Clickable -->
+            <div onclick="togglePDIValidationGroup(${idx})" style="padding: 10px 14px; background: #ffffff; cursor: pointer; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; user-select: none; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='#ffffff'">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 250px;">
+                    <div style="width: 26px; height: 26px; border-radius: 6px; background: ${!isOk ? '#fee2e2' : '#e0f2fe'}; color: ${!isOk ? '#dc2626' : '#0284c7'}; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; flex-shrink: 0;">
+                        ${idx + 1}
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="background: #f1f5f9; color: #475569; font-size: 0.72rem; font-weight: 700; padding: 1px 6px; border-radius: 4px;">
+                                ${v.category || 'General'}
+                            </span>
+                            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif; line-height: 1.2;">
+                                ${v.title}
+                            </h4>
+                        </div>
+                        <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b; font-family: 'Outfit', sans-serif; line-height: 1.2;">
+                            ${subtitle}
+                        </p>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    ${statusBadge}
+                    <div style="width: 24px; height: 24px; border-radius: 6px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #64748b;">
+                        <i id="pdi-val-chevron-${idx}" class="pdi-val-group-chevron fa-solid fa-chevron-down" style="font-size: 0.75rem; transition: transform 0.2s ease; transform: rotate(0deg);"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Anidado / Plegable -->
+            <div id="pdi-val-body-${idx}" class="pdi-val-group-body" style="display: none; padding: 1rem; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+                ${isTwoWay ? `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                                    En <span style="color: #0284c7; font-weight: 800;">${v.table_a}</span> pero faltan en <span style="color: #64748b;">${v.table_b}</span>
+                                </span>
+                                <span style="background: ${v.missing_in_b_count > 0 ? '#fee2e2' : '#f0fdf4'}; color: ${v.missing_in_b_count > 0 ? '#991b1b' : '#166534'}; font-weight: 800; font-size: 0.78rem; padding: 2px 8px; border-radius: 99px;">
+                                    ${v.missing_in_b_count || 0}
+                                </span>
+                            </div>
+                            ${renderValidationRecordsList(v.missing_in_b, v.key_field || 'smp')}
+                        </div>
+
+                        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem; display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                                    En <span style="color: #0284c7; font-weight: 800;">${v.table_b}</span> pero faltan en <span style="color: #64748b;">${v.table_a}</span>
+                                </span>
+                                <span style="background: ${v.missing_in_a_count > 0 ? '#fee2e2' : '#f0fdf4'}; color: ${v.missing_in_a_count > 0 ? '#991b1b' : '#166534'}; font-weight: 800; font-size: 0.78rem; padding: 2px 8px; border-radius: 99px;">
+                                    ${v.missing_in_a_count || 0}
+                                </span>
+                            </div>
+                            ${renderValidationRecordsList(v.missing_in_a, v.key_field || 'smp')}
+                        </div>
+                    </div>
+                ` : `
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.9rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">
+                            <span style="font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                                Registros con inconsistencia detectada en <span style="color: #0284c7; font-weight: 800;">${v.table_a}</span>
+                            </span>
+                            <span style="background: ${errorCount > 0 ? '#fee2e2' : '#f0fdf4'}; color: ${errorCount > 0 ? '#991b1b' : '#166534'}; font-weight: 800; font-size: 0.78rem; padding: 2px 8px; border-radius: 99px;">
+                                ${errorCount}
+                            </span>
+                        </div>
+                        ${renderValidationRecordsList(v.records, v.key_field || 'smp')}
+                    </div>
+                `}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function filterPDIValidationsByCategory() {
+    const select = document.getElementById('pdi-val-category-filter');
+    const selected = select ? select.value : 'all';
+    const cards = document.querySelectorAll('.pdi-val-card');
+    cards.forEach(card => {
+        const cat = card.getAttribute('data-category');
+        if (selected === 'all' || cat === selected) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+
+function togglePDIValidationGroup(idx) {
+    const body = document.getElementById(`pdi-val-body-${idx}`);
+    const chevron = document.getElementById(`pdi-val-chevron-${idx}`);
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (chevron) {
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+}
+
+function toggleAllPDIValidationGroups(expand) {
+    const bodies = document.querySelectorAll('.pdi-val-group-body');
+    const chevrons = document.querySelectorAll('.pdi-val-group-chevron');
+    bodies.forEach(b => b.style.display = expand ? 'block' : 'none');
+    chevrons.forEach(c => c.style.transform = expand ? 'rotate(180deg)' : 'rotate(0deg)');
+}
+
+function renderValidationRecordsList(records, keyField) {
+    if (!records || records.length === 0) {
+        return `
+            <div style="text-align: center; padding: 1.25rem 0.5rem; color: #166534; font-size: 0.82rem; background: #f0fdf4; border-radius: 6px; border: 1px dashed #bbf7d0; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.1rem; margin-bottom: 4px; display: block;"></i>
+                Sin diferencias (100% Ok).
+            </div>`;
+    }
+
+    let rowsHtml = '';
+    records.forEach((r, i) => {
+        const keyVal = r[keyField] || r.smp || r.sm || '-';
+        const seccion = r.seccion || '-';
+        const manzana = r.manzana || '-';
+        
+        let extra = '';
+        if (r.superpuesto) extra = `Superpuesto con: <b>${r.superpuesto}</b>`;
+        else if (r.motivo) extra = `Motivo: ${r.motivo}`;
+        else if (r.smp_concatenado) extra = `Concat: <b>${r.smp_concatenado}</b>`;
+        else if (r.detalle_valores) extra = `Valores: ${r.detalle_valores}`;
+        else if (r.cantidad) extra = `Cantidad: <b>${r.cantidad}</b>`;
+        else if (r.cantidad_valores) extra = `Cant. valores: <b>${r.cantidad_valores}</b>`;
+        else if (r.parcela) extra = `Parc: ${r.parcela}`;
+        else if (r.mz_tipo) extra = `Tipo: ${r.mz_tipo}`;
+        else if (r.detalle) extra = `${r.detalle}`;
+
+        rowsHtml += `
+            <tr style="border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 6px 10px; font-weight: 700; color: #0f172a; font-size: 0.85rem; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                        ${keyVal}
+                    </span>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.8rem; color: #475569; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.78rem; color: #64748b; text-align: right; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    ${extra}
+                </td>
+            </tr>`;
+    });
+
+    return `
+        <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">
+                <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
+                    <tr>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">${keyField.toUpperCase()}</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">Ubicación</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; text-align: right; white-space: nowrap;">Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function togglePDIValidationGroup(idx) {
+    const body = document.getElementById(`pdi-val-body-${idx}`);
+    const chevron = document.getElementById(`pdi-val-chevron-${idx}`);
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (chevron) {
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+}
+
+function toggleAllPDIValidationGroups(expand) {
+    const bodies = document.querySelectorAll('.pdi-val-group-body');
+    const chevrons = document.querySelectorAll('.pdi-val-group-chevron');
+    bodies.forEach(b => b.style.display = expand ? 'block' : 'none');
+    chevrons.forEach(c => c.style.transform = expand ? 'rotate(180deg)' : 'rotate(0deg)');
+}
+
+function renderValidationRecordsList(records, keyField, sourceTable) {
+    if (!records || records.length === 0) {
+        return `
+            <div style="text-align: center; padding: 1.25rem 0.5rem; color: #166534; font-size: 0.82rem; background: #f0fdf4; border-radius: 6px; border: 1px dashed #bbf7d0; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.1rem; margin-bottom: 4px; display: block;"></i>
+                Sin diferencias (100% Ok).
+            </div>`;
+    }
+
+    let rowsHtml = '';
+    records.forEach((r, i) => {
+        const keyVal = r[keyField] || '-';
+        const seccion = r.seccion || '-';
+        const manzana = r.manzana || '-';
+        const extra = r.parcela ? `Parcela: ${r.parcela}` : (r.mz_tipo ? `Tipo: ${r.mz_tipo}` : '');
+
+        rowsHtml += `
+            <tr style="border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 6px 10px; font-weight: 700; color: #0f172a; font-size: 0.85rem; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                        ${keyVal}
+                    </span>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.8rem; color: #475569; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b>
+                </td>
+                <td style="padding: 6px 10px; font-size: 0.78rem; color: #64748b; text-align: right; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                    ${extra}
+                </td>
+            </tr>`;
+    });
+
+    return `
+        <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">
+                <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
+                    <tr>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">${keyField.toUpperCase()}</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">Ubicación</th>
+                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; text-align: right; white-space: nowrap;">Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHtml}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function switchPDITab(tabName) {
+    if (tabName === 'inventario') {
+        showView('ciudad3d_pdi');
+    } else if (tabName === 'validacion') {
+        showView('ciudad3d_pdi_validacion');
+    } else if (tabName === 'c3d') {
+        showView('ciudad3d_pdi_validacion_c3d');
+    }
+}
+
+async function loadCiudad3DSecciones() {
+    const select = document.getElementById('pdi-c3d-seccion-select');
+    if (!select || select.children.length > 1) return; // ya cargado
+
+    try {
+        const res = await def_fetch(`${API_BASE}/pdi/c3d-validation/secciones`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.connected && data.secciones) {
+                data.secciones.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.seccion;
+                    opt.innerText = `Sección ${s.seccion} (${Number(s.total_parcelas).toLocaleString('es-AR')} parcelas)`;
+                    select.appendChild(opt);
+                });
+            }
+        }
+    } catch (err) {
+        console.warn("Error cargando secciones para C3D validation:", err);
+    }
+}
+
+let c3dValidationRunning = false;
+let c3dValidationAllRecords = [];
+let c3dCurrentFilter = 'all';
+
+async function startCiudad3DValidation() {
+    if (c3dValidationRunning) return;
+    c3dValidationRunning = true;
+
+    const select = document.getElementById('pdi-c3d-seccion-select');
+    const seccion = select?.value || null;
+
+    const startBtn = document.getElementById('pdi-c3d-start-btn');
+    const stopBtn = document.getElementById('pdi-c3d-stop-btn');
+    const clearBtn = document.getElementById('pdi-c3d-clear-btn');
+    const kpiStatus = document.getElementById('pdi-c3d-kpi-status');
+    const progressBar = document.getElementById('pdi-c3d-progress-bar');
+    const progressLabel = document.getElementById('pdi-c3d-progress-label');
+    const progressCount = document.getElementById('pdi-c3d-progress-count');
+
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'inline-flex';
+    if (clearBtn) clearBtn.disabled = true;
+
+    if (kpiStatus) {
+        kpiStatus.innerHTML = `<span style="background: #e0f2fe; color: #0284c7; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #bae6fd;"><i class="fa-solid fa-spinner fa-spin"></i> Analizando en vivo...</span>`;
+    }
+
+    try {
+        const batchSize = 1; // Estrictamente de a 1 parcela por vez
+        let offset = c3dValidationAllRecords.length; // Permite reanudar si estaba pausado
+        let hasMore = true;
+        let totalUniverso = null;
+
+        while (hasMore && c3dValidationRunning) {
+            const url = `${API_BASE}/pdi/c3d-validation/check-batch?limit=${batchSize}&offset=${offset}${seccion ? `&seccion=${seccion}` : ''}`;
+            const res = await def_fetch(url, { method: 'POST' });
+            if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+            const data = await res.json();
+            if (!data.connected) throw new Error(data.error || "Error de conexión a PDI");
+
+            if (data.total_available !== undefined && data.total_available !== null) {
+                totalUniverso = Number(data.total_available);
+            }
+
+            const results = data.results || [];
+            if (results.length === 0) {
+                hasMore = false;
+                break;
+            }
+
+            // Procesar el registro individual del análisis y agregarlo arriba de todo
+            results.forEach(record => {
+                c3dValidationAllRecords.unshift(record); // Al inicio del array
+                prependC3DResultRow(record, c3dValidationAllRecords.length);
+            });
+
+            offset += results.length;
+            updateC3DMetricsAndProgress(offset, totalUniverso || offset);
+
+            // Si llegamos al total absoluto de parcelas del universo / sección
+            if (totalUniverso && offset >= totalUniverso) {
+                hasMore = false;
+            }
+
+            // Breve delay de 80ms para asegurar renderizado visual reactivo
+            await new Promise(r => setTimeout(r, 80));
+        }
+
+        if (!c3dValidationRunning) {
+            if (kpiStatus) {
+                kpiStatus.innerHTML = `<span style="background: #fef3c7; color: #b45309; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #fde68a;"><i class="fa-solid fa-pause"></i> Pausado</span>`;
+            }
+        } else {
+            if (kpiStatus) {
+                const errCount = c3dValidationAllRecords.filter(r => r.status !== 'OK').length;
+                if (errCount === 0) {
+                    kpiStatus.innerHTML = `<span style="background: #f0fdf4; color: #166534; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #bbf7d0;"><i class="fa-solid fa-circle-check"></i> Finalizado (100% OK)</span>`;
+                } else {
+                    kpiStatus.innerHTML = `<span style="background: #fff1f2; color: #be123c; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #fecdd3;"><i class="fa-solid fa-triangle-exclamation"></i> Finalizado (${errCount} Errores)</span>`;
+                }
+            }
+            if (progressBar) progressBar.style.width = '100%';
+            if (progressLabel) progressLabel.innerText = 'Progreso de Validación: 100% (Completado)';
+        }
+    } catch (err) {
+        console.warn("Error en validación Ciudad 3D en vivo:", err);
+        if (kpiStatus) {
+            kpiStatus.innerHTML = `<span style="background: #fee2e2; color: #dc2626; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; border: 1px solid #fecaca;"><i class="fa-solid fa-triangle-exclamation"></i> Error de conexión</span>`;
+        }
+    } finally {
+        c3dValidationRunning = false;
+        if (startBtn) {
+            startBtn.style.display = 'inline-flex';
+            startBtn.innerHTML = '<i class="fa-solid fa-play"></i> Continuar Validación';
+        }
+        if (stopBtn) stopBtn.style.display = 'none';
+        if (clearBtn) clearBtn.disabled = false;
+    }
+}
+
+function stopCiudad3DValidation() {
+    c3dValidationRunning = false;
+    const startBtn = document.getElementById('pdi-c3d-start-btn');
+    const stopBtn = document.getElementById('pdi-c3d-stop-btn');
+    if (startBtn) {
+        startBtn.style.display = 'inline-flex';
+        startBtn.innerHTML = '<i class="fa-solid fa-play"></i> Continuar Validación';
+    }
+    if (stopBtn) stopBtn.style.display = 'none';
+}
+
+function clearCiudad3DValidationFeed() {
+    if (c3dValidationRunning) return;
+    c3dValidationAllRecords = [];
+
+    const tbody = document.getElementById('pdi-c3d-tbody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr id="pdi-c3d-empty-row">
+                <td colspan="6" style="text-align: center; padding: 2.5rem; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-play" style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: #cbd5e1;"></i>
+                    Seleccione una sección o todas las parcelas y haga clic en <b>Iniciar Validación</b> para observar el análisis progresivo en tiempo real.
+                </td>
+            </tr>`;
+    }
+
+    const kpiChecked = document.getElementById('pdi-c3d-kpi-checked');
+    const kpiOk = document.getElementById('pdi-c3d-kpi-ok');
+    const kpiErrors = document.getElementById('pdi-c3d-kpi-errors');
+    const kpiStatus = document.getElementById('pdi-c3d-kpi-status');
+    const progressBar = document.getElementById('pdi-c3d-progress-bar');
+    const progressLabel = document.getElementById('pdi-c3d-progress-label');
+    const progressCount = document.getElementById('pdi-c3d-progress-count');
+
+    if (kpiChecked) kpiChecked.innerText = '0';
+    if (kpiOk) kpiOk.innerText = '0';
+    if (kpiErrors) kpiErrors.innerText = '0';
+    if (kpiStatus) kpiStatus.innerHTML = `<span style="background: #f1f5f9; color: #64748b; font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 99px;">En espera</span>`;
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressLabel) progressLabel.innerText = 'Progreso de Validación: 0%';
+    if (progressCount) progressCount.innerText = '0 / 0 parcelas';
+
+    const startBtn = document.getElementById('pdi-c3d-start-btn');
+    if (startBtn) startBtn.innerHTML = '<i class="fa-solid fa-play"></i> Iniciar Validación';
+
+    updateC3DFilterCounts();
+}
+
+function prependC3DResultRow(r, currentTotalCount) {
+    const tbody = document.getElementById('pdi-c3d-tbody');
+    if (!tbody) return;
+
+    const emptyRow = document.getElementById('pdi-c3d-empty-row');
+    if (emptyRow) emptyRow.remove();
+
+    const isOk = r.status === 'OK';
+    const smp = r.smp || '-';
+    const seccion = r.seccion || '-';
+    const manzana = r.manzana || '-';
+    const parcela = r.parcela || '-';
+    const apiLink = `https://epok.buenosaires.gob.ar/cur3d/seccion_edificabilidad/?smp=${encodeURIComponent(smp)}`;
+
+    const statusBadge = isOk
+        ? `<span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> OK</span>`
+        : `<span style="background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; padding: 3px 8px; border-radius: 99px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-xmark"></i> ERROR</span>`;
+
+    const detailText = isOk
+        ? `<span style="color: #166534; font-size: 0.82rem; font-weight: 600;">Respuesta válida de edificabilidad</span>`
+        : `<span style="color: #dc2626; font-size: 0.82rem; font-weight: 600;">${r.error_msg || 'ObjetoTerritorial matching query does not exist.'}</span>`;
+
+    const row = document.createElement('tr');
+    row.className = `c3d-row c3d-row-${isOk ? 'ok' : 'error'}`;
+    row.style.cssText = "border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif; transition: background 0.2s;";
+    row.onmouseover = () => row.style.background = '#f8fafc';
+    row.onmouseout = () => row.style.background = '#ffffff';
+
+    // Respetar filtro activo
+    if (c3dCurrentFilter === 'ok' && !isOk) row.style.display = 'none';
+    if (c3dCurrentFilter === 'error' && isOk) row.style.display = 'none';
+
+    row.innerHTML = `
+        <td style="padding: 9px 12px; text-align: center; color: #94a3b8; font-weight: 600; font-size: 0.8rem; white-space: nowrap;">${currentTotalCount}</td>
+        <td style="padding: 9px 12px; font-weight: 700; color: #0f172a; font-size: 0.88rem; white-space: nowrap;">
+            <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 7px; border-radius: 6px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+                ${smp}
+            </span>
+        </td>
+        <td style="padding: 9px 12px; font-size: 0.85rem; color: #334155; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+            Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b> | Parc: <b>${parcela}</b>
+        </td>
+        <td style="padding: 9px 12px; text-align: center; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+            ${statusBadge}
+        </td>
+        <td style="padding: 9px 12px; font-family: 'Outfit', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px;">
+            ${detailText}
+        </td>
+        <td style="padding: 9px 12px; text-align: center; font-family: 'Outfit', sans-serif; white-space: nowrap;">
+            <a href="${apiLink}" target="_blank" rel="noopener noreferrer" style="color: #0284c7; font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #e0f2fe; white-space: nowrap;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver API
+            </a>
+        </td>
+    `;
+
+    // INSERTAR SIEMPRE ARRIBA DE TODO
+    tbody.insertBefore(row, tbody.firstChild);
+}
+
+function updateC3DMetricsAndProgress(currentCount, targetTotal) {
+    const kpiChecked = document.getElementById('pdi-c3d-kpi-checked');
+    const kpiOk = document.getElementById('pdi-c3d-kpi-ok');
+    const kpiErrors = document.getElementById('pdi-c3d-kpi-errors');
+    const progressBar = document.getElementById('pdi-c3d-progress-bar');
+    const progressLabel = document.getElementById('pdi-c3d-progress-label');
+    const progressCount = document.getElementById('pdi-c3d-progress-count');
+
+    const total = c3dValidationAllRecords.length;
+    const okCount = c3dValidationAllRecords.filter(r => r.status === 'OK').length;
+    const errCount = total - okCount;
+
+    if (kpiChecked) kpiChecked.innerText = total.toLocaleString('es-AR');
+    if (kpiOk) kpiOk.innerText = okCount.toLocaleString('es-AR');
+    if (kpiErrors) kpiErrors.innerText = errCount.toLocaleString('es-AR');
+
+    const pct = targetTotal > 0 ? Math.min(100, Math.round((total / targetTotal) * 100)) : 0;
+    if (progressBar) progressBar.style.width = `${pct}%`;
+    if (progressLabel) progressLabel.innerText = `Progreso de Validación: ${pct}%`;
+    if (progressCount) {
+        if (targetTotal && targetTotal > 0) {
+            progressCount.innerText = `${total.toLocaleString('es-AR')} / ${targetTotal.toLocaleString('es-AR')} parcelas`;
+        } else {
+            progressCount.innerText = `${total.toLocaleString('es-AR')} parcelas`;
+        }
+    }
+
+    updateC3DFilterCounts();
+}
+
+function updateC3DFilterCounts() {
+    const countAll = document.getElementById('c3d-count-all');
+    const countOk = document.getElementById('c3d-count-ok');
+    const countError = document.getElementById('c3d-count-error');
+
+    const total = c3dValidationAllRecords.length;
+    const okCount = c3dValidationAllRecords.filter(r => r.status === 'OK').length;
+    const errCount = total - okCount;
+
+    if (countAll) countAll.innerText = total;
+    if (countOk) countOk.innerText = okCount;
+    if (countError) countError.innerText = errCount;
+}
+
+function filterC3DLiveFeed(filterType) {
+    c3dCurrentFilter = filterType;
+
+    const btnAll = document.getElementById('c3d-filter-btn-all');
+    const btnOk = document.getElementById('c3d-filter-btn-ok');
+    const btnError = document.getElementById('c3d-filter-btn-error');
+
+    [btnAll, btnOk, btnError].forEach(b => {
+        if (b) {
+            b.style.background = 'white';
+            b.style.color = '#64748b';
+            b.style.border = '1px solid #cbd5e1';
+            b.style.fontWeight = '600';
+        }
+    });
+
+    if (filterType === 'all' && btnAll) {
+        btnAll.style.background = '#0284c7';
+        btnAll.style.color = 'white';
+        btnAll.style.border = 'none';
+        btnAll.style.fontWeight = '700';
+    } else if (filterType === 'ok' && btnOk) {
+        btnOk.style.background = '#16a34a';
+        btnOk.style.color = 'white';
+        btnOk.style.border = 'none';
+        btnOk.style.fontWeight = '700';
+    } else if (filterType === 'error' && btnError) {
+        btnError.style.background = '#dc2626';
+        btnError.style.color = 'white';
+        btnError.style.border = 'none';
+        btnError.style.fontWeight = '700';
+    }
+
+    const rows = document.querySelectorAll('.c3d-row');
+    rows.forEach(r => {
+        if (filterType === 'all') {
+            r.style.display = '';
+        } else if (filterType === 'ok') {
+            r.style.display = r.classList.contains('c3d-row-ok') ? '' : 'none';
+        } else if (filterType === 'error') {
+            r.style.display = r.classList.contains('c3d-row-error') ? '' : 'none';
+        }
+    });
+}
+
+window.loadCiudad3DPDI = loadCiudad3DPDI;
+window.filterPDITables = filterPDITables;
+window.loadPDIValidations = loadPDIValidations;
+window.togglePDIValidationGroup = togglePDIValidationGroup;
+window.toggleAllPDIValidationGroups = toggleAllPDIValidationGroups;
+window.filterPDIValidationsByCategory = filterPDIValidationsByCategory;
+window.switchPDITab = switchPDITab;
+window.loadCiudad3DSecciones = loadCiudad3DSecciones;
+window.startCiudad3DValidation = startCiudad3DValidation;
+window.stopCiudad3DValidation = stopCiudad3DValidation;
+window.clearCiudad3DValidationFeed = clearCiudad3DValidationFeed;
+window.filterC3DLiveFeed = filterC3DLiveFeed;
+
+
+
 
 let c3dTronerasRawData = [];
 let c3dTronerasGroupedData = {};
@@ -10567,18 +16265,22 @@ async function loadCiudad3DTroneras() {
             calculateLFIStats();
             renderLFIMisTrazados();
             renderLFIRevision();
+            renderLFIEquipo();
             // Actualizar filtros del mapa si ya está inicializado
             lfiApplyManzanaFilter();
             
             // Set tab visibilities based on roles
             const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
+            const uRole = (currentUser && currentUser.role || '').toLowerCase();
             const canManageTroneras = !!uPerms.lfi_dibujar;
-            const canReviewTroneras = !!uPerms.lfi_revisar;
+            const canReviewTroneras = !!uPerms.lfi_revisar || uRole === 'admin' || uRole === 'administrador';
             
             const btnMisTrazados = document.getElementById('lfi-tab-btn-mis-trazados');
             const btnRevision = document.getElementById('lfi-tab-btn-revision');
+            const btnEquipo = document.getElementById('lfi-tab-btn-equipo');
             if (btnMisTrazados) btnMisTrazados.style.display = canManageTroneras ? 'flex' : 'none';
             if (btnRevision) btnRevision.style.display = canReviewTroneras ? 'flex' : 'none';
+            if (btnEquipo) btnEquipo.style.display = canReviewTroneras ? 'flex' : 'none';
             
         } else {
             throw new Error("Respuesta no exitosa del servidor");
@@ -10646,9 +16348,11 @@ function changeLfiSubTab(tabId) {
     const activePanel = document.getElementById(`c3d-lfi-panel-${tabId}`);
     if (activePanel) activePanel.classList.add('active');
     
-    // Lazy init del mapa
+    // Lazy init del mapa o equipo
     if (tabId === 'mapa' && !_lfiMapInitialized) {
         setTimeout(() => initLFIMap(), 100);
+    } else if (tabId === 'equipo') {
+        renderLFIEquipo();
     }
 }
 window.changeLfiSubTab = changeLfiSubTab;
@@ -10677,28 +16381,26 @@ async function initLFIMap() {
     loadingDiv.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem; color: var(--primary);"></i> Cargando mapa...`;
     wrapper.appendChild(loadingDiv);
 
-    // MapLibre GL instance — basemap Carto Light (escala de grises)
+    // MapLibre GL instance — basemap OpenStreetMap
     _lfiMap = new maplibregl.Map({
         container: 'lfi-map',
         style: {
             version: 8,
             sources: {
-                'carto-tiles': {
+                'osm-tiles': {
                     type: 'raster',
                     tiles: [
-                        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-                        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                     ],
                     tileSize: 256,
-                    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
                     maxzoom: 19
                 }
             },
             layers: [{
-                id: 'carto-basemap',
+                id: 'osm-basemap',
                 type: 'raster',
-                source: 'carto-tiles',
+                source: 'osm-tiles',
                 minzoom: 0,
                 maxzoom: 22
             }]
@@ -10926,21 +16628,33 @@ document.addEventListener('click', (e) => {
 
 
 function calculateLFIStats() {
-    let pendientes = 0;
-    let enCurso = 0;
-    let revision = 0;
-    let aprobadas = 0;
+    let pendientes = 0, enCurso = 0, revision = 0, aprobadas = 0;
+    let pendSi = 0, pendNo = 0;
+    let cursoSi = 0, cursoNo = 0;
+    let revSi = 0, revNo = 0;
+    let aprobSi = 0, aprobNo = 0;
     
     c3dTronerasRawData.forEach(row => {
         const estado = (row.estado || 'Pendiente').toLowerCase();
+        const si = Number(row.irregular_si || 0);
+        const no = Number(row.irregular_no || 0);
+        
         if (estado === 'pendiente' || estado === '') {
             pendientes++;
+            pendSi += si;
+            pendNo += no;
         } else if (estado === 'en curso') {
             enCurso++;
+            cursoSi += si;
+            cursoNo += no;
         } else if (estado === 'para revisión' || estado === 'para revision') {
             revision++;
+            revSi += si;
+            revNo += no;
         } else if (estado === 'subir a ciudad 3d' || estado === 'aprobado' || estado === 'aprobada') {
             aprobadas++;
+            aprobSi += si;
+            aprobNo += no;
         }
     });
     
@@ -10951,27 +16665,52 @@ function calculateLFIStats() {
     const elRevision = document.getElementById('kpi-lfi-val-revision');
     const elAprobadas = document.getElementById('kpi-lfi-val-aprobadas');
     
+    if (elPendientes) elPendientes.innerText = pendientes.toLocaleString('es-AR');
+    if (elEnCurso) elEnCurso.innerText = enCurso.toLocaleString('es-AR');
+    if (elRevision) elRevision.innerText = revision.toLocaleString('es-AR');
+    if (elAprobadas) elAprobadas.innerText = aprobadas.toLocaleString('es-AR');
+    
     const elPctPendientes = document.getElementById('kpi-lfi-pct-pendientes');
     const elPctEnCurso = document.getElementById('kpi-lfi-pct-en-curso');
     const elPctRevision = document.getElementById('kpi-lfi-pct-revision');
     const elPctAprobadas = document.getElementById('kpi-lfi-pct-aprobadas');
     
-    if (elPendientes) elPendientes.innerText = pendientes;
-    if (elEnCurso) elEnCurso.innerText = enCurso;
-    if (elRevision) elRevision.innerText = revision;
-    if (elAprobadas) elAprobadas.innerText = aprobadas;
-    
     if (total > 0) {
-        if (elPctPendientes) elPctPendientes.innerText = `(${Math.round((pendientes / total) * 100)}%)`;
-        if (elPctEnCurso) elPctEnCurso.innerText = `(${Math.round((enCurso / total) * 100)}%)`;
-        if (elPctRevision) elPctRevision.innerText = `(${Math.round((revision / total) * 100)}%)`;
-        if (elPctAprobadas) elPctAprobadas.innerText = `(${Math.round((aprobadas / total) * 100)}%)`;
+        const calcPctStr = (val) => {
+            if (val === 0) return '(0%)';
+            if (val === total) return '(100%)';
+            const pct = (val / total) * 100;
+            return `(${pct.toFixed(2)}%)`;
+        };
+        if (elPctPendientes) elPctPendientes.innerText = calcPctStr(pendientes);
+        if (elPctEnCurso) elPctEnCurso.innerText = calcPctStr(enCurso);
+        if (elPctRevision) elPctRevision.innerText = calcPctStr(revision);
+        if (elPctAprobadas) elPctAprobadas.innerText = calcPctStr(aprobadas);
     } else {
         if (elPctPendientes) elPctPendientes.innerText = `(0%)`;
         if (elPctEnCurso) elPctEnCurso.innerText = `(0%)`;
         if (elPctRevision) elPctRevision.innerText = `(0%)`;
         if (elPctAprobadas) elPctAprobadas.innerText = `(0%)`;
     }
+
+    // Desglose de esquinas dentro de cada tarjeta
+    const elSiPend = document.getElementById('kpi-lfi-si-pendientes');
+    const elNoPend = document.getElementById('kpi-lfi-no-pendientes');
+    const elSiCurso = document.getElementById('kpi-lfi-si-en-curso');
+    const elNoCurso = document.getElementById('kpi-lfi-no-en-curso');
+    const elSiRev = document.getElementById('kpi-lfi-si-revision');
+    const elNoRev = document.getElementById('kpi-lfi-no-revision');
+    const elSiAprob = document.getElementById('kpi-lfi-si-aprobadas');
+    const elNoAprob = document.getElementById('kpi-lfi-no-aprobadas');
+
+    if (elSiPend) elSiPend.innerText = pendSi.toLocaleString('es-AR');
+    if (elNoPend) elNoPend.innerText = pendNo.toLocaleString('es-AR');
+    if (elSiCurso) elSiCurso.innerText = cursoSi.toLocaleString('es-AR');
+    if (elNoCurso) elNoCurso.innerText = cursoNo.toLocaleString('es-AR');
+    if (elSiRev) elSiRev.innerText = revSi.toLocaleString('es-AR');
+    if (elNoRev) elNoRev.innerText = revNo.toLocaleString('es-AR');
+    if (elSiAprob) elSiAprob.innerText = aprobSi.toLocaleString('es-AR');
+    if (elNoAprob) elNoAprob.innerText = aprobNo.toLocaleString('es-AR');
 }
 
 function renderLFIMisTrazados() {
@@ -11002,31 +16741,31 @@ function renderLFIMisTrazados() {
     tbody.innerHTML = myRows.map(row => {
         const badgeColor = row.estado === 'Para revisión' ? 'background: #fef3c7; color: #d97706;' : 'background: #e0f2fe; color: #0284c7;';
         return `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px 16px; font-weight: 700; font-family: monospace; font-size: 0.95rem;">
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 12px 16px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--primary-dark);">
                     ${row.seccion} - ${row.manzana}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center; font-family: 'Outfit', sans-serif;">
                         ${row.irregular_si}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
+                    <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center; font-family: 'Outfit', sans-serif;">
                         ${row.irregular_no}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-family: 'Outfit'; ${badgeColor}">
+                    <span style="font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-family: 'Outfit', sans-serif; ${badgeColor}">
                         ${row.estado}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     <div style="display: flex; gap: 6px; justify-content: center;">
-                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: 'Outfit', sans-serif;">
                             <i class="fa-solid fa-download"></i> DXF
                         </button>
-                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: 'Outfit', sans-serif;">
                             <i class="fa-solid fa-folder-open"></i> Ficha
                         </button>
                     </div>
@@ -11048,7 +16787,7 @@ function renderLFIRevision() {
     if (revRows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b;">
+                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b; font-family: 'Outfit', sans-serif;">
                     <i class="fa-solid fa-check-double" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                     <p style="margin: 0; font-size: 0.9rem;">No hay trazados pendientes de revisión en este momento.</p>
                 </td>
@@ -11059,8 +16798,8 @@ function renderLFIRevision() {
     
     tbody.innerHTML = revRows.map(row => {
         return `
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px 16px; font-weight: 700; font-family: monospace; font-size: 0.95rem;">
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 12px 16px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--primary-dark);">
                     ${row.seccion} - ${row.manzana}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
@@ -11077,14 +16816,136 @@ function renderLFIRevision() {
                     ${row.analista_asignado || 'Sin asignar'}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                        <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
-                    </button>
+                    <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                            <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
+                        </button>
+                    </div>
                 </td>
             </tr>
         `;
     }).join('');
 }
+
+async function renderLFIEquipo() {
+    const tbody = document.getElementById('c3d-lfi-equipo-table-body');
+    if (!tbody) return;
+
+    // Obtener lista completa de analistas de trazados
+    let analistas = [];
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/analistas_trazados`);
+        if (res && res.ok) {
+            analistas = await res.json();
+        }
+    } catch (e) {
+        console.warn("Error buscando analistas de trazados para monitor de equipo:", e);
+    }
+
+    // Mapa de estadísticas por analista
+    const stats = {};
+    analistas.forEach(a => {
+        stats[a.username.toLowerCase()] = {
+            username: a.username,
+            full_name: a.full_name || a.username,
+            en_curso: 0,
+            revision: 0,
+            aprobados: 0,
+            total: 0
+        };
+    });
+
+    // Contabilizar desde c3dTronerasRawData
+    (c3dTronerasRawData || []).forEach(row => {
+        const u = (row.analista_asignado || '').trim().toLowerCase();
+        if (!u) return;
+        
+        if (!stats[u]) {
+            stats[u] = {
+                username: row.analista_asignado,
+                full_name: row.analista_nombre || row.analista_asignado,
+                en_curso: 0,
+                revision: 0,
+                aprobados: 0,
+                total: 0
+            };
+        }
+        
+        const est = (row.estado || '').toLowerCase();
+        if (est === 'en curso') {
+            stats[u].en_curso++;
+            stats[u].total++;
+        } else if (est === 'para revisión' || est === 'para revision') {
+            stats[u].revision++;
+            stats[u].total++;
+        } else if (est === 'subir a ciudad 3d' || est === 'aprobado' || est === 'aprobada') {
+            stats[u].aprobados++;
+            stats[u].total++;
+        }
+    });
+
+    const rowsList = Object.values(stats);
+    
+    if (rowsList.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">
+                    <i class="fa-solid fa-users-slash" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">No hay analistas de trazados o manzanas asignadas registradas.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    rowsList.sort((a, b) => b.total - a.total);
+
+    tbody.innerHTML = rowsList.map(s => {
+        const pct = s.total > 0 ? Math.round((s.aprobados / s.total) * 100) : 0;
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 12px 16px; font-weight: 700; color: #0f172a;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem;">
+                            ${(s.full_name || s.username).charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div style="font-weight: 700;">${s.full_name}</div>
+                            <div style="font-size: 0.75rem; color: #64748b; font-family: monospace;">@${s.username}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.en_curso}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.revision}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.aprobados}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #1e293b; font-size: 0.95rem;">
+                    ${s.total}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                        <div style="flex: 1; max-width: 100px; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
+                            <div style="width: ${pct}%; background: #16a34a; height: 100%; border-radius: 4px;"></div>
+                        </div>
+                        <span style="font-weight: 700; font-size: 0.82rem; color: #15803d; min-width: 36px; text-align: right;">${pct}%</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+window.renderLFIEquipo = renderLFIEquipo;
 
 function filterLFIByStatus(statusName) {
     // Clear active status on all cards
@@ -11128,7 +16989,7 @@ function rowMatchesLfiFilter(row, filter) {
     return true;
 }
 
-function renderCiudad3DTronerasBarrios(filteredNames = null) {
+function renderCiudad3DTronerasBarrios(filteredNames = null, searchQuery = null) {
     const tbody = document.getElementById('c3d-troneras-table-body');
     if (!tbody) return;
     
@@ -11143,11 +17004,14 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
     const canReviewTroneras = !!uPerms.lfi_revisar;
     const canEditDispo = canManageTroneras || canReviewTroneras;
 
+    const q = searchQuery ? searchQuery.toUpperCase().trim() : null;
+
     let count = 0;
     sortedBarrioNames.forEach(bName => {
         if (filteredNames && !filteredNames.includes(bName)) return;
         
         const b = c3dTronerasGroupedData[bName];
+        const isBarrioMatch = q && bName.toUpperCase().includes(q);
         
         // Filter sections and calculate counts on the fly if filter is active
         const filteredSecciones = {};
@@ -11156,7 +17020,29 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         let totalNo = 0;
         
         Object.keys(b.secciones).forEach(sName => {
-            const matchedRows = b.secciones[sName].filter(row => rowMatchesLfiFilter(row, currentLfiStatusFilter));
+            const matchedRows = b.secciones[sName].filter(row => {
+                if (!rowMatchesLfiFilter(row, currentLfiStatusFilter)) return false;
+                if (!q || isBarrioMatch) return true;
+
+                const secP = (row.seccion || '').toUpperCase();
+                const mzaP = (row.manzana || '').toUpperCase();
+                const secU = (row.seccion_unpad || secP.replace(/^0+/, '')).toUpperCase();
+                const mzaU = (row.manzana_unpad || mzaP.replace(/^0+/, '')).toUpperCase();
+
+                const combo1 = `${secP}-${mzaP}`;
+                const combo2 = `${secU}-${mzaU}`;
+                const combo3 = `${secP} ${mzaP}`;
+                const combo4 = `${secU} ${mzaU}`;
+                const combo5 = `${secP}/${mzaP}`;
+                const combo6 = `${secU}/${mzaU}`;
+
+                return secP.includes(q) || secU.includes(q) ||
+                       mzaP.includes(q) || mzaU.includes(q) ||
+                       combo1.includes(q) || combo2.includes(q) ||
+                       combo3.includes(q) || combo4.includes(q) ||
+                       combo5.includes(q) || combo6.includes(q);
+            });
+
             if (matchedRows.length > 0) {
                 filteredSecciones[sName] = matchedRows;
                 totalManzanas += matchedRows.length;
@@ -11181,6 +17067,9 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         // We will toggle the details row on click
         const uniqueId = `details-${bName.replace(/[^a-zA-Z0-9]/g, '-')}`;
         const chevronId = `chevron-${bName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        
+        const autoExpand = !!q;
+
         parentTr.onclick = () => {
             const detailsRow = document.getElementById(uniqueId);
             const chevron = document.getElementById(chevronId);
@@ -11195,7 +17084,7 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         
         parentTr.innerHTML = `
             <td style="padding: 12px 16px; text-align: center;">
-                <i id="${chevronId}" class="fa-solid fa-chevron-right" style="transition: transform 0.2s; color: #64748b;"></i>
+                <i id="${chevronId}" class="fa-solid fa-chevron-right" style="transition: transform 0.2s; color: #64748b; ${autoExpand ? 'transform: rotate(90deg);' : ''}"></i>
             </td>
             <td style="padding: 12px 16px; font-weight: 700; text-transform: uppercase; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">${b.name}</td>
             <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #475569; font-family: 'Outfit', sans-serif;">${cantSecciones}</td>
@@ -11212,7 +17101,7 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         // Details row (initially hidden)
         const detailsTr = document.createElement('tr');
         detailsTr.id = uniqueId;
-        detailsTr.style.display = "none";
+        detailsTr.style.display = autoExpand ? "table-row" : "none";
         detailsTr.style.background = "#f8fafc";
         
         const sortedSections = Object.keys(filteredSecciones).sort();
@@ -11221,13 +17110,20 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
         sortedSections.forEach(sName => {
             sectionsHtml += `
                 <div style="margin-bottom: 1.5rem; background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 1rem; font-family: 'Outfit', sans-serif;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.75rem;">
-                        <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem; font-family: 'Outfit', sans-serif;">SECCIÓN</span>
-                        <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1rem;">${sName}</h4>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem;">SECCIÓN</span>
+                            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 1rem;">${sName}</h4>
+                        </div>
+                        ${canManageTroneras ? `
+                            <button onclick="event.stopPropagation(); assignSeccionCompletaLFI('${sName}')" class="btn-primary" style="padding: 5px 12px; font-size: 0.78rem; font-weight: 700; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Autoasignarme todas las manzanas pendientes de esta sección">
+                                <i class="fa-solid fa-layer-group"></i> Autoasignar Sección Completa (${filteredSecciones[sName].length})
+                            </button>
+                        ` : ''}
                     </div>
-                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; font-family: 'Outfit', sans-serif;">
+                    <table class="premium-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
                         <thead>
-                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700; font-family: 'Outfit', sans-serif;">
+                            <tr style="border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 700;">
                                 <th style="padding: 8px 10px;">Sección - Manzana</th>
                                 <th style="padding: 8px 10px; text-align: center;">Esquinas consolidadas</th>
                                 <th style="padding: 8px 10px; text-align: center;">Esquinas no consolidadas</th>
@@ -11237,71 +17133,59 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
                                 <th style="padding: 8px 10px; text-align: center;">Acción</th>
                             </tr>
                         </thead>
-                        <tbody style="color: #334155; font-family: 'Outfit', sans-serif;">
+                        <tbody style="color: #334155;">
                             ${filteredSecciones[sName].map(row => {
-                                const isSiDanger = row.irregular_si > 0;
                                 const rowEstado = row.estado || 'Pendiente';
                                 const rowAnalista = row.analista_nombre || row.analista_asignado || '';
                                 const rowDisposicion = row.disposicion || '';
-                                const rowArchivo = row.archivo_trazado || '';
                                 
-                                // Estado Badge styling
-                                let badgeBg = '#e2e8f0';
-                                let badgeColor = '#475569';
-                                if (rowEstado === 'Pendiente') {
-                                    badgeBg = '#f1f5f9';
-                                    badgeColor = '#64748b';
-                                } else if (rowEstado === 'En curso') {
-                                    badgeBg = '#dbeafe';
-                                    badgeColor = '#1e40af';
-                                } else if (rowEstado === 'Para revisión') {
-                                    badgeBg = '#ffedd5';
-                                    badgeColor = '#c2410c';
-                                } else if (rowEstado === 'Subir a Ciudad 3D') {
-                                    badgeBg = '#dcfce7';
-                                    badgeColor = '#166534';
-                                }
+                                let badgeBg = '#f1f5f9'; let badgeColor = '#64748b';
+                                if (rowEstado === 'En curso') { badgeBg = '#dbeafe'; badgeColor = '#1e40af'; }
+                                else if (rowEstado === 'Para revisión') { badgeBg = '#ffedd5'; badgeColor = '#c2410c'; }
+                                else if (rowEstado === 'Subir a Ciudad 3D') { badgeBg = '#dcfce7'; badgeColor = '#166534'; }
                                 const badgeHtml = `<span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${rowEstado}</span>`;
                                 
-                                // Disposición link style
-                                let dispoHtml = '';
-                                if (rowDisposicion) {
-                                    dispoHtml = `<span style="font-weight: 600; color: #334155; font-size: 0.8rem;">${rowDisposicion}</span>`;
-                                } else {
-                                    dispoHtml = `<span style="color: #94a3b8;">-</span>`;
-                                }
+                                let dispoHtml = rowDisposicion ? `<span style="font-weight: 600; color: #334155; font-size: 0.8rem;">${rowDisposicion}</span>` : `<span style="color: #94a3b8;">-</span>`;
                                 
-                                // Action buttons
                                 let actionButtonsHtml = `<div style="display: flex; gap: 6px; justify-content: center; align-items: center;">`;
-                                
-                                // DXF Base
+                                if (rowEstado === 'Pendiente' && canManageTroneras) {
+                                    actionButtonsHtml += `
+                                        <button onclick="event.stopPropagation(); assignManzanaLFI('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Autoasignarme esta manzana">
+                                            <i class="fa-solid fa-user-plus"></i> Autoasignar
+                                        </button>
+                                    `;
+                                }
                                 actionButtonsHtml += `
                                     <button onclick="event.stopPropagation(); downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar DXF Base">
                                         <i class="fa-solid fa-download"></i> DXF
                                     </button>
-                                `;
-                                
-                                // Ficha de Trabajo
-                                actionButtonsHtml += `
                                     <button onclick="event.stopPropagation(); openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: var(--primary-dark); color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Ficha de Trabajo">
                                         <i class="fa-solid fa-file-signature"></i> Ficha
                                     </button>
                                 `;
-                                
+                                const estClean = (row.estado || '').toLowerCase();
+                                const canDownloadPdf = ['para revisión', 'para revision', 'subir a ciudad 3d', 'aprobado', 'aprobada', 'finalizado', 'finalizada'].includes(estClean) || !!(row.archivo_trazado || row.archivo_finalizado);
+                                if (canDownloadPdf) {
+                                    actionButtonsHtml += `
+                                        <button onclick="event.stopPropagation(); downloadLFIPdf('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 4px 8px; font-size: 0.72rem; border-radius: 4px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar Ficha Técnica PDF A3">
+                                            <i class="fa-solid fa-file-pdf"></i> PDF A3
+                                        </button>
+                                    `;
+                                }
                                 actionButtonsHtml += `</div>`;
                                 
                                 return `
-                                    <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
-                                        <td style="padding: 8px 10px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.9rem;">
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 8px 10px; font-weight: 700; font-size: 0.9rem;">
                                             ${row.seccion} - ${row.manzana}
                                         </td>
                                         <td style="padding: 8px 10px; text-align: center;">
-                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 28px; text-align: center;">
+                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; display: inline-block; min-width: 28px; text-align: center;">
                                                 ${row.irregular_si}
                                             </span>
                                         </td>
                                         <td style="padding: 8px 10px; text-align: center;">
-                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; font-family: 'Outfit', sans-serif; display: inline-block; min-width: 28px; text-align: center;">
+                                            <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.78rem; display: inline-block; min-width: 28px; text-align: center;">
                                                 ${row.irregular_no}
                                             </span>
                                         </td>
@@ -11340,14 +17224,42 @@ function renderCiudad3DTronerasBarrios(filteredNames = null) {
 }
 
 function filterCiudad3DTroneras() {
-    const q = document.getElementById('c3d-troneras-search').value.toUpperCase().trim();
-    if (!q) {
-        renderCiudad3DTronerasBarrios();
+    const rawVal = (document.getElementById('c3d-troneras-search')?.value || '').trim();
+    if (!rawVal) {
+        renderCiudad3DTronerasBarrios(null, null);
         return;
     }
     
-    const matchedNames = Object.keys(c3dTronerasGroupedData).filter(bName => bName.includes(q));
-    renderCiudad3DTronerasBarrios(matchedNames);
+    const q = rawVal.toUpperCase();
+
+    const matchedNames = Object.keys(c3dTronerasGroupedData).filter(bName => {
+        if (bName.toUpperCase().includes(q)) return true;
+        
+        const b = c3dTronerasGroupedData[bName];
+        if (!b || !b.secciones) return false;
+
+        return Object.keys(b.secciones).some(sName => {
+            const rows = b.secciones[sName];
+            return rows.some(row => {
+                const secP = (row.seccion || '').toString().trim().toUpperCase();
+                const mzaP = (row.manzana || '').toString().trim().toUpperCase();
+                const secU = secP.replace(/^0+/, '');
+                const mzaU = mzaP.replace(/^0+/, '');
+
+                const combos = [
+                    secP, secU, mzaP, mzaU,
+                    `${secP}-${mzaP}`, `${secU}-${mzaU}`,
+                    `${secP} ${mzaP}`, `${secU} ${mzaU}`,
+                    `${secP}/${mzaP}`, `${secU}/${mzaU}`,
+                    `0${secU}-${mzaP}`, `0${secU}-${mzaU}`
+                ];
+
+                return combos.some(c => c && c.includes(q));
+            });
+        });
+    });
+
+    renderCiudad3DTronerasBarrios(matchedNames, q);
 }
 
 function expandBarrioTroneras(barrioName) {
@@ -11389,8 +17301,8 @@ function expandBarrioTroneras(barrioName) {
                         ${b.secciones[sName].map(row => {
                             const isSiDanger = row.irregular_si > 0;
                             return `
-                                <tr style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
-                                    <td style="padding: 10px 12px; font-family: monospace; font-weight: 700; font-size: 0.95rem;">
+                                <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+                                    <td style="padding: 10px 12px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--primary-dark);">
                                         ${row.seccion} - ${row.manzana}
                                     </td>
                                     <td style="padding: 10px 12px; text-align: center;">
@@ -11421,47 +17333,391 @@ function expandBarrioTroneras(barrioName) {
     modal.style.display = "flex";
 }
 
-function downloadManzanaDXF(seccion, manzana) {
+async function downloadManzanaDXF(seccion, manzana) {
     const token = localStorage.getItem('sgdu_token') || '';
-    window.open(`${API_BASE}/ciudad3d/dxf/download?seccion=${encodeURIComponent(seccion)}&manzana=${encodeURIComponent(manzana)}&token=${encodeURIComponent(token)}`, '_blank');
+    if (!seccion || !manzana) return;
+
+    let modal = document.getElementById('dxf-download-progress-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'dxf-download-progress-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); border: none;">
+            <div class="modal-header" style="background: var(--primary-dark, #0f172a); color: white; padding: 1.25rem 1.75rem; border-top-left-radius: 16px; border-top-right-radius: 16px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff;">Generando Archivo DXF</h2>
+                    <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #cbd5e1; opacity: 0.9;">Sección ${seccion} — Manzana ${manzana}</p>
+                </div>
+                <button type="button" onclick="document.getElementById('dxf-download-progress-modal').style.display='none'" style="background: none; border: none; color: #cbd5e1; cursor: pointer; font-size: 1.25rem; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem 1.75rem 1.75rem 1.75rem; text-align: center; background: #ffffff;">
+                <!-- Minimalist Pristine Isometric 3D Vector Geometry -->
+                <div style="position: relative; width: 200px; height: 140px; margin: 0 auto 1.25rem auto;">
+                    <svg viewBox="0 0 200 150" width="200" height="140" style="overflow: visible;">
+                        <defs>
+                            <style>
+                                .iso-face {
+                                    fill: none;
+                                    stroke: #0284c7;
+                                    stroke-width: 1.8;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .iso-sub {
+                                    fill: none;
+                                    stroke: #38bdf8;
+                                    stroke-width: 1.2;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .iso-grid {
+                                    fill: none;
+                                    stroke: #cbd5e1;
+                                    stroke-width: 1;
+                                    stroke-dasharray: 4 3;
+                                }
+                                @keyframes isoFloat1 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-9px); }
+                                }
+                                @keyframes isoFloat2 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-6px); }
+                                }
+                                @keyframes isoFloat3 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-11px); }
+                                }
+                            </style>
+                        </defs>
+
+                        <!-- Ground Isometric Grid -->
+                        <g opacity="0.75">
+                            <polygon points="100,140 170,105 100,70 30,105" class="iso-grid"/>
+                            <polygon points="100,125 145,102.5 100,80 55,102.5" class="iso-grid"/>
+                        </g>
+
+                        <!-- Block 1: Center High Tower -->
+                        <g style="animation: isoFloat1 3s ease-in-out infinite;">
+                            <polygon points="100,30 130,45 100,60 70,45" class="iso-face" />
+                            <polygon points="70,45 100,60 100,110 70,95" class="iso-face" />
+                            <polygon points="100,60 130,45 130,95 100,110" class="iso-face" />
+                            <!-- Floor Lines -->
+                            <line x1="70" y1="61.6" x2="100" y2="76.6" class="iso-sub"/>
+                            <line x1="100" y1="76.6" x2="130" y2="61.6" class="iso-sub"/>
+                            <line x1="70" y1="78.3" x2="100" y2="93.3" class="iso-sub"/>
+                            <line x1="100" y1="93.3" x2="130" y2="78.3" class="iso-sub"/>
+                        </g>
+
+                        <!-- Block 2: Left Wing Block -->
+                        <g style="animation: isoFloat2 3s ease-in-out infinite 0.5s;">
+                            <polygon points="65,65 90,77.5 65,90 40,77.5" class="iso-face" />
+                            <polygon points="40,77.5 65,90 65,120 40,107.5" class="iso-face" />
+                            <polygon points="65,90 90,77.5 90,107.5 65,120" class="iso-face" />
+                            <line x1="40" y1="92.5" x2="65" y2="105" class="iso-sub"/>
+                            <line x1="65" y1="105" x2="90" y2="92.5" class="iso-sub"/>
+                        </g>
+
+                        <!-- Block 3: Right Wing Block -->
+                        <g style="animation: isoFloat3 3s ease-in-out infinite 1s;">
+                            <polygon points="135,65 160,77.5 135,90 110,77.5" class="iso-face" />
+                            <polygon points="110,77.5 135,90 135,120 110,107.5" class="iso-face" />
+                            <polygon points="135,90 160,77.5 160,107.5 135,120" class="iso-face" />
+                            <line x1="110" y1="92.5" x2="135" y2="105" class="iso-sub"/>
+                            <line x1="135" y1="105" x2="160" y2="92.5" class="iso-sub"/>
+                        </g>
+
+                        <!-- Block 4: Front Low Cube -->
+                        <g style="animation: isoFloat2 3s ease-in-out infinite 1.5s;">
+                            <polygon points="100,95 120,105 100,115 80,105" class="iso-face" />
+                            <polygon points="80,105 100,115 100,130 80,120" class="iso-face" />
+                            <polygon points="100,115 120,105 120,120 100,130" class="iso-face" />
+                        </g>
+                    </svg>
+                </div>
+                <div style="background: #f1f5f9; border-radius: 9999px; height: 10px; padding: 2px; margin: 0 0 1.25rem 0; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="dxf-progress-bar-fill" style="width: 15%; height: 100%; background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%); border-radius: 9999px; transition: width 0.35s ease;"></div>
+                </div>
+                <div id="dxf-progress-status-text" style="font-size: 0.88rem; color: #475569; font-weight: 500; min-height: 2.5em; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="color: #0284c7;"></i>
+                    <span>Iniciando motor CAD y lectura de geometrías GIS...</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+
+    const steps = [
+        { pct: '30%', text: 'Extrayendo límites de parcelas y tejido urbano...' },
+        { pct: '55%', text: 'Mapeando ejes de calles circundantes y orientación de nombres...' },
+        { pct: '80%', text: 'Generando capas CAD vectorizadas (LFI, LIB, Troneras y Calles)...' },
+        { pct: '92%', text: 'Compilando y optimizando archivo DXF...' }
+    ];
+
+    let stepIdx = 0;
+    const progressInterval = setInterval(() => {
+        if (stepIdx < steps.length) {
+            const fill = document.getElementById('dxf-progress-bar-fill');
+            const status = document.getElementById('dxf-progress-status-text');
+            if (fill) fill.style.width = steps[stepIdx].pct;
+            if (status) {
+                status.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: #0284c7;"></i> <span>${steps[stepIdx].text}</span>`;
+            }
+            stepIdx++;
+        }
+    }, 600);
+
+    try {
+        const url = `${API_BASE}/ciudad3d/dxf/download?seccion=${encodeURIComponent(seccion)}&manzana=${encodeURIComponent(manzana)}&token=${encodeURIComponent(token)}`;
+        const response = await fetch(url, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        clearInterval(progressInterval);
+
+        if (!response.ok) {
+            let errorMsg = 'Error al generar el archivo DXF.';
+            try {
+                const errData = await response.json();
+                if (errData && errData.detail) errorMsg = errData.detail;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const blob = await response.blob();
+
+        const fill = document.getElementById('dxf-progress-bar-fill');
+        const status = document.getElementById('dxf-progress-status-text');
+        if (fill) fill.style.width = '100%';
+        if (status) {
+            status.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #16a34a; font-size: 1.1rem;"></i> <span style="color: #16a34a; font-weight: 600;">¡DXF generado y listo para descargar!</span>`;
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `DXF-${seccion}-${manzana}.dxf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+
+        setTimeout(() => {
+            if (modal) modal.style.display = 'none';
+        }, 1200);
+
+    } catch (err) {
+        clearInterval(progressInterval);
+        const status = document.getElementById('dxf-progress-status-text');
+        if (status) {
+            status.innerHTML = `
+                <div style="color: #dc2626; text-align: center; width: 100%;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem; margin-bottom: 6px;"></i>
+                    <div style="margin-bottom: 8px;">${err.message || 'Error en la descarga'}</div>
+                    <button onclick="document.getElementById('dxf-download-progress-modal').style.display='none'" style="background: #334155; color: white; border: none; padding: 6px 16px; border-radius: 8px; font-family: inherit; font-size: 0.82rem; cursor: pointer;">Cerrar</button>
+                </div>
+            `;
+        }
+    }
 }
 
-let c3dAtipicasRawData = [];
+let c3dAtipicasAnalysisData = null;
+let c3dAtipicasCurrentFilter = 'todos';
+let c3dAtipicasSearchTerm = '';
+let c3dAtipicasOffset = 0;
+const c3dAtipicasLimit = 50;
+let c3dAtipicasSearchTimeout = null;
 
-let activeWorkflowSeccion = '';
-let activeWorkflowManzana = '';
-let activeWorkflowFile = '';
+async function loadCiudad3DManzanasAtipicas(forceRefresh = false) {
+    const vpnAlert = document.getElementById('pdi-vpn-alert-atipicas');
+    const refreshIcon = document.getElementById('c3d-atipicas-refresh-icon');
+    if (refreshIcon) refreshIcon.classList.add('fa-spin');
+    if (vpnAlert) vpnAlert.style.display = 'none';
 
-async function loadCiudad3DManzanasAtipicas() {
+    try {
+        // 1. Cargar KPIs analíticos
+        const resKpi = await def_fetch(`${API_BASE}/pdi/atipicas-analysis`);
+        if (!resKpi || !resKpi.ok) {
+            throw new Error("No se pudo conectar a la base de datos PDI");
+        }
+        c3dAtipicasAnalysisData = await resKpi.json();
+
+        if (!c3dAtipicasAnalysisData.connected) {
+            if (vpnAlert) vpnAlert.style.display = 'block';
+            return;
+        }
+
+        renderAtipicasKPIs(c3dAtipicasAnalysisData);
+
+        // 2. Cargar tabla con filtro actual
+        await loadAtipicasList();
+    } catch (err) {
+        console.error("Error al cargar análisis de manzanas atípicas PDI:", err);
+        if (vpnAlert) vpnAlert.style.display = 'block';
+    } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+    }
+}
+
+function renderAtipicasKPIs(data) {
+    if (!data || !data.universo_atipicas) return;
+    const u = data.universo_atipicas;
+    const d = data.trazado_si_detalle || {};
+
+    const formatNum = (n) => (n !== undefined && n !== null) ? Number(n).toLocaleString('es-AR') : '0';
+
+    // Nivel 1: Universo y Disposiciones
+    const totalEl = document.getElementById('atip-kpi-total');
+    if (totalEl) totalEl.innerText = formatNum(u.total);
+
+    const conDispEl = document.getElementById('atip-kpi-con-disp');
+    if (conDispEl) conDispEl.innerText = formatNum(u.con_disposicion);
+
+    const pctConDispEl = document.getElementById('atip-pct-con-disp');
+    if (pctConDispEl && u.total > 0) {
+        const pct = ((u.con_disposicion / u.total) * 100).toFixed(1);
+        pctConDispEl.innerText = `${pct}% del universo total`;
+    }
+
+    const sinDispEl = document.getElementById('atip-kpi-sin-disp');
+    if (sinDispEl) sinDispEl.innerText = formatNum(u.sin_disposicion);
+
+    const pctSinDispEl = document.getElementById('atip-pct-sin-disp');
+    if (pctSinDispEl && u.total > 0) {
+        const pct = ((u.sin_disposicion / u.total) * 100).toFixed(1);
+        pctSinDispEl.innerText = `${pct}% sin acto administrativo`;
+    }
+
+    // Nivel 2: Trazado en Manzanas con Disposición
+    const trazSiEl = document.getElementById('atip-kpi-trazado-si');
+    if (trazSiEl) trazSiEl.innerText = formatNum(u.disp_trazado_si);
+
+    const pctTrazSiEl = document.getElementById('atip-pct-trazado-si');
+    if (pctTrazSiEl && u.con_disposicion > 0) {
+        const pct = ((u.disp_trazado_si / u.con_disposicion) * 100).toFixed(1);
+        pctTrazSiEl.innerText = `${pct}% de las que tienen disposición`;
+    }
+
+    const trazNoEl = document.getElementById('atip-kpi-trazado-no');
+    if (trazNoEl) trazNoEl.innerText = formatNum(u.disp_trazado_no);
+
+    const pctTrazNoEl = document.getElementById('atip-pct-trazado-no');
+    if (pctTrazNoEl && u.con_disposicion > 0) {
+        const pct = ((u.disp_trazado_no / u.con_disposicion) * 100).toFixed(1);
+        pctTrazNoEl.innerText = `${pct}% de las que tienen disposición`;
+    }
+
+    // Nivel 3: Cobertura LFI / LIB en Trazado SI
+    const conLfiLibEl = document.getElementById('atip-kpi-con-lfi-lib');
+    if (conLfiLibEl) conLfiLibEl.innerText = formatNum(d.con_lfi_o_lib);
+
+    const pctConLfiLibEl = document.getElementById('atip-pct-con-lfi-lib');
+    if (pctConLfiLibEl && d.total > 0) {
+        const pct = ((d.con_lfi_o_lib / d.total) * 100).toFixed(1);
+        pctConLfiLibEl.innerText = `${pct}% de las trazado SI (${formatNum(d.con_lfi_o_lib)} mzas)`;
+    }
+
+    const ningunaEl = document.getElementById('atip-kpi-ninguna');
+    if (ningunaEl) ningunaEl.innerText = formatNum(d.ninguna);
+
+    const pctNingunaEl = document.getElementById('atip-pct-ninguna');
+    if (pctNingunaEl && d.total > 0) {
+        const pct = ((d.ninguna / d.total) * 100).toFixed(1);
+        pctNingunaEl.innerText = `${pct}% sin nada en las tablas (${formatNum(d.ninguna)} mzas)`;
+    }
+
+    const ambasEl = document.getElementById('atip-kpi-ambas');
+    if (ambasEl) ambasEl.innerText = formatNum(d.ambas);
+
+    const pctAmbasEl = document.getElementById('atip-pct-ambas');
+    if (pctAmbasEl && d.total > 0) {
+        const pct = ((d.ambas / d.total) * 100).toFixed(1);
+        pctAmbasEl.innerText = `${pct}% con ambas (${formatNum(d.ambas)} mzas)`;
+    }
+
+    const soloLfiEl = document.getElementById('atip-kpi-solo-lfi');
+    if (soloLfiEl) soloLfiEl.innerText = formatNum(d.solo_lfi);
+
+    const pctSoloLfiEl = document.getElementById('atip-pct-solo-lfi');
+    if (pctSoloLfiEl && d.total > 0) {
+        const pct = ((d.solo_lfi / d.total) * 100).toFixed(1);
+        pctSoloLfiEl.innerText = `${pct}% solo LFI particularizada`;
+    }
+
+    const soloLibEl = document.getElementById('atip-kpi-solo-lib');
+    if (soloLibEl) soloLibEl.innerText = formatNum(d.solo_lib);
+
+    const pctSoloLibEl = document.getElementById('atip-pct-solo-lib');
+    if (pctSoloLibEl && d.total > 0) {
+        const pct = ((d.solo_lib / d.total) * 100).toFixed(1);
+        pctSoloLibEl.innerText = `${pct}% solo LIB particularizada`;
+    }
+}
+
+async function loadAtipicasList() {
     const tbody = document.getElementById('c3d-atipicas-tbody');
+    const pageInfo = document.getElementById('atip-pagination-info');
+    const prevBtn = document.getElementById('atip-prev-btn');
+    const nextBtn = document.getElementById('atip-next-btn');
+
     if (tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    <h3 style="color: var(--primary-dark); font-family: 'Outfit'; margin: 0 0 0.5rem 0;">Cargando manzanas atípicas...</h3>
-                    <p style="margin: 0; font-size: 0.9rem;">Por favor espere mientras recuperamos la información.</p>
+                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; color: #0284c7; margin-bottom: 8px;"></i>
+                    <div>Recuperando registros de manzanas atípicas...</div>
                 </td>
             </tr>
         `;
     }
-    
+
     try {
-        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_atipicas`);
-        if (res && res.ok) {
-            c3dAtipicasRawData = await res.json();
-            renderCiudad3DManzanasAtipicas();
-        } else {
-            throw new Error("Respuesta no exitosa del servidor");
+        let url = `${API_BASE}/pdi/atipicas-analysis/list?filter_group=${encodeURIComponent(c3dAtipicasCurrentFilter)}&limit=${c3dAtipicasLimit}&offset=${c3dAtipicasOffset}`;
+        if (c3dAtipicasSearchTerm) {
+            url += `&search=${encodeURIComponent(c3dAtipicasSearchTerm)}`;
         }
+
+        const res = await def_fetch(url);
+        if (!res || !res.ok) throw new Error("Error consultando listado de atípicas");
+        const data = await res.json();
+
+        if (!data.connected) {
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Sin conexión a base de datos PDI.
+                        </td>
+                    </tr>
+                `;
+            }
+            return;
+        }
+
+        renderAtipicasTable(data);
     } catch (err) {
-        console.error("Error al cargar manzanas atípicas:", err);
+        console.error("Error cargando listado:", err);
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 3rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
-                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 2.5rem; margin-bottom: 1rem;"></i>
-                        <h3 style="font-family: 'Outfit'; margin: 0;">Error al cargar datos</h3>
-                        <p style="color: #64748b; font-size: 0.9rem; margin-top: 8px;">No se pudo conectar a la base de datos.</p>
+                    <td colspan="9" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                        <i class="fa-solid fa-triangle-exclamation"></i> No se pudieron recuperar los registros.
                     </td>
                 </tr>
             `;
@@ -11469,69 +17725,147 @@ async function loadCiudad3DManzanasAtipicas() {
     }
 }
 
-function renderCiudad3DManzanasAtipicas(filteredData = null) {
+function renderAtipicasTable(data) {
     const tbody = document.getElementById('c3d-atipicas-tbody');
+    const pageInfo = document.getElementById('atip-pagination-info');
+    const prevBtn = document.getElementById('atip-prev-btn');
+    const nextBtn = document.getElementById('atip-next-btn');
     if (!tbody) return;
-    
+
     tbody.innerHTML = "";
-    const data = filteredData || c3dAtipicasRawData;
-    
-    if (data.length === 0) {
+    const rows = data.records || [];
+    const total = data.total || 0;
+
+    if (rows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 3rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    No se encontraron manzanas atípicas que coincidan con la búsqueda.
+                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    No se encontraron manzanas atípicas con los filtros aplicados.
                 </td>
             </tr>
         `;
+        if (pageInfo) pageInfo.innerText = "Mostrando 0 de 0 registros";
+        if (prevBtn) prevBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
         return;
     }
-    
-    data.forEach(row => {
+
+    rows.forEach(r => {
         const tr = document.createElement('tr');
-        tr.style.cssText = "border-bottom: 1px solid #e2e8f0; transition: background 0.15s; font-family: 'Outfit', sans-serif;";
+        tr.style.cssText = "border-bottom: 1px solid #f1f5f9; transition: background 0.15s; font-family: 'Outfit', sans-serif;";
         tr.onmouseover = () => { tr.style.background = '#f8fafc'; };
         tr.onmouseout = () => { tr.style.background = 'none'; };
-        
+
+        // Badge Trazado
+        let trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #f1f5f9; color: #64748b;">-</span>`;
+        if (r.trazado === 'SI') {
+            trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #dbeafe; color: #1e40af;"><i class="fa-solid fa-check" style="font-size: 0.7rem; margin-right: 3px;"></i>SI</span>`;
+        } else if (r.trazado === 'NO') {
+            trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #f1f5f9; color: #475569;">NO</span>`;
+        }
+
+        // Badge LFI
+        const lfiBadge = (r.cant_lfi > 0)
+            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #e0f2fe; color: #0284c7;"><i class="fa-solid fa-check" style="font-size: 0.68rem;"></i> ${r.cant_lfi}</span>`
+            : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+        // Badge LIB
+        const libBadge = (r.cant_lib > 0)
+            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #ccfbf1; color: #0f766e;"><i class="fa-solid fa-check" style="font-size: 0.68rem;"></i> ${r.cant_lib}</span>`
+            : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+        // Badge Cobertura
+        let cobBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: #f8fafc; color: #94a3b8;">N/A</span>`;
+        if (r.cobertura_particularizada === 'AMBAS') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #d1fae5; color: #065f46;"><i class="fa-solid fa-layer-group" style="margin-right: 4px;"></i>LFI + LIB</span>`;
+        } else if (r.cobertura_particularizada === 'SOLO_LFI') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #e0f2fe; color: #0369a1;">Solo LFI</span>`;
+        } else if (r.cobertura_particularizada === 'SOLO_LIB') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #ccfbf1; color: #0f766e;">Solo LIB</span>`;
+        } else if (r.cobertura_particularizada === 'NINGUNA') {
+            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #fee2e2; color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 3px;"></i>Sin LFI/LIB</span>`;
+        }
+
         tr.innerHTML = `
-            <td style="padding: 12px 16px; font-weight: 600;">${row.barrio}</td>
-            <td style="padding: 12px 16px; color: #64748b;">${row.comuna}</td>
-            <td style="padding: 12px 16px; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--primary-dark);">
-                ${row.seccion} - ${row.manzana}
+            <td style="padding: 10px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">
+                ${r.sm || (r.seccion + '-' + r.manzana)}
             </td>
-            <td style="padding: 12px 16px;">
-                <div style="font-weight: 600; color: #334155; font-size: 0.85rem;">${row.gedo_documento}</div>
-                <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">Exp: ${row.expediente} (${row.fecha_egreso})</div>
+            <td style="padding: 10px 14px; color: #475569;">${r.seccion || '-'}</td>
+            <td style="padding: 10px 14px; color: #475569; font-weight: 600;">${r.manzana || '-'}</td>
+            <td style="padding: 10px 14px; color: #64748b;">${r.comuna ? 'Comuna ' + r.comuna : '-'}</td>
+            <td style="padding: 10px 14px; font-size: 0.85rem;">
+                ${r.disposicio ? `<span style="font-weight: 600; color: #334155;">${r.disposicio}</span>` : `<span style="color: #94a3b8; font-style: italic;">Sin Disposición</span>`}
             </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#0369a1'" onmouseout="this.style.background='#0284c7'">
-                    <i class="fa-solid fa-download"></i> DXF
-                </button>
-            </td>
+            <td style="padding: 10px 14px; text-align: center;">${trazBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${lfiBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${libBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${cobBadge}</td>
         `;
+
         tbody.appendChild(tr);
     });
+
+    const startIdx = data.offset + 1;
+    const endIdx = Math.min(data.offset + rows.length, total);
+    if (pageInfo) {
+        pageInfo.innerText = `Mostrando ${startIdx.toLocaleString('es-AR')} - ${endIdx.toLocaleString('es-AR')} de ${total.toLocaleString('es-AR')} manzanas`;
+    }
+
+    if (prevBtn) prevBtn.disabled = (data.offset <= 0);
+    if (nextBtn) nextBtn.disabled = (data.offset + data.limit >= total);
 }
 
-// Atypical block workflow helpers removed
+function filterAtipicasByGroup(groupKey) {
+    c3dAtipicasCurrentFilter = groupKey;
+    c3dAtipicasOffset = 0;
+    
+    const select = document.getElementById('atip-filter-select');
+    if (select) select.value = groupKey;
 
-function filterCiudad3DManzanasAtipicas() {
-    const searchVal = (document.getElementById('c3d-atipicas-search')?.value || '').toLowerCase().trim();
-    if (!searchVal) {
-        renderCiudad3DManzanasAtipicas();
-        return;
-    }
-    
-    const matched = c3dAtipicasRawData.filter(row => {
-        return (row.barrio || '').toLowerCase().includes(searchVal) ||
-               (row.comuna || '').toLowerCase().includes(searchVal) ||
-               (row.seccion || '').toLowerCase().includes(searchVal) ||
-               (row.manzana || '').toLowerCase().includes(searchVal) ||
-               (row.gedo_documento || '').toLowerCase().includes(searchVal) ||
-               (row.expediente || '').toLowerCase().includes(searchVal);
-    });
-    
-    renderCiudad3DManzanasAtipicas(matched);
+    updateAtipicasActiveFilterLabel(groupKey);
+    loadAtipicasList();
+}
+
+function filterAtipicasBySelect(val) {
+    c3dAtipicasCurrentFilter = val;
+    c3dAtipicasOffset = 0;
+    updateAtipicasActiveFilterLabel(val);
+    loadAtipicasList();
+}
+
+function updateAtipicasActiveFilterLabel(groupKey) {
+    const labelEl = document.getElementById('atip-active-filter-label');
+    if (!labelEl) return;
+
+    const mapLabels = {
+        'todos': 'Todas las manzanas atípicas',
+        'con_disp': 'Manzanas con Disposición no nula',
+        'sin_disp': 'Manzanas sin Disposición',
+        'trazado_si': 'Con Disposición + Trazado SI',
+        'trazado_no': 'Con Disposición + Trazado NO',
+        'con_lfi_o_lib': 'Trazado SI + Tienen LFI o LIB',
+        'ninguna': 'Trazado SI + No tienen nada en las tablas (Faltantes)',
+        'ambas': 'Trazado SI + Ambas LFI y LIB cargadas',
+        'solo_lfi': 'Trazado SI + Solo LFI cargada',
+        'solo_lib': 'Trazado SI + Solo LIB cargada'
+    };
+    labelEl.innerText = `Mostrando: ${mapLabels[groupKey] || groupKey}`;
+}
+
+function debounceAtipicasSearch() {
+    clearTimeout(c3dAtipicasSearchTimeout);
+    c3dAtipicasSearchTimeout = setTimeout(() => {
+        const val = document.getElementById('c3d-atipicas-search')?.value.trim() || '';
+        c3dAtipicasSearchTerm = val;
+        c3dAtipicasOffset = 0;
+        loadAtipicasList();
+    }, 300);
+}
+
+function changeAtipicasPage(direction) {
+    c3dAtipicasOffset += (direction * c3dAtipicasLimit);
+    if (c3dAtipicasOffset < 0) c3dAtipicasOffset = 0;
+    loadAtipicasList();
 }
 
 window.loadCiudad3DTroneras = loadCiudad3DTroneras;
@@ -11539,31 +17873,11 @@ window.filterCiudad3DTroneras = filterCiudad3DTroneras;
 window.expandBarrioTroneras = expandBarrioTroneras;
 window.downloadManzanaDXF = downloadManzanaDXF;
 window.loadCiudad3DManzanasAtipicas = loadCiudad3DManzanasAtipicas;
-window.filterCiudad3DManzanasAtipicas = filterCiudad3DManzanasAtipicas;
-window.assignManzanaLFI = assignManzanaLFI;
+window.filterAtipicasByGroup = filterAtipicasByGroup;
+window.filterAtipicasBySelect = filterAtipicasBySelect;
+window.debounceAtipicasSearch = debounceAtipicasSearch;
+window.changeAtipicasPage = changeAtipicasPage;
 window.openLFIFicha = openLFIFicha;
-// Unified LFI Ficha de Trabajo Handlers
-async function assignManzanaLFI(seccion, manzana) {
-    if (!confirm(`¿Desea asignarse la manzana LFI ${seccion} - ${manzana}?`)) return;
-    try {
-        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ seccion, manzana })
-        });
-        if (res && res.ok) {
-            alert("Manzana LFI asignada con éxito.");
-            await loadCiudad3DTroneras();
-            openLFIFicha(seccion, manzana);
-        } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
-        }
-    } catch (err) {
-        console.error("Error al asignar manzana LFI:", err);
-        alert("Error de conexión con el servidor.");
-    }
-}
 
 async function openLFIFicha(seccion, manzana) {
     activeWorkflowSeccion = seccion;
@@ -11610,16 +17924,54 @@ async function openLFIFicha(seccion, manzana) {
     assignContainer.innerHTML = '';
     if (row.estado === 'Pendiente' && canManageTroneras) {
         assignContainer.innerHTML = `
-            <button onclick="assignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                <i class="fa-solid fa-user-plus"></i> Asignarme
+            <button onclick="assignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 7px 16px; font-size: 0.82rem; border-radius: 8px; border: none; background: #10b981; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600;">
+                <i class="fa-solid fa-user-plus"></i> Asignarme Manzana
             </button>
         `;
-    } else if (row.estado !== 'Pendiente' && (uRole === 'admin' || uRole === 'administrador')) {
-        assignContainer.innerHTML = `
-            <button onclick="unassignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #ef4444; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                <i class="fa-solid fa-rotate-left"></i> Liberar a Bandeja General
-            </button>
-        `;
+    } else if (row.estado !== 'Pendiente') {
+        let buttonsHtml = '';
+        if (canReviewTroneras || uRole === 'admin' || uRole === 'administrador') {
+            buttonsHtml += `
+                <div style="display: flex; align-items: center; gap: 6px; background: #ffffff; border: 1px solid #cbd5e1; padding: 4px 6px 4px 10px; border-radius: 10px; width: 100%; box-sizing: border-box; justify-content: space-between;">
+                    <span style="font-size: 0.8rem; color: #475569; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        <i class="fa-solid fa-user-pen" style="color: #3b82f6;"></i> Reasignar:
+                    </span>
+                    <select id="c3d-lfi-ficha-reassign-select" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; background: #f8fafc; cursor: pointer; color: #1e293b; flex: 1; min-width: 0; margin: 0 4px;">
+                        <option value="">Cargando analistas...</option>
+                    </select>
+                    <button onclick="submitReassignFromFicha('${seccion}', '${manzana}')" class="btn-primary" style="padding: 5px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #3b82f6; color: white; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                        Aplicar
+                    </button>
+                </div>
+            `;
+            // Cargar dinámicamente la lista de analistas aptos para trazados en el <select>
+            setTimeout(async () => {
+                const selectEl = document.getElementById('c3d-lfi-ficha-reassign-select');
+                if (!selectEl) return;
+                try {
+                    const res = await def_fetch(`${API_BASE}/ciudad3d/analistas_trazados`);
+                    if (res && res.ok) {
+                        const analistas = await res.json();
+                        selectEl.innerHTML = '<option value="">-- Seleccionar Analista --</option>' +
+                            analistas.map(u => `<option value="${u.username}" ${u.username === row.analista_asignado ? 'selected' : ''}>${u.full_name} (${u.username})</option>`).join('');
+                    } else {
+                        selectEl.innerHTML = '<option value="">Error cargando lista</option>';
+                    }
+                } catch (e) {
+                    selectEl.innerHTML = '<option value="">Error de conexión</option>';
+                }
+            }, 50);
+        }
+        if (uRole === 'admin' || uRole === 'administrador') {
+            buttonsHtml += `
+                <div style="margin-top: 6px; display: flex; justify-content: flex-end;">
+                    <button onclick="unassignManzanaLFI('${seccion}', '${manzana}')" class="btn-primary" style="padding: 5px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: #ef4444; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; opacity: 0.9;">
+                        <i class="fa-solid fa-rotate-left"></i> Liberar a Bandeja General
+                    </button>
+                </div>
+            `;
+        }
+        assignContainer.innerHTML = buttonsHtml;
     }
     
     const downloadsContainer = document.getElementById('c3d-lfi-ficha-downloads-container');
@@ -11628,6 +17980,15 @@ async function openLFIFicha(seccion, manzana) {
             <i class="fa-solid fa-download"></i> DXF Base original
         </button>
     `;
+    const estCleanFicha = (row.estado || '').toLowerCase();
+    const canDownloadPdfFicha = ['para revisión', 'para revision', 'subir a ciudad 3d', 'aprobado', 'aprobada', 'finalizado', 'finalizada'].includes(estCleanFicha) || !!(row.archivo_trazado || row.archivo_finalizado);
+    if (canDownloadPdfFicha) {
+        downloadsContainer.innerHTML += `
+            <button onclick="downloadLFIPdf('${seccion}', '${manzana}')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #dc2626; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;" title="Descargar Ficha Técnica en PDF A3">
+                <i class="fa-solid fa-file-pdf"></i> Descargar Ficha PDF (A3)
+            </button>
+        `;
+    }
     if (row.archivo_trazado) {
         downloadsContainer.innerHTML += `
             <button onclick="downloadUploadedLFITrazado('draft')" class="btn-primary" style="padding: 8px 12px; font-size: 0.85rem; border-radius: 6px; border: none; background: #64748b; color: white; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-family: inherit;">
@@ -11646,34 +18007,75 @@ async function openLFIFicha(seccion, manzana) {
     const actionsContainer = document.getElementById('c3d-lfi-ficha-actions-container');
     actionsContainer.innerHTML = '';
     
-    const isAssignee = (row.analista_asignado === uName || uRole === 'admin' || uRole === 'administrador');
+    const isAssignee = ((row.analista_asignado || '').trim().toLowerCase() === (uName || '').trim().toLowerCase() || uRole === 'admin' || uRole === 'administrador');
     
     if (row.estado === 'En curso' && canManageTroneras && isAssignee) {
+        const hasDraft = !!row.archivo_trazado;
         actionsContainer.innerHTML = `
-            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Subir Borrador de Trazado</h4>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <input type="file" id="c3d-lfi-ficha-upload-file" style="font-family: inherit; font-size: 0.88rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: white; width: 100%;">
-                <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 8px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: #f59e0b; color: white;">
-                    <i class="fa-solid fa-upload"></i> Subir Trazado Preliminar
+            <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cloud-arrow-up" style="color: #f59e0b;"></i> ${hasDraft ? 'Actualizar Borrador de Trazado' : 'Subir Borrador de Trazado'}
+            </h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748b; font-weight: 500;">
+                Suba el archivo de trabajo para visualizarlo en PDF o descargarlo. La manzana seguirá "En curso" hasta que decida enviarla a revisión.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <input type="file" id="c3d-lfi-ficha-upload-file" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.85rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; background: #f8fafc; width: 100%; box-sizing: border-box;">
+                <button onclick="uploadLFIFichaTrazado()" class="btn-primary" style="padding: 10px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #f59e0b; color: white; font-size: 0.88rem;">
+                    <i class="fa-solid fa-upload"></i> ${hasDraft ? 'Reemplazar Borrador (.dxf / .dwg)' : 'Guardar Borrador (.dxf / .dwg)'}
                 </button>
             </div>
+            
+            ${hasDraft ? `
+                <div style="margin-top: 10px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.83rem; color: #166534; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 8px;">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600;">
+                            <i class="fa-solid fa-circle-check"></i> Borrador cargado en el sistema
+                        </span>
+                        <button onclick="downloadLFIPdf('${seccion}', '${manzana}')" style="background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                            <i class="fa-solid fa-file-pdf"></i> Ver PDF A3
+                        </button>
+                    </div>
+                    <button onclick="sendLFIFichaToReview()" class="btn-primary" style="margin-top: 4px; padding: 11px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #2563eb; color: white; font-size: 0.9rem; box-shadow: 0 2px 4px rgba(37,99,235,0.2);">
+                        <i class="fa-solid fa-paper-plane"></i> Enviar a Revisión
+                    </button>
+                </div>
+            ` : ''}
         `;
     } else if (row.estado === 'Para revisión' && canReviewTroneras) {
         actionsContainer.innerHTML = `
-            <h4 style="margin: 0; color: var(--primary-dark); font-weight: 700; font-size: 0.95rem;">Revisión de Trazado LFI (Visor)</h4>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
+            <h4 style="margin: 0; color: #1e293b; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-check" style="color: var(--primary);"></i> Revisión de Trazado LFI
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Trazado Finalizado (Solo si aprueba):</label>
-                    <input type="file" id="c3d-lfi-ficha-review-file-final" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px; background: white;">
+                    <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Trazado Finalizado (.dxf / .dwg, Solo si aprueba):</label>
+                    <input type="file" id="c3d-lfi-ficha-review-file-final" accept=".dxf,.dwg,.DXF,.DWG" style="font-family: inherit; font-size: 0.82rem; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; background: #f8fafc; width: 100%; box-sizing: border-box;">
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-weight: 600; color: #334155; font-size: 0.82rem;">Comentarios / Motivo de Rechazo:</label>
-                    <textarea id="c3d-lfi-ficha-review-comentario" placeholder="Escriba los comentarios u observaciones de la revisión..." style="width: 100%; height: 50px; padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.82rem; resize: none;"></textarea>
+                    <textarea id="c3d-lfi-ficha-review-comentario" placeholder="Escriba los comentarios u observaciones de la revisión..." style="width: 100%; height: 55px; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.85rem; resize: none; box-sizing: border-box;"></textarea>
                 </div>
-                <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <button onclick="submitLFIFichaReview('REJECT')" class="btn-primary" style="background: #ef4444; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">Rechazar</button>
-                    <button onclick="submitLFIFichaReview('OK')" class="btn-primary" style="background: #22c55e; color: white; padding: 6px 12px; font-size: 0.85rem; border-radius: 6px; border: none; font-weight: 600; cursor: pointer;">Aprobar</button>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="submitLFIFichaReview('REJECT')" class="btn-primary" style="background: #ef4444; color: white; padding: 8px 16px; font-size: 0.85rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-xmark"></i> Rechazar
+                    </button>
+                    <button onclick="submitLFIFichaReview('OK')" class="btn-primary" style="background: #16a34a; color: white; padding: 8px 16px; font-size: 0.85rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-check"></i> Aprobar
+                    </button>
                 </div>
+            </div>
+        `;
+    } else if ((row.estado === 'Subir a Ciudad 3D' || row.estado === 'Para revisión') && (canReviewTroneras || uRole === 'admin' || uRole === 'administrador')) {
+        actionsContainer.innerHTML = `
+            <h4 style="margin: 0; color: #b45309; font-weight: 700; font-size: 0.92rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-rotate-left" style="color: #ea580c;"></i> Reabrir Manzana / Volver a Trabajo
+            </h4>
+            <p style="margin: 0; font-size: 0.82rem; color: #64748b; font-weight: 500;">Esta manzana fue finalizada previamente. Si requiere modificaciones, puede volver a ponerla en curso con el mismo o distinto analista.</p>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <textarea id="c3d-lfi-ficha-reopen-motivo" placeholder="Motivo de la reapertura (opcional)..." style="width: 100%; height: 48px; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 0.85rem; resize: none; box-sizing: border-box;"></textarea>
+                <button onclick="reopenLFIFichaManzana()" class="btn-primary" style="padding: 9px 14px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: #ea580c; color: white; width: 100%; font-size: 0.85rem;">
+                    <i class="fa-solid fa-rotate-left"></i> Reabrir Manzana (Volver a "En curso")
+                </button>
             </div>
         `;
     }
@@ -11706,16 +18108,47 @@ async function loadLFIFichaNotes() {
             }
             notes.forEach(n => {
                 const noteCard = document.createElement('div');
-                noteCard.style.cssText = "background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 0.82rem;";
+                noteCard.style.cssText = "background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem;";
                 
                 const cleanDate = n.created_at ? n.created_at.substring(0, 19).replace('T', ' ') : '-';
+                const noteContent = (n.nota || '').trim();
+                
+                // Formatear notas de revisión si contienen el marcador de decisión
+                const revMatch = noteContent.match(/^\*\*\*\s*REVISI[OÓ]N\s*\[(.*?)\]:\s*(.*?)\s*\*\*\*$/s);
+                let formattedHtml = '';
+                
+                if (revMatch) {
+                    const dec = revMatch[1].toUpperCase();
+                    const msg = revMatch[2].trim();
+                    const isApprove = dec === 'OK' || dec === 'APPROVE' || dec === 'APROBADO' || dec === 'ACEPTADO';
+                    const badgeBg = isApprove ? '#dcfce7' : '#fee2e2';
+                    const badgeColor = isApprove ? '#15803d' : '#b91c1c';
+                    const badgeBorder = isApprove ? '#bbf7d0' : '#fca5a5';
+                    const icon = isApprove ? 'fa-circle-check' : 'fa-circle-xmark';
+                    const decTitle = isApprove ? 'REVISIÓN APROBADA' : 'REVISIÓN RECHAZADA';
+                    
+                    formattedHtml = `
+                        <div style="margin-top: 2px; margin-bottom: 2px;">
+                            <span style="background: ${badgeBg}; color: ${badgeColor}; border: 1px solid ${badgeBorder}; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 5px;">
+                                <i class="fa-solid ${icon}"></i> ${decTitle}
+                            </span>
+                        </div>
+                        <div style="color: #1e293b; white-space: pre-wrap; font-weight: 500; margin-top: 2px; line-height: 1.35;">${msg}</div>
+                    `;
+                } else {
+                    let cleanText = noteContent
+                        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                        .replace(/\*\*\*(.*?)\*\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    formattedHtml = `<div style="color: #334155; white-space: pre-wrap; line-height: 1.35; margin-top: 2px;">${cleanText}</div>`;
+                }
                 
                 noteCard.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--primary-dark);">
-                        <span>${n.full_name}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 700; color: var(--primary-dark);">
+                        <span>${n.full_name || 'Usuario'}</span>
                         <span style="font-weight: 500; color: #94a3b8; font-size: 0.75rem;">${cleanDate}</span>
                     </div>
-                    <div style="color: #334155; white-space: pre-wrap; margin-top: 2px; line-height: 1.3;">${n.nota}</div>
+                    ${formattedHtml}
                 `;
                 listDiv.appendChild(noteCard);
             });
@@ -11820,27 +18253,68 @@ async function uploadLFIFichaTrazado() {
     formData.append('manzana', activeWorkflowManzana);
     formData.append('file', fileInput.files[0]);
     
-    const token = localStorage.getItem('sgdu_token') || '';
-    
     try {
-        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_lfi/upload`, {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/upload`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
-        if (res.ok) {
-            alert("Trazado LFI subido correctamente.");
+        if (res && res.ok) {
+            alert("Borrador de trazado LFI guardado correctamente. Puede previsualizarlo en PDF o descargarlo. Cuando esté conforme, pulse 'Enviar a Revisión'.");
             await loadCiudad3DTroneras();
             openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo subir el trazado.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
         } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo subir el trazado.'}`);
+            alert("Error de conexión al servidor.");
         }
     } catch (err) {
         console.error("Error al subir archivo LFI:", err);
-        alert("Error de conexión al servidor.");
+        alert(`Error al subir archivo: ${err.message || err}`);
+    }
+}
+
+async function sendLFIFichaToReview() {
+    if (!confirm("¿Está seguro de enviar este trazado a revisión? La manzana pasará al estado 'Para revisión'.")) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', activeWorkflowSeccion);
+    formData.append('manzana', activeWorkflowManzana);
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/send_to_review`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res && res.ok) {
+            alert("Trazado LFI enviado a revisión exitosamente.");
+            await loadCiudad3DTroneras();
+            openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo enviar a revisión.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
+        } else {
+            alert("Error de conexión al servidor.");
+        }
+    } catch (err) {
+        console.error("Error al enviar trazado a revisión:", err);
+        alert(`Error: ${err.message || err}`);
     }
 }
 
@@ -11865,42 +18339,444 @@ async function submitLFIFichaReview(decision) {
         formData.append('file_final', fileFinalInput.files[0]);
     }
     
-    const token = localStorage.getItem('sgdu_token') || '';
-    
     try {
-        const res = await fetch(`${API_BASE}/ciudad3d/manzanas_lfi/review`, {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/review`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
             body: formData
         });
-        if (res.ok) {
-            alert(`Trazado LFI ${decision === 'OK' ? 'aprobado' : 'rechazado'} con éxito.`);
+        if (res && res.ok) {
+            const isApproved = decision.toUpperCase() === 'OK';
+            alert(`Trazado LFI ${isApproved ? 'aprobado' : 'rechazado'} con éxito.`);
             await loadCiudad3DTroneras();
             openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo registrar la revisión.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
         } else {
-            const errData = await res.json();
-            alert(`Error: ${errData.detail || 'No se pudo registrar la revisión.'}`);
+            alert("Error de conexión al servidor.");
         }
     } catch (err) {
         console.error("Error en revisión LFI:", err);
-        alert("Error de conexión al servidor.");
+        alert(`Error al enviar revisión: ${err.message || err}`);
     }
 }
 
 function downloadUploadedLFITrazado(fileType = "draft") {
-    const token = localStorage.getItem('sgdu_token') || '';
+    const token = localStorage.getItem('sgdu_token') || localStorage.getItem('authToken') || (typeof authToken !== 'undefined' ? authToken : '');
     window.open(`${API_BASE}/ciudad3d/manzanas_lfi/download_trazado?seccion=${encodeURIComponent(activeWorkflowSeccion)}&manzana=${encodeURIComponent(activeWorkflowManzana)}&file_type=${encodeURIComponent(fileType)}&token=${encodeURIComponent(token)}`, '_blank');
 }
 
+async function downloadLFIPdf(seccion, manzana) {
+    const s = String(seccion || activeWorkflowSeccion || '').padStart(3, '0');
+    const m = String(manzana || activeWorkflowManzana || '').padStart(3, '0');
+    const token = localStorage.getItem('sgdu_token') || localStorage.getItem('authToken') || (typeof authToken !== 'undefined' ? authToken : '');
+
+    if (!s || !m || s === '000' || m === '000') return;
+
+    let modal = document.getElementById('pdf-download-progress-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'pdf-download-progress-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+        `;
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4); border: none;">
+            <div class="modal-header" style="background: #7f1d1d; color: white; padding: 1.25rem 1.75rem; border-top-left-radius: 16px; border-top-right-radius: 16px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #ffffff;">Generando Ficha Técnica PDF A3</h2>
+                    <p style="margin: 0.2rem 0 0 0; font-size: 0.85rem; color: #fecaca; opacity: 0.9;">Sección ${s} — Manzana ${m}</p>
+                </div>
+                <button type="button" onclick="document.getElementById('pdf-download-progress-modal').style.display='none'" style="background: none; border: none; color: #fecaca; cursor: pointer; font-size: 1.25rem; transition: color 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 2rem 1.75rem 1.75rem 1.75rem; text-align: center; background: #ffffff;">
+                <!-- Minimalist Pristine 3D/PDF Vector Graphic -->
+                <div style="position: relative; width: 200px; height: 140px; margin: 0 auto 1.25rem auto;">
+                    <svg viewBox="0 0 200 150" width="200" height="140" style="overflow: visible;">
+                        <defs>
+                            <style>
+                                .pdf-iso-face {
+                                    fill: none;
+                                    stroke: #dc2626;
+                                    stroke-width: 1.8;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .pdf-iso-sub {
+                                    fill: none;
+                                    stroke: #f87171;
+                                    stroke-width: 1.2;
+                                    stroke-linecap: round;
+                                    stroke-linejoin: round;
+                                }
+                                .pdf-iso-grid {
+                                    fill: none;
+                                    stroke: #cbd5e1;
+                                    stroke-width: 1;
+                                    stroke-dasharray: 4 3;
+                                }
+                                @keyframes pdfIsoFloat1 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-9px); }
+                                }
+                                @keyframes pdfIsoFloat2 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-6px); }
+                                }
+                                @keyframes pdfIsoFloat3 {
+                                    0%, 100% { transform: translateY(0px); }
+                                    50% { transform: translateY(-11px); }
+                                }
+                            </style>
+                        </defs>
+
+                        <!-- Ground Isometric Grid -->
+                        <g opacity="0.75">
+                            <polygon points="100,140 170,105 100,70 30,105" class="pdf-iso-grid"/>
+                            <polygon points="100,125 145,102.5 100,80 55,102.5" class="pdf-iso-grid"/>
+                        </g>
+
+                        <!-- Block 1: Center High Tower -->
+                        <g style="animation: pdfIsoFloat1 3s ease-in-out infinite;">
+                            <polygon points="100,30 130,45 100,60 70,45" class="pdf-iso-face" />
+                            <polygon points="70,45 100,60 100,110 70,95" class="pdf-iso-face" />
+                            <polygon points="100,60 130,45 130,95 100,110" class="pdf-iso-face" />
+                            <!-- Floor Lines -->
+                            <line x1="70" y1="61.6" x2="100" y2="76.6" class="pdf-iso-sub"/>
+                            <line x1="100" y1="76.6" x2="130" y2="61.6" class="pdf-iso-sub"/>
+                            <line x1="70" y1="78.3" x2="100" y2="93.3" class="pdf-iso-sub"/>
+                            <line x1="100" y1="93.3" x2="130" y2="78.3" class="pdf-iso-sub"/>
+                        </g>
+
+                        <!-- Block 2: Left Wing Block -->
+                        <g style="animation: pdfIsoFloat2 3s ease-in-out infinite 0.5s;">
+                            <polygon points="65,65 90,77.5 65,90 40,77.5" class="pdf-iso-face" />
+                            <polygon points="40,77.5 65,90 65,120 40,107.5" class="pdf-iso-face" />
+                            <polygon points="65,90 90,77.5 90,107.5 65,120" class="pdf-iso-face" />
+                            <line x1="40" y1="92.5" x2="65" y2="105" class="pdf-iso-sub"/>
+                            <line x1="65" y1="105" x2="90" y2="92.5" class="pdf-iso-sub"/>
+                        </g>
+
+                        <!-- Block 3: Right Wing Block -->
+                        <g style="animation: pdfIsoFloat3 3s ease-in-out infinite 1s;">
+                            <polygon points="135,65 160,77.5 135,90 110,77.5" class="pdf-iso-face" />
+                            <polygon points="110,77.5 135,90 135,120 110,107.5" class="pdf-iso-face" />
+                            <polygon points="135,90 160,77.5 160,107.5 135,120" class="pdf-iso-face" />
+                            <line x1="110" y1="92.5" x2="135" y2="105" class="pdf-iso-sub"/>
+                            <line x1="135" y1="105" x2="160" y2="92.5" class="pdf-iso-sub"/>
+                        </g>
+
+                        <!-- Block 4: Front Low Cube -->
+                        <g style="animation: pdfIsoFloat2 3s ease-in-out infinite 1.5s;">
+                            <polygon points="100,95 120,105 100,115 80,105" class="pdf-iso-face" />
+                            <polygon points="80,105 100,115 100,130 80,120" class="pdf-iso-face" />
+                            <polygon points="100,115 120,105 120,120 100,130" class="pdf-iso-face" />
+                        </g>
+                    </svg>
+                </div>
+                <div style="background: #f1f5f9; border-radius: 9999px; height: 10px; padding: 2px; margin: 0 0 1.25rem 0; overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);">
+                    <div id="pdf-progress-bar-fill" style="width: 15%; height: 100%; background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%); border-radius: 9999px; transition: width 0.35s ease;"></div>
+                </div>
+                <div id="pdf-progress-status-text" style="font-size: 0.88rem; color: #475569; font-weight: 500; min-height: 2.5em; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="color: #dc2626;"></i>
+                    <span>Iniciando motor PDF y lectura de geometrías GIS...</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+
+    const steps = [
+        { pct: '30%', text: 'Extrayendo límites de parcelas y tejido urbano...' },
+        { pct: '55%', text: 'Procesando capas GIS (LIB, LFI, Troneras y Calles)...' },
+        { pct: '80%', text: 'Renderizando plano matplotlib y armando esquema cartográfico...' },
+        { pct: '92%', text: 'Compilando documento PDF A3 de alta resolución...' }
+    ];
+
+    let stepIdx = 0;
+    const progressInterval = setInterval(() => {
+        if (stepIdx < steps.length) {
+            const fill = document.getElementById('pdf-progress-bar-fill');
+            const status = document.getElementById('pdf-progress-status-text');
+            if (fill) fill.style.width = steps[stepIdx].pct;
+            if (status) {
+                status.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: #dc2626;"></i> <span>${steps[stepIdx].text}</span>`;
+            }
+            stepIdx++;
+        }
+    }, 600);
+
+    try {
+        const url = `${API_BASE}/ciudad3d/manzanas_lfi/download_pdf?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`;
+        const response = await fetch(url, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        clearInterval(progressInterval);
+
+        if (!response.ok) {
+            let errorMsg = 'Error al generar la Ficha Técnica PDF.';
+            try {
+                const errData = await response.json();
+                if (errData && errData.detail) errorMsg = errData.detail;
+            } catch (e) {}
+            throw new Error(errorMsg);
+        }
+
+        const blob = await response.blob();
+
+        const fill = document.getElementById('pdf-progress-bar-fill');
+        const status = document.getElementById('pdf-progress-status-text');
+        if (fill) fill.style.width = '100%';
+        if (status) {
+            status.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #16a34a; font-size: 1.1rem;"></i> <span style="color: #16a34a; font-weight: 600;">¡PDF A3 generado con éxito!</span>`;
+        }
+
+        const pdfBlobUrl = window.URL.createObjectURL(blob);
+        const win = window.open(pdfBlobUrl, '_blank');
+        if (!win) {
+            const a = document.createElement('a');
+            a.href = pdfBlobUrl;
+            a.download = `Ficha_Tecnica_LFI_Sec_${s}_Mza_${m}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        setTimeout(() => {
+            if (modal) modal.style.display = 'none';
+        }, 1200);
+
+    } catch (err) {
+        clearInterval(progressInterval);
+        const status = document.getElementById('pdf-progress-status-text');
+        if (status) {
+            status.innerHTML = `
+                <div style="color: #dc2626; text-align: center; width: 100%;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem; margin-bottom: 6px;"></i>
+                    <div style="margin-bottom: 8px;">${err.message || 'Error en la generación del PDF'}</div>
+                    <button onclick="document.getElementById('pdf-download-progress-modal').style.display='none'" style="background: #334155; color: white; border: none; padding: 6px 16px; border-radius: 8px; font-family: inherit; font-size: 0.82rem; cursor: pointer;">Cerrar</button>
+                </div>
+            `;
+        }
+    }
+}
+
+async function reopenLFIFichaManzana() {
+    const motivoEl = document.getElementById('c3d-lfi-ficha-reopen-motivo');
+    const motivo = motivoEl ? motivoEl.value.trim() : '';
+    
+    if (!confirm(`¿Está seguro de reabrir el trazado LFI de la Sec. ${activeWorkflowSeccion} Mza. ${activeWorkflowManzana} y volverlo al estado 'En curso'?`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', activeWorkflowSeccion);
+    formData.append('manzana', activeWorkflowManzana);
+    if (motivo) formData.append('motivo', motivo);
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/reopen`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res && res.ok) {
+            alert('La manzana ha sido reabierta exitosamente y volvió al estado "En curso".');
+            await loadCiudad3DTroneras();
+            openLFIFicha(activeWorkflowSeccion, activeWorkflowManzana);
+        } else if (res) {
+            let errorMsg = 'No se pudo reabrir la manzana.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
+        } else {
+            alert("Error de conexión al servidor.");
+        }
+    } catch (err) {
+        console.error("Error al reabrir manzana LFI:", err);
+        alert(`Error al reabrir manzana: ${err.message || err}`);
+    }
+}
+
+window.downloadLFIPdf = downloadLFIPdf;
+window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
+window.sendLFIFichaToReview = sendLFIFichaToReview;
+window.submitLFIFichaReview = submitLFIFichaReview;
+window.reopenLFIFichaManzana = reopenLFIFichaManzana;
+window.downloadUploadedLFITrazado = downloadUploadedLFITrazado;
+
+function openUploadModal(seccion, manzana) {
+    const secEl = document.getElementById('c3d-upload-seccion');
+    const manEl = document.getElementById('c3d-upload-manzana');
+    if (secEl) secEl.value = seccion;
+    if (manEl) manEl.value = manzana;
+    const fileInput = document.getElementById('c3d-upload-file');
+    if (fileInput) {
+        fileInput.value = '';
+        fileInput.setAttribute('accept', '.dxf,.dwg,.DXF,.DWG');
+    }
+    const modal = document.getElementById('c3d-atipicas-upload-modal');
+    if (modal) modal.style.display = 'flex';
+}
+window.openUploadModal = openUploadModal;
+
+async function submitTrazadoFile() {
+    const seccion = document.getElementById('c3d-upload-seccion')?.value || '';
+    const manzana = document.getElementById('c3d-upload-manzana')?.value || '';
+    const fileInput = document.getElementById('c3d-upload-file');
+    
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert("Debe seleccionar un archivo (.dxf o .dwg) para subir.");
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('seccion', seccion);
+    formData.append('manzana', manzana);
+    formData.append('file', fileInput.files[0]);
+    
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_atipicas/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        if (res && res.ok) {
+            alert("Trazado subido correctamente.");
+            if (typeof closeModal === 'function') closeModal('c3d-atipicas-upload-modal');
+            if (typeof loadCiudad3DManzanasAtipicas === 'function') {
+                await loadCiudad3DManzanasAtipicas();
+            }
+        } else if (res) {
+            let errorMsg = 'No se pudo subir el trazado.';
+            try {
+                const errData = await res.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                const textErr = await res.text().catch(() => '');
+                if (textErr) errorMsg = textErr;
+            }
+            alert(`Error (${res.status}): ${errorMsg}`);
+        } else {
+            alert("Error de conexión al servidor.");
+        }
+    } catch (err) {
+        console.error("Error al subir archivo de trazado:", err);
+        alert(`Error al subir archivo: ${err.message || err}`);
+    }
+}
+window.submitTrazadoFile = submitTrazadoFile;
+
+function downloadUploadedTrazado(seccion, manzana) {
+    const s = seccion || document.getElementById('c3d-review-seccion')?.value || '';
+    const m = manzana || document.getElementById('c3d-review-manzana')?.value || '';
+    const token = localStorage.getItem('sgdu_token') || '';
+    window.open(`${API_BASE}/ciudad3d/manzanas_atipicas/download_trazado?seccion=${encodeURIComponent(s)}&manzana=${encodeURIComponent(m)}&token=${encodeURIComponent(token)}`, '_blank');
+}
+window.downloadUploadedTrazado = downloadUploadedTrazado;
+
+async function assignManzanaLFI(seccion, manzana, targetAnalyst = null) {
+    const isReassign = targetAnalyst !== null;
+    const msg = isReassign 
+        ? `¿Desea reasignar la manzana LFI ${seccion} - ${manzana} al analista '${targetAnalyst}'?` 
+        : `¿Desea autoasignarse la manzana LFI ${seccion} - ${manzana}?`;
+        
+    if (!confirm(msg)) return;
+    try {
+        const payload = { seccion, manzana };
+        if (targetAnalyst) payload.analista = targetAnalyst;
+        
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res && res.ok) {
+            alert(`Manzana ${seccion} - ${manzana} ${isReassign ? 'reasignada' : 'asignada'} correctamente.`);
+            await loadCiudad3DTroneras();
+            if (typeof activeWorkflowSeccion !== 'undefined' && activeWorkflowSeccion === seccion && activeWorkflowManzana === manzana) {
+                openLFIFicha(seccion, manzana);
+            }
+        } else if (res) {
+            const errData = await res.json().catch(() => ({}));
+            alert(`Error: ${errData.detail || 'No se pudo asignar la manzana.'}`);
+        } else {
+            alert("Error de conexión o permisos con el servidor.");
+        }
+    } catch (err) {
+        console.error("Error al asignar manzana LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+
+async function submitReassignFromFicha(seccion, manzana) {
+    const selectEl = document.getElementById('c3d-lfi-ficha-reassign-select');
+    if (!selectEl || !selectEl.value) {
+        alert("Debe seleccionar un analista de la lista para realizar la reasignación.");
+        return;
+    }
+    const targetUser = selectEl.value;
+    await assignManzanaLFI(seccion, manzana, targetUser);
+}
+
+async function assignSeccionCompletaLFI(seccion) {
+    if (!confirm(`¿Está seguro de que desea autoasignarse TODAS las manzanas pendientes de la Sección ${seccion}?`)) return;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/manzanas_lfi/assign_seccion`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seccion })
+        });
+        if (res && res.ok) {
+            const data = await res.json();
+            alert(`Sección ${seccion} asignada con éxito: ${data.assigned_count} manzana(s) asignada(s) a tu usuario.`);
+            await loadCiudad3DTroneras();
+        } else if (res) {
+            const errData = await res.json().catch(() => ({}));
+            alert(`Error: ${errData.detail || 'No se pudo asignar la sección completa.'}`);
+        } else {
+            alert("Error de conexión o permisos con el servidor.");
+        }
+    } catch (err) {
+        console.error("Error al autoasignar sección completa LFI:", err);
+        alert("Error de conexión con el servidor.");
+    }
+}
+
 window.assignManzanaLFI = assignManzanaLFI;
+window.submitReassignFromFicha = submitReassignFromFicha;
+window.assignSeccionCompletaLFI = assignSeccionCompletaLFI;
 window.openLFIFicha = openLFIFicha;
 window.loadLFIFichaNotes = loadLFIFichaNotes;
 window.saveLFIFichaNote = saveLFIFichaNote;
 window.saveLFIFichaDisposicion = saveLFIFichaDisposicion;
 window.uploadLFIFichaTrazado = uploadLFIFichaTrazado;
 window.submitLFIFichaReview = submitLFIFichaReview;
+
 async function unassignManzanaLFI(seccion, manzana) {
     if (!confirm(`¿Está seguro de que desea liberar la manzana LFI ${seccion} - ${manzana} y volverla a la bandeja general (Pendiente)?`)) return;
     try {
@@ -12164,200 +19040,7 @@ window.saveAdminFamilia = saveAdminFamilia;
 window.deleteAdminFamilia = deleteAdminFamilia;
 
 
-// --- ANALISTAS POR ÁREA / GERENCIA ---
-let allAdminAnalistasData = [];
 
-async function loadAdminAnalistas() {
-    const select = document.getElementById('admin-analistas-gerencia-select');
-    const tableBody = document.getElementById('admin-analistas-table-body');
-    if (!select || !tableBody) return;
-
-    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem;"><span class="loader"></span> Cargando analistas...</td></tr>';
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/analistas`);
-        if (res && res.ok) {
-            allAdminAnalistasData = await res.json();
-            
-            // Populate select dropdown preserving selected index if possible
-            const currentSelVal = select.value;
-            let optionsHtml = '';
-            allAdminAnalistasData.forEach(item => {
-                const display = item.gerencia.toUpperCase();
-                optionsHtml += `<option value="${item.gerencia}">${display}</option>`;
-            });
-            select.innerHTML = optionsHtml;
-            
-            if (currentSelVal && allAdminAnalistasData.some(x => x.gerencia === currentSelVal)) {
-                select.value = currentSelVal;
-            } else if (allAdminAnalistasData.length > 0) {
-                select.value = allAdminAnalistasData[0].gerencia;
-            }
-            
-            onAdminAnalistasGerenciaChange();
-        } else {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar datos del servidor.</td></tr>';
-        }
-    } catch (err) {
-        console.error("Error loading admin analysts:", err);
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #ef4444;">Error de conexión.</td></tr>';
-    }
-}
-
-function onAdminAnalistasGerenciaChange() {
-    const select = document.getElementById('admin-analistas-gerencia-select');
-    const tableBody = document.getElementById('admin-analistas-table-body');
-    if (!select || !tableBody) return;
-
-    const gerencia = select.value;
-    const item = allAdminAnalistasData.find(x => x.gerencia === gerencia);
-    if (!item || !item.analistas || item.analistas.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: #64748b; font-style: italic;">No hay analistas configurados para esta área.</td></tr>';
-        return;
-    }
-
-    let html = '';
-    item.analistas.forEach(a => {
-        html += `
-            <tr class="analista-row" style="border-bottom: 1px solid #e2e8f0; transition: background 0.15s;">
-                <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${a.usuario.toUpperCase()}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.apellido}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.nombre}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.mail}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.ocupacion}</td>
-                <td style="padding: 12px 14px; color: #334155;">${a.numero_cuit}</td>
-                <td style="padding: 12px 14px; text-align: center;">
-                    <button type="button" onclick="deleteAnalistaFromGerencia('${gerencia}', '${a.usuario}')" class="btn-action-delete" style="background: #fee2e2; color: #ef4444; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: 'Outfit'; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s;">
-                        <i class="fa-solid fa-trash"></i> Eliminar
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-    tableBody.innerHTML = html;
-}
-
-function filterAdminAnalistasTable() {
-    const query = (document.getElementById('admin-analistas-table-search').value || '').toLowerCase().trim();
-    const rows = document.querySelectorAll('#admin-analistas-table-body .analista-row');
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(query)) {
-            row.style.display = 'table-row';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-}
-
-async function searchSadeUsersForAnalistas(q) {
-    const resultsPanel = document.getElementById('admin-analistas-search-results');
-    const clearBtn = document.getElementById('btn-clear-analistas-search');
-    if (!resultsPanel) return;
-
-    if (clearBtn) clearBtn.style.display = q.length > 0 ? 'block' : 'none';
-
-    if (q.trim().length < 2) {
-        resultsPanel.style.display = 'none';
-        resultsPanel.innerHTML = '';
-        return;
-    }
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/sade_users/search?q=${encodeURIComponent(q)}`);
-        if (res && res.ok) {
-            const users = await res.json();
-            if (users.length === 0) {
-                resultsPanel.innerHTML = '<div style="padding: 12px; color: #64748b; font-style: italic; font-size: 0.85rem; text-align: center;">No se encontraron usuarios.</div>';
-                resultsPanel.style.display = 'block';
-                return;
-            }
-
-            let html = '';
-            users.forEach(u => {
-                html += `
-                    <div class="search-result-item" onclick="addAnalistaToGerencia('${u.usuario}')" style="padding: 10px 14px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px;">
-                        <span style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem;">${u.usuario.toUpperCase()}</span>
-                        <span style="color: #64748b; font-size: 0.8rem;">${u.apellido_nombre || ""}</span>
-                    </div>
-                `;
-            });
-            resultsPanel.innerHTML = html;
-            resultsPanel.style.display = 'block';
-        }
-    } catch (err) {
-        console.error("Error searching SADE users:", err);
-    }
-}
-
-function clearAdminAnalistasUserSearch() {
-    const input = document.getElementById('admin-analistas-user-search');
-    const resultsPanel = document.getElementById('admin-analistas-search-results');
-    const clearBtn = document.getElementById('btn-clear-analistas-search');
-    if (input) input.value = '';
-    if (resultsPanel) {
-        resultsPanel.style.display = 'none';
-        resultsPanel.innerHTML = '';
-    }
-    if (clearBtn) clearBtn.style.display = 'none';
-}
-
-async function addAnalistaToGerencia(username) {
-    const select = document.getElementById('admin-analistas-gerencia-select');
-    if (!select) return;
-    const gerencia = select.value;
-    
-    if (!confirm(`¿Está seguro de que desea agregar al usuario "${username.toUpperCase()}" como analista de ${gerencia.toUpperCase()}?`)) return;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ usuario: username })
-        });
-
-        if (res && res.ok) {
-            alert('Analista agregado con éxito.');
-            clearAdminAnalistasUserSearch();
-            await loadAdminAnalistas();
-        } else {
-            const err = await res.json();
-            alert(`Error: ${err.detail || "No se pudo agregar el analista."}`);
-        }
-    } catch (err) {
-        console.error("Error adding analyst:", err);
-        alert("Error de red al agregar el analista.");
-    }
-}
-
-async function deleteAnalistaFromGerencia(gerencia, username) {
-    if (!confirm(`¿Está seguro de que desea eliminar al analista "${username.toUpperCase()}" de la gerencia ${gerencia.toUpperCase()}?`)) return;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/admin/analistas/${encodeURIComponent(gerencia)}/${encodeURIComponent(username)}`, {
-            method: 'DELETE'
-        });
-
-        if (res && res.ok) {
-            alert('Analista eliminado con éxito.');
-            await loadAdminAnalistas();
-        } else {
-            const err = await res.json();
-            alert(`Error: ${err.detail || "No se pudo eliminar el analista."}`);
-        }
-    } catch (err) {
-        console.error("Error removing analyst:", err);
-        alert("Error de red al eliminar el analista.");
-    }
-}
-
-window.loadAdminAnalistas = loadAdminAnalistas;
-window.onAdminAnalistasGerenciaChange = onAdminAnalistasGerenciaChange;
-window.filterAdminAnalistasTable = filterAdminAnalistasTable;
-window.searchSadeUsersForAnalistas = searchSadeUsersForAnalistas;
-window.clearAdminAnalistasUserSearch = clearAdminAnalistasUserSearch;
-window.addAnalistaToGerencia = addAnalistaToGerencia;
-window.deleteAnalistaFromGerencia = deleteAnalistaFromGerencia;
 
 
 // --- REPORTES RRHH ---
@@ -12995,7 +19678,9 @@ async function loadLandingStats() {
     const now    = new Date();
     const hour   = now.getHours();
     const greet  = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
-    const user   = (window.currentUser?.nombre || window.currentUser?.username || '');
+    const cu     = window.currentUser || JSON.parse(localStorage.getItem('sgdu_user') || '{}');
+    const rawName = cu?.full_name || cu?.nombre || cu?.username || '';
+    const user   = rawName ? rawName.trim().split(' ')[0] : '';
     const gEl    = document.getElementById('landing-greeting');
     const dEl    = document.getElementById('landing-date-str');
     if (gEl) gEl.textContent = user ? `${greet}, ${user}` : 'Bienvenido al Tablero SGDU';
@@ -13134,9 +19819,2987 @@ function _mesLabel(mesStr) {
 
 window.loadLandingStats = loadLandingStats;
 
+// ══════════════════════════════════════════════════════════════════
+// UNIVERSO DE TRATAS
+// ══════════════════════════════════════════════════════════════════
 
+let _universoTratasData = [];
+let _universoTratasSortField = null;
+let _universoTratasSortAsc = true;
 
+let _backlogUniversoTratasData = [];
+let _backlogUniversoTratasSortField = null;
+let _backlogUniversoTratasSortAsc = true;
 
+async function loadUniversoTratas() {
+    const container = document.getElementById('universo-tratas-table-container');
+    const kpisEl = document.getElementById('universo-tratas-kpis');
+    if (!container) return;
 
+    container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando universo de tratas...</p></div>`;
+    if (kpisEl) kpisEl.innerHTML = '';
 
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-tratas`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de conexión'}`);
+        _universoTratasData = await res.json();
 
+        // Reset sort
+        _universoTratasSortField = null;
+        _universoTratasSortAsc = true;
+
+        renderUniversoTratasKPIs(_universoTratasData, kpisEl);
+        filterUniversoTratas();
+    } catch (e) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #ef4444;"><i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i><p style="margin-top: 8px;">Error al cargar datos: ${e.message}</p><button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="loadUniversoTratas()">Reintentar</button></div>`;
+    }
+}
+
+function renderUniversoTratasKPIs(data, el) {
+    if (!el) return;
+    const totalTratas = data.length;
+    const enTablero = data.filter(d => d.alta_en_tablero).length;
+    const totalExp = data.reduce((s, d) => s + (d.cant_expedientes || 0), 0);
+    const totalStockTablero = data.filter(d => d.alta_en_tablero).reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalStockFuera = data.filter(d => !d.alta_en_tablero).reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalArchivo = data.reduce((s, d) => s + (d.cant_archivo || 0), 0);
+    const totalGuarda = data.reduce((s, d) => s + (d.cant_guarda_temporal || 0), 0);
+    const totalSubs = data.reduce((s, d) => s + (d.cant_subsanacion_abierta || 0), 0);
+
+    const kpis = [
+        { label: 'Tratas Totales', value: totalTratas.toLocaleString('es-AR'), color: '#6366f1', bg: '#eef2ff', icon: 'fa-tags' },
+        { label: 'Alta en Tablero', value: enTablero.toLocaleString('es-AR'), color: '#10b981', bg: '#ecfdf5', icon: 'fa-circle-check' },
+        { label: 'Total Expedientes', value: totalExp.toLocaleString('es-AR'), color: '#0ea5e9', bg: '#f0f9ff', icon: 'fa-folder-open' },
+        { label: 'Stock (Tablero)', value: totalStockTablero.toLocaleString('es-AR'), color: '#f59e0b', bg: '#fffbeb', icon: 'fa-inbox' },
+        { label: 'Stock (Fuera de Tablero)', value: totalStockFuera.toLocaleString('es-AR'), color: '#fb923c', bg: '#fff7ed', icon: 'fa-box-open' },
+        { label: 'Subsanación Abierta', value: totalSubs.toLocaleString('es-AR'), color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+        { label: 'En Archivo', value: totalArchivo.toLocaleString('es-AR'), color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+        { label: 'Guarda Temporal', value: totalGuarda.toLocaleString('es-AR'), color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+    ];
+
+    el.innerHTML = kpis.map(k => `
+        <div style="background: ${k.bg}; border: 1px solid ${k.color}22; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 150px;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid ${k.icon}"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
+                <div style="font-size: 1.2rem; font-weight: 800; color: #1e293b; font-family: 'Outfit';">${k.value}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterUniversoTratas() {
+    const searchVal = (document.getElementById('universo-tratas-search')?.value || '').trim().toLowerCase();
+    const altaFilter = document.getElementById('universo-tratas-filter-alta')?.value || '';
+
+    let filtered = _universoTratasData.filter(d => {
+        const matchSearch = !searchVal ||
+            (d.trata || '').toLowerCase().includes(searchVal) ||
+            (d.descripcion_trata || '').toLowerCase().includes(searchVal);
+        const matchAlta = !altaFilter ||
+            (altaFilter === 'true' && d.alta_en_tablero) ||
+            (altaFilter === 'false' && !d.alta_en_tablero);
+        return matchSearch && matchAlta;
+    });
+
+    if (_universoTratasSortField) {
+        filtered = _sortUniversoTratas(filtered, _universoTratasSortField, _universoTratasSortAsc);
+    }
+
+    renderUniversoTratasTable(filtered, 'universo-tratas-table-container', false);
+}
+
+function _sortUniversoTratas(arr, field, asc) {
+    return [...arr].sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (va === null || va === undefined) va = -1;
+        if (vb === null || vb === undefined) vb = -1;
+        if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return asc ? va - vb : vb - va;
+    });
+}
+
+function _sortUniversoTratasBy(field, isBacklog = false) {
+    if (isBacklog) {
+        if (_backlogUniversoTratasSortField === field) {
+            _backlogUniversoTratasSortAsc = !_backlogUniversoTratasSortAsc;
+        } else {
+            _backlogUniversoTratasSortField = field;
+            _backlogUniversoTratasSortAsc = field === 'trata'; // alfa asc para trata, desc para números
+        }
+        filterBacklogUniversoTratas();
+    } else {
+        if (_universoTratasSortField === field) {
+            _universoTratasSortAsc = !_universoTratasSortAsc;
+        } else {
+            _universoTratasSortField = field;
+            _universoTratasSortAsc = field === 'trata';
+        }
+        filterUniversoTratas();
+    }
+}
+
+function _sortIcon(field, currentField, asc) {
+    if (field !== currentField) return '<i class="fa-solid fa-sort" style="color: #cbd5e1; margin-left: 4px; font-size: 0.75rem;"></i>';
+    return asc
+        ? '<i class="fa-solid fa-sort-up" style="color: var(--primary); margin-left: 4px; font-size: 0.75rem;"></i>'
+        : '<i class="fa-solid fa-sort-down" style="color: var(--primary); margin-left: 4px; font-size: 0.75rem;"></i>';
+}
+
+function renderUniversoTratasTable(data, containerId, isBacklog) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const sf = isBacklog ? _backlogUniversoTratasSortField : _universoTratasSortField;
+    const sa = isBacklog ? _backlogUniversoTratasSortAsc : _universoTratasSortAsc;
+    const sortFn = `_sortUniversoTratasBy`;
+
+    if (!data || data.length === 0) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8;"><i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i><p style="margin-top: 8px;">No se encontraron tratas con los filtros actuales.</p></div>`;
+        return;
+    }
+
+    const cols = [
+        { key: 'trata', label: 'TRATA' },
+        { key: 'descripcion_trata', label: 'DESCRIPCIÓN' },
+        { key: 'alta_en_tablero', label: 'ALTA EN TABLERO' },
+        { key: 'egresados', label: 'EGRESADOS' },
+        { key: 'cant_subsanacion_abierta', label: 'SUBSANACIÓN' },
+        { key: 'cant_guarda_temporal', label: 'GUARDA TEMPORAL' },
+        { key: 'cant_archivo', label: 'ARCHIVO' },
+        { key: 'cant_en_stock', label: 'EN STOCK' },
+        { key: 'cant_expedientes', label: 'CANT. EXP.' },
+    ];
+
+    const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc;`;
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; white-space: nowrap;`;
+    const isB = isBacklog ? 'true' : 'false';
+
+    const thead = `<thead><tr style="border-bottom: 2px solid #e2e8f0;">
+        ${cols.map(c => `<th style="${thStyle}" onclick="${sortFn}('${c.key}', ${isB})">
+            ${c.label} ${_sortIcon(c.key, sf, sa)}
+        </th>`).join('')}
+    </tr></thead>`;
+
+    const tbody = data.map((d, i) => {
+        const altaBadge = d.alta_en_tablero
+            ? `<span style="background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">✅ Sí</span>`
+            : `<span style="background: #fef2f2; color: #dc2626; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">❌ No</span>`;
+
+        const egresadosCell = d.egresados !== null && d.egresados !== undefined
+            ? `<span style="font-weight: 600;">${Number(d.egresados).toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8; font-style: italic;">—</span>`;
+
+        const subsCell = d.cant_subsanacion_abierta !== null && d.cant_subsanacion_abierta !== undefined
+            ? (d.cant_subsanacion_abierta > 0
+                ? `<span style="background: #fff1f2; color: #e11d48; padding: 2px 8px; border-radius: 6px; font-weight: 700;">${Number(d.cant_subsanacion_abierta).toLocaleString('es-AR')}</span>`
+                : `<span style="font-weight: 600; color: #64748b;">0</span>`)
+            : `<span style="color: #94a3b8; font-style: italic;">—</span>`;
+
+        const numCell = (val) => `<span style="font-variant-numeric: tabular-nums; font-weight: 600;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
+
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const trataEsc = (d.trata || '').replace(/'/g, "\\'");
+        
+        return `<tr style="background: ${rowBg}; cursor: pointer; transition: all 0.15s;" 
+                    onclick="openUniversoTrataDetail('${trataEsc}')"
+                    onmouseover="this.style.background='#f0f9ff'; this.style.color='var(--primary)'" 
+                    onmouseout="this.style.background='${rowBg}'; this.style.color='inherit'">
+            <td style="${tdStyle} font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--primary-dark); display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 0.85rem; color: var(--primary); opacity: 0.8;"></i>
+                <span style="text-decoration: underline; text-decoration-color: #cbd5e1;">${d.trata || ''}</span>
+            </td>
+            <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.35; font-family: 'Outfit', sans-serif;">${d.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}</td>
+            <td style="${tdStyle} text-align: center; font-family: 'Outfit', sans-serif;">${altaBadge}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${egresadosCell}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${subsCell}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${numCell(d.cant_guarda_temporal)}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right; font-family: 'Outfit', sans-serif;">${numCell(d.cant_en_stock)}</td>
+            <td style="${tdStyle} text-align: right; font-weight: 700; color: #0f172a; font-family: 'Outfit', sans-serif;">${numCell(d.cant_expedientes)}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center;">
+            <span><strong style="color: #334155;">${data.length.toLocaleString('es-AR')}</strong> tratas encontradas — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de buzones y usuarios</em></span>
+            <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit';">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL DETALLE DE TRATA (BUZONES Y USUARIOS)
+// ──────────────────────────────────────────────────────────────
+
+let _currentTrataDetail = null;
+
+async function openUniversoTrataDetail(trata) {
+    console.log("Abriendo detalle para trata:", trata);
+    const modal = document.getElementById('universo-trata-detail-modal');
+    if (!modal) {
+        console.error("Modal #universo-trata-detail-modal no encontrado en el DOM");
+        return;
+    }
+
+    modal.style.display = 'flex';
+
+    // Reset components & placeholders
+    document.getElementById('modal-ut-trata-code').innerText = trata;
+    document.getElementById('modal-ut-badge-alta').innerHTML = `<span class="loader" style="width:14px;height:14px;"></span>`;
+    document.getElementById('modal-ut-trata-desc').innerText = 'Cargando información de la trata...';
+    document.getElementById('modal-ut-kpis').innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 1rem;"><span class="loader"></span></div>`;
+    document.getElementById('modal-ut-table-container').innerHTML = `
+        <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+            <span class="loader"></span>
+            <p style="margin-top: 8px;">Consultando buzones, usuarios y subsanaciones...</p>
+        </div>`;
+
+    const searchInput = document.getElementById('modal-ut-search');
+    if (searchInput) searchInput.value = '';
+    const filterSelect = document.getElementById('modal-ut-filter-tipo');
+    if (filterSelect) filterSelect.value = 'ALL';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-tratas/detalle?trata=${encodeURIComponent(trata)}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red al consultar detalle'}`);
+        _currentTrataDetail = await res.json();
+
+        // 1. Header info
+        document.getElementById('modal-ut-trata-code').innerText = _currentTrataDetail.trata;
+        document.getElementById('modal-ut-trata-desc').innerText = _currentTrataDetail.descripcion_trata || 'Sin descripción oficial';
+        
+        const badgeAlta = document.getElementById('modal-ut-badge-alta');
+        if (_currentTrataDetail.alta_en_tablero) {
+            badgeAlta.style.background = '#ecfdf5';
+            badgeAlta.style.color = '#059669';
+            badgeAlta.innerHTML = '✅ Configurada en Tablero';
+        } else {
+            badgeAlta.style.background = '#fef2f2';
+            badgeAlta.style.color = '#dc2626';
+            badgeAlta.innerHTML = '❌ No configurada';
+        }
+
+        // 2. KPIs Strip
+        const kpis = _currentTrataDetail.kpis || {};
+        const kpisEl = document.getElementById('modal-ut-kpis');
+        if (kpisEl) {
+            const kpiItems = [
+                { label: 'Buzones / Usuarios', val: kpis.total_buzones, color: '#6366f1', bg: '#eef2ff', icon: 'fa-users' },
+                { label: 'Stock Activo', val: kpis.total_stock, color: '#0284c7', bg: '#f0f9ff', icon: 'fa-inbox' },
+                { label: 'En Subsanación', val: kpis.total_subsanacion, color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+                { label: 'Guarda Temporal', val: kpis.total_guarda, color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+                { label: 'En Archivo', val: kpis.total_archivo, color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+                { label: 'Total Expedientes', val: kpis.total_expedientes, color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' }
+            ];
+
+            kpisEl.innerHTML = kpiItems.map(k => `
+                <div style="background: ${k.bg}; border: 1px solid ${k.color}20; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 6px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                        <i class="fa-solid ${k.icon}"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase;">${k.label}</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #1e293b; font-family: 'Outfit';">${Number(k.val || 0).toLocaleString('es-AR')}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 3. Render table
+        filterUniversoTrataDetail();
+
+    } catch (e) {
+        console.error("Error al cargar detalle de trata:", e);
+        document.getElementById('modal-ut-table-container').innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #ef4444;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">Error al consultar el detalle: ${e.message}</p>
+                <button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="openUniversoTrataDetail('${trata}')">Reintentar</button>
+            </div>`;
+    }
+}
+
+function closeUniversoTrataDetailModal() {
+    const modal = document.getElementById('universo-trata-detail-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function filterUniversoTrataDetail() {
+    if (!_currentTrataDetail || !_currentTrataDetail.buzones) return;
+
+    const searchVal = (document.getElementById('modal-ut-search')?.value || '').trim().toLowerCase();
+    const tipoVal = document.getElementById('modal-ut-filter-tipo')?.value || 'ALL';
+
+    const filtered = _currentTrataDetail.buzones.filter(b => {
+        // Filtro tipo / rol
+        if (tipoVal === 'Usuario' && b.tipo !== 'Usuario') return false;
+        if (tipoVal === 'Buzón' && b.tipo !== 'Buzón') return false;
+        if (tipoVal === 'rol_analista' && (b.rol_tablero || '') !== 'Analista' && (b.rol_tablero || '') !== 'Analista y Buzón Ingreso') return false;
+        if (tipoVal === 'rol_buzon' && (b.rol_tablero || '') !== 'Buzón de Ingreso' && (b.rol_tablero || '') !== 'Analista y Buzón Ingreso') return false;
+        if (tipoVal === 'con_subs' && (b.cant_subsanacion || 0) <= 0) return false;
+        if (tipoVal === 'con_stock' && (b.cant_stock_propio || 0) <= 0) return false;
+
+        // Búsqueda texto (nombre buzón/usuario o expedientes dentro)
+        if (!searchVal) return true;
+        const matchName = (b.destinatario || '').toLowerCase().includes(searchVal);
+        const matchExp = (b.expedientes || []).some(e => 
+            (e.expediente || '').toLowerCase().includes(searchVal) ||
+            (e.descripcion || '').toLowerCase().includes(searchVal)
+        );
+        return matchName || matchExp;
+    });
+
+    renderUniversoTrataDetailTable(filtered);
+}
+
+function _getRolTableroBadge(rol) {
+    if (rol === 'Analista' || rol === 'Analista Oficial') {
+        return `<span style="background: #ecfdf5; color: #059669; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-user-check"></i> Analista</span>`;
+    } else if (rol === 'Buzón de Ingreso') {
+        return `<span style="background: #eff6ff; color: #2563eb; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-inbox"></i> Buzón de Ingreso</span>`;
+    } else if (rol === 'Analista y Buzón Ingreso') {
+        return `<span style="background: #fdf4ff; color: #9333ea; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;"><i class="fa-solid fa-layer-group"></i> Analista & Ingreso</span>`;
+    }
+    return `<span style="background: #f8fafc; color: #94a3b8; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">— Sin Configurar</span>`;
+}
+
+function renderUniversoTrataDetailTable(buzones) {
+    const container = document.getElementById('modal-ut-table-container');
+    if (!container) return;
+
+    if (!buzones || buzones.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+                <i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">No se encontraron buzones o usuarios con los filtros aplicados.</p>
+            </div>`;
+        return;
+    }
+
+    const thStyle = `padding: 10px 12px; font-weight: 700; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; white-space: nowrap;`;
+    const tdStyle = `padding: 10px 12px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9;`;
+
+    const thead = `<thead><tr>
+        <th style="${thStyle}">Buzón / Usuario Destinatario</th>
+        <th style="${thStyle}; text-align: center; width: 100px;">Tipo</th>
+        <th style="${thStyle}; text-align: center; width: 140px;">Rol en Tablero</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Stock Activo</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Subsanación</th>
+        <th style="${thStyle}; text-align: right; width: 100px;">Guarda Temp.</th>
+        <th style="${thStyle}; text-align: right; width: 90px;">Archivo</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Total Posesión</th>
+        <th style="${thStyle}; text-align: center; width: 120px;">Acción</th>
+    </tr></thead>`;
+
+    const tbody = buzones.map((b, idx) => {
+        const buzonId = `ut-buzon-${idx}`;
+        const tipoBadge = b.tipo === 'Usuario'
+            ? `<span style="background: #e0e7ff; color: #4338ca; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-user"></i> Usuario</span>`
+            : `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-building"></i> Buzón</span>`;
+
+        const rolBadge = _getRolTableroBadge(b.rol_tablero);
+
+        const subsCell = (b.cant_subsanacion || 0) > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 3px 10px; border-radius: 6px; font-weight: 700;">${b.cant_subsanacion.toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const stockCell = (b.cant_stock_propio || 0) > 0
+            ? `<strong style="color: #0284c7;">${b.cant_stock_propio.toLocaleString('es-AR')}</strong>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const totalCell = `<strong style="font-size: 0.95rem; color: #0f172a;">${(b.cant_total || 0).toLocaleString('es-AR')}</strong>`;
+
+        // Render subtable with individual expedientes
+        const exps = b.expedientes || [];
+        const expRows = exps.map(e => {
+            let badgeClasif = '';
+            if (e.clasificacion === 'STOCK_PROPIO') badgeClasif = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Stock Propio</span>`;
+            else if (e.clasificacion === 'SUBSANACION') badgeClasif = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+            else if (e.clasificacion === 'GUARDA_TEMPORAL') badgeClasif = `<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Guarda Temporal</span>`;
+            else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Archivo</span>`;
+
+            const rawExp = (e.expediente || '').replace(/'/g, "\\'");
+            const isFav = userFavorites.has(e.expediente);
+            const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${e.expediente}" onclick="event.stopPropagation(); toggleFavorite('${e.expediente}')" style="cursor: pointer; font-size: 1.05rem; color: ${isFav ? '#eab308' : '#cbd5e1'}; transition: transform 0.15s ease; display: inline-block; user-select: none;" title="${isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
+
+            return `
+                <tr style="font-size: 0.82rem; background: white; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                    <td style="padding: 8px 10px; text-align: center; width: 45px;">${starSpan}</td>
+                    <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap; font-family: 'Outfit', sans-serif;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span onclick="openDetalleExpedienteModal('${rawExp}')" style="cursor: pointer; color: #1e293b; border-bottom: 1px dashed #cbd5e1;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#1e293b'">${e.expediente}</span>
+                            <button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" 
+                                title="Copiar número de expediente"
+                                style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                                onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
+                                onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; white-space: nowrap; font-family: 'Outfit', sans-serif;">${badgeClasif}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.fecha_ultimo_pase || '—'}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.remitente || '—'}</td>
+                    <td style="padding: 8px 12px; color: #475569; line-height: 1.35; font-family: 'Outfit', sans-serif;">${e.descripcion || '—'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const bNomText = ((b.nombre_apellido || '').toUpperCase()).trim();
+        const bDestText = ((b.destinatario || 'SIN_DESTINATARIO').toUpperCase()).trim();
+        const bNombreHtml = bNomText
+            ? `<div style="display: flex; flex-direction: column; gap: 2px; font-family: 'Outfit', sans-serif;">
+                 <span style="font-weight: 700; color: #1e293b; font-size: 0.88rem; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${bNomText}</span>
+                 <span style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${bDestText}</span>
+               </div>`
+            : `<span style="font-weight: 700; color: #1e293b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${bDestText}</span>`;
+
+        return `
+            <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}; font-family: 'Outfit', sans-serif;">
+                <td style="${tdStyle} font-family: 'Outfit', sans-serif;">
+                    ${bNombreHtml}
+                </td>
+                <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">${tipoBadge}</td>
+                <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">${rolBadge}</td>
+                <td style="${tdStyle}; text-align: right; font-family: 'Outfit', sans-serif;">${stockCell}</td>
+                <td style="${tdStyle}; text-align: right; font-family: 'Outfit', sans-serif;">${subsCell}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b; font-family: 'Outfit', sans-serif;">${(b.cant_guarda || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b; font-family: 'Outfit', sans-serif;">${(b.cant_archivo || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right; font-family: 'Outfit', sans-serif;">${totalCell}</td>
+                <td style="${tdStyle}; text-align: center; font-family: 'Outfit', sans-serif;">
+                    <button type="button" onclick="toggleBuzonExpedientes('${buzonId}')" 
+                        style="padding: 5px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;"
+                        onmouseover="this.style.borderColor='var(--primary)'; this.style.background='#eff6ff'"
+                        onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='white'">
+                        <i id="${buzonId}-icon" class="fa-solid fa-chevron-down"></i> ${exps.length} exp.
+                    </button>
+                </td>
+            </tr>
+            <tr id="${buzonId}" style="display: none; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td colspan="9" style="padding: 12px 16px; border-bottom: 2px solid #e2e8f0;">
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 280px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
+                            <thead style="position: sticky; top: 0; z-index: 1;">
+                                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 8px 10px; width: 45px; text-align: center;"><i class="fa-solid fa-bookmark"></i></th>
+                                    <th style="padding: 8px 12px; width: 260px; font-family: 'Outfit', sans-serif;">Expediente</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Estado Clasificado</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Fecha Último Pase</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Usuario Remitente</th>
+                                    <th style="padding: 8px 12px; font-family: 'Outfit', sans-serif;">Descripción / Carátula</th>
+                                </tr>
+                            </thead>
+                            <tbody>${expRows}</tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="max-height: 480px; overflow-y: auto; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; min-width: 900px;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>
+    `;
+
+    const footerInfo = document.getElementById('modal-ut-footer-info');
+    if (footerInfo) {
+        footerInfo.innerHTML = `Mostrando <strong>${buzones.length}</strong> buzones/usuarios en posesión de expedientes de esta trata.`;
+    }
+}
+
+function toggleBuzonExpedientes(buzonId) {
+    const el = document.getElementById(buzonId);
+    const icon = document.getElementById(`${buzonId}-icon`);
+    if (!el) return;
+
+    if (el.style.display === 'none') {
+        el.style.display = 'table-row';
+        if (icon) {
+            icon.classList.remove('fa-chevron-down');
+            icon.classList.add('fa-chevron-up');
+        }
+    } else {
+        el.style.display = 'none';
+        if (icon) {
+            icon.classList.remove('fa-chevron-up');
+            icon.classList.add('fa-chevron-down');
+        }
+    }
+}
+
+function exportUniversoTrataDetailCSV() {
+    if (!_currentTrataDetail || !_currentTrataDetail.buzones) return;
+
+    const rows = [
+        ["TRATA", "DESCRIPCION_TRATA", "DESTINATARIO", "NOMBRE_APELLIDO", "TIPO", "ROL_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
+    ];
+
+    const trata = _currentTrataDetail.trata || '';
+    const desc = (_currentTrataDetail.descripcion_trata || '').replace(/"/g, '""');
+
+    for (const b of _currentTrataDetail.buzones) {
+        const dest = (b.destinatario || '').replace(/"/g, '""');
+        const nomAp = (b.nombre_apellido || '').replace(/"/g, '""');
+        const tipo = b.tipo || '';
+        const rol = b.rol_tablero || 'Sin Configurar';
+        const stock = b.cant_stock_propio || 0;
+        const subs = b.cant_subsanacion || 0;
+        const guarda = b.cant_guarda || 0;
+        const arch = b.cant_archivo || 0;
+        const tot = b.cant_total || 0;
+
+        if (b.expedientes && b.expedientes.length > 0) {
+            for (const e of b.expedientes) {
+                rows.push([
+                    `"${trata}"`,
+                    `"${desc}"`,
+                    `"${dest}"`,
+                    `"${nomAp}"`,
+                    `"${tipo}"`,
+                    `"${rol}"`,
+                    stock,
+                    subs,
+                    guarda,
+                    arch,
+                    tot,
+                    `"${e.expediente || ''}"`,
+                    `"${e.clasificacion || ''}"`,
+                    `"${e.fecha_ultimo_pase || ''}"`,
+                    `"${(e.remitente || '').replace(/"/g, '""')}"`
+                ]);
+            }
+        } else {
+            rows.push([
+                `"${trata}"`,
+                `"${desc}"`,
+                `"${dest}"`,
+                `"${nomAp}"`,
+                `"${tipo}"`,
+                `"${rol}"`,
+                stock,
+                subs,
+                guarda,
+                arch,
+                tot,
+                "", "", "", ""
+            ]);
+        }
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(r => r.join(";")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `universo_trata_${trata}_buzones.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function copyExpedienteToClipboard(text, btnElement) {
+    if (!text) return;
+    
+    // Copy using clipboard API with fallback
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showSuccess).catch(() => fallbackCopy(text));
+    } else {
+        fallbackCopy(text);
+    }
+
+    function showSuccess() {
+        if (!btnElement) return;
+        const originalHtml = btnElement.innerHTML;
+        btnElement.innerHTML = `<i class="fa-solid fa-check" style="color: #059669;"></i>`;
+        btnElement.style.borderColor = '#059669';
+        btnElement.style.background = '#ecfdf5';
+        
+        setTimeout(() => {
+            btnElement.innerHTML = originalHtml;
+            btnElement.style.borderColor = '#cbd5e1';
+            btnElement.style.background = '#f1f5f9';
+        }, 1500);
+    }
+
+    function fallbackCopy(str) {
+        const tempInput = document.createElement('textarea');
+        tempInput.value = str;
+        tempInput.style.position = 'fixed';
+        tempInput.style.opacity = '0';
+        document.body.appendChild(tempInput);
+        tempInput.focus();
+        tempInput.select();
+        try {
+            document.execCommand('copy');
+            showSuccess();
+        } catch (err) {
+            console.error('Error al copiar texto:', err);
+        }
+        document.body.removeChild(tempInput);
+    }
+}
+
+window.openUniversoTrataDetail = openUniversoTrataDetail;
+window.closeUniversoTrataDetailModal = closeUniversoTrataDetailModal;
+window.filterUniversoTrataDetail = filterUniversoTrataDetail;
+window.renderUniversoTrataDetailTable = renderUniversoTrataDetailTable;
+window.toggleBuzonExpedientes = toggleBuzonExpedientes;
+window.exportUniversoTrataDetailCSV = exportUniversoTrataDetailCSV;
+window.copyExpedienteToClipboard = copyExpedienteToClipboard;
+
+// ──────────────────────────────────────────────────────────────
+// UNIVERSO BUZONES Y USUARIOS + CONTROL DE PESTAÑAS
+// ──────────────────────────────────────────────────────────────
+
+let _universoCurrentTab = 'tratas';
+let _universoBuzonesData = [];
+let _universoBuzonesSortField = null;
+let _universoBuzonesSortAsc = true;
+let _currentBuzonDetail = null;
+
+function switchUniversoTab(tab) {
+    _universoCurrentTab = tab;
+    const btnTratas = document.getElementById('tab-btn-universo-tratas');
+    const btnBuzones = document.getElementById('tab-btn-universo-buzones');
+    const contentTratas = document.getElementById('universo-tab-content-tratas');
+    const contentBuzones = document.getElementById('universo-tab-content-buzones');
+
+    if (tab === 'tratas') {
+        if (btnTratas) {
+            btnTratas.style.background = 'white';
+            btnTratas.style.color = 'var(--primary)';
+            btnTratas.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (btnBuzones) {
+            btnBuzones.style.background = 'transparent';
+            btnBuzones.style.color = '#64748b';
+            btnBuzones.style.borderBottom = '3px solid transparent';
+        }
+        if (contentTratas) contentTratas.style.display = 'block';
+        if (contentBuzones) contentBuzones.style.display = 'none';
+
+        if (!_universoTratasData || _universoTratasData.length === 0) {
+            loadUniversoTratas();
+        }
+    } else {
+        if (btnBuzones) {
+            btnBuzones.style.background = 'white';
+            btnBuzones.style.color = 'var(--primary)';
+            btnBuzones.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (btnTratas) {
+            btnTratas.style.background = 'transparent';
+            btnTratas.style.color = '#64748b';
+            btnTratas.style.borderBottom = '3px solid transparent';
+        }
+        if (contentBuzones) contentBuzones.style.display = 'block';
+        if (contentTratas) contentTratas.style.display = 'none';
+
+        if (!_universoBuzonesData || _universoBuzonesData.length === 0) {
+            loadUniversoBuzones();
+        }
+    }
+}
+
+async function loadUniversoBuzones() {
+    const container = document.getElementById('universo-buzones-table-container');
+    const kpisEl = document.getElementById('universo-buzones-kpis');
+    if (!container) return;
+
+    container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando universo de buzones y analistas...</p></div>`;
+    if (kpisEl) kpisEl.innerHTML = '';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-buzones`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de conexión'}`);
+        _universoBuzonesData = await res.json();
+
+        _universoBuzonesSortField = null;
+        _universoBuzonesSortAsc = true;
+
+        renderUniversoBuzonesKPIs(_universoBuzonesData, kpisEl);
+        filterUniversoBuzones();
+    } catch (e) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #ef4444;"><i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i><p style="margin-top: 8px;">Error al cargar datos: ${e.message}</p><button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="loadUniversoBuzones()">Reintentar</button></div>`;
+    }
+}
+
+function renderUniversoBuzonesKPIs(data, el) {
+    if (!el) return;
+    const totalDest = data.length;
+    const totalUsuarios = data.filter(d => d.tipo === 'Usuario').length;
+    const totalBuzones = data.filter(d => d.tipo === 'Buzón').length;
+    const totalExp = data.reduce((s, d) => s + (d.cant_expedientes || 0), 0);
+    const totalStock = data.reduce((s, d) => s + (d.cant_en_stock || 0), 0);
+    const totalSubs = data.reduce((s, d) => s + (d.cant_subsanacion_abierta || 0), 0);
+    const totalGuarda = data.reduce((s, d) => s + (d.cant_guarda_temporal || 0), 0);
+    const totalArchivo = data.reduce((s, d) => s + (d.cant_archivo || 0), 0);
+
+    const kpis = [
+        { label: 'Destinatarios Totales', value: totalDest.toLocaleString('es-AR'), color: '#6366f1', bg: '#eef2ff', icon: 'fa-address-book' },
+        { label: 'Usuarios / Analistas', value: totalUsuarios.toLocaleString('es-AR'), color: '#4f46e5', bg: '#e0e7ff', icon: 'fa-user' },
+        { label: 'Buzones de Sector', value: totalBuzones.toLocaleString('es-AR'), color: '#0ea5e9', bg: '#f0f9ff', icon: 'fa-building' },
+        { label: 'Total Expedientes', value: totalExp.toLocaleString('es-AR'), color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' },
+        { label: 'Stock Activo', value: totalStock.toLocaleString('es-AR'), color: '#0284c7', bg: '#e0f2fe', icon: 'fa-inbox' },
+        { label: 'En Subsanación', value: totalSubs.toLocaleString('es-AR'), color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+        { label: 'Guarda Temporal', value: totalGuarda.toLocaleString('es-AR'), color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+        { label: 'En Archivo', value: totalArchivo.toLocaleString('es-AR'), color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+    ];
+
+    el.innerHTML = kpis.map(k => `
+        <div style="background: ${k.bg}; border: 1px solid ${k.color}22; border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 150px; font-family: 'Outfit', sans-serif;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid ${k.icon}"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">${k.label}</div>
+                <div style="font-size: 1.2rem; font-weight: 800; color: #1e293b;">${k.value}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterUniversoBuzones() {
+    const searchVal = (document.getElementById('universo-buzones-search')?.value || '').trim().toLowerCase();
+    const tipoFilter = document.getElementById('universo-buzones-filter-tipo')?.value || '';
+
+    let filtered = _universoBuzonesData.filter(d => {
+        const matchSearch = !searchVal || 
+            (d.destinatario || '').toLowerCase().includes(searchVal) ||
+            (d.nombre_apellido || '').toLowerCase().includes(searchVal);
+        
+        let matchTipo = true;
+        if (tipoFilter === 'Usuario') matchTipo = d.tipo === 'Usuario';
+        else if (tipoFilter === 'Buzón') matchTipo = d.tipo === 'Buzón';
+        else if (tipoFilter === 'rol_analista') matchTipo = d.rol_tablero === 'Analista' || d.rol_tablero === 'Analista Oficial' || d.rol_tablero === 'Analista y Buzón Ingreso';
+        else if (tipoFilter === 'rol_buzon') matchTipo = d.rol_tablero === 'Buzón de Ingreso' || d.rol_tablero === 'Analista y Buzón Ingreso';
+        else if (tipoFilter === 'rol_no_cfg') matchTipo = d.rol_tablero === 'Sin Configurar';
+        else if (tipoFilter === 'con_subs') matchTipo = (d.cant_subsanacion_abierta || 0) > 0;
+        else if (tipoFilter === 'con_stock') matchTipo = (d.cant_en_stock || 0) > 0;
+
+        return matchSearch && matchTipo;
+    });
+
+    if (_universoBuzonesSortField) {
+        filtered = _sortUniversoBuzones(filtered, _universoBuzonesSortField, _universoBuzonesSortAsc);
+    }
+
+    renderUniversoBuzonesTable(filtered);
+}
+
+function _sortUniversoBuzones(arr, field, asc) {
+    return [...arr].sort((a, b) => {
+        let va = a[field], vb = b[field];
+        if (va === null || va === undefined) va = -1;
+        if (vb === null || vb === undefined) vb = -1;
+        if (typeof va === 'string') return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        return asc ? va - vb : vb - va;
+    });
+}
+
+function _sortUniversoBuzonesBy(field) {
+    if (_universoBuzonesSortField === field) {
+        _universoBuzonesSortAsc = !_universoBuzonesSortAsc;
+    } else {
+        _universoBuzonesSortField = field;
+        _universoBuzonesSortAsc = field === 'destinatario' || field === 'nombre_apellido' || field === 'tipo' || field === 'rol_tablero';
+    }
+    filterUniversoBuzones();
+}
+
+function renderUniversoBuzonesTable(data) {
+    const container = document.getElementById('universo-buzones-table-container');
+    if (!container) return;
+
+    if (!data || data.length === 0) {
+        container.innerHTML = `<div style="padding: 3rem; text-align: center; color: #94a3b8; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i><p style="margin-top: 8px;">No se encontraron destinatarios con los filtros actuales.</p></div>`;
+        return;
+    }
+
+    const cols = [
+        { key: 'destinatario', label: 'BUZÓN / ANALISTA' },
+        { key: 'tipo', label: 'TIPO' },
+        { key: 'rol_tablero', label: 'ROL EN TABLERO' },
+        { key: 'cant_tratas', label: 'TRATAS DISTINTAS' },
+        { key: 'cant_subsanacion_abierta', label: 'SUBSANACIÓN' },
+        { key: 'cant_guarda_temporal', label: 'GUARDA TEMPORAL' },
+        { key: 'cant_archivo', label: 'ARCHIVO' },
+        { key: 'cant_en_stock', label: 'EN STOCK' },
+        { key: 'cant_expedientes', label: 'TOTAL EXPEDIENTES' },
+    ];
+
+    const thStyle = `padding: 10px 14px; font-weight: 700; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none; background: #f8fafc; font-family: 'Outfit', sans-serif;`;
+    const tdStyle = `padding: 10px 14px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; white-space: nowrap; font-family: 'Outfit', sans-serif;`;
+
+    const thead = `<thead><tr style="border-bottom: 2px solid #e2e8f0;">
+        ${cols.map(c => `<th style="${thStyle}" onclick="_sortUniversoBuzonesBy('${c.key}')">
+            ${c.label} ${_sortIcon(c.key, _universoBuzonesSortField, _universoBuzonesSortAsc)}
+        </th>`).join('')}
+    </tr></thead>`;
+
+    const tbody = data.map((d, i) => {
+        const tipoBadge = d.tipo === 'Usuario'
+            ? `<span style="background: #e0e7ff; color: #4338ca; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-user"></i> Usuario</span>`
+            : `<span style="background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-building"></i> Buzón</span>`;
+
+        const rolBadge = _getRolTableroBadge(d.rol_tablero);
+
+        const subsCell = (d.cant_subsanacion_abierta || 0) > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 2px 8px; border-radius: 6px; font-weight: 700;">${Number(d.cant_subsanacion_abierta).toLocaleString('es-AR')}</span>`
+            : `<span style="font-weight: 600; color: #64748b;">0</span>`;
+
+        const numCell = (val) => `<span style="font-variant-numeric: tabular-nums; font-weight: 600;">${Number(val || 0).toLocaleString('es-AR')}</span>`;
+
+        const rowBg = i % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const destEsc = (d.destinatario || '').replace(/'/g, "\\'");
+
+        const dNomText = ((d.nombre_apellido || '').toUpperCase()).trim();
+        const dDestText = ((d.destinatario || '').toUpperCase()).trim();
+        const nombreHtml = dNomText
+            ? `<div style="display: flex; flex-direction: column; gap: 2px; font-family: 'Outfit', sans-serif;">
+                 <span style="font-weight: 700; color: #1e293b; font-size: 0.88rem; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${dNomText}</span>
+                 <span style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${dDestText}</span>
+               </div>`
+            : `<span style="font-weight: 700; color: #1e293b; text-transform: uppercase; font-family: 'Outfit', sans-serif;">${dDestText}</span>`;
+
+        return `<tr style="background: ${rowBg}; cursor: pointer; transition: all 0.15s;" 
+                    onclick="openUniversoBuzonDetail('${destEsc}')"
+                    onmouseover="this.style.background='#f0f9ff'; this.style.color='var(--primary)'" 
+                    onmouseout="this.style.background='${rowBg}'; this.style.color='inherit'">
+            <td style="${tdStyle} display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid ${d.tipo === 'Usuario' ? 'fa-user-tie' : 'fa-folder-tree'}" style="font-size: 0.95rem; color: var(--primary); opacity: 0.85;"></i>
+                ${nombreHtml}
+            </td>
+            <td style="${tdStyle} text-align: center;">${tipoBadge}</td>
+            <td style="${tdStyle} text-align: center;">${rolBadge}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_tratas)}</td>
+            <td style="${tdStyle} text-align: right;">${subsCell}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_guarda_temporal)}</td>
+            <td style="${tdStyle} text-align: right;">${numCell(d.cant_archivo)}</td>
+            <td style="${tdStyle} text-align: right; color: #0284c7; font-weight: 700;">${numCell(d.cant_en_stock)}</td>
+            <td style="${tdStyle} text-align: right; font-weight: 700; color: #0f172a;">${numCell(d.cant_expedientes)}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="padding: 0.75rem 1rem; background: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; display: flex; justify-content: space-between; align-items: center; font-family: 'Outfit', sans-serif;">
+            <span><strong style="color: #334155;">${data.length.toLocaleString('es-AR')}</strong> buzones/usuarios encontrados — <em style="color: #6366f1;">Hacé clic en cualquier fila para ver el detalle de tratas y expedientes</em></span>
+            <span style="font-size: 0.75rem; color: #94a3b8;">Hacé clic en el encabezado de columna para ordenar</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>`;
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL DETALLE DE BUZÓN (TRATAS Y EXPEDIENTES)
+// ──────────────────────────────────────────────────────────────
+
+async function openUniversoBuzonDetail(destinatario) {
+    const modal = document.getElementById('universo-buzon-detail-modal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+
+    document.getElementById('modal-ub-dest-name').innerText = (destinatario || '').toUpperCase();
+    document.getElementById('modal-ub-badge-tipo').innerHTML = `<span class="loader" style="width:14px;height:14px;"></span>`;
+    document.getElementById('modal-ub-kpis').innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 1rem;"><span class="loader"></span></div>`;
+    document.getElementById('modal-ub-table-container').innerHTML = `
+        <div style="padding: 3rem; text-align: center; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+            <span class="loader"></span>
+            <p style="margin-top: 8px;">Consultando tratas y expedientes en poder del buzón...</p>
+        </div>`;
+
+    const searchInput = document.getElementById('modal-ub-search');
+    if (searchInput) searchInput.value = '';
+    const filterSelect = document.getElementById('modal-ub-filter-alta');
+    if (filterSelect) filterSelect.value = 'ALL';
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/universo-buzones/detalle?destinatario=${encodeURIComponent(destinatario)}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red al consultar detalle del buzón'}`);
+        _currentBuzonDetail = await res.json();
+
+        // 1. Header info
+        const destNameEl = document.getElementById('modal-ub-dest-name');
+        const ubNomText = ((_currentBuzonDetail.nombre_apellido || '').toUpperCase()).trim();
+        const ubDestText = ((_currentBuzonDetail.destinatario || '').toUpperCase()).trim();
+        if (ubNomText) {
+            destNameEl.innerHTML = `<span style="font-family: 'Outfit', sans-serif; text-transform: uppercase;">${ubNomText}</span> <span style="font-size: 0.95rem; font-weight: 500; color: #64748b; margin-left: 6px; font-family: 'Outfit', sans-serif; text-transform: uppercase;">(${ubDestText})</span>`;
+        } else {
+            destNameEl.innerText = ubDestText;
+        }
+
+        const badgeTipo = document.getElementById('modal-ub-badge-tipo');
+        const rolBadgeHtml = _getRolTableroBadge(_currentBuzonDetail.rol_tablero);
+        
+        if (_currentBuzonDetail.tipo === 'Usuario') {
+            badgeTipo.style.background = '#e0e7ff';
+            badgeTipo.style.color = '#4338ca';
+            badgeTipo.innerHTML = `<i class="fa-solid fa-user" style="margin-right:3px;"></i> Usuario / Analista &nbsp; ${rolBadgeHtml}`;
+        } else {
+            badgeTipo.style.background = '#f1f5f9';
+            badgeTipo.style.color = '#475569';
+            badgeTipo.innerHTML = `<i class="fa-solid fa-building" style="margin-right:3px;"></i> Buzón de Sector &nbsp; ${rolBadgeHtml}`;
+        }
+
+        // 2. KPIs Strip
+        const kpis = _currentBuzonDetail.kpis || {};
+        const kpisEl = document.getElementById('modal-ub-kpis');
+        if (kpisEl) {
+            const kpiItems = [
+                { label: 'Tratas Distintas', val: kpis.total_tratas, color: '#6366f1', bg: '#eef2ff', icon: 'fa-tags' },
+                { label: 'Stock Activo', val: kpis.total_stock, color: '#0284c7', bg: '#f0f9ff', icon: 'fa-inbox' },
+                { label: 'En Subsanación', val: kpis.total_subsanacion, color: '#e11d48', bg: '#fff1f2', icon: 'fa-triangle-exclamation' },
+                { label: 'Guarda Temporal', val: kpis.total_guarda, color: '#8b5cf6', bg: '#f5f3ff', icon: 'fa-clock-rotate-left' },
+                { label: 'En Archivo', val: kpis.total_archivo, color: '#64748b', bg: '#f8fafc', icon: 'fa-box-archive' },
+                { label: 'Total Expedientes', val: kpis.total_expedientes, color: '#0f172a', bg: '#f1f5f9', icon: 'fa-folder-open' }
+            ];
+
+            kpisEl.innerHTML = kpiItems.map(k => `
+                <div style="background: ${k.bg}; border: 1px solid ${k.color}20; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-family: 'Outfit', sans-serif;">
+                    <div style="width: 32px; height: 32px; border-radius: 6px; background: ${k.color}22; color: ${k.color}; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0;">
+                        <i class="fa-solid ${k.icon}"></i>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase;">${k.label}</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #1e293b;">${Number(k.val || 0).toLocaleString('es-AR')}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 3. Render Table
+        filterUniversoBuzonDetail();
+
+    } catch (e) {
+        console.error("Error al cargar detalle de buzón:", e);
+        document.getElementById('modal-ub-table-container').innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">Error al consultar el detalle: ${e.message}</p>
+                <button class="btn-primary" style="margin-top: 1rem; padding: 8px 16px;" onclick="openUniversoBuzonDetail('${destinatario}')">Reintentar</button>
+            </div>`;
+    }
+}
+
+function closeUniversoBuzonDetailModal() {
+    const modal = document.getElementById('universo-buzon-detail-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function filterUniversoBuzonDetail() {
+    if (!_currentBuzonDetail || !_currentBuzonDetail.tratas) return;
+
+    const searchVal = (document.getElementById('modal-ub-search')?.value || '').trim().toLowerCase();
+    const altaVal = document.getElementById('modal-ub-filter-alta')?.value || 'ALL';
+
+    const filtered = _currentBuzonDetail.tratas.filter(t => {
+        if (altaVal === 'true' && !t.alta_en_tablero) return false;
+        if (altaVal === 'false' && t.alta_en_tablero) return false;
+        if (altaVal === 'con_subs' && (t.cant_subsanacion || 0) <= 0) return false;
+        if (altaVal === 'con_stock' && (t.cant_stock_propio || 0) <= 0) return false;
+
+        if (!searchVal) return true;
+        const matchTrata = (t.trata || '').toLowerCase().includes(searchVal) ||
+                           (t.descripcion_trata || '').toLowerCase().includes(searchVal);
+        const matchExp = (t.expedientes || []).some(e => 
+            (e.expediente || '').toLowerCase().includes(searchVal) ||
+            (e.descripcion || '').toLowerCase().includes(searchVal)
+        );
+        return matchTrata || matchExp;
+    });
+
+    renderUniversoBuzonDetailTable(filtered);
+}
+
+function renderUniversoBuzonDetailTable(tratas) {
+    const container = document.getElementById('modal-ub-table-container');
+    if (!container) return;
+
+    if (!tratas || tratas.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 3rem; text-align: center; color: #94a3b8; font-family: 'Outfit', sans-serif;">
+                <i class="fa-solid fa-circle-info" style="font-size: 2rem;"></i>
+                <p style="margin-top: 8px;">No se encontraron tratas con los filtros aplicados.</p>
+            </div>`;
+        return;
+    }
+
+    const thStyle = `padding: 10px 12px; font-weight: 700; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 2px solid #e2e8f0; white-space: nowrap; font-family: 'Outfit', sans-serif;`;
+    const tdStyle = `padding: 10px 12px; font-size: 0.85rem; color: #334155; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;`;
+
+    const thead = `<thead><tr>
+        <th style="${thStyle}">Trata</th>
+        <th style="${thStyle}">Descripción</th>
+        <th style="${thStyle}; text-align: center; width: 110px;">En Tablero</th>
+        <th style="${thStyle}; text-align: right; width: 120px;">Stock Activo</th>
+        <th style="${thStyle}; text-align: right; width: 120px;">Subsanación</th>
+        <th style="${thStyle}; text-align: right; width: 110px;">Guarda Temp.</th>
+        <th style="${thStyle}; text-align: right; width: 100px;">Archivo</th>
+        <th style="${thStyle}; text-align: right; width: 120px;">Total Posesión</th>
+        <th style="${thStyle}; text-align: center; width: 130px;">Acción</th>
+    </tr></thead>`;
+
+    const tbody = tratas.map((t, idx) => {
+        const trataId = `ub-trata-${idx}`;
+        const altaBadge = t.alta_en_tablero
+            ? `<span style="background: #ecfdf5; color: #059669; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">✅ Sí</span>`
+            : `<span style="background: #fef2f2; color: #dc2626; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;">❌ No</span>`;
+
+        const subsCell = (t.cant_subsanacion || 0) > 0
+            ? `<span style="background: #fff1f2; color: #e11d48; padding: 3px 10px; border-radius: 6px; font-weight: 700;">${t.cant_subsanacion.toLocaleString('es-AR')}</span>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const stockCell = (t.cant_stock_propio || 0) > 0
+            ? `<strong style="color: #0284c7;">${t.cant_stock_propio.toLocaleString('es-AR')}</strong>`
+            : `<span style="color: #94a3b8;">0</span>`;
+
+        const totalCell = `<strong style="font-size: 0.95rem; color: #0f172a;">${(t.cant_total || 0).toLocaleString('es-AR')}</strong>`;
+
+        const exps = t.expedientes || [];
+        const expRows = exps.map(e => {
+            let badgeClasif = '';
+            if (e.clasificacion === 'STOCK_PROPIO') badgeClasif = `<span style="background: #e0f2fe; color: #0369a1; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Stock Propio</span>`;
+            else if (e.clasificacion === 'SUBSANACION') badgeClasif = `<span style="background: #ffe4e6; color: #be123c; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`;
+            else if (e.clasificacion === 'GUARDA_TEMPORAL') badgeClasif = `<span style="background: #f3e8ff; color: #7e22ce; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Guarda Temporal</span>`;
+            else badgeClasif = `<span style="background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; font-family: 'Outfit', sans-serif;">Archivo</span>`;
+
+            const rawExp = (e.expediente || '').replace(/'/g, "\\'");
+            const isFav = userFavorites.has(e.expediente);
+            const starSpan = `<span class="favorite-star ${isFav ? 'active' : ''}" data-expediente="${e.expediente}" onclick="event.stopPropagation(); toggleFavorite('${e.expediente}')" style="cursor: pointer; font-size: 1.05rem; color: ${isFav ? '#eab308' : '#cbd5e1'}; transition: transform 0.15s ease; display: inline-block; user-select: none;" title="${isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}">${isFav ? '<i class="fa-solid fa-bookmark"></i>' : '<i class="fa-regular fa-bookmark"></i>'}</span>`;
+
+            return `
+                <tr style="font-size: 0.82rem; background: white; border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
+                    <td style="padding: 8px 10px; text-align: center; width: 45px;">${starSpan}</td>
+                    <td style="padding: 8px 12px; font-weight: 700; color: #1e293b; white-space: nowrap; font-family: 'Outfit', sans-serif;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px;">
+                            <span onclick="openDetalleExpedienteModal('${rawExp}')" style="cursor: pointer; color: #1e293b; border-bottom: 1px dashed #cbd5e1;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#1e293b'">${e.expediente}</span>
+                            <button type="button" onclick="copyExpedienteToClipboard('${rawExp}', this)" 
+                                title="Copiar número de expediente"
+                                style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; padding: 3px 6px; font-size: 0.72rem; color: #475569; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                                onmouseover="this.style.background='#e2e8f0'; this.style.color='#1e293b'"
+                                onmouseout="this.style.background='#f1f5f9'; this.style.color='#475569'">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td style="padding: 8px 12px; white-space: nowrap; font-family: 'Outfit', sans-serif;">${badgeClasif}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.fecha_ultimo_pase || '—'}</td>
+                    <td style="padding: 8px 12px; color: #64748b; font-size: 0.78rem; white-space: nowrap; font-family: 'Outfit', sans-serif;">${e.remitente || '—'}</td>
+                    <td style="padding: 8px 12px; color: #475569; line-height: 1.35; font-family: 'Outfit', sans-serif;">${e.descripcion || '—'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#fafbfc'}; font-family: 'Outfit', sans-serif;">
+                <td style="${tdStyle} font-weight: 700; color: var(--primary-dark);">
+                    ${t.trata || ''}
+                </td>
+                <td style="${tdStyle} max-width: 320px; white-space: normal; line-height: 1.3;">
+                    ${t.descripcion_trata || '<span style="color:#94a3b8;">—</span>'}
+                </td>
+                <td style="${tdStyle}; text-align: center;">${altaBadge}</td>
+                <td style="${tdStyle}; text-align: right;">${stockCell}</td>
+                <td style="${tdStyle}; text-align: right;">${subsCell}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b;">${(t.cant_guarda || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right; color: #64748b;">${(t.cant_archivo || 0).toLocaleString('es-AR')}</td>
+                <td style="${tdStyle}; text-align: right;">${totalCell}</td>
+                <td style="${tdStyle}; text-align: center;">
+                    <button type="button" onclick="toggleBuzonExpedientes('${trataId}')" 
+                        style="padding: 5px 12px; background: white; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--primary); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s;"
+                        onmouseover="this.style.borderColor='var(--primary)'; this.style.background='#eff6ff'"
+                        onmouseout="this.style.borderColor='#cbd5e1'; this.style.background='white'">
+                        <i id="${trataId}-icon" class="fa-solid fa-chevron-down"></i> ${exps.length} exp.
+                    </button>
+                </td>
+            </tr>
+            <tr id="${trataId}" style="display: none; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td colspan="9" style="padding: 12px 16px; border-bottom: 2px solid #e2e8f0;">
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; max-height: 280px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif;">
+                            <thead style="position: sticky; top: 0; z-index: 1;">
+                                <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-size: 0.72rem; text-transform: uppercase; color: #475569; font-family: 'Outfit', sans-serif;">
+                                    <th style="padding: 8px 10px; width: 45px; text-align: center;"><i class="fa-solid fa-bookmark"></i></th>
+                                    <th style="padding: 8px 12px; width: 260px; font-family: 'Outfit', sans-serif;">Expediente</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Estado Clasificado</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Fecha Último Pase</th>
+                                    <th style="padding: 8px 12px; width: 140px; font-family: 'Outfit', sans-serif;">Usuario Remitente</th>
+                                    <th style="padding: 8px 12px; font-family: 'Outfit', sans-serif;">Descripción / Carátula</th>
+                                </tr>
+                            </thead>
+                            <tbody>${expRows}</tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div style="max-height: 480px; overflow-y: auto; overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit', sans-serif; min-width: 900px;">
+                ${thead}
+                <tbody>${tbody}</tbody>
+            </table>
+        </div>
+    `;
+
+    const footerInfo = document.getElementById('modal-ub-footer-info');
+    if (footerInfo) {
+        footerInfo.innerHTML = `Mostrando <strong>${tratas.length}</strong> tratas con expedientes en este buzón/usuario.`;
+    }
+}
+
+function exportUniversoBuzonDetailCSV() {
+    if (!_currentBuzonDetail || !_currentBuzonDetail.tratas) return;
+
+    const rows = [
+        ["DESTINATARIO", "NOMBRE_APELLIDO", "TIPO_DESTINATARIO", "ROL_TABLERO", "TRATA", "DESCRIPCION_TRATA", "ALTA_TABLERO", "STOCK_ACTIVO", "SUBSANACION_ABIERTA", "GUARDA_TEMPORAL", "ARCHIVO", "TOTAL_POSESION", "EXPEDIENTE", "ESTADO_CLASIF", "FECHA_ULTIMO_PASE", "REMITENTE"]
+    ];
+
+    const dest = _currentBuzonDetail.destinatario || '';
+    const nomAp = (_currentBuzonDetail.nombre_apellido || '').replace(/"/g, '""');
+    const tipo = _currentBuzonDetail.tipo || '';
+    const rol = _currentBuzonDetail.rol_tablero || 'Sin Configurar';
+
+    for (const t of _currentBuzonDetail.tratas) {
+        const trata = (t.trata || '').replace(/"/g, '""');
+        const desc = (t.descripcion_trata || '').replace(/"/g, '""');
+        const alta = t.alta_en_tablero ? "SI" : "NO";
+        const stock = t.cant_stock_propio || 0;
+        const subs = t.cant_subsanacion || 0;
+        const guarda = t.cant_guarda || 0;
+        const arch = t.cant_archivo || 0;
+        const tot = t.cant_total || 0;
+
+        if (t.expedientes && t.expedientes.length > 0) {
+            for (const e of t.expedientes) {
+                rows.push([
+                    `"${dest}"`,
+                    `"${nomAp}"`,
+                    `"${tipo}"`,
+                    `"${rol}"`,
+                    `"${trata}"`,
+                    `"${desc}"`,
+                    `"${alta}"`,
+                    stock,
+                    subs,
+                    guarda,
+                    arch,
+                    tot,
+                    `"${e.expediente || ''}"`,
+                    `"${e.clasificacion || ''}"`,
+                    `"${e.fecha_ultimo_pase || ''}"`,
+                    `"${(e.remitente || '').replace(/"/g, '""')}"`
+                ]);
+            }
+        } else {
+            rows.push([
+                `"${dest}"`,
+                `"${nomAp}"`,
+                `"${tipo}"`,
+                `"${rol}"`,
+                `"${trata}"`,
+                `"${desc}"`,
+                `"${alta}"`,
+                stock,
+                subs,
+                guarda,
+                arch,
+                tot,
+                "", "", "", ""
+            ]);
+        }
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + rows.map(r => r.join(";")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `universo_buzon_${dest}_tratas.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+window.switchUniversoTab = switchUniversoTab;
+window.loadUniversoBuzones = loadUniversoBuzones;
+window.filterUniversoBuzones = filterUniversoBuzones;
+window._sortUniversoBuzonesBy = _sortUniversoBuzonesBy;
+window.renderUniversoBuzonesTable = renderUniversoBuzonesTable;
+window.openUniversoBuzonDetail = openUniversoBuzonDetail;
+window.closeUniversoBuzonDetailModal = closeUniversoBuzonDetailModal;
+window.filterUniversoBuzonDetail = filterUniversoBuzonDetail;
+window.renderUniversoBuzonDetailTable = renderUniversoBuzonDetailTable;
+window.exportUniversoBuzonDetailCSV = exportUniversoBuzonDetailCSV;
+
+// ──────────────────────────────────────────────────────────────
+// PLANIFICACIÓN NOVIEMBRE 2026
+// ──────────────────────────────────────────────────────────────
+
+let _planifData = null;
+let _planifDebounceTimer = null;
+let _planifGerenciaChartInstance = null;
+
+async function loadPlanificacionNov2026Data() {
+    const targetYearSelect = document.getElementById('planif-filter-year');
+    const targetYear = targetYearSelect ? parseInt(targetYearSelect.value || '2026', 10) : 2026;
+
+    // Update target year labels in UI
+    document.querySelectorAll('.planif-target-year-lbl').forEach(el => {
+        el.innerText = targetYear;
+    });
+
+    const valStockEa = document.getElementById('planif-val-stock-ea');
+    const valSubsEa = document.getElementById('planif-val-subs-ea');
+    const valStockPr = document.getElementById('planif-val-stock-pr');
+    const valSubsPr = document.getElementById('planif-val-subs-pr');
+    const valStockTotal = document.getElementById('planif-val-stock-total');
+    const valSubsTotal = document.getElementById('planif-val-subs-total');
+    const valIngEa = document.getElementById('planif-val-ing-ea');
+    const valIngTotal = document.getElementById('planif-val-ing-total');
+    const gerenciasGrid = document.getElementById('planif-gerencias-grid');
+
+    if (valStockEa) valStockEa.innerText = '...';
+    if (valSubsEa) valSubsEa.innerText = '...';
+    if (valStockPr) valStockPr.innerText = '...';
+    if (valSubsPr) valSubsPr.innerText = '...';
+    if (valStockTotal) valStockTotal.innerText = '...';
+    if (valSubsTotal) valSubsTotal.innerText = '...';
+    if (valIngEa) valIngEa.innerText = '...';
+    if (valIngTotal) valIngTotal.innerText = '...';
+    if (gerenciasGrid) gerenciasGrid.innerHTML = `<div style="padding: 2rem; color: #94a3b8; text-align: center; grid-column: 1 / -1;"><span class="loader"></span><p style="margin-top: 8px;">Cargando métricas de planificación...</p></div>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026?target_year=${targetYear}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        _planifData = await res.json();
+
+        const kpis = _planifData.kpis || {};
+
+        // 1. Render Hero KPI Cards
+        if (valStockEa) valStockEa.innerText = (kpis.stock_este_ano || 0).toLocaleString('es-AR');
+        if (valSubsEa) valSubsEa.innerText = (kpis.subs_este_ano || 0).toLocaleString('es-AR');
+        if (valStockPr) valStockPr.innerText = (kpis.stock_previo || 0).toLocaleString('es-AR');
+        if (valSubsPr) valSubsPr.innerText = (kpis.subs_previo || 0).toLocaleString('es-AR');
+        if (valStockTotal) valStockTotal.innerText = (kpis.stock_total || 0).toLocaleString('es-AR');
+        if (valSubsTotal) valSubsTotal.innerText = (kpis.subs_total || 0).toLocaleString('es-AR');
+        if (valIngEa) valIngEa.innerText = (kpis.ingresos_este_ano || 0).toLocaleString('es-AR');
+        if (valIngTotal) valIngTotal.innerText = (kpis.ingresos_total || 0).toLocaleString('es-AR');
+
+        // Subtitles with percentages
+        const stockPct = kpis.stock_total > 0 ? ((kpis.stock_este_ano / kpis.stock_total) * 100).toFixed(1) : '0';
+        const subsPct = kpis.subs_total > 0 ? ((kpis.subs_este_ano / kpis.subs_total) * 100).toFixed(1) : '0';
+        const stockPrPct = kpis.stock_total > 0 ? ((kpis.stock_previo / kpis.stock_total) * 100).toFixed(1) : '0';
+        const subsPrPct = kpis.subs_total > 0 ? ((kpis.subs_previo / kpis.subs_total) * 100).toFixed(1) : '0';
+
+        const subStockEa = document.getElementById('planif-sub-stock-ea');
+        if (subStockEa) subStockEa.innerText = `${stockPct}% del stock total`;
+        const subSubsEa = document.getElementById('planif-sub-subs-ea');
+        if (subSubsEa) subSubsEa.innerText = `${subsPct}% de subsanaciones totales`;
+        const subStockPr = document.getElementById('planif-sub-stock-pr');
+        if (subStockPr) subStockPr.innerText = `${stockPrPct}% acumulado previo`;
+        const subSubsPr = document.getElementById('planif-sub-subs-pr');
+        if (subSubsPr) subSubsPr.innerText = `${subsPrPct}% acumulado previo`;
+
+        // 2. Render Gerencias Cards Grid
+        renderPlanificacionGerenciasGrid(_planifData.por_gerencia || []);
+
+        // 3. Render Tratas Summary Table
+        applyPlanificacionNov2026Filters();
+
+    } catch (e) {
+        console.error("Error al cargar Planificación Noviembre 2026:", e);
+        if (gerenciasGrid) gerenciasGrid.innerHTML = `<div style="padding: 2rem; color: #ef4444; text-align: center; grid-column: 1 / -1;"><p>No se pudieron cargar los datos del reporte: ${e.message}</p></div>`;
+    }
+}
+
+function renderPlanificacionGerenciasGrid(gerencias) {
+    const grid = document.getElementById('planif-gerencias-grid');
+    if (!grid) return;
+
+    if (!gerencias || gerencias.length === 0) {
+        grid.innerHTML = `<div style="padding: 2rem; color: #94a3b8; text-align: center; grid-column: 1 / -1;">No hay gerencias configuradas.</div>`;
+        return;
+    }
+
+    grid.innerHTML = gerencias.map(g => {
+        const safeGerencia = g.gerencia;
+        const safeNombre = (g.nombre_gerencia || g.gerencia.toUpperCase()).replace(/'/g, "\\'");
+        
+        return `
+            <div class="analyst-card-premium" onclick="openPlanifGerenciaChartModal('${safeGerencia}', '${safeNombre}')"
+                style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.1rem; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); cursor: pointer; transition: all 0.2s;"
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -2px rgba(0,0,0,0.08)'; this.style.borderColor='var(--primary)'"
+                onmouseout="this.style.transform='none'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.03)'; this.style.borderColor='#e2e8f0'">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin: 0; font-family: 'Outfit'; font-size: 1rem; font-weight: 700; color: #1e293b;">${g.nombre_gerencia || g.gerencia.toUpperCase()}</h4>
+                    <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0284c7; padding: 3px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-chart-line"></i> ${g.gerencia.toUpperCase()}
+                    </span>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem; margin-top: 4px;">
+                    <!-- Stock -->
+                    <div style="background: #f0f9ff; border: 1px solid #e0f2fe; padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: #0369a1; font-weight: 700; text-transform: uppercase;">Stock Este Año</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #0c4a6e; font-family: 'Outfit';">${(g.stock_este_ano || 0).toLocaleString('es-AR')}</div>
+                        <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">Previo: <strong>${(g.stock_previo || 0).toLocaleString('es-AR')}</strong></div>
+                    </div>
+
+                    <!-- Subsanaciones -->
+                    <div style="background: #fff7ed; border: 1px solid #ffedd5; padding: 8px; border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: #c2410c; font-weight: 700; text-transform: uppercase;">Subs. Este Año</div>
+                        <div style="font-size: 1.25rem; font-weight: 800; color: #7c2d12; font-family: 'Outfit';">${(g.subs_este_ano || 0).toLocaleString('es-AR')}</div>
+                        <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">Previo: <strong>${(g.subs_previo || 0).toLocaleString('es-AR')}</strong></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 4px;">
+                    <span>Total Stock: <strong>${(g.stock_total || 0).toLocaleString('es-AR')}</strong></span>
+                    <span style="color: var(--primary); font-weight: 700;">Ver Gráfico <i class="fa-solid fa-arrow-right"></i></span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function applyPlanificacionNov2026Filters() {
+    if (!_planifData) return;
+
+    const gerenciaFilter = document.getElementById('planif-filter-gerencia')?.value || 'ALL';
+    const searchVal = (document.getElementById('planif-search-input')?.value || '').trim().toLowerCase();
+
+    // Filter tratas summary table
+    let tratas = _planifData.por_trata || [];
+    if (gerenciaFilter !== 'ALL') {
+        tratas = tratas.filter(t => (t.gerencia || '').toLowerCase() === gerenciaFilter.toLowerCase());
+    }
+    if (searchVal) {
+        tratas = tratas.filter(t =>
+            (t.trata || '').toLowerCase().includes(searchVal) ||
+            (t.descripcion_trata || '').toLowerCase().includes(searchVal)
+        );
+    }
+
+    renderPlanificacionTratasTable(tratas);
+}
+
+function renderPlanificacionTratasTable(tratas) {
+    const tbody = document.getElementById('planif-tratas-tbody');
+    const badge = document.getElementById('planif-trata-count-badge');
+    if (!tbody) return;
+
+    if (badge) badge.innerText = `${tratas.length} tratas`;
+
+    if (!tratas || tratas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="padding: 2rem; text-align: center; color: #94a3b8;">No hay tratas que coincidan con el filtro.</td></tr>`;
+        return;
+    }
+
+    const GERENCIA_LABELS = {
+        'catastro': 'Catastro',
+        'instalaciones': 'Instalaciones',
+        'regularizacion': 'Conforme a Obra / Regularización',
+        'contable': 'Contable / Derechos',
+        'etapa_proyecto': 'Etapa Proyecto',
+        'morfologia': 'Morfología Urbana',
+        'aph': 'Áreas de Protección Histórica (APH)',
+        'usos': 'Consulta de Usos',
+        'aviso_obra': 'Avisos de Obra'
+    };
+
+    tbody.innerHTML = tratas.map(t => {
+        const gKey = (t.gerencia || '').toLowerCase();
+        const gName = GERENCIA_LABELS[gKey] || (t.gerencia || '-').toUpperCase();
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                <td style="padding: 10px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${t.trata}</td>
+                <td style="padding: 10px 14px;">
+                    <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; white-space: nowrap;">
+                        ${gName}
+                    </span>
+                </td>
+                <td style="padding: 10px 14px; color: #475569;">${t.descripcion_trata || '-'}</td>
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #0369a1; background: #f0f9ff;">${(t.stock_este_ano || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.stock_previo || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #c2410c; background: #fff7ed;">${(t.subs_este_ano || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.subs_previo || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #15803d; background: #f0fdf4;">${(t.ingresos_este_ano || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.ingresos_previo || 0).toLocaleString('es-AR')}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function debouncePlanifSearch() {
+    if (_planifDebounceTimer) clearTimeout(_planifDebounceTimer);
+    _planifDebounceTimer = setTimeout(() => {
+        applyPlanificacionNov2026Filters();
+    }, 350);
+}
+
+// ──────────────────────────────────────────────────────────────
+// MODAL POPUP DE GRÁFICO HISTÓRICO CON HITO MARZO 2026
+// ──────────────────────────────────────────────────────────────
+
+async function openPlanifGerenciaChartModal(gerencia, nombreGerencia) {
+    const modal = document.getElementById('planif-chart-modal');
+    const modalTitle = document.getElementById('planif-modal-title');
+    const seriesTbody = document.getElementById('planif-modal-series-tbody');
+
+    if (!modal) return;
+    modal.style.display = 'flex';
+    if (modalTitle) modalTitle.innerText = `${nombreGerencia} - Evolución de Stock y Subsanaciones`;
+    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="3" style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico...</p></div></td></tr>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/historico/${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+
+        const series = data.series || [];
+
+        // Render Chart with dashed line on Marzo 2026
+        renderPlanifGerenciaChart(series, nombreGerencia);
+
+        // Render Series Table
+        if (seriesTbody) {
+            seriesTbody.innerHTML = series.map(s => {
+                const isMarzo = (s.mes_label === '2026-03');
+                const rowStyle = isMarzo 
+                    ? `background: #f0f9ff; font-weight: 700; border-left: 3px solid #0284c7;`
+                    : `border-bottom: 1px solid #f1f5f9;`;
+
+                return `
+                    <tr style="${rowStyle}">
+                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${s.stock.toLocaleString('es-AR')}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${s.subsanaciones.toLocaleString('es-AR')}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+    } catch (e) {
+        console.error("Error cargando histórico de gerencia:", e);
+        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="3" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar datos históricos: ${e.message}</td></tr>`;
+    }
+}
+
+function renderPlanifGerenciaChart(series, nombreGerencia) {
+    const canvas = document.getElementById('planifGerenciaChart');
+    if (!canvas) return;
+
+    if (_planifGerenciaChartInstance) {
+        _planifGerenciaChartInstance.destroy();
+        _planifGerenciaChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = series.map(s => s.mes_label);
+    const stockData = series.map(s => s.stock);
+    const subsData = series.map(s => s.subsanaciones);
+
+    // Inline plugin for vertical dashed line at Marzo 2026 (2026-03)
+    const marzoLinePlugin = {
+        id: 'marzoLinePlugin',
+        afterDraw: (chart) => {
+            const index = chart.data.labels.indexOf('2026-03');
+            if (index !== -1) {
+                const meta = chart.getDatasetMeta(0);
+                if (meta && meta.data[index]) {
+                    const x = meta.data[index].x;
+                    const topY = chart.scales.y.top;
+                    const bottomY = chart.scales.y.bottom;
+                    const chartCtx = chart.ctx;
+
+                    chartCtx.save();
+                    chartCtx.beginPath();
+                    chartCtx.setLineDash([5, 5]);
+                    chartCtx.strokeStyle = '#64748b';
+                    chartCtx.lineWidth = 1.5;
+                    chartCtx.moveTo(x, topY + 16);
+                    chartCtx.lineTo(x, bottomY);
+                    chartCtx.stroke();
+
+                    // Text label at top of dashed line
+                    chartCtx.fillStyle = '#475569';
+                    chartCtx.font = '600 11px Outfit, sans-serif';
+                    chartCtx.textAlign = 'center';
+                    chartCtx.fillText('Marzo 2026', x, topY + 8);
+                    chartCtx.restore();
+                }
+            }
+        }
+    };
+
+    _planifGerenciaChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Stock Propio',
+                    data: stockData,
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#0284c7',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                },
+                {
+                    label: 'Subsanaciones Abiertas',
+                    data: subsData,
+                    borderColor: '#ea580c',
+                    backgroundColor: 'rgba(234, 88, 12, 0.08)',
+                    fill: true,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ea580c',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                }
+            ]
+        },
+        plugins: [marzoLinePlugin],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { family: 'Outfit', size: 12, weight: 'bold' },
+                        usePointStyle: true
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: 'Outfit', size: 11 },
+                        color: function(context) {
+                            return context.tick && context.tick.label === '2026-03' ? '#0284c7' : '#64748b';
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { family: 'Outfit', size: 11 } }
+                }
+            }
+        }
+    });
+}
+
+function closePlanifChartModal() {
+    const modal = document.getElementById('planif-chart-modal');
+    if (modal) modal.style.display = 'none';
+
+    if (_planifGerenciaChartInstance) {
+        _planifGerenciaChartInstance.destroy();
+        _planifGerenciaChartInstance = null;
+    }
+}
+
+function exportPlanificacionNov2026Data() {
+    if (!_planifData || !_planifData.por_trata) {
+        alert("No hay datos para exportar. Por favor actualice el reporte.");
+        return;
+    }
+
+    let csvContent = "\uFEFF"; // BOM UTF-8
+    csvContent += "TRATA;DESCRIPCION;GERENCIA;STOCK ESTE AÑO;STOCK PREVIO;SUBSANACIONES ESTE AÑO;SUBSANACIONES PREVIAS;INGRESOS ESTE AÑO;INGRESOS PREVIOS\n";
+
+    _planifData.por_trata.forEach(t => {
+        const row = [
+            `"${t.trata || ''}"`,
+            `"${(t.descripcion_trata || '').replace(/"/g, '""')}"`,
+            `"${t.gerencia || ''}"`,
+            t.stock_este_ano || 0,
+            t.stock_previo || 0,
+            t.subs_este_ano || 0,
+            t.subs_previo || 0,
+            t.ingresos_este_ano || 0,
+            t.ingresos_previo || 0
+        ];
+        csvContent += row.join(";") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.getElementById('planif-download-anchor') || document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Planificacion_Noviembre_2026_Reporte.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// ──────────────────────────────────────────────────────────────
+// PLANIFICACIÓN NOVIEMBRE 2026 - PESTAÑAS Y TIEMPOS DE TRAMITACIÓN
+// ──────────────────────────────────────────────────────────────
+
+let _planifActiveTab = 'ingresos';
+let _planifTiemposData = [];
+let _planifMetasV2Data = [];
+let _tiemposTrataChartInstance = null;
+
+function switchPlanifTab(tabName) {
+    _planifActiveTab = tabName;
+
+    const btnIngresos = document.getElementById('tab-btn-planif-ingresos');
+    const btnTiempos = document.getElementById('tab-btn-planif-tiempos');
+    const btnMetasV2 = document.getElementById('tab-btn-planif-metas-v2');
+
+    const contentIngresos = document.getElementById('planif-tab-content-ingresos');
+    const contentTiempos = document.getElementById('planif-tab-content-tiempos');
+    const contentMetasV2 = document.getElementById('planif-tab-content-metas-v2');
+
+    [btnIngresos, btnTiempos, btnMetasV2].forEach(btn => {
+        if (btn) {
+            btn.style.background = 'transparent';
+            btn.style.color = '#64748b';
+            btn.style.borderBottom = '3px solid transparent';
+        }
+    });
+    [contentIngresos, contentTiempos, contentMetasV2].forEach(c => {
+        if (c) c.style.display = 'none';
+    });
+
+    if (tabName === 'ingresos') {
+        if (btnIngresos) {
+            btnIngresos.style.background = 'white';
+            btnIngresos.style.color = 'var(--primary)';
+            btnIngresos.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (contentIngresos) contentIngresos.style.display = 'block';
+    } else if (tabName === 'tiempos') {
+        if (btnTiempos) {
+            btnTiempos.style.background = 'white';
+            btnTiempos.style.color = 'var(--primary)';
+            btnTiempos.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (contentTiempos) contentTiempos.style.display = 'block';
+        loadPlanifTiemposTramitacionData();
+    } else if (tabName === 'metas-v2') {
+        if (btnMetasV2) {
+            btnMetasV2.style.background = 'white';
+            btnMetasV2.style.color = 'var(--primary)';
+            btnMetasV2.style.borderBottom = '3px solid var(--primary)';
+        }
+        if (contentMetasV2) contentMetasV2.style.display = 'block';
+        loadPlanifMetasV2Data();
+    }
+}
+
+async function loadPlanifTiemposTramitacionData() {
+    const gerenciaSelect = document.getElementById('planif-tiempos-filter-gerencia');
+    const gerencia = gerenciaSelect ? gerenciaSelect.value : 'ALL';
+    const grid = document.getElementById('planif-tiempos-grid');
+
+    if (grid) {
+        grid.innerHTML = `<div style="padding: 3rem; text-align: center; color: #64748b; grid-column: 1 / -1; background: white; border-radius: 16px; border: 1px solid #e2e8f0;"><span class="loader"></span><p style="margin-top: 12px; font-weight: 600;">Cargando tiempos de tramitación instantáneos...</p></div>`;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/tiempos-tramitacion?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        _planifTiemposData = data.tratas || [];
+        applyPlanifTiemposFilters();
+    } catch (e) {
+        console.error("Error cargando tiempos de tramitación:", e);
+        if (grid) {
+            grid.innerHTML = `<div style="padding: 2.5rem; text-align: center; color: #ef4444; grid-column: 1 / -1; background: #fef2f2; border-radius: 16px; border: 1px solid #fecaca; font-weight: 600;">Error al cargar datos: ${e.message}</div>`;
+        }
+    }
+}
+
+function applyPlanifTiemposFilters() {
+    const searchInput = document.getElementById('planif-tiempos-search');
+    const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    let filtered = _planifTiemposData;
+    if (q) {
+        filtered = filtered.filter(t => 
+            (t.trata || '').toLowerCase().includes(q) || 
+            (t.descripcion_trata || '').toLowerCase().includes(q)
+        );
+    }
+    renderPlanifTiemposGrid(filtered);
+}
+
+function renderPlanifTiemposGrid(tratas) {
+    const grid = document.getElementById('planif-tiempos-grid');
+    if (!grid) return;
+
+    if (!tratas || tratas.length === 0) {
+        grid.innerHTML = `<div style="padding: 2.5rem; text-align: center; color: #94a3b8; grid-column: 1 / -1;">No se encontraron tratas con los criterios seleccionados.</div>`;
+        return;
+    }
+
+    grid.innerHTML = tratas.map(t => {
+        const descEscaped = (t.descripcion_trata || '').replace(/'/g, "\\'");
+        const mesCerradoLabel = t.ultimo_mes_cerrado || 'Último Mes';
+
+        const promPropio = (t.dias_propio_sector !== undefined && t.dias_propio_sector !== null) ? t.dias_propio_sector : 0.0;
+        const promSubs = (t.dias_subsanacion !== undefined && t.dias_subsanacion !== null) ? t.dias_subsanacion : 0.0;
+        const promInterv = (t.dias_intervenciones !== undefined && t.dias_intervenciones !== null) ? t.dias_intervenciones : 0.0;
+        const promTotal = (t.dias_totales !== undefined && t.dias_totales !== null) ? t.dias_totales : (promPropio + promSubs + promInterv).toFixed(1);
+        const resueltosMes = t.total_resueltos_ultimo_mes || 0;
+
+        // Métricas Año en Curso (2026)
+        const promPropioAno = (t.dias_propio_sector_este_ano !== undefined && t.dias_propio_sector_este_ano !== null) ? t.dias_propio_sector_este_ano : 0.0;
+        const promSubsAno = (t.dias_subsanacion_este_ano !== undefined && t.dias_subsanacion_este_ano !== null) ? t.dias_subsanacion_este_ano : 0.0;
+        const promIntervAno = (t.dias_intervenciones_este_ano !== undefined && t.dias_intervenciones_este_ano !== null) ? t.dias_intervenciones_este_ano : 0.0;
+        const promTotalAno = (t.dias_totales_este_ano !== undefined && t.dias_totales_este_ano !== null) ? t.dias_totales_este_ano : (promPropioAno + promSubsAno + promIntervAno).toFixed(1);
+        const resueltosAno = t.total_resueltos_este_ano || 0;
+
+        return `
+            <div onclick="openPlanifTrataTiemposModal('${t.trata}', '${descEscaped}', '${t.gerencia}')" 
+                 style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+                 onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-2px)';"
+                 onmouseout="this.style.borderColor='#cbd5e1'; this.style.transform='translateY(0)';">
+                
+                <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-family: 'Courier New', monospace; font-weight: 800; font-size: 0.85rem; color: var(--primary-dark); background: #f0f9ff; padding: 3px 8px; border-radius: 6px; border: 1px solid #bae6fd;">
+                                ${t.trata}
+                            </span>
+                            <span style="font-size: 0.72rem; color: #0284c7; font-weight: 700; background: #f0f9ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #e0f2fe;">
+                                <i class="fa-solid fa-check-circle" style="font-size: 0.65rem;"></i> ${resueltosMes} resueltos (${mesCerradoLabel})
+                            </span>
+                        </div>
+                        <h4 style="margin: 8px 0 0 0; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: #0f172a; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;" title="${t.descripcion_trata}">
+                            ${t.descripcion_trata}
+                        </h4>
+                    </div>
+                    <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; white-space: nowrap;">
+                        ${t.gerencia}
+                    </span>
+                </div>
+
+                <!-- BLOQUE 1: Último Mes Completo Cerrado -->
+                <div style="margin-bottom: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 0.68rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.3px;">
+                            <i class="fa-solid fa-calendar-check" style="color: #0284c7; margin-right: 3px;"></i> Promedios Último Mes (${mesCerradoLabel})
+                        </span>
+                    </div>
+
+                    <!-- 3 Métricas: Sector, Subsanación, Intervención -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: #f8fafc; padding: 8px; border-radius: 10px; border: 1px solid #f1f5f9; margin-bottom: 6px;">
+                        <div style="text-align: center;">
+                            <span style="font-size: 0.63rem; font-weight: 700; color: #0284c7; text-transform: uppercase;">Propio Sector</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #0369a1;">${promPropio} <span style="font-size: 0.7rem; font-weight: 600;">días</span></div>
+                        </div>
+                        <div style="text-align: center; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0;">
+                            <span style="font-size: 0.63rem; font-weight: 700; color: #ea580c; text-transform: uppercase;">Subsanación</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #c2410c;">${promSubs} <span style="font-size: 0.7rem; font-weight: 600;">días</span></div>
+                        </div>
+                        <div style="text-align: center;">
+                            <span style="font-size: 0.63rem; font-weight: 700; color: #8b5cf6; text-transform: uppercase;">Intervención</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #6d28d9;">${promInterv} <span style="font-size: 0.7rem; font-weight: 600;">días</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Tiempo de Resolución (Suma de los 3 Promedios) -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #334155;">
+                            Tiempo de Resolución (Total):
+                        </span>
+                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem; color: #0f172a;">
+                            ${promTotal} <span style="font-size: 0.75rem; font-weight: 600;">días</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- BLOQUE 2: Expedientes Ingresados en el Año en Curso (2026) -->
+                <div style="background: #f0fdf4; border-radius: 10px; border: 1px solid #bbf7d0; padding: 8px 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.68rem; font-weight: 800; color: #166534; text-transform: uppercase; letter-spacing: 0.3px;">
+                            <i class="fa-solid fa-hourglass-half" style="color: #16a34a; margin-right: 3px;"></i> Ingresados en el Año en Curso (2026)
+                        </span>
+                        <span style="font-size: 0.65rem; color: #15803d; font-weight: 700;">${resueltosAno} resueltos</span>
+                    </div>
+
+                    <!-- 3 Métricas Año -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; text-align: center; margin-bottom: 6px;">
+                        <div>
+                            <span style="font-size: 0.6rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Sector</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">${promPropioAno}d</div>
+                        </div>
+                        <div style="border-left: 1px solid #dcfce7; border-right: 1px solid #dcfce7;">
+                            <span style="font-size: 0.6rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Subs.</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">${promSubsAno}d</div>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.6rem; color: #15803d; font-weight: 700; text-transform: uppercase;">Interv.</span>
+                            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 0.95rem; color: #14532d;">${promIntervAno}d</div>
+                        </div>
+                    </div>
+
+                    <!-- Tiempo Total Año en curso -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed #bbf7d0; padding-top: 4px;">
+                        <span style="font-size: 0.72rem; font-weight: 700; color: #166534;">
+                            Tiempo de Resolución Año:
+                        </span>
+                        <span style="font-family: 'Outfit'; font-weight: 800; font-size: 0.98rem; color: #14532d;">
+                            ${promTotalAno} <span style="font-size: 0.72rem; font-weight: 600;">días</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function openPlanifTrataTiemposModal(trata, descripcionTrata, gerencia) {
+    const modal = document.getElementById('tiempos-trata-modal');
+    const modalTitle = document.getElementById('tiempos-modal-title');
+    const modalSub = document.getElementById('tiempos-modal-subtitle');
+    const seriesTbody = document.getElementById('tiempos-modal-series-tbody');
+
+    if (!modal) return;
+    modal.style.display = 'flex';
+    if (modalTitle) modalTitle.innerText = `${trata} - ${descripcionTrata}`;
+    if (modalSub) modalSub.innerText = `Evolución mensual de tiempos de tramitación (Gerencia: ${gerencia.toUpperCase()})`;
+    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico por trata...</p></div></td></tr>`;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/tiempos-tramitacion/trata/${trata}?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        const series = data.series || [];
+
+        renderPlanifTrataTiemposChart(series);
+
+        if (seriesTbody) {
+            seriesTbody.innerHTML = series.map(s => {
+                const numVal = (v) => typeof v === 'number' ? v : parseFloat(v || 0);
+                const total = (numVal(s.dias_propio_sector) + numVal(s.dias_subsanacion) + numVal(s.dias_intervenciones)).toFixed(1);
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${s.dias_propio_sector} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${s.dias_subsanacion} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #8b5cf6; font-weight: 700;">${s.dias_intervenciones} d</td>
+                        <td style="padding: 8px 12px; text-align: center; color: #0f172a; font-weight: 800; background: #f8fafc;">${total} d</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    } catch (e) {
+        console.error("Error cargando detalle mensual de trata:", e);
+        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="5" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar histórico: ${e.message}</td></tr>`;
+    }
+}
+
+function renderPlanifTrataTiemposChart(series) {
+    const canvas = document.getElementById('tiemposTrataChart');
+    if (!canvas) return;
+
+    if (_tiemposTrataChartInstance) {
+        _tiemposTrataChartInstance.destroy();
+        _tiemposTrataChartInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = series.map(s => s.mes_label);
+    const numVal = (v) => typeof v === 'number' ? v : parseFloat(v || 0);
+    const propioData = series.map(s => numVal(s.dias_propio_sector));
+    const subsData = series.map(s => numVal(s.dias_subsanacion));
+    const intervData = series.map(s => numVal(s.dias_intervenciones));
+    const totalData = series.map(s => parseFloat((numVal(s.dias_propio_sector) + numVal(s.dias_subsanacion) + numVal(s.dias_intervenciones)).toFixed(1)));
+
+    _tiemposTrataChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Tiempo Total Promedio (días)',
+                    data: totalData,
+                    borderColor: '#065f46',
+                    borderWidth: 2.5,
+                    backgroundColor: 'rgba(6, 95, 70, 0.06)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#065f46',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Propio Sector (días)',
+                    data: propioData,
+                    borderColor: '#0284c7',
+                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#0284c7',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Subsanación TAD (días)',
+                    data: subsData,
+                    borderColor: '#ea580c',
+                    backgroundColor: 'rgba(234, 88, 12, 0.08)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#ea580c',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Intervenciones Externas (días)',
+                    data: intervData,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                    fill: false,
+                    tension: 0.3,
+                    pointBackgroundColor: '#8b5cf6',
+                    pointBorderColor: '#ffffff',
+                    pointBorderWidth: 1,
+                    pointRadius: 1.5,
+                    pointHoverRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { font: { family: 'Outfit', size: 12, weight: 'bold' }, usePointStyle: true }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Outfit', size: 10 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { font: { family: 'Outfit', size: 11 } },
+                    title: { display: true, text: 'Días Promedio', font: { family: 'Outfit', size: 11, weight: 'bold' } }
+                }
+            }
+        }
+    });
+}
+
+function closePlanifTrataTiemposModal() {
+    const modal = document.getElementById('tiempos-trata-modal');
+    if (modal) modal.style.display = 'none';
+
+    if (_tiemposTrataChartInstance) {
+        _tiemposTrataChartInstance.destroy();
+        _tiemposTrataChartInstance = null;
+    }
+}
+
+// ──────────────────────────────────────────────────────────────
+// PLANIFICACIÓN NOVIEMBRE 2026 - METAS VERSIÓN 2
+// ──────────────────────────────────────────────────────────────
+
+async function loadPlanifMetasV2Data() {
+    const gerenciaSelect = document.getElementById('planif-metas-v2-filter-gerencia');
+    const gerencia = gerenciaSelect ? gerenciaSelect.value : 'ALL';
+    const tbody = document.getElementById('planif-metas-v2-tbody');
+
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="10" style="padding: 2.5rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando modelo Metas Versión 2...</p></td></tr>`;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/metas-v2?gerencia=${gerencia}`);
+        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
+        const data = await res.json();
+        _planifMetasV2Data = data.tratas || [];
+        applyPlanifMetasV2Filters();
+    } catch (e) {
+        console.error("Error cargando Metas V2:", e);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="10" style="padding: 2.5rem; text-align: center; color: #ef4444;">Error al cargar datos: ${e.message}</td></tr>`;
+        }
+    }
+}
+
+function applyPlanifMetasV2Filters() {
+    const searchInput = document.getElementById('planif-metas-v2-search');
+    const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+    let filtered = _planifMetasV2Data;
+    if (q) {
+        filtered = filtered.filter(t => 
+            (t.trata || '').toLowerCase().includes(q) || 
+            (t.descripcion_trata || '').toLowerCase().includes(q)
+        );
+    }
+    renderPlanifMetasV2Table(filtered);
+}
+
+function renderPlanifMetasV2Table(tratas) {
+    const tbody = document.getElementById('planif-metas-v2-tbody');
+    const escSelect = document.getElementById('planif-metas-v2-filter-escenario');
+    const escKey = escSelect ? escSelect.value : 'esc1';
+    const isEsteAnoModel = (escKey === 'esc3' || escKey === 'esc4');
+
+    const kpiEstancado = document.getElementById('planif-v2-kpi-estancado');
+    const kpiFlujo = document.getElementById('planif-v2-kpi-flujo');
+    const kpiMetaTotal = document.getElementById('planif-v2-kpi-meta-total');
+
+    if (!tbody) return;
+
+    if (!tratas || tratas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" style="padding: 2.5rem; text-align: center; color: #94a3b8;">No se encontraron tratas con los criterios seleccionados.</td></tr>`;
+        if (kpiEstancado) kpiEstancado.innerText = '0';
+        if (kpiFlujo) kpiFlujo.innerText = '0';
+        if (kpiMetaTotal) kpiMetaTotal.innerText = '0';
+        return;
+    }
+
+    let totEstancado = 0;
+    let totFlujo = 0;
+    let totMetaPeriodo = 0;
+
+    const rowsHtml = tratas.map(t => {
+        const estancado = isEsteAnoModel ? (t.stock_propio_estancado_este_ano || 0) : (t.stock_propio_estancado || 0);
+        const flujo = isEsteAnoModel ? (t.stock_flujo_este_ano || 0) : (t.stock_flujo || 0);
+        const diasTramitacion = isEsteAnoModel ? (t.dias_tramitacion_este_ano || 0) : (t.dias_tramitacion_base || 0);
+
+        totEstancado += estancado;
+        totFlujo += flujo;
+
+        const esc = t[escKey] || { ago: 0, sep: 0, oct: 0, nov: 0, ing_ago: 0, ing_sep: 0, ing_oct: 0, ing_nov: 0 };
+        const metaTrata = (esc.ago || 0) + (esc.sep || 0) + (esc.oct || 0) + (esc.nov || 0);
+        totMetaPeriodo += metaTrata;
+
+        const v_ago = flujo;
+        const v_sep = esc.ing_sep || 0;
+        const v_oct = esc.ing_oct || 0;
+
+        return `
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-family: 'Courier New', monospace; font-weight: 800; font-size: 0.8rem; color: var(--primary-dark); background: #f0f9ff; padding: 2px 7px; border-radius: 5px; border: 1px solid #bae6fd;">
+                            ${t.trata}
+                        </span>
+                        <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; color: #475569;">
+                            ${t.gerencia}
+                        </span>
+                    </div>
+                    <div style="font-weight: 600; font-size: 0.88rem; color: #0f172a; margin-top: 4px;">
+                        ${t.descripcion_trata}
+                    </div>
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: #334155;">
+                    ${(t.stock_total || 0).toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #c2410c; background: #fff7ed;">
+                    ${estancado.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #0369a1; background: #f0f9ff;">
+                    ${flujo.toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 700; color: #475569;">
+                    ${diasTramitacion} <span style="font-size: 0.72rem; font-weight: 600;">días</span>
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #1d4ed8; background: #eff6ff;">
+                    ${(esc.ing_ago || 0).toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
+                    ${(esc.ago || 0).toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
+                    ${(esc.sep || 0).toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #166534; background: #f0fdf4;">
+                    ${(esc.oct || 0).toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 10px; text-align: center; font-weight: 800; color: #047857; background: #dcfce7; border-left: 1px solid #bbf7d0;">
+                    ${(esc.nov || 0).toLocaleString('es-AR')}
+                </td>
+
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div style="display: inline-flex; gap: 6px; align-items: center; background: #f8fafc; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 0.75rem;">
+                        <span style="color: #dc2626; font-weight: 700;" title="Stock Flujo Activo vence en Agosto">Ago: ${v_ago.toLocaleString('es-AR')}</span> | 
+                        <span style="color: #d97706; font-weight: 700;" title="Flujo proyectado vence en Septiembre">Sep: ${v_sep.toLocaleString('es-AR')}</span> | 
+                        <span style="color: #2563eb; font-weight: 700;" title="Flujo proyectado vence en Octubre">Oct: ${v_oct.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+
+    if (kpiEstancado) kpiEstancado.innerText = totEstancado.toLocaleString('es-AR');
+    if (kpiFlujo) kpiFlujo.innerText = totFlujo.toLocaleString('es-AR');
+    if (kpiMetaTotal) kpiMetaTotal.innerText = totMetaPeriodo.toLocaleString('es-AR');
+}
+
+// ──────────────────────────────────────────────────────────────
+// DGIUR - MONITOREO Y PRODUCCIÓN POR ANALISTA (PÚBLICO PRIVADO, COPUA, PRIVADA)
+// ──────────────────────────────────────────────────────────────
+
+let _gprodCurrentGerencia = 'publico_privado';
+let _gprodDataMap = {};
+let _gprodChartInstances = {};
+let _gprodTratasChartInstances = {};
+
+// Compatibilidad
+let _pppData = {
+    analistas: [],
+    produccion_mensual: [],
+    tratas_distribucion: [],
+    stock_actual: [],
+    expedientes: []
+};
+let _pppChartInstance = null;
+let _pppTratasChartInstance = null;
+
+async function loadGenericGerenciaProdView(gerenciaId) {
+    if (!gerenciaId) gerenciaId = 'publico_privado';
+    _gprodCurrentGerencia = gerenciaId;
+
+    const prefix = gerenciaId === 'publico_privado' ? 'ppp' : gerenciaId;
+
+    try {
+        const res = await def_fetch(`${API_BASE}/reporte/${gerenciaId}/analisis_produccion`);
+        if (!res) {
+            // Error de autenticación o red manejado por def_fetch
+            return;
+        }
+        if (!res.ok) {
+            console.error(`Error HTTP ${res.status} al cargar datos de ${gerenciaId}`);
+            return;
+        }
+
+        const data = await res.json();
+        _gprodDataMap[gerenciaId] = data;
+
+        if (gerenciaId === 'publico_privado') {
+            _pppData = data;
+        }
+
+        // 1. Renderizar KPIs
+        renderGProdKPIs(data, prefix);
+
+        // 2. Poblar selectores de filtro
+        populateGProdFilters(data, prefix);
+
+        // 3. Renderizar gráficos
+        renderGProdCharts(data, prefix);
+
+        // 4. Renderizar Matriz de Producción
+        renderGProdMatrixTable(data, prefix);
+
+        // 5. Renderizar Detalle de Expedientes
+        filterGProdExpedientesTable(prefix);
+
+        // 6. Renderizar Stock Actual
+        renderGProdStockTable(data.stock_actual || [], prefix);
+    } catch (err) {
+        console.error(`Error al cargar datos de ${gerenciaId}:`, err);
+    }
+}
+
+async function loadPublicoPrivadoView() {
+    return loadGenericGerenciaProdView('publico_privado');
+}
+
+function reloadCurrentGProdView() {
+    loadGenericGerenciaProdView(_gprodCurrentGerencia);
+}
+
+function renderGProdKPIs(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const currYear = new Date().getFullYear();
+    const prodList = data.produccion_mensual || [];
+
+    // Total expedientes 2026
+    const totalAnio = prodList
+        .filter(r => r.anio === currYear)
+        .reduce((sum, r) => sum + (r.exp_intervenidos || 0), 0);
+
+    const kpiAnio = document.getElementById(`${prefix}-kpi-prod-anio`);
+    if (kpiAnio) kpiAnio.innerText = totalAnio.toLocaleString('es-AR');
+
+    // Último mes completo
+    const now = new Date();
+    const lastMNum = now.getMonth() === 0 ? 12 : now.getMonth();
+    const lastMYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const lastMLabel = `${lastMYear}-${lastMNum.toString().padStart(2, '0')}`;
+
+    const totalLastMonth = prodList
+        .filter(r => r.mes_label === lastMLabel)
+        .reduce((sum, r) => sum + (r.exp_intervenidos || 0), 0);
+
+    const kpiMes = document.getElementById(`${prefix}-kpi-prod-mes`);
+    const kpiMesSub = document.getElementById(`${prefix}-kpi-prod-mes-sub`);
+    if (kpiMes) kpiMes.innerText = totalLastMonth.toLocaleString('es-AR');
+    if (kpiMesSub) {
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        kpiMesSub.innerText = `Expedientes en ${monthNames[lastMNum - 1]} ${lastMYear}`;
+    }
+
+    // Stock actual
+    const stockList = data.stock_actual || [];
+    const kpiStock = document.getElementById(`${prefix}-kpi-stock-actual`);
+    const tabStockCount = document.getElementById(`${prefix}-tab-stock-count`);
+    if (kpiStock) kpiStock.innerText = stockList.length.toLocaleString('es-AR');
+    if (tabStockCount) tabStockCount.innerText = stockList.length.toLocaleString('es-AR');
+
+    // Tratas distintas atendidas
+    const tratasList = data.tratas_distribucion || [];
+    const uniqueTratas = new Set(tratasList.map(t => t.trata).filter(Boolean));
+    const kpiTratas = document.getElementById(`${prefix}-kpi-tratas-count`);
+    if (kpiTratas) kpiTratas.innerText = uniqueTratas.size.toLocaleString('es-AR');
+}
+
+function renderPPPKPIs(data) {
+    renderGProdKPIs(data, 'ppp');
+}
+
+function populateGProdFilters(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const analystSelects = [`${prefix}-chart-filter-analyst`, `${prefix}-filter-analyst`];
+    const mesSelect = document.getElementById(`${prefix}-filter-mes`);
+    const trataSelect = document.getElementById(`${prefix}-filter-trata`);
+
+    const analistas = data.analistas || [];
+    analystSelects.forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        let html = `<option value="ALL">Todos los analistas (${analistas.length})</option>`;
+        analistas.forEach(a => {
+            html += `<option value="${a.usuario}">${a.nombre || a.usuario}</option>`;
+        });
+        sel.innerHTML = html;
+        sel.value = 'ALL';
+    });
+
+    // Meses únicos
+    if (mesSelect) {
+        const monthsSet = new Set((data.produccion_mensual || []).map(r => r.mes_label));
+        const sortedMonths = Array.from(monthsSet).sort().reverse();
+        let html = `<option value="ALL">Todos los períodos (${sortedMonths.length})</option>`;
+        sortedMonths.forEach(m => {
+            const parts = m.split('-');
+            const mIdx = parseInt(parts[1], 10) - 1;
+            const mName = MESES[mIdx] || parts[1];
+            html += `<option value="${m}">${mName} ${parts[0]}</option>`;
+        });
+        mesSelect.innerHTML = html;
+        mesSelect.value = 'ALL';
+    }
+
+    // Tratas únicas
+    if (trataSelect) {
+        const tratasMap = new Map();
+        (data.tratas_distribucion || []).forEach(t => {
+            if (t.trata && !tratasMap.has(t.trata)) {
+                tratasMap.set(t.trata, t.descripcion_trata || t.trata);
+            }
+        });
+        let html = `<option value="ALL">Todas las tratas (${tratasMap.size})</option>`;
+        Array.from(tratasMap.entries())
+            .sort((a, b) => (a[1] || a[0]).localeCompare(b[1] || b[0]))
+            .forEach(([code, desc]) => {
+                const label = desc && desc !== 'Sin descripción' ? desc : code;
+                html += `<option value="${code}">${label.substring(0, 45)}</option>`;
+            });
+        trataSelect.innerHTML = html;
+        trataSelect.value = 'ALL';
+    }
+}
+
+function populatePPPFilters(data) {
+    populateGProdFilters(data, 'ppp');
+}
+
+function renderGProdCharts(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const prodList = data.produccion_mensual || [];
+    const analistas = data.analistas || [];
+
+    // Meses ordenados cronológicamente (últimos 12 meses)
+    const monthsSet = new Set(prodList.map(r => r.mes_label));
+    const sortedMonths = Array.from(monthsSet).sort().slice(-12);
+
+    const monthLabels = sortedMonths.map(m => {
+        const parts = m.split('-');
+        const mIdx = parseInt(parts[1], 10) - 1;
+        return `${(MESES[mIdx] || '').substring(0, 3)} ${parts[0]}`;
+    });
+
+    const colors = ['#0076bb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0284c7', '#6366f1'];
+
+    const datasets = analistas.map((a, idx) => {
+        const dataValues = sortedMonths.map(m => {
+            const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
+            return found ? (found.exp_intervenidos || 0) : 0;
+        });
+
+        const color = colors[idx % colors.length];
+        return {
+            label: a.nombre || a.usuario,
+            data: dataValues,
+            backgroundColor: color,
+            borderColor: color,
+            borderWidth: 2,
+            borderRadius: 4,
+            tension: 0.3
+        };
+    });
+
+    // 1. Gráfico de Producción
+    const canvasProd = document.getElementById(`${prefix}-production-chart`);
+    if (canvasProd) {
+        if (_gprodChartInstances[prefix]) _gprodChartInstances[prefix].destroy();
+        _gprodChartInstances[prefix] = new Chart(canvasProd, {
+            type: 'bar',
+            data: {
+                labels: monthLabels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Outfit', size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} expedientes`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { family: 'Outfit', size: 11 } } },
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { family: 'Outfit', size: 11 } } }
+                }
+            }
+        });
+        if (prefix === 'ppp') _pppChartInstance = _gprodChartInstances[prefix];
+    }
+
+    // 2. Gráfico Donut de Tratas Intervenidas
+    const canvasTratas = document.getElementById(`${prefix}-tratas-chart`);
+    if (canvasTratas) {
+        if (_gprodTratasChartInstances[prefix]) _gprodTratasChartInstances[prefix].destroy();
+
+        const tratasMap = {};
+        (data.tratas_distribucion || []).forEach(t => {
+            const desc = t.descripcion_trata && t.descripcion_trata !== 'Sin descripción'
+                ? t.descripcion_trata
+                : t.trata;
+            tratasMap[desc] = (tratasMap[desc] || 0) + (t.exp_intervenidos || 0);
+        });
+
+        const sortedTratas = Object.entries(tratasMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6);
+
+        const trataLabels = sortedTratas.map(t => t[0]);
+        const trataValues = sortedTratas.map(t => t[1]);
+
+        _gprodTratasChartInstances[prefix] = new Chart(canvasTratas, {
+            type: 'doughnut',
+            data: {
+                labels: trataLabels,
+                datasets: [{
+                    data: trataValues,
+                    backgroundColor: ['#0076bb', '#002d47', '#10b981', '#f59e0b', '#8b5cf6', '#94a3b8'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { 
+                        position: 'bottom', 
+                        labels: { 
+                            boxWidth: 10, 
+                            font: { family: 'Outfit', size: 10.5 },
+                            generateLabels: (chart) => {
+                                const orig = Chart.overrides.doughnut.plugins.legend.labels.generateLabels(chart);
+                                orig.forEach(l => {
+                                    if (l.text && l.text.length > 28) {
+                                        l.text = l.text.substring(0, 26) + '...';
+                                    }
+                                });
+                                return orig;
+                            }
+                        } 
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.label}: ${ctx.parsed} expedientes`
+                        }
+                    }
+                },
+                cutout: '65%'
+            }
+        });
+        if (prefix === 'ppp') _pppTratasChartInstance = _gprodTratasChartInstances[prefix];
+    }
+}
+
+function renderPPPCharts(data) {
+    renderGProdCharts(data, 'ppp');
+}
+
+function updateGProdChart(prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const chart = _gprodChartInstances[prefix];
+    const data = _gprodDataMap[_gprodCurrentGerencia];
+    if (!chart || !data) return;
+
+    const selectedAnalyst = document.getElementById(`${prefix}-chart-filter-analyst`)?.value || 'ALL';
+    const prodList = data.produccion_mensual || [];
+    const analistas = data.analistas || [];
+    const monthsSet = new Set(prodList.map(r => r.mes_label));
+    const sortedMonths = Array.from(monthsSet).sort().slice(-12);
+
+    const colors = ['#0076bb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#0284c7', '#6366f1'];
+
+    const targetAnalistas = selectedAnalyst === 'ALL'
+        ? analistas
+        : analistas.filter(a => a.usuario === selectedAnalyst);
+
+    chart.data.datasets = targetAnalistas.map((a, idx) => {
+        const dataValues = sortedMonths.map(m => {
+            const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
+            return found ? (found.exp_intervenidos || 0) : 0;
+        });
+        const color = colors[idx % colors.length];
+        return {
+            label: a.nombre || a.usuario,
+            data: dataValues,
+            backgroundColor: color,
+            borderColor: color,
+            borderWidth: 2,
+            borderRadius: 4,
+            tension: 0.3
+        };
+    });
+
+    chart.update();
+}
+
+function updatePPPChart() {
+    updateGProdChart('ppp');
+}
+
+function renderGProdMatrixTable(data, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const container = document.getElementById(`${prefix}-matrix-container`);
+    if (!container) return;
+
+    const prodList = data.produccion_mensual || [];
+    const analistas = data.analistas || [];
+
+    // Meses únicos cronológicos desde Marzo 2026 (izq a der)
+    const monthsSet = new Set(prodList.map(r => r.mes_label));
+    const sortedMonths = Array.from(monthsSet).sort();
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.88rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                    <th style="padding: 12px 14px; font-weight: 600; min-width: 200px;">Analista / Buzón</th>
+    `;
+
+    sortedMonths.forEach(m => {
+        const parts = m.split('-');
+        const mIdx = parseInt(parts[1], 10) - 1;
+        const mName = (MESES[mIdx] || '').substring(0, 3);
+        html += `
+            <th style="padding: 10px 8px; font-weight: 600; text-align: center; min-width: 120px; border-left: 1px solid #e2e8f0;">
+                <div style="font-size: 0.88rem; color: #1e293b; margin-bottom: 4px;">${mName} ${parts[0]}</div>
+                <div style="display: flex; justify-content: center; gap: 8px; font-size: 0.72rem;">
+                    <span style="color: #0284c7; font-weight: 700;">ING</span>
+                    <span style="color: #10b981; font-weight: 700;">EGR</span>
+                </div>
+            </th>
+        `;
+    });
+
+    html += `
+                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary-dark); background: #f1f5f9; min-width: 130px; border-left: 1px solid #e2e8f0;">
+                        <div>Total Período</div>
+                        <div style="display: flex; justify-content: center; gap: 12px; font-size: 0.72rem; margin-top: 4px;">
+                            <span style="color: #0284c7; font-weight: 700;">ING</span>
+                            <span style="color: #10b981; font-weight: 700;">EGR</span>
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    // Totales por columna
+    const colTotalsIng = {};
+    const colTotalsEgr = {};
+    sortedMonths.forEach(m => { colTotalsIng[m] = 0; colTotalsEgr[m] = 0; });
+    let grandTotalIng = 0;
+    let grandTotalEgr = 0;
+
+    analistas.forEach((a, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        let rowTotalIng = 0;
+        let rowTotalEgr = 0;
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 10px 14px; font-weight: 600; color: #1e293b;">
+                    <i class="fa-solid fa-user-circle" style="color: #64748b; margin-right: 6px;"></i>
+                    ${a.nombre || a.usuario}
+                    <span style="display: block; font-size: 0.75rem; color: #94a3b8; font-weight: 400;">${a.usuario}</span>
+                </td>
+        `;
+
+        sortedMonths.forEach(m => {
+            const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
+            const ingCount = found ? (found.cant_ingresos || 0) : 0;
+            const egrCount = found ? (found.cant_egresos || 0) : 0;
+
+            rowTotalIng += ingCount;
+            rowTotalEgr += egrCount;
+            colTotalsIng[m] = (colTotalsIng[m] || 0) + ingCount;
+            colTotalsEgr[m] = (colTotalsEgr[m] || 0) + egrCount;
+
+            const ingBadge = ingCount > 0
+                ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'ING', '${prefix}')" title="Ver ${ingCount} ingresos">${ingCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+            const egrBadge = egrCount > 0
+                ? `<span style="background: #dcfce7; color: #10b981; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'EGR', '${prefix}')" title="Ver ${egrCount} egresos">${egrCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+
+            html += `
+                <td style="padding: 10px 8px; text-align: center; border-left: 1px solid #f1f5f9;">
+                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                        ${ingBadge}
+                        ${egrBadge}
+                    </div>
+                </td>
+            `;
+        });
+
+        grandTotalIng += rowTotalIng;
+        grandTotalEgr += rowTotalEgr;
+
+        html += `
+                <td style="padding: 10px 14px; text-align: center; font-weight: 700; background: #f8fafc; border-left: 1px solid #e2e8f0;">
+                    <div style="display: flex; justify-content: center; gap: 12px; align-items: center;">
+                        <span style="color: #0284c7;">${rowTotalIng.toLocaleString('es-AR')}</span>
+                        <span style="color: #10b981;">${rowTotalEgr.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    // Fila de Totales Generales
+    html += `
+            <tr style="background: #f1f5f9; border-top: 2px solid #cbd5e1; font-weight: 700; color: #0f172a;">
+                <td style="padding: 12px 14px;">Total Gerencia</td>
+    `;
+
+    sortedMonths.forEach(m => {
+        const totIng = colTotalsIng[m] || 0;
+        const totEgr = colTotalsEgr[m] || 0;
+        html += `
+            <td style="padding: 12px 8px; text-align: center; border-left: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                    <span style="color: #0284c7; font-weight: 800;">${totIng.toLocaleString('es-AR')}</span>
+                    <span style="color: #10b981; font-weight: 800;">${totEgr.toLocaleString('es-AR')}</span>
+                </div>
+            </td>
+        `;
+    });
+
+    html += `
+                <td style="padding: 12px 14px; text-align: center; font-size: 0.95rem; background: #e2e8f0; border-left: 1px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: center; gap: 12px; align-items: center;">
+                        <span style="color: #0284c7; font-weight: 800;">${grandTotalIng.toLocaleString('es-AR')}</span>
+                        <span style="color: #10b981; font-weight: 800;">${grandTotalEgr.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+function renderPPPMatrixTable(data) {
+    renderGProdMatrixTable(data, 'ppp');
+}
+
+function filterGProdByAnalystAndMonth(analyst, mes, tipoEvento, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    switchGProdSection('expedientes', prefix);
+    const selAnalyst = document.getElementById(`${prefix}-filter-analyst`);
+    const selMes = document.getElementById(`${prefix}-filter-mes`);
+    const selTipo = document.getElementById(`${prefix}-filter-tipo-evento`);
+
+    if (selAnalyst) selAnalyst.value = analyst;
+    if (selMes) selMes.value = mes;
+    if (selTipo && tipoEvento) selTipo.value = tipoEvento;
+
+    filterGProdExpedientesTable(prefix);
+}
+
+function filterByAnalystAndMonth(analyst, mes, tipoEvento) {
+    filterGProdByAnalystAndMonth(analyst, mes, tipoEvento, 'ppp');
+}
+
+function switchGProdSection(sectionId, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    
+    // Ocultar todas las secciones bajo la vista actual
+    const currentViewElem = document.getElementById(_gprodCurrentGerencia) || document;
+    const sections = currentViewElem.querySelectorAll(`.${prefix}-section`);
+    sections.forEach(s => {
+        s.classList.remove('active');
+        s.style.display = 'none';
+    });
+
+    const buttons = currentViewElem.querySelectorAll(`.tab-btn`);
+    buttons.forEach(b => {
+        b.classList.remove('active');
+        b.style.color = '#64748b';
+        b.style.borderBottom = 'none';
+    });
+
+    const targetSection = currentViewElem.querySelector(`#${prefix}-section-${sectionId}`);
+    const targetBtn = currentViewElem.querySelector(`#${prefix}-tab-btn-${sectionId}`);
+
+    if (targetSection) {
+        targetSection.classList.add('active');
+        targetSection.style.display = 'block';
+    }
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+        targetBtn.style.color = '#0076bb';
+        targetBtn.style.borderBottom = '2px solid #0076bb';
+    }
+}
+
+function switchPPPSection(sectionId) {
+    switchGProdSection(sectionId, 'ppp');
+}
+
+function filterGProdExpedientesTable(prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const query = (document.getElementById(`${prefix}-search-input`)?.value || '').toLowerCase().trim();
+    const selectedAnalyst = document.getElementById(`${prefix}-filter-analyst`)?.value || 'ALL';
+    const selectedMes = document.getElementById(`${prefix}-filter-mes`)?.value || 'ALL';
+    const selectedTipo = document.getElementById(`${prefix}-filter-tipo-evento`)?.value || 'ALL';
+    const selectedTrata = document.getElementById(`${prefix}-filter-trata`)?.value || 'ALL';
+
+    const data = _gprodDataMap[_gprodCurrentGerencia] || _pppData;
+    const expedientes = data.expedientes || [];
+
+    let filtered = expedientes.filter(exp => {
+        if (selectedAnalyst !== 'ALL' && exp.analista !== selectedAnalyst) return false;
+        if (selectedMes !== 'ALL' && exp.mes_label !== selectedMes) return false;
+        if (selectedTipo !== 'ALL' && exp.tipo_evento !== selectedTipo) return false;
+        if (selectedTrata !== 'ALL' && exp.trata !== selectedTrata) return false;
+
+        if (query) {
+            const expNum = (exp.expediente || '').toLowerCase();
+            const motivo = (exp.motivo || '').toLowerCase();
+            const trataDesc = (exp.descripcion_trata || '').toLowerCase();
+            const dest = (exp.destinatario || '').toLowerCase();
+            if (!expNum.includes(query) && !motivo.includes(query) && !trataDesc.includes(query) && !dest.includes(query)) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    const counter = document.getElementById(`${prefix}-expedientes-counter`);
+    if (counter) counter.innerText = `Mostrando ${filtered.length.toLocaleString('es-AR')} de ${expedientes.length.toLocaleString('es-AR')} eventos`;
+
+    renderGProdExpedientesTable(filtered, prefix);
+}
+
+function filterPPPExpedientesTable() {
+    filterGProdExpedientesTable('ppp');
+}
+
+function renderGProdExpedientesTable(items, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const container = document.getElementById(`${prefix}-expedientes-table-container`);
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                <i class="fa-solid fa-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                <p>No se encontraron expedientes con los filtros seleccionados.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const displayItems = items.slice(0, 300);
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.86rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                    <th style="padding: 10px 12px; font-weight: 600;">Expediente</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: center;">Tipo</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Trata</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Analista / Buzón</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Fecha de Evento</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Días en Gerencia</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Contraparte</th>
+                    <th style="padding: 10px 12px; font-weight: 600; min-width: 220px;">Motivo</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    displayItems.forEach((exp, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const dias = Number(exp.dias_en_gerencia || 0);
+        const tipoBadge = exp.tipo_evento === 'ING'
+            ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;"><i class="fa-solid fa-arrow-down-long"></i> ING</span>`
+            : `<span style="background: #dcfce7; color: #10b981; font-weight: 700; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;"><i class="fa-solid fa-arrow-up-long"></i> EGR</span>`;
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 10px 12px; font-weight: 700; color: #0076bb; white-space: nowrap;">
+                    <i class="fa-solid fa-file-lines" style="color: #64748b; margin-right: 6px; font-size: 0.8rem;"></i>
+                    ${exp.expediente || 'Sin número'}
+                </td>
+                <td style="padding: 10px 12px; text-align: center;">
+                    ${tipoBadge}
+                </td>
+                <td style="padding: 10px 12px;">
+                    <span style="font-weight: 600; color: #1e293b; display: block;">${exp.trata}</span>
+                    <span style="font-size: 0.75rem; color: #64748b;">${(exp.descripcion_trata || '').substring(0, 28)}</span>
+                </td>
+                <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
+                    ${exp.analista_nombre || exp.analista}
+                </td>
+                <td style="padding: 10px 12px; color: #0f172a; font-weight: 500; white-space: nowrap; font-size: 0.8rem;">
+                    ${exp.fecha_pase || '—'}
+                </td>
+                <td style="padding: 10px 12px; text-align: right;">
+                    <span style="background: #f1f5f9; color: #334155; font-weight: 600; padding: 2px 7px; border-radius: 5px; font-size: 0.8rem;">
+                        ${dias} d
+                    </span>
+                </td>
+                <td style="padding: 10px 12px; color: #334155; font-weight: 500;">
+                    <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${exp.destinatario || '—'}</span>
+                </td>
+                <td style="padding: 10px 12px; color: #475569; font-size: 0.82rem; line-height: 1.35; max-width: 260px;">
+                    ${exp.motivo || '<span style="color:#cbd5e1;">Sin motivo</span>'}
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    if (items.length > 300) {
+        html += `
+            <div style="padding: 0.75rem; text-align: center; color: #64748b; font-size: 0.82rem; background: #f8fafc; border-top: 1px solid #e2e8f0;">
+                Mostrando los primeros 300 resultados de ${items.length.toLocaleString('es-AR')}. Utilizá los filtros para acotar la búsqueda.
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderPPPExpedientesTable(items) {
+    renderGProdExpedientesTable(items, 'ppp');
+}
+
+function renderGProdStockTable(stockItems, prefix) {
+    if (!prefix) prefix = _gprodCurrentGerencia === 'publico_privado' ? 'ppp' : 'gprod';
+    const container = document.getElementById(`${prefix}-stock-table-container`);
+    if (!container) return;
+
+    if (!stockItems || stockItems.length === 0) {
+        container.innerHTML = `
+            <div style="padding: 2.5rem; text-align: center; color: #94a3b8;">
+                <i class="fa-solid fa-check-circle" style="font-size: 2rem; margin-bottom: 0.5rem; display: block; color: #10b981;"></i>
+                <p>No hay expedientes pendientes en buzón actualmente.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.86rem;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
+                    <th style="padding: 10px 12px; font-weight: 600;">Expediente</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Trata</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Analista / Buzón Actual</th>
+                    <th style="padding: 10px 12px; font-weight: 600;">Fecha Último Pase</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: right;">Días en Bandeja</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    stockItems.forEach((item, idx) => {
+        const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const dias = Number(item.dias_en_poder || 0);
+        const badgeColor = dias > 30 ? '#ef4444' : dias > 15 ? '#f59e0b' : '#10b981';
+        const badgeBg = dias > 30 ? '#fef2f2' : dias > 15 ? '#fffbeb' : '#f0fdf4';
+
+        html += `
+            <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
+                <td style="padding: 10px 12px; font-weight: 700; color: #0076bb; white-space: nowrap;">
+                    <i class="fa-solid fa-folder" style="color: #64748b; margin-right: 6px; font-size: 0.8rem;"></i>
+                    ${item.expediente || 'Sin número'}
+                </td>
+                <td style="padding: 10px 12px;">
+                    <span style="font-weight: 600; color: #1e293b; display: block;">${item.trata}</span>
+                    <span style="font-size: 0.75rem; color: #64748b;">${(item.descripcion_trata || '').substring(0, 30)}</span>
+                </td>
+                <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
+                    ${item.analista_nombre || item.analista}
+                </td>
+                <td style="padding: 10px 12px; color: #64748b; white-space: nowrap;">
+                    ${item.fecha_ultimo_pase || '—'}
+                </td>
+                <td style="padding: 10px 12px; text-align: right;">
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem;">
+                        ${dias} días
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+function renderPPPStockTable(stockItems) {
+    renderGProdStockTable(stockItems, 'ppp');
+}
+
+function exportGProdToExcel(prefix) {
+    const data = _gprodDataMap[_gprodCurrentGerencia] || _pppData;
+    if (!data || !data.expedientes || data.expedientes.length === 0) {
+        alert("No hay datos de expedientes para exportar.");
+        return;
+    }
+
+    try {
+        const rows = data.expedientes.map(exp => ({
+            "Expediente": exp.expediente || '',
+            "Tipo": exp.tipo_evento === 'ING' ? 'Ingreso (ING)' : 'Egreso (EGR)',
+            "Trata": exp.trata || '',
+            "Descripción Trata": exp.descripcion_trata || '',
+            "Analista / Buzón": exp.analista_nombre || exp.analista || '',
+            "Usuario": exp.analista || '',
+            "Fecha Evento": exp.fecha_pase || '',
+            "Fecha Primer Ingreso": exp.fecha_primer_ingreso || '',
+            "Fecha Último Egreso": exp.fecha_ultimo_egreso || '',
+            "Días en Gerencia": exp.dias_en_gerencia || 0,
+            "Período": exp.mes_label || '',
+            "Contraparte (Remitente/Destinatario)": exp.destinatario || '',
+            "Motivo": exp.motivo || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        const gName = (_gprodCurrentGerencia || 'Gerencia').toUpperCase();
+        XLSX.utils.book_append_sheet(wb, ws, `Producción ${gName}`);
+        XLSX.writeFile(wb, `Produccion_${gName}_${new Date().toISOString().substring(0, 10)}.xlsx`);
+    } catch (e) {
+        console.error("Error exportando a Excel:", e);
+        alert("Ocurrió un error al generar el archivo Excel.");
+    }
+}
+
+function exportPPPToExcel() {
+    exportGProdToExcel('ppp');
+}
+
+// Exponer funciones en window
+window.loadGenericGerenciaProdView = loadGenericGerenciaProdView;
+window.loadPublicoPrivadoView = loadPublicoPrivadoView;
+window.reloadCurrentGProdView = reloadCurrentGProdView;
+window.updateGProdChart = updateGProdChart;
+window.updatePPPChart = updatePPPChart;
+window.switchGProdSection = switchGProdSection;
+window.switchPPPSection = switchPPPSection;
+window.filterGProdExpedientesTable = filterGProdExpedientesTable;
+window.filterPPPExpedientesTable = filterPPPExpedientesTable;
+window.filterGProdByAnalystAndMonth = filterGProdByAnalystAndMonth;
+window.filterByAnalystAndMonth = filterByAnalystAndMonth;
+window.exportGProdToExcel = exportGProdToExcel;
+window.exportPPPToExcel = exportPPPToExcel;

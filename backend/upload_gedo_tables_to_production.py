@@ -11,14 +11,38 @@ from database import engine as local_engine
 
 ACRONIMOS = [
     "IFOCD", "IFPDO", "PROIN", "PLINE", "IFSMC", "IFROC", "IFSMI", "IFDEX", 
-    "CECNU", "IFGPA", "FIPAR", "IFPCB", "IFPCO", "IFTPT", "IFPEO", "IFCIS", "IFRSP"
+    "CECNU", "IFGPA", "FIPAR", "IFPCB", "IFPCO", "IFTPT", "IFPEO", "IFCIS", "IFRSP",
+    "IFCAO", "IFCFP", "IFCAC", "IFMAD", "IFMHC", "IFMMH", "IFMOT", "IFMSC",
+    "APH", "MORFOLOGIA", "USOS"
 ]
 
 DEFAULT_PROD_URL = os.getenv("DATABASE_URL_PUBLIC", "postgresql://postgres:frQB7%7D0%26p~.C_.X%40Ymu(1tAO7@34.136.69.128:5432/sade_db")
 
+import io
+import csv
+
+def psql_insert_copy(table, conn, keys, data_iter):
+    """
+    Inserción ultrarrápida usando PostgreSQL COPY.
+    """
+    dbapi_conn = conn.connection
+    with dbapi_conn.cursor() as cur:
+        s_buf = io.StringIO()
+        writer = csv.writer(s_buf)
+        writer.writerows(data_iter)
+        s_buf.seek(0)
+
+        columns = ', '.join([f'"{k}"' for k in keys])
+        if table.schema:
+            table_name = f'"{table.schema}"."{table.name}"'
+        else:
+            table_name = f'"{table.name}"'
+
+        sql = f'COPY {table_name} ({columns}) FROM STDIN WITH CSV'
+        cur.copy_expert(sql=sql, file=s_buf)
+
 def get_prod_engine(prod_db_url):
     if not prod_db_url:
-        # Intentar obtener de variables de entorno o usar la URL por defecto
         prod_db_url = os.getenv("DATABASE_URL_PROD") or DEFAULT_PROD_URL
         
     if not prod_db_url:
@@ -32,7 +56,7 @@ def get_prod_engine(prod_db_url):
     return create_engine(
         prod_db_url,
         pool_pre_ping=True,
-        connect_args={"options": "-c statement_timeout=120000"}  # 2 minutos de timeout
+        connect_args={"options": "-c statement_timeout=600000"}  # 10 minutos de timeout
     )
 
 def copy_table(table_name, prod_engine):
@@ -41,6 +65,18 @@ def copy_table(table_name, prod_engine):
     
     # 1. Leer datos de la base local
     try:
+        with local_engine.connect() as lconn:
+            local_exists = lconn.execute(text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name = '{table_name}'
+                );
+            """)).scalar()
+            
+        if not local_exists:
+            print(f"    [!] La tabla {table_name} no existe en la base local. Saltando.")
+            return True
+            
         df = pd.read_sql_query(f"SELECT * FROM public.{table_name}", local_engine)
         print(f"    - Leídos {len(df)} registros de la base local.")
     except Exception as e:
@@ -53,15 +89,61 @@ def copy_table(table_name, prod_engine):
 
     # 2. Subir datos a la base de producción
     try:
-        # to_sql con if_exists='replace' recrea la estructura de columnas y tipos en producción
-        df.to_sql(
-            name=table_name,
-            con=prod_engine,
-            schema='public',
-            if_exists='replace',
-            index=False,
-            chunksize=5000
-        )
+        with prod_engine.connect() as conn:
+            table_exists = conn.execute(text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' AND table_name = '{table_name}'
+                );
+            """)).scalar()
+            
+            if table_exists:
+                # Comprobar si hay columnas nuevas en el dataframe que falten en prod
+                existing_cols = [r[0] for r in conn.execute(text(f"""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_schema = 'public' AND table_name = '{table_name}'
+                """)).fetchall()]
+                
+                for col in df.columns:
+                    if col not in existing_cols:
+                        print(f"    - Agregando columna faltante '{col}' en {table_name}...")
+                        conn.execute(text(f'ALTER TABLE public.{table_name} ADD COLUMN "{col}" TEXT'))
+                
+                print(f"    - Vaciando tabla existente en producción (TRUNCATE)...")
+                conn.execute(text(f"TRUNCATE TABLE public.{table_name}"))
+                conn.commit()
+                
+                # Insertar los datos manteniendo la tabla y sus dependencias (vistas)
+                df.to_sql(
+                    name=table_name,
+                    con=prod_engine,
+                    schema='public',
+                    if_exists='append',
+                    index=False,
+                    method=psql_insert_copy,
+                    chunksize=10000
+                )
+            else:
+                print(f"    - Creando tabla en producción...")
+                # Crear solo la estructura
+                df.head(0).to_sql(
+                    name=table_name,
+                    con=prod_engine,
+                    schema='public',
+                    if_exists='replace',
+                    index=False
+                )
+                # Insertar con COPY
+                df.to_sql(
+                    name=table_name,
+                    con=prod_engine,
+                    schema='public',
+                    if_exists='append',
+                    index=False,
+                    method=psql_insert_copy,
+                    chunksize=10000
+                )
         print(f"    - Subida a producción completada con éxito.")
     except Exception as e:
         print(f"    [-] Error al escribir la tabla {table_name} en producción: {e}")

@@ -1,0 +1,947 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showBacklogMenu()"
+                    style="cursor: pointer;">Backlog</span><span id="backlog-sub-breadcrumb" style="display: none;"> /
+                    Subsección</span>
+            </div>
+
+            <h1 class="landing-title" id="backlog-title" style="margin-bottom: 2rem;">Backlog de Configuración</h1>
+
+            <!-- Dashboard de Tarjetas del Backlog -->
+            <div id="backlog-cards-container" class="admin-grid"
+                style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 1rem; display: grid;">
+                <!-- Tarjeta 1: Usuarios -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('users')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Usuarios del Sistema</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Crear,
+                            modificar o eliminar usuarios del tablero, y definir sus roles y gerencias.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 2: Tratas -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('metas')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; color: #047857; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Configuración de Tratas</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Administrar
+                            tratas incluidas, analistas oficiales, buzones de ingreso y acrónimos por gerencia.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 3: Configuración de Roles -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('roles')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #f3e8ff; color: #a855f7; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Configuración de Roles</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Crear y
+                            configurar roles y los permisos de acceso a las secciones del tablero.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 4: Buzones para Análisis -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('buzones_acceso')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #fff7ed; color: #ea580c; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Buzones para Análisis</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Configurar los
+                            analistas y buzones que se visualizan en cada gerencia en la sección de Buzones.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 5: Familias de Trámites -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('familias')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #fdf2f8; color: #db2777; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-folder-tree"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Familias de Trámites</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Configurar
+                            cada familia de trámites (Catastro, Registros, etc.), incluyendo o excluyendo códigos de
+                            trata.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+
+                <!-- Tarjeta 6: Analistas por Área -->
+                <div class="analyst-card-premium" onclick="enterBacklogSection('analistas')"
+                    style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                    <div
+                        style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                        <i class="fa-solid fa-user-gear"></i>
+                    </div>
+                    <div>
+                        <h3
+                            style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Analistas por Área</h3>
+                        <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem; line-height: 1.4;">Definir y
+                            listar los analistas oficiales que pertenecen a cada área y gerencia del tablero.</p>
+                    </div>
+                    <div
+                        style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                        Acceder <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 1: Usuarios -->
+            <div id="admin-tab-users" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <!-- Vista de Listado de Usuarios -->
+                <div id="users-list-view">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                        <div>
+                            <h3
+                                style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.35rem;">
+                                Usuarios del Sistema</h3>
+                            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Administración de
+                                credenciales, roles y permisos individuales del tablero.</p>
+                        </div>
+                        <button type="button" onclick="showCreateUserView()" class="btn-primary"
+                            style="padding: 10px 16px; font-weight: 600; font-family: 'Outfit'; border-radius: 8px; display: flex; align-items: center; gap: 8px; cursor: pointer; border: none;">
+                            <i class="fa-solid fa-user-plus"></i> Registrar Usuario
+                        </button>
+                    </div>
+                    <div id="users-table-container">
+                        <!-- Se llenará vía JS (Grilla de tarjetas) -->
+                    </div>
+                </div>
+
+                <!-- Vista de Registro de Usuario (Alta) -->
+                <div id="users-create-view" style="display: none;">
+                    <button type="button" onclick="showUsersListView()"
+                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a Usuarios
+                    </button>
+                    <div class="admin-card"
+                        style="width: 100%; background: white; padding: 30px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3
+                            style="margin-top: 0; margin-bottom: 20px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">
+                            Crear Nuevo Usuario</h3>
+                        <form id="create-user-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Nombre
+                                        Completo</label>
+                                    <input type="text" id="new-fullname" required placeholder="Ej: Juan Perez"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Sector
+                                        / Gerencia</label>
+                                    <input type="text" id="new-sector" required placeholder="Ej: SGDU, Catastro..."
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Usuario
+                                        (SADE)</label>
+                                    <input type="text" id="new-username" required placeholder="Usuario (SADE)"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Email</label>
+                                    <input type="email" id="new-email" required placeholder="email@ejemplo.com"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Contraseña
+                                        Inicial</label>
+                                    <input type="password" id="new-password" required
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Rol</label>
+                                    <select id="new-role" onchange="handleRoleSelectionChange('new', this.value)"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                        <!-- Dynamic options loaded in app.js -->
+                                    </select>
+                                </div>
+                            </div>
+                            <!-- Matriz de Permisos Personalizados -->
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Personalizar
+                                    Permisos de Acceso</label>
+                                <div id="new-user-perms-grid"
+                                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; font-family: 'Outfit'; font-size: 0.85rem;">
+                                    <!-- Dinámico -->
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary"
+                                style="margin-top: 1rem; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer;">Crear
+                                Usuario</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Vista de Edición de Usuario (Alta/Modificación) -->
+                <div id="users-edit-view" style="display: none;">
+                    <button type="button" onclick="showUsersListView()"
+                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a Usuarios
+                    </button>
+                    <div class="admin-card"
+                        style="width: 100%; background: white; padding: 30px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3 id="edit-user-title-header"
+                            style="margin-top: 0; margin-bottom: 20px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark);">
+                            Editar Usuario</h3>
+                        <form id="edit-user-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <input type="hidden" id="edit-username-hidden">
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Nombre
+                                        Completo</label>
+                                    <input type="text" id="edit-fullname" required
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Sector
+                                        / Gerencia</label>
+                                    <input type="text" id="edit-sector" required
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Rol</label>
+                                    <select id="edit-role" onchange="handleRoleSelectionChange('edit', this.value)"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                        <!-- Dynamic options loaded in app.js -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Nueva
+                                        Contraseña (Opcional)</label>
+                                    <input type="password" id="edit-password" placeholder="Dejar vacío para no cambiar"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+                            <!-- Matriz de Permisos Personalizados -->
+                            <div class="form-group" style="margin-top: 10px;">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Personalizar
+                                    Permisos de Acceso</label>
+                                <div id="edit-user-perms-grid"
+                                    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 15px; border-radius: 8px; font-family: 'Outfit'; font-size: 0.85rem;">
+                                    <!-- Dinámico -->
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary"
+                                style="margin-top: 1rem; width: 100%; padding: 12px; font-weight: 600; border-radius: 8px; border: none; cursor: pointer;">Guardar
+                                Cambios</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 2: Configuración de Tratas -->
+            <div id="admin-tab-metas" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+
+                <!-- Vista 1: Listado de Tratas -->
+                <!-- Vista 1: Navegación Jerárquica de Tratas -->
+                <div id="metas-list-container">
+
+                    <!-- Nivel 1: Direcciones -->
+                    <div id="metas-nav-direcciones">
+                        <button type="button" onclick="showBacklogMenu()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                        </button>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <div>
+                                <h3
+                                    style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                                    Configuración de Tratas por Dirección</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona una
+                                    dirección para gestionar sus áreas y trámites.</p>
+                            </div>
+                            <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary"
+                                style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Configuración
+                            </button>
+                        </div>
+                        <div id="metas-direcciones-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+
+                    <!-- Nivel 2: Gerencias / Áreas -->
+                    <div id="metas-nav-gerencias" style="display: none;">
+                        <button type="button" onclick="goBackToDirecciones()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Direcciones
+                        </button>
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <div>
+                                <h3 id="metas-gerencias-title"
+                                    style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                                    Áreas de la Dirección</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona un área
+                                    para configurar sus códigos de trámite.</p>
+                            </div>
+                            <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary"
+                                style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Configuración
+                            </button>
+                        </div>
+                        <div id="metas-gerencias-grid"
+                            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+
+                    <!-- Nivel 3: Tratas / Trámites -->
+                    <div id="metas-nav-tratas" style="display: none;">
+                        <button type="button" onclick="goBackToGerencias()"
+                            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                            <i class="fa-solid fa-arrow-left"></i> Volver a Áreas
+                        </button>
+                        <div class="admin-card" style="width: 100%;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                                <div>
+                                    <h3 id="metas-tratas-title"
+                                        style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                                        Configuración de Trámites</h3>
+                                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Haz click en un
+                                        trámite para configurar analistas, firmantes, acrónimos o descripciones válidas.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <div style="position: relative; width: 250px;">
+                                        <input type="text" id="search-metas-input" placeholder="Buscar trámite..."
+                                            oninput="filterAdminMetas()"
+                                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    </div>
+                                    <button type="button" onclick="setAdminMetaCreateMode()" class="btn-primary"
+                                        style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 8px 14px; font-size: 0.88rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s;">
+                                        <i class="fa-solid fa-plus"></i> Nueva Configuración
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr
+                                            style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left;">
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Trata
+                                                (Código)</th>
+                                            <th style="padding: 12px 10px; font-weight: 700; color: #475569;">
+                                                Descripción de trata</th>
+                                            <th
+                                                style="padding: 12px 10px; font-weight: 700; color: #475569; text-align: center;">
+                                                Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="metas-table-body">
+                                        <!-- Se llenará dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Vista 2: Edición de Trata -->
+                <div id="metas-edit-container" style="display: none;">
+                    <button type="button" onclick="showMetasList()"
+                        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                        <i class="fa-solid fa-arrow-left"></i> Volver a la Lista
+                    </button>
+                    <div class="admin-card"
+                        style="width: 100%; padding: 30px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 25px;">
+                            <h2
+                                style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.5rem;">
+                                Editar Configuración de Trata</h2>
+                            <p id="edit-meta-subtitle"
+                                style="color: #64748b; font-size: 0.95rem; margin: 6px 0 0 0; font-family: 'Outfit'; font-weight: 600;">
+                            </p>
+                        </div>
+
+                        <form id="edit-meta-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                            <input type="hidden" id="edit-meta-id-hidden">
+
+                            <!-- Activo toggle switch -->
+                            <div
+                                style="display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <div>
+                                    <span
+                                        style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">Estado
+                                        Activo</span>
+                                    <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">Si se desactiva,
+                                        esta trata no se calculará ni mostrará en los reportes.</p>
+                                </div>
+                                <label class="switch-premium"
+                                    style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                                    <input type="checkbox" id="edit-meta-activo"
+                                        style="opacity: 0; width: 0; height: 0;">
+                                    <span class="slider-premium"></span>
+                                </label>
+                            </div>
+
+                            <!-- Dirección, Gerencia, y Trata Reporte -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Dirección</label>
+                                    <input type="text" id="edit-meta-direccion" placeholder="Ej: DGROC o DGIUR"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: uppercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Gerencia
+                                        / Área</label>
+                                    <input type="text" id="edit-meta-gerencia" placeholder="Ej: catastro"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: lowercase;">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Trata
+                                        (Código Acrónimo)</label>
+                                    <input type="text" id="edit-meta-trata-reporte" placeholder="Ej: CATASTRO"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; text-transform: uppercase;">
+                                </div>
+                            </div>
+
+                            <!-- Descripción de Trata -->
+                            <div class="form-group">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Descripción
+                                    de Trata</label>
+                                <input type="text" id="edit-meta-descripcion-trata"
+                                    placeholder="Ingrese una descripción personalizada para esta trata..."
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                            </div>
+
+                            <!-- Dos columnas para inputs tipo lista -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Tratas
+                                        Incluidas (Separadas por coma)</label>
+                                    <input type="text" id="edit-meta-tratas-incluidas"
+                                        placeholder="MDUG0107A, MDUG0107B"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Buzones
+                                        Ingreso (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-buzones-ingreso" placeholder="DGIUR-03, DGIUR-04"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Acrónimos
+                                        Egreso (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-acronimos-egreso" placeholder="DI, ANEXO, IF"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                                <div class="form-group">
+                                    <label
+                                        style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Buzones
+                                        Ingreso Intervenciones (Separados por coma)</label>
+                                    <input type="text" id="edit-meta-buzones-intervenciones"
+                                        placeholder="DGIUR-ADMISIBILIDAD"
+                                        style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: block; margin-bottom: 6px;">Descripciones
+                                    Válidas de Trámite (Una por línea)</label>
+                                <textarea id="edit-meta-descripciones" rows="3"
+                                    placeholder="Registro de plano conforme a obra civil&#10;Registro de plano de obra civil"
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; resize: vertical;"></textarea>
+                            </div>
+
+                            <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 10px 0;">
+
+                            <!-- Autocompletado de Analistas Oficiales -->
+                            <div class="form-group" style="position: relative;">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span>Analistas Oficiales</span>
+                                    <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">Buscar y
+                                        seleccionar usuarios de SADE</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="text" id="analistas-search-input"
+                                        placeholder="Buscar por nombre o usuario..."
+                                        oninput="handleSadeSearch(event, 'analistas')"
+                                        style="width: 100%; padding: 10px 14px 10px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <i class="fa-solid fa-magnifying-glass"
+                                        style="position: absolute; left: 12px; top: 14px; color: #94a3b8; font-size: 0.85rem;"></i>
+                                </div>
+                                <div id="analistas-suggestions" class="autocomplete-suggestions"
+                                    style="display: none; position: absolute; left: 0; right: 0; z-index: 1050; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; margin-top: 2px;">
+                                </div>
+                                <div id="analistas-chips-container"
+                                    style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 34px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px;">
+                                </div>
+                            </div>
+
+                            <!-- Autocompletado de Firmantes Egreso -->
+                            <div class="form-group" style="position: relative;">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span>Firmantes Egreso</span>
+                                    <span style="font-size: 0.8rem; color: #64748b; font-weight: normal;">Buscar y
+                                        seleccionar usuarios de SADE</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="text" id="firmantes-search-input"
+                                        placeholder="Buscar por nombre o usuario..."
+                                        oninput="handleSadeSearch(event, 'firmantes')"
+                                        style="width: 100%; padding: 10px 14px 10px 34px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                                    <i class="fa-solid fa-magnifying-glass"
+                                        style="position: absolute; left: 12px; top: 14px; color: #94a3b8; font-size: 0.85rem;"></i>
+                                </div>
+                                <div id="firmantes-suggestions" class="autocomplete-suggestions"
+                                    style="display: none; position: absolute; left: 0; right: 0; z-index: 1050; background: white; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; margin-top: 2px;">
+                                </div>
+                                <div id="firmantes-chips-container"
+                                    style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 34px; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 8px; border-radius: 6px;">
+                                </div>
+                            </div>
+
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                                <button type="button" id="edit-meta-delete-btn" class="btn-primary"
+                                    onclick="deleteAdminMeta()"
+                                    style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 0.7rem 1.4rem; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-trash"></i> Eliminar Configuración
+                                </button>
+                                <div style="display: flex; gap: 12px;">
+                                    <button type="button" class="btn-primary" onclick="showMetasList()"
+                                        style="background: #e2e8f0; color: #475569; padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Cancelar</button>
+                                    <button type="submit" class="btn-primary" id="edit-meta-save-btn"
+                                        style="padding: 0.7rem 1.4rem; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">Guardar
+                                        Cambios</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 3: Configuración de Roles -->
+            <div id="admin-tab-roles" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="roles-admin-layout">
+                    <!-- Columna Izquierda (Master: Sidebar de Roles) -->
+                    <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                        <div class="admin-card"
+                            style="padding: 20px; border-radius: 14px; border: 1px solid #cbd5e1; background: white;">
+                            <h3
+                                style="margin: 0 0 1rem 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.1rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">
+                                Roles</h3>
+                            <div id="roles-list-container"
+                                style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 400px; overflow-y: auto; overflow-x: hidden; padding: 2px 6px 2px 2px;">
+                                <!-- Se llenará dinámicamente -->
+                            </div>
+                        </div>
+
+                        <!-- Crear Rol Form Card -->
+                        <div class="admin-card"
+                            style="padding: 20px; border-radius: 14px; border: 1px solid #cbd5e1; background: white;">
+                            <h4
+                                style="margin: 0 0 0.75rem 0; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 0.95rem;">
+                                Crear Nuevo Rol</h4>
+                            <form id="create-role-form" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <div class="form-group" style="margin: 0;">
+                                    <input type="text" id="new-role-name" required placeholder="Ej: auditor_catastro"
+                                        style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.85rem;">
+                                </div>
+                                <button type="submit" class="btn-primary"
+                                    style="padding: 8px; cursor: pointer; border: none; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; width: 100%; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 6px; background: var(--primary); color: white;"><i
+                                        class="fa-solid fa-plus"></i> Crear Rol</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha (Detail: Matriz de Permisos) -->
+                    <div id="permissions-detail-container" class="permissions-detail-panel">
+                        <!-- Se llenará dinámicamente con renderRolePermissions(roleName) -->
+                        <div style="padding: 3rem; text-align: center; color: #64748b;">
+                            <i class="fa-solid fa-user-shield"
+                                style="font-size: 3rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
+                            <p style="margin: 0; font-weight: 600;">Seleccione un rol de la lista izquierda para editar
+                                sus permisos de acceso.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 4: Configuración de Buzones para Análisis por Gerencia -->
+            <div id="admin-tab-buzones_acceso" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="admin-grid"
+                    style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
+                    <!-- Panel Agregar Analista / Buzón Adicional -->
+                    <div class="admin-card"
+                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3
+                            style="margin-top: 0; margin-bottom: 6px; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                            Buzones y Analistas por Gerencia</h3>
+                        <p style="margin: 0 0 1.25rem 0; font-size: 0.82rem; color: #64748b; line-height: 1.4;">
+                            Define qué analistas o buzones se visualizan en cada área de la sección <strong>Buzones</strong>. Los configurados en las tratas están activos por default.
+                        </p>
+
+                        <div class="form-group" style="margin-bottom: 1.2rem;">
+                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Seleccionar Área / Gerencia</label>
+                            <select id="admin-buzon-gerencia-select" onchange="onAdminBuzonGerenciaChange()"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none; font-weight: 700; color: var(--primary-dark);">
+                                <!-- Cargado dinámicamente -->
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="position: relative; margin-bottom: 1.2rem;">
+                            <label style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Agregar Analista o Buzón Adicional</label>
+                            <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">
+                                Puedes escribir el nombre de un usuario SADE o el código de un buzón especial (ej. <em>DGIUR-03</em>, <em>ALANDAZURI</em>, etc.).
+                            </p>
+                            <div style="position: relative;">
+                                <input type="text" id="admin-buzon-user-search"
+                                    oninput="searchSadeUsersForBuzonAdicional(this.value)"
+                                    placeholder="Buscar usuario SADE o escribir código..."
+                                    style="width: 100%; padding: 10px 14px 10px 35px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"
+                                    autocomplete="off">
+                                <i class="fa-solid fa-search"
+                                    style="position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 0.9rem;"></i>
+                                <button type="button" onclick="clearAdminBuzonUserSearch()"
+                                    style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;"
+                                    id="btn-clear-buzon-search">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            <!-- Sugerencias SADE -->
+                            <div id="admin-buzon-search-results"
+                                style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 100; margin-top: 5px;">
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="addCustomBuzonCodeFromInput()" class="btn-primary"
+                            style="padding: 10px 16px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Outfit'; font-size: 0.9rem; width: 100%;">
+                            <i class="fa-solid fa-plus"></i> Agregar como Buzón / Usuario
+                        </button>
+                    </div>
+
+                    <!-- Lista de Analistas y Buzones Asignados -->
+                    <div class="admin-card"
+                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;" id="admin-buzones-table-title">Analistas y Buzones Visibles</h3>
+                                <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: #64748b;" id="admin-buzones-table-subtitle">Cargando...</p>
+                            </div>
+                            <input type="text" id="admin-buzones-table-search" oninput="filterAdminBuzonesTable()"
+                                placeholder="Filtrar por nombre o usuario..."
+                                style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
+                        </div>
+
+                        <div class="table-container" style="overflow-x: auto; max-height: 480px;">
+                            <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc; position: sticky; top: 0; z-index: 10;">
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Usuario / Buzón</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">Nombre y Apellido</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center;">Origen</th>
+                                        <th style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit'; text-align: center; width: 110px;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-buzones-table-body">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 5: Familias de Trámites -->
+            <div id="admin-tab-familias" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="admin-grid"
+                    style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start;">
+                    <!-- Configurar/Crear Familia Form Card -->
+                    <div class="admin-card"
+                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 id="admin-familia-form-title"
+                                style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.2rem;">
+                                Configurar Familia</h3>
+                            <button type="button" onclick="setAdminFamiliaCreateMode()" class="btn-primary"
+                                style="background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s;">
+                                <i class="fa-solid fa-plus"></i> Nueva Familia
+                            </button>
+                        </div>
+
+                        <form id="admin-familia-form" onsubmit="saveAdminFamilia(event)"
+                            style="display: flex; flex-direction: column; gap: 1.2rem;">
+                            <div class="form-group">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Nombre
+                                    de Familia</label>
+                                <input type="text" id="admin-familia-nombre" readonly
+                                    placeholder="Seleccione una familia para editar o pulse 'Nueva Familia'..."
+                                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; background: #f8fafc; font-weight: bold; color: #64748b; outline: none; transition: all 0.2s;">
+                            </div>
+
+                            <div class="form-group">
+                                <label
+                                    style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Tratas
+                                    Incluidas</label>
+                                <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Selecciona qué códigos
+                                    de trámite pertenecen a esta familia.</p>
+
+                                <!-- Filtro de Búsqueda -->
+                                <input type="text" id="admin-familia-tratas-search" oninput="filterAdminTratas()"
+                                    placeholder="Buscar trámite por código o nombre..."
+                                    style="width: 100%; padding: 8px 12px; margin-bottom: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none;">
+
+                                <!-- Acciones Rápidas -->
+                                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                                    <button type="button" onclick="selectAdminTratas(true)"
+                                        style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; transition: background 0.2s;">
+                                        <i class="fa-solid fa-check-double"></i> Seleccionar Todos
+                                    </button>
+                                    <button type="button" onclick="selectAdminTratas(false)"
+                                        style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 0.72rem; font-weight: 700; color: #475569; cursor: pointer; font-family: inherit; transition: background 0.2s;">
+                                        <i class="fa-solid fa-square"></i> Desmarcar Todos
+                                    </button>
+                                </div>
+
+                                <div id="admin-familia-tratas-checkboxes-container"
+                                    style="max-height: 250px; overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: #f8fafc;">
+                                    <!-- Dinámico -->
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary"
+                                style="padding: 12px; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: 'Outfit'; font-size: 0.95rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                <i class="fa-solid fa-save"></i> Guardar Configuración
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Lista de Familias Card -->
+                    <div class="admin-card"
+                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3
+                            style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;">
+                            Familias Configuradas</h3>
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table class="table-premium"
+                                style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                                <thead>
+                                    <tr
+                                        style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc;">
+                                        <th
+                                            style="padding: 14px 16px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Familia</th>
+                                        <th
+                                            style="padding: 14px 16px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Trámites Incluidos</th>
+                                        <th
+                                            style="padding: 14px 16px; font-weight: 700; color: #475569; width: 150px; text-align: center; font-family: 'Outfit';">
+                                            Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-familias-table-body">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenido Pestaña 6: Analistas por Área/Gerencia -->
+            <div id="admin-tab-analistas" class="admin-tab-content" style="display: none; margin-top: 1rem;">
+                <button type="button" onclick="showBacklogMenu()"
+                    style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                    <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+                </button>
+                <div class="admin-grid"
+                    style="display: grid; grid-template-columns: 1fr 2.5fr; gap: 1.5rem; align-items: start;">
+
+                    <!-- Formulario / Panel de Asignación -->
+                    <div class="admin-card"
+                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <h3
+                            style="margin-top: 0; margin-bottom: 1.5rem; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.2rem;">
+                            Gestionar Analistas</h3>
+
+                        <div class="form-group" style="margin-bottom: 1.5rem;">
+                            <label
+                                style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Seleccionar
+                                Área / Gerencia</label>
+                            <select id="admin-analistas-gerencia-select" onchange="onAdminAnalistasGerenciaChange()"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; background: white; outline: none; font-weight: bold; color: var(--primary-dark);">
+                                <!-- Dinámico -->
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="position: relative; margin-bottom: 1.5rem;">
+                            <label
+                                style="font-weight: 700; color: var(--primary-dark); display: block; margin-bottom: 6px; font-size: 0.88rem;">Agregar
+                                Nuevo Analista</label>
+                            <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #64748b;">Busca al usuario por su
+                                nombre o nombre de usuario SADE para agregarlo al área.</p>
+                            <div style="position: relative;">
+                                <input type="text" id="admin-analistas-user-search"
+                                    oninput="searchSadeUsersForAnalistas(this.value)"
+                                    placeholder="Buscar usuario SADE..."
+                                    style="width: 100%; padding: 10px 14px 10px 35px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"
+                                    autocomplete="off">
+                                <i class="fa-solid fa-search"
+                                    style="position: absolute; left: 12px; top: 13px; color: #94a3b8; font-size: 0.9rem;"></i>
+                                <button type="button" onclick="clearAdminAnalistasUserSearch()"
+                                    style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: #94a3b8; cursor: pointer; display: none;"
+                                    id="btn-clear-analistas-search">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
+                            <!-- Dropdown de resultados de búsqueda -->
+                            <div id="admin-analistas-search-results"
+                                style="display: none; position: absolute; left: 0; right: 0; top: 100%; background: white; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 100; margin-top: 5px;">
+                                <!-- Dinámico -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Analistas del Área -->
+                    <div class="admin-card"
+                        style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700;"
+                                id="admin-analistas-table-title">Analistas Asignados</h3>
+                            <input type="text" id="admin-analistas-table-search" oninput="filterAdminAnalistasTable()"
+                                placeholder="Filtrar por nombre o usuario..."
+                                style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.85rem; outline: none; width: 220px;">
+                        </div>
+
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table class="table-premium"
+                                style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                                <thead>
+                                    <tr
+                                        style="border-bottom: 2px solid #e2e8f0; text-align: left; background: #f8fafc;">
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Usuario</th>
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Apellido</th>
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Nombre</th>
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Email</th>
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Ocupación</th>
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; font-family: 'Outfit';">
+                                            Número CUIT</th>
+                                        <th
+                                            style="padding: 12px 14px; font-weight: 700; color: #475569; text-align: center; font-family: 'Outfit';">
+                                            Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="admin-analistas-table-body">
+                                    <!-- Dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>

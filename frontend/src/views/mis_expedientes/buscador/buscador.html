@@ -1,0 +1,190 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Mis Expedientes / Buscador
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <h1 class="landing-title" style="margin-bottom: 0.25rem;">Buscador de Expedientes</h1>
+                <p style="color: #64748b; font-size: 0.95rem; margin: 0;">Ingrese los parámetros del número del
+                    expediente para consultar su estado y ubicación actuales.</p>
+            </div>
+
+            <!-- Pestañas de Navegación del Buscador -->
+            <div class="trata-nav-tabs" style="margin-bottom: 2rem;">
+                <button class="tab-btn active" id="btn-buscador-tab-numero" onclick="switchBuscadorTab('numero')">Buscar
+                    por Número</button>
+                <button class="tab-btn" id="btn-buscador-tab-condiciones"
+                    onclick="switchBuscadorTab('condiciones')">Buscar por Condiciones</button>
+            </div>
+
+            <!-- Panel 1: Buscar por Número -->
+            <div id="buscador-tab-numero" class="buscador-tab-content active">
+                <div class="search-form-card"
+                    style="background: white; padding: 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); margin-bottom: 2.5rem; width: 100%;">
+                    <form id="expediente-search-form" onsubmit="event.preventDefault(); buscarExpediente();"
+                        style="display: grid; grid-template-columns: repeat(3, 1fr) auto; gap: 1.5rem; align-items: flex-end;">
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="search-anio"
+                                style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Año</label>
+                            <input type="number" id="search-anio" class="form-input" min="2000" max="2100" required
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.95rem;">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="search-numero"
+                                style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Número
+                                de Expediente</label>
+                            <input type="text" id="search-numero" class="form-input" placeholder="Ej: 08928422"
+                                pattern="\d{1,8}" required title="Ingrese hasta 8 dígitos numéricos"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.95rem;">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="search-reparticion"
+                                style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; text-align: left;">Repartición</label>
+                            <select id="search-reparticion"
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.95rem; background: white;">
+                                <option value="DGIUR">DGIUR</option>
+                                <option value="DGROC">DGROC</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-primary"
+                            style="padding: 11px 24px; font-family: 'Outfit'; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 118, 187, 0.1);">
+                            <i class="fa-solid fa-magnifying-glass"></i> Buscar
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Panel 2: Buscar por Condiciones -->
+            <div id="buscador-tab-condiciones" class="buscador-tab-content" style="display: none;">
+                <div class="search-form-card"
+                    style="background: white; padding: 2rem; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); margin-bottom: 2.5rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label for="search-conjunction"
+                                style="font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; font-family: 'Outfit';">Criterio:</label>
+                            <select id="search-conjunction"
+                                style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; background: white; font-weight: 600;">
+                                <option value="AND">Cumplir TODAS las condiciones (AND)</option>
+                                <option value="OR">Cumplir AL MENOS UNA condición (OR)</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn-secondary" onclick="addSearchRuleRow()"
+                            style="padding: 8px 16px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem;">
+                            + Agregar Condición
+                        </button>
+                    </div>
+
+                    <div id="search-rules-list-container"
+                        style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                        <!-- Las filas de reglas se inyectarán dinámicamente con JS -->
+                    </div>
+
+                    <div style="text-align: right;">
+                        <button type="button" class="btn-primary" onclick="buscarPorCondiciones()"
+                            style="padding: 11px 24px; font-family: 'Outfit'; font-size: 0.95rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 118, 187, 0.1);">
+                            Buscar por Condiciones
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resultados de Búsqueda -->
+            <div id="search-results-container" class="table-container-dynamic"
+                style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); padding: 2rem; margin-bottom: 3rem; display: none;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 10px;">
+                    <h3
+                        style="color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; margin: 0; border-left: 4px solid var(--primary); padding-left: 0.75rem;">
+                        Expedientes Encontrados</h3>
+                    <button id="btn-export-search-excel" class="btn-download-excel" onclick="exportSearchResultsExcel()"
+                        style="padding: 8px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Descargar Excel
+                    </button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="minimal-table" style="margin-top: 0; width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 12px 16px; text-align: center; font-size: 0.75rem; width: 50px;"><i
+                                        class="fa-solid fa-bookmark"></i></th>
+                                <th onclick="sortSearchResults('expediente')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Expediente <span
+                                        id="sort-indicator-expediente"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('descripcion_trata')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Trámite <span
+                                        id="sort-indicator-descripcion_trata"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('gerencia')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Área / Gerencia
+                                    <span id="sort-indicator-gerencia"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span>
+                                </th>
+                                <th onclick="sortSearchResults('ubicacion')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Ubicación / Stock
+                                    <span id="sort-indicator-ubicacion"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span>
+                                </th>
+                                <th onclick="sortSearchResults('analista')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Analista Asignado
+                                    <span id="sort-indicator-analista"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span>
+                                </th>
+                                <th onclick="sortSearchResults('dias_tramitacion')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Días Tramitación
+                                    <span id="sort-indicator-dias_tramitacion"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span>
+                                </th>
+                                <th onclick="sortSearchResults('dias_subsanacion')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Días Subsanación
+                                    <span id="sort-indicator-dias_subsanacion"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span>
+                                </th>
+                                <th onclick="sortSearchResults('cant_subsanaciones')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Cant.
+                                    Subsanaciones <span id="sort-indicator-cant_subsanaciones"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('dias_stock')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Días Stock <span
+                                        id="sort-indicator-dias_stock"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                                <th onclick="sortSearchResults('fecha_ultimo_pase')"
+                                    style="padding: 12px 16px; text-align: left; font-size: 0.75rem;">Último Pase <span
+                                        id="sort-indicator-fecha_ultimo_pase"
+                                        style="margin-left: 4px; font-size: 0.7rem; color: #94a3b8;">⇅</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="search-results-tbody">
+                            <!-- Inyectado vía JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Controles de Paginación de Búsqueda -->
+                <div id="search-pagination-container"
+                    style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; border-top: 1px solid #e2e8f0; padding-top: 1.5rem;">
+                    <span id="search-pagination-info"
+                        style="font-size: 0.9rem; color: #64748b; font-family: 'Outfit'; font-weight: 500;">Mostrando
+                        0-0 de 0 resultados</span>
+                    <div id="search-pagination-controls"
+                        style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <!-- Se generará dinámicamente desde JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Estado de carga / sin resultados -->
+            <div id="search-status-container"
+                style="display: none; text-align: center; padding: 3rem; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); margin-bottom: 3rem;">
+                <!-- Se poblará vía JS -->
+            </div>

@@ -1,0 +1,107 @@
+<div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / Reportes / Universo Tratas y Buzones
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem;">
+                <div>
+                    <h1 class="landing-title" style="margin-bottom: 0.25rem;">Universo Tratas y Buzones</h1>
+                    <p style="color: #64748b; margin: 0; font-size: 0.9rem;">Análisis y distribución del stock completo de expedientes SGDU por Tratas y por Buzones/Analistas</p>
+                </div>
+            </div>
+
+            <!-- Tab Navigation Bar -->
+            <div style="display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 1.5rem;">
+                <button id="tab-btn-universo-tratas" onclick="switchUniversoTab('tratas')"
+                    style="padding: 10px 18px; border: none; background: white; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: var(--primary); border-bottom: 3px solid var(--primary); cursor: pointer; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-tags"></i> Universo por Tratas
+                </button>
+                <button id="tab-btn-universo-buzones" onclick="switchUniversoTab('buzones')"
+                    style="padding: 10px 18px; border: none; background: transparent; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.95rem; color: #64748b; border-bottom: 3px solid transparent; cursor: pointer; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-users"></i> Universo por Buzones y Analistas
+                </button>
+            </div>
+
+            <!-- Pestaña 1: Universo por Tratas -->
+            <div id="universo-tab-content-tratas">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+                            <input type="text" id="universo-tratas-search"
+                                placeholder="Buscar por trata o descripción..."
+                                oninput="filterUniversoTratas()"
+                                style="padding: 9px 12px 9px 35px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; width: 280px; transition: border-color 0.2s;"
+                                onfocus="this.style.borderColor='var(--primary)'"
+                                onblur="this.style.borderColor='#cbd5e1'">
+                        </div>
+                        <select id="universo-tratas-filter-alta" onchange="filterUniversoTratas()"
+                            style="padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; background: white; outline: none; cursor: pointer;">
+                            <option value="">Todas las tratas</option>
+                            <option value="true">Alta en Tablero ✅</option>
+                            <option value="false">Sin configurar ❌</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button id="universo-tratas-refresh-btn" onclick="loadUniversoTratas()"
+                            style="padding: 9px 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-rotate-right"></i> Actualizar Tratas
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI summary strip Tratas -->
+                <div id="universo-tratas-kpis" style="display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap;"></div>
+
+                <!-- Table container Tratas -->
+                <div id="universo-tratas-table-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                    <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+                        <span class="loader"></span>
+                        <p style="margin-top: 8px;">Cargando universo de tratas...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestaña 2: Universo por Buzones y Analistas -->
+            <div id="universo-tab-content-buzones" style="display: none;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <div style="position: relative;">
+                            <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
+                            <input type="text" id="universo-buzones-search"
+                                placeholder="Buscar por buzón o usuario..."
+                                oninput="filterUniversoBuzones()"
+                                style="padding: 9px 12px 9px 35px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; width: 280px; transition: border-color 0.2s;"
+                                onfocus="this.style.borderColor='var(--primary)'"
+                                onblur="this.style.borderColor='#cbd5e1'">
+                        </div>
+                        <select id="universo-buzones-filter-tipo" onchange="filterUniversoBuzones()"
+                            style="padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; background: white; outline: none; cursor: pointer;">
+                            <option value="">Todos los destinatarios</option>
+                            <option value="Usuario">Solo Usuarios / Analistas</option>
+                            <option value="Buzón">Solo Buzones de Sector</option>
+                            <option value="rol_analista">Configurado como Analista ✅</option>
+                            <option value="rol_buzon">Configurado como Buzón de Ingreso 📥</option>
+                            <option value="rol_no_cfg">Sin Configurar en Tablero ❌</option>
+                            <option value="con_subs">Con Subsanaciones Abiertas</option>
+                            <option value="con_stock">Con Stock Activo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button id="universo-buzones-refresh-btn" onclick="loadUniversoBuzones()"
+                            style="padding: 9px 14px; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-family: 'Outfit'; font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-rotate-right"></i> Actualizar Buzones
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI summary strip Buzones -->
+                <div id="universo-buzones-kpis" style="display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap;"></div>
+
+                <!-- Table container Buzones -->
+                <div id="universo-buzones-table-container" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+                    <div style="padding: 3rem; text-align: center; color: #94a3b8;">
+                        <span class="loader"></span>
+                        <p style="margin-top: 8px;">Cargando universo de buzones y analistas...</p>
+                    </div>
+                </div>
+            </div>
