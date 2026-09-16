@@ -13,9 +13,9 @@ export const GERENCIAS_CONFIG = {
     morfologia: { key: 'morfologia', name: 'Morfología Urbana', dir: 'DGIUR', icon: 'fa-solid fa-cubes', color: '#0891b2', bg: '#ecfeff' },
     aph: { key: 'aph', name: 'Área de Protección Histórica (APH)', dir: 'DGIUR', icon: 'fa-solid fa-landmark', color: '#b45309', bg: '#fef3c7' },
     usos: { key: 'usos', name: 'Usos del Suelo', dir: 'DGIUR', icon: 'fa-solid fa-shapes', color: '#0d9488', bg: '#f0fdfa' },
-    publico_privado: { key: 'publico_privado', name: 'Proyectos Público Privado', dir: 'DGIUR', icon: 'fa-solid fa-handshake', color: '#4f46e5', bg: '#eef2ff' },
-    copua: { key: 'copua', name: 'Comisión COPUA', dir: 'DGIUR', icon: 'fa-solid fa-users-gear', color: '#3b82f6', bg: '#eff6ff' },
-    privada: { key: 'privada', name: 'Gerencia Privada', dir: 'DGIUR', icon: 'fa-solid fa-key', color: '#65a30d', bg: '#f7fee7' },
+    publico_privado: { key: 'publico_privado', name: 'Público Privado', dir: 'DGIUR', icon: 'fa-solid fa-handshake', color: '#4f46e5', bg: '#eef2ff' },
+    copua: { key: 'copua', name: 'COPUA', dir: 'DGIUR', icon: 'fa-solid fa-users-gear', color: '#3b82f6', bg: '#eff6ff' },
+    privada: { key: 'privada', name: 'Privada', dir: 'DGIUR', icon: 'fa-solid fa-key', color: '#65a30d', bg: '#f7fee7' },
 
     // OTROS
     otros: { key: 'otros', name: 'Otras Áreas / General', dir: 'OTROS', icon: 'fa-solid fa-folder-tree', color: '#64748b', bg: '#f8fafc' }
@@ -140,9 +140,9 @@ export async function loadRRHHHubView() {
             }
         }
     } catch (err) {
-        console.error("Error in loadRRHHHubView:", err);
+        console.error("Error loading RRHH hub view:", err);
         if (cardsContainer) {
-            cardsContainer.innerHTML = '<div style="text-align: center; padding: 2rem; color: #ef4444; grid-column: 1 / -1;">Error de red al consultar el servidor.</div>';
+            cardsContainer.innerHTML = '<div style="text-align: center; padding: 2rem; color: #ef4444; grid-column: 1 / -1;">Error de conexión con el servidor.</div>';
         }
     }
 }
@@ -157,13 +157,17 @@ function renderHubCards(data, perms, hasGlobal) {
     const sectores = data.sectores || {};
     let totalAgentes = 0;
     let sumAsistencia = 0;
+    let countAsistencia = 0;
     let totalMinutos = 0;
     let totalDiasHoras = 0;
 
     Object.values(sectores).forEach(s => {
         (s.agentes_list || []).forEach(a => {
             totalAgentes++;
-            sumAsistencia += a.asistencia_pct;
+            if (a.asistencia_pct !== '--' && typeof a.asistencia_pct === 'number' && !isNaN(a.asistencia_pct)) {
+                sumAsistencia += a.asistencia_pct;
+                countAsistencia++;
+            }
             if (a.promedio_horas && a.promedio_horas !== '--') {
                 const parts = a.promedio_horas.split(':');
                 totalMinutos += parseInt(parts[0]) * 60 + parseInt(parts[1]);
@@ -172,7 +176,7 @@ function renderHubCards(data, perms, hasGlobal) {
         });
     });
 
-    const avgAsistencia = totalAgentes > 0 ? Math.round(sumAsistencia / totalAgentes) : 100;
+    const avgAsistencia = countAsistencia > 0 ? `${Math.round(sumAsistencia / countAsistencia)}%` : 'Sin planilla';
     const avgPromHoras = totalDiasHoras > 0
         ? (() => { const m = Math.round(totalMinutos / totalDiasHoras); return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; })()
         : '--';
@@ -190,7 +194,7 @@ function renderHubCards(data, perms, hasGlobal) {
                 <div style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-calendar-check"></i></div>
                 <div>
                     <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Asistencia Promedio General</span>
-                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #10b981;">${avgAsistencia}%</h3>
+                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #10b981;">${avgAsistencia}</h3>
                 </div>
             </div>
             <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
