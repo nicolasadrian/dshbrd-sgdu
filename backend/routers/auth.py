@@ -370,6 +370,22 @@ def _ensure_buzones_adicionales_table(conn):
             CONSTRAINT uq_gerencia_usuario UNIQUE (gerencia, usuario_buzon)
         )
     """))
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.cfg_analistas_areas (
+            id SERIAL PRIMARY KEY,
+            direccion VARCHAR(100),
+            gerencia VARCHAR(100) NOT NULL,
+            usuario_sade VARCHAR(150) NOT NULL,
+            nombre_completo VARCHAR(255),
+            tipo VARCHAR(50) DEFAULT 'analista',
+            activo BOOLEAN DEFAULT TRUE,
+            creado_el TIMESTAMP DEFAULT NOW()
+        )
+    """))
+    conn.execute(text("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_cfg_analistas_areas_ger_usr 
+        ON public.cfg_analistas_areas (gerencia, usuario_sade);
+    """))
     
     # Pre-cargar áreas por defecto si la tabla está vacía
     area_count = conn.execute(text("SELECT COUNT(*) FROM public.cfg_buzones_areas")).scalar()
@@ -662,14 +678,18 @@ async def move_gerencia_buzon_analista(
             if not dest_dir:
                 dest_dir = 'DGROC' if dest_clean in DGROC_GERENCIAS else ('DGIUR' if dest_clean in DGIUR_GERENCIAS else 'DGROC')
             
-            # a) Insertar en cfg_gerencias_buzones_adicionales
-            conn.execute(text("""
-                INSERT INTO public.cfg_gerencias_buzones_adicionales (gerencia, usuario_buzon)
-                VALUES (:g, :u)
-                ON CONFLICT (gerencia, usuario_buzon) DO NOTHING
-            """), {"g": dest_clean, "u": u_clean})
+            # a) Insertar en cfg_gerencias_buzones_adicionales (idempotente)
+            exists_adic = conn.execute(text("""
+                SELECT 1 FROM public.cfg_gerencias_buzones_adicionales 
+                WHERE LOWER(TRIM(gerencia)) = :g AND UPPER(TRIM(usuario_buzon)) = :u
+            """), {"g": dest_clean, "u": u_clean}).scalar()
+            if not exists_adic:
+                conn.execute(text("""
+                    INSERT INTO public.cfg_gerencias_buzones_adicionales (gerencia, usuario_buzon)
+                    VALUES (:g, :u)
+                """), {"g": dest_clean, "u": u_clean})
 
-            # b) Insertar en cfg_analistas_areas
+            # b) Insertar o actualizar en cfg_analistas_areas (idempotente sin requerir índice de conflicto)
             user_row = conn.execute(text("""
                 SELECT UPPER(TRIM(usuario)) as u, 
                        UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
@@ -679,14 +699,25 @@ async def move_gerencia_buzon_analista(
             nombre_completo = user_row[1] if (user_row and user_row[1]) else u_clean
             tipo = 'buzon' if ('-' in u_clean or u_clean.startswith('DG') or u_clean.startswith('SEC')) else 'analista'
 
-            conn.execute(text("""
-                INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
-                VALUES (:dir, :ger, :usr, :nom, :tipo, true)
-                ON CONFLICT (gerencia, usuario_sade) DO UPDATE 
-                SET direccion = EXCLUDED.direccion,
-                    nombre_completo = COALESCE(EXCLUDED.nombre_completo, cfg_analistas_areas.nombre_completo),
-                    activo = true;
-            """), {"dir": dest_dir, "ger": dest_clean, "usr": u_clean, "nom": nombre_completo, "tipo": tipo})
+            exists_analista = conn.execute(text("""
+                SELECT id FROM public.cfg_analistas_areas 
+                WHERE LOWER(TRIM(gerencia)) = :g AND UPPER(TRIM(usuario_sade)) = :u
+            """), {"g": dest_clean, "u": u_clean}).fetchone()
+
+            if exists_analista:
+                conn.execute(text("""
+                    UPDATE public.cfg_analistas_areas 
+                    SET direccion = :dir, 
+                        nombre_completo = COALESCE(:nom, nombre_completo), 
+                        tipo = :tipo, 
+                        activo = true 
+                    WHERE id = :id
+                """), {"dir": dest_dir, "nom": nombre_completo, "tipo": tipo, "id": exists_analista[0]})
+            else:
+                conn.execute(text("""
+                    INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
+                    VALUES (:dir, :ger, :usr, :nom, :tipo, true)
+                """), {"dir": dest_dir, "ger": dest_clean, "usr": u_clean, "nom": nombre_completo, "tipo": tipo})
 
             return {"status": "ok", "message": f"{tipo.title()} {u_clean} trasladado exitosamente a {dest_clean.upper()}."}
     except HTTPException:
@@ -714,31 +745,50 @@ async def add_gerencia_buzon_adicional(
     try:
         with engine.begin() as conn:
             _ensure_buzones_adicionales_table(conn)
-            conn.execute(text("""
-                INSERT INTO public.cfg_gerencias_buzones_adicionales (gerencia, usuario_buzon)
-                VALUES (:g, :u)
-                ON CONFLICT (gerencia, usuario_buzon) DO NOTHING
-            """), {"g": g_clean, "u": u_clean})
+            # a) Insertar en cfg_gerencias_buzones_adicionales (idempotente)
+            exists_adic = conn.execute(text("""
+                SELECT 1 FROM public.cfg_gerencias_buzones_adicionales 
+                WHERE LOWER(TRIM(gerencia)) = :g AND UPPER(TRIM(usuario_buzon)) = :u
+            """), {"g": g_clean, "u": u_clean}).scalar()
+            if not exists_adic:
+                conn.execute(text("""
+                    INSERT INTO public.cfg_gerencias_buzones_adicionales (gerencia, usuario_buzon)
+                    VALUES (:g, :u)
+                """), {"g": g_clean, "u": u_clean})
 
             # También sincronizar en cfg_analistas_areas
-            dest_dir = conn.execute(text("SELECT direccion FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": g_clean}).scalar() or "DGROC"
+            dest_dir = conn.execute(text("SELECT direccion FROM public.cfg_buzones_areas WHERE gerencia_key = :g"), {"g": g_clean}).scalar()
+            if not dest_dir:
+                dest_dir = 'DGROC' if g_clean in DGROC_GERENCIAS else ('DGIUR' if g_clean in DGIUR_GERENCIAS else 'DGROC')
+
             user_row = conn.execute(text("""
                 SELECT UPPER(TRIM(usuario)) as u, 
                        UPPER(TRIM(COALESCE(NULLIF(TRIM(apellido_nombre), ''), NULLIF(TRIM(CONCAT(nombre, ' ', apellido)), '')))) as nom
                 FROM public.datos_usuario 
                 WHERE TRIM(UPPER(usuario)) = :u
             """), {"u": u_clean}).fetchone()
-            nombre_completo = user_row.nom if user_row and user_row.nom else u_clean
+            nombre_completo = user_row[1] if (user_row and user_row[1]) else u_clean
             tipo = 'buzon' if ('-' in u_clean or u_clean.startswith('DG') or u_clean.startswith('SEC')) else 'analista'
 
-            conn.execute(text("""
-                INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
-                VALUES (:dir, :ger, :usr, :nom, :tipo, true)
-                ON CONFLICT (gerencia, usuario_sade) DO UPDATE 
-                SET direccion = EXCLUDED.direccion,
-                    nombre_completo = COALESCE(EXCLUDED.nombre_completo, cfg_analistas_areas.nombre_completo),
-                    activo = true;
-            """), {"dir": dest_dir, "ger": g_clean, "usr": u_clean, "nom": nombre_completo, "tipo": tipo})
+            exists_analista = conn.execute(text("""
+                SELECT id FROM public.cfg_analistas_areas 
+                WHERE LOWER(TRIM(gerencia)) = :g AND UPPER(TRIM(usuario_sade)) = :u
+            """), {"g": g_clean, "u": u_clean}).fetchone()
+
+            if exists_analista:
+                conn.execute(text("""
+                    UPDATE public.cfg_analistas_areas 
+                    SET direccion = :dir, 
+                        nombre_completo = COALESCE(:nom, nombre_completo), 
+                        tipo = :tipo, 
+                        activo = true 
+                    WHERE id = :id
+                """), {"dir": dest_dir, "nom": nombre_completo, "tipo": tipo, "id": exists_analista[0]})
+            else:
+                conn.execute(text("""
+                    INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
+                    VALUES (:dir, :ger, :usr, :nom, :tipo, true)
+                """), {"dir": dest_dir, "ger": g_clean, "usr": u_clean, "nom": nombre_completo, "tipo": tipo})
 
             return {"status": "ok", "message": f"Buzón/Analista {u_clean} agregado a la gerencia {g_clean.upper()}."}
     except Exception as e:
@@ -913,15 +963,26 @@ async def add_admin_analista(gerencia: str, req: AddAnalystRequest, current_user
             nombre_completo = user_row.nom if user_row and user_row.nom else usuario_to_add
             tipo = 'buzon' if ('-' in usuario_to_add or usuario_to_add.startswith('DGROC') or usuario_to_add.startswith('DGIUR') or usuario_to_add.startswith('SEC')) else 'analista'
 
-            # 2. Insertar o reactivar en cfg_analistas_areas
-            conn.execute(text("""
-                INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
-                VALUES (:dir, :ger, :usr, :nom, :tipo, true)
-                ON CONFLICT (gerencia, usuario_sade) DO UPDATE 
-                SET direccion = EXCLUDED.direccion,
-                    nombre_completo = COALESCE(EXCLUDED.nombre_completo, cfg_analistas_areas.nombre_completo),
-                    activo = true;
-            """), {"dir": dir_name, "ger": g_clean, "usr": usuario_to_add, "nom": nombre_completo, "tipo": tipo})
+            # 2. Insertar o reactivar en cfg_analistas_areas (idempotente)
+            exists_analista = conn.execute(text("""
+                SELECT id FROM public.cfg_analistas_areas 
+                WHERE LOWER(TRIM(gerencia)) = :g AND UPPER(TRIM(usuario_sade)) = :u
+            """), {"g": g_clean, "u": usuario_to_add}).fetchone()
+
+            if exists_analista:
+                conn.execute(text("""
+                    UPDATE public.cfg_analistas_areas 
+                    SET direccion = :dir, 
+                        nombre_completo = COALESCE(:nom, nombre_completo), 
+                        tipo = :tipo, 
+                        activo = true 
+                    WHERE id = :id
+                """), {"dir": dir_name, "nom": nombre_completo, "tipo": tipo, "id": exists_analista[0]})
+            else:
+                conn.execute(text("""
+                    INSERT INTO public.cfg_analistas_areas (direccion, gerencia, usuario_sade, nombre_completo, tipo, activo)
+                    VALUES (:dir, :ger, :usr, :nom, :tipo, true)
+                """), {"dir": dir_name, "ger": g_clean, "usr": usuario_to_add, "nom": nombre_completo, "tipo": tipo})
 
             # 3. Mantener sincronizada cfg_gestion_metas para tratas existentes de esa gerencia
             rows = conn.execute(text("SELECT id, analistas_oficiales FROM cfg_gestion_metas WHERE TRIM(LOWER(gerencia)) = :g"), {"g": g_clean}).fetchall()
