@@ -46,18 +46,65 @@ async function fetchRRHHData(monthVal = '', gerencia = '') {
     return await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
 }
 
+export function getLastCompleteMonth() {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+}
+
+export function populateRRHHMonthDropdown(selectEl, currentSelected, dbAvailableMonths = []) {
+    if (!selectEl) return;
+
+    const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    const lastComplete = getLastCompleteMonth();
+    
+    // Always start with the last complete month as the 1st option
+    const orderedMonths = [lastComplete];
+
+    // Add previous 24 months in descending order
+    const [lastY, lastM] = lastComplete.split('-').map(Number);
+    for (let i = 1; i <= 24; i++) {
+        const d = new Date(lastY, lastM - 1 - i, 1);
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!orderedMonths.includes(ym)) {
+            orderedMonths.push(ym);
+        }
+    }
+
+    // Add any database months that might not be in the list
+    (dbAvailableMonths || []).forEach(ym => {
+        if (!orderedMonths.includes(ym)) {
+            orderedMonths.push(ym);
+        }
+    });
+
+    const activeVal = currentSelected || selectEl.value || lastComplete;
+
+    let optionsHtml = '';
+    orderedMonths.forEach((ym, idx) => {
+        const [y, m] = ym.split('-').map(Number);
+        const name = MESES[m - 1] || ym;
+        let label = `${name} ${y}`;
+        if (idx === 0) {
+            label = `${name} ${y} (Último mes completo)`;
+        }
+        const isSel = (ym === activeVal) ? 'selected' : '';
+        optionsHtml += `<option value="${ym}" ${isSel}>${label}</option>`;
+    });
+
+    selectEl.innerHTML = optionsHtml;
+    selectEl.value = activeVal;
+}
+
 /**
  * Controller for Hub View (#/reportes_rrhh)
  */
 export async function loadRRHHHubView() {
-    const monthInput = document.getElementById('rrhh-hub-filter-month');
-    if (monthInput && !monthInput.value) {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        monthInput.value = `${y}-${m}`;
-    }
-    const monthVal = monthInput ? monthInput.value : '';
+    const monthSelect = document.getElementById('rrhh-hub-filter-month');
+    const monthVal = monthSelect ? monthSelect.value : '';
 
     const btnCarga = document.getElementById('btn-goto-rrhh-carga');
     const user = state.currentUser || JSON.parse(localStorage.getItem('sgdu_user') || 'null');
@@ -82,8 +129,8 @@ export async function loadRRHHHubView() {
             _currentReportData = data;
             window.currentRRHHReportData = data;
 
-            if (data.month && monthInput) {
-                monthInput.value = data.month;
+            if (monthSelect) {
+                populateRRHHMonthDropdown(monthSelect, data.month, data.available_months);
             }
 
             renderHubCards(data, perms, hasGlobal);
@@ -282,14 +329,8 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
         bg: '#eff6ff'
     };
 
-    const monthInput = document.getElementById(`rrhh-${cleanKey}-filter-month`);
-    if (monthInput && !monthInput.value) {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        monthInput.value = `${y}-${m}`;
-    }
-    const monthVal = monthInput ? monthInput.value : '';
+    const monthSelect = document.getElementById(`rrhh-${cleanKey}-filter-month`);
+    const monthVal = monthSelect ? monthSelect.value : '';
 
     const cardsContainer = document.getElementById(`rrhh-${cleanKey}-cards`);
     const coverageContainer = document.getElementById(`rrhh-${cleanKey}-coverage-container`);
@@ -305,8 +346,8 @@ export async function loadRRHHGerenciaView(gerenciaKey) {
         const res = await fetchRRHHData(monthVal, cleanKey);
         if (res && res.ok) {
             const data = await res.json();
-            if (data.month && monthInput) {
-                monthInput.value = data.month;
+            if (monthSelect) {
+                populateRRHHMonthDropdown(monthSelect, data.month, data.available_months);
             }
 
             const sectores = data.sectores || {};

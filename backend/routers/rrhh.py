@@ -68,19 +68,34 @@ async def get_rrhh_reporte(
 
             if not table_exists:
                 return {
-                    "month": month or datetime.now().strftime("%Y-%m"),
+                    "month": month or (date.today().replace(day=1) - __import__('datetime').timedelta(days=1)).strftime("%Y-%m"),
+                    "available_months": [],
                     "sectores": {},
                     "message": "La tabla reportes_rrhh aún no existe. Por favor suba un Excel desde la pestaña 'Carga de Excel'."
                 }
 
-            # If month is not provided, find the max date in the table
+            # Fetch distinct available months from the database
+            available_months = []
+            try:
+                m_rows = conn.execute(text("SELECT DISTINCT TO_CHAR(fecha, 'YYYY-MM') as m FROM public.reportes_rrhh WHERE fecha IS NOT NULL ORDER BY m DESC")).fetchall()
+                available_months = [r[0] for r in m_rows if r[0]]
+            except Exception:
+                pass
+
+            # If month is not provided, default to the last complete month
             if not month:
-                max_date = conn.execute(text("SELECT MAX(fecha) FROM public.reportes_rrhh")).scalar()
-                if max_date:
-                    month = max_date.strftime("%Y-%m-%d")[:7]
+                from datetime import timedelta
+                today = date.today()
+                first_of_month = today.replace(day=1)
+                last_complete_date = first_of_month - timedelta(days=1)
+                last_complete_month = last_complete_date.strftime("%Y-%m")
+
+                if last_complete_month in available_months:
+                    month = last_complete_month
+                elif available_months:
+                    month = available_months[0]
                 else:
-                    d = datetime.now()
-                    month = f"{d.year}-{d.month:02d}"
+                    month = last_complete_month
 
             year_str, month_str = month.split("-")
             y_val = int(year_str)
@@ -104,7 +119,7 @@ async def get_rrhh_reporte(
             result = conn.execute(sql, {"year": y_val, "month": m_val}).fetchall()
 
             if not result:
-                return {"month": month, "sectores": {}, "message": "No hay datos para este mes"}
+                return {"month": month, "available_months": available_months, "sectores": {}, "message": "No hay datos para este mes"}
 
             # Process records
             sectores = {}
@@ -230,7 +245,7 @@ async def get_rrhh_reporte(
                         final_sectores[sec_key] = sec_val
                 filtered_sectores = final_sectores
 
-            return {"month": month, "sectores": filtered_sectores}
+            return {"month": month, "available_months": available_months, "sectores": filtered_sectores}
     except HTTPException:
         raise
     except Exception as e:

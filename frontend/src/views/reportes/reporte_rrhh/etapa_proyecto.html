@@ -24,13 +24,15 @@
     </div>
 </div>
 
-<!-- Filtros de Período -->
+<!-- Filtros de Período (Dropdown con Último Mes Completo como 1ra opción) -->
 <div class="admin-card" style="background: white; padding: 15px 25px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
     <div style="display: flex; align-items: center; gap: 12px;">
         <label style="font-weight: 700; color: var(--primary-dark); font-family: 'Outfit'; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">
             <i class="fa-solid fa-calendar-days" style="color: var(--primary);"></i> Período:
         </label>
-        <input type="month" id="rrhh-etapa_proyecto-filter-month" onchange="loadRRHHGerenciaView('etapa_proyecto')" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-weight: bold; color: var(--primary-dark); outline: none; background: #f8fafc;">
+        <select id="rrhh-etapa_proyecto-filter-month" onchange="loadRRHHGerenciaView('etapa_proyecto')" style="padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-weight: bold; color: var(--primary-dark); outline: none; background: #f8fafc; cursor: pointer; min-width: 260px;">
+            <option value="">Cargando períodos...</option>
+        </select>
         <button type="button" onclick="loadRRHHGerenciaView('etapa_proyecto')" class="btn-primary" style="padding: 8px 16px; font-size: 0.88rem; font-weight: 700; border-radius: 6px; border: none; cursor: pointer; background: var(--primary); color: white; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.06);">
             <i class="fa-solid fa-arrows-rotate"></i> Actualizar
         </button>
