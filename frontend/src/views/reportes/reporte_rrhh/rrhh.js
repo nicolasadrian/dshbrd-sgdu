@@ -200,7 +200,7 @@ function renderHubCards(data, perms, hasGlobal) {
             <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
                 <div style="width: 50px; height: 50px; border-radius: 12px; background: #fff7ed; color: #f97316; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-hourglass-half"></i></div>
                 <div>
-                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Promedio Horas Laboradas</span>
+                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Promedio Horas</span>
                     <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #f97316;">${avgPromHoras} hs</h3>
                 </div>
             </div>
