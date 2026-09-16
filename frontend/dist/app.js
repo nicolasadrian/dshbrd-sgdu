@@ -902,7 +902,7 @@ async function handleRouting() {
     }
 
     const parts = hash.split('/');
-    const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
+    const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'auditoria'];
     const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
 
     if (parts.length === 3) {
@@ -10301,7 +10301,8 @@ const BUZONES_GERENCIAS = {
         { id: 'usos', label: 'Usos' },
         { id: 'publico_privado', label: 'Público Privado' },
         { id: 'copua', label: 'COPUA' },
-        { id: 'privada', label: 'Privada' }
+        { id: 'privada', label: 'Privada' },
+        { id: 'auditoria', label: 'Auditoría' }
     ]
 };
 
@@ -10310,7 +10311,7 @@ async function showBuzonesView(area, gerencia = null, updateHash = true) {
     let targetGerencia = gerencia ? gerencia.toLowerCase() : null;
 
     // Si entran por URL antigua a sub-áreas directas de DGIUR, ubicarlos en DGIUR
-    if (['publico_privado', 'copua', 'privada'].includes(targetArea)) {
+    if (['publico_privado', 'copua', 'privada', 'auditoria'].includes(targetArea)) {
         targetGerencia = targetArea;
         targetArea = 'dgiur';
     } else if (['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'].includes(targetArea)) {

@@ -2999,7 +2999,7 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             logger.error(f"Error en get_gerencia_buzones (analisis_archivo): {e}")
             raise HTTPException(status_code=500, detail=str(e))
 
-    valid_gerencias = list(TRAMITES_CONFIG.keys()) + ['copua', 'publico_privado', 'privada']
+    valid_gerencias = list(TRAMITES_CONFIG.keys()) + ['copua', 'publico_privado', 'privada', 'auditoria']
     if gerencia_clean not in valid_gerencias:
         raise HTTPException(status_code=404, detail="Gerencia no encontrada.")
         
@@ -3036,7 +3036,7 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
             if not gerencia_tratas and gerencia_clean in TRAMITES_CONFIG:
                 gerencia_tratas = set(k.upper() for k in TRAMITES_CONFIG[gerencia_clean].keys() if k != 'INTERVENCIONES')
 
-            # Obtener buzones/analistas adicionales configurados en cfg_gerencias_buzones_adicionales
+            # Obtener buzones/analistas adicionales configurados en cfg_gerencias_buzones_adicionales y cfg_analistas_areas
             try:
                 adic_rows = conn.execute(text("""
                     SELECT UPPER(TRIM(usuario_buzon))
@@ -3044,6 +3044,18 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     WHERE LOWER(TRIM(gerencia)) = :g
                 """), {"g": gerencia_clean}).fetchall()
                 for ar in adic_rows:
+                    if ar[0]:
+                        gerencia_analistas.add(ar[0])
+            except Exception:
+                pass
+
+            try:
+                area_rows = conn.execute(text("""
+                    SELECT UPPER(TRIM(usuario_sade))
+                    FROM public.cfg_analistas_areas
+                    WHERE LOWER(TRIM(gerencia)) = :g AND activo = true
+                """), {"g": gerencia_clean}).fetchall()
+                for ar in area_rows:
                     if ar[0]:
                         gerencia_analistas.add(ar[0])
             except Exception:
