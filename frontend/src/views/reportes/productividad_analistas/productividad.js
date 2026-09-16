@@ -26,9 +26,13 @@ let _selectedAnalystUser = null;
 let _selectedAnalystName = null;
 let _selectedAnalystSector = null;
 
+// Instancias de gráficos para el modal (si se utiliza)
 let _currentProdMixChart = null;
 let _currentProdDiarioChart = null;
 let _currentProdTimelineChart = null;
+
+// Mapa de instancias de gráficos por gerencia: { [gerenciaKey]: { mix, diario, timeline } }
+const _gerenciaCharts = {};
 
 /**
  * Fetch sectores y analistas desde el backend
@@ -102,71 +106,61 @@ function renderProdHubCards(sectoresData, perms, hasGlobal, isAdmin) {
 
     if (cardsContainer) {
         cardsContainer.innerHTML = `
-            <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
-                <div style="width: 50px; height: 50px; border-radius: 12px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-users"></i></div>
+            <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 20px 24px; border-radius: 14px; display: flex; align-items: center; gap: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+                <div style="width: 52px; height: 52px; border-radius: 12px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                    <i class="fa-solid fa-users-viewfinder"></i>
+                </div>
                 <div>
-                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Total Analistas Activos</span>
-                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: var(--primary-dark);">${totalAgentes}</h3>
+                    <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Analistas Asignados</span>
+                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.8rem; color: var(--primary-dark);">${totalAgentes}</h3>
                 </div>
             </div>
-            <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
-                <div style="width: 50px; height: 50px; border-radius: 12px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-sitemap"></i></div>
+            <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 20px 24px; border-radius: 14px; display: flex; align-items: center; gap: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+                <div style="width: 52px; height: 52px; border-radius: 12px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                    <i class="fa-solid fa-sitemap"></i>
+                </div>
                 <div>
-                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Gerencias Monitoreadas</span>
-                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #10b981;">${totalAreas} Áreas</h3>
+                    <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Gerencias y Áreas</span>
+                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.8rem; color: #16a34a;">${totalAreas}</h3>
                 </div>
             </div>
-            <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
-                <div style="width: 50px; height: 50px; border-radius: 12px; background: #fdf2f8; color: #db2777; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-chart-line"></i></div>
+            <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 20px 24px; border-radius: 14px; display: flex; align-items: center; gap: 18px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+                <div style="width: 52px; height: 52px; border-radius: 12px; background: #faf5ff; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+                    <i class="fa-solid fa-chart-line"></i>
+                </div>
                 <div>
-                    <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Nivel de Auditoría</span>
-                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #db2777;">Individual / SADE</h3>
+                    <span style="font-size: 0.8rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Estado Auditoría</span>
+                    <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.8rem; color: #7c3aed;">En Línea</h3>
                 </div>
             </div>
         `;
     }
 
-    const renderCard = (gKey) => {
-        const conf = PROD_GERENCIAS_CONFIG[gKey];
+    const renderCard = (k) => {
+        const conf = PROD_GERENCIAS_CONFIG[k];
         if (!conf) return '';
 
-        const hasPerm = hasGlobal || !!perms[`productividad_${gKey}`] || (gKey === 'conforme' && !!perms['productividad_regularizacion']);
-        if (!hasPerm) return '';
+        const canAccess = hasGlobal || !!perms[`productividad_${k}`] || (k === 'conforme' && !!perms['productividad_regularizacion']);
+        if (!canAccess) return '';
 
-        let analysts = sectoresData[gKey] || [];
-        if (analysts.length === 0 && gKey === 'conforme') analysts = sectoresData['regularizacion'] || [];
-
-        const count = analysts.length;
+        let count = (sectoresData[k] || []).length;
+        if (k === 'conforme' && count === 0) {
+            count = (sectoresData['regularizacion'] || []).length;
+        }
 
         return `
-            <div class="admin-card nav-card-prod" onclick="window.location.hash='#/productividad_analistas/${gKey}'" style="background: white; border-radius: 14px; border: 1px solid #cbd5e1; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); cursor: pointer; transition: all 0.25s ease; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;"
-                onmouseover="this.style.borderColor='${conf.color}'; this.style.transform='translateY(-3px)'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.08)';"
-                onmouseout="this.style.borderColor='#cbd5e1'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px -1px rgba(0,0,0,0.03)';">
-                
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <div class="prod-card-box" onclick="window.location.hash='#/productividad_analistas/${k}'" style="background: white; border: 1px solid #cbd5e1; border-radius: 14px; padding: 18px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                <div style="display: flex; align-items: center; gap: 14px;">
                     <div style="width: 44px; height: 44px; border-radius: 10px; background: ${conf.bg}; color: ${conf.color}; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
                         <i class="${conf.icon}"></i>
                     </div>
                     <div>
-                        <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 800; font-size: 1.05rem;">${conf.name}</h4>
-                        <span style="font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">${conf.dir}</span>
+                        <h4 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.05rem; color: var(--primary-dark);">${conf.name}</h4>
+                        <span style="font-size: 0.82rem; color: #64748b;">${count} ${count === 1 ? 'analista activo' : 'analistas activos'}</span>
                     </div>
                 </div>
-
-                <div style="background: #f8fafc; border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e2e8f0; margin-bottom: 14px;">
-                    <div>
-                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Analistas</span>
-                        <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.15rem; color: var(--primary-dark);">${count} activos</div>
-                    </div>
-                    <div style="text-align: right;">
-                        <span style="font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Reporte</span>
-                        <div style="font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; color: ${conf.color};">Detallado</div>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; font-weight: 700; color: ${conf.color};">
-                    <span>Ver Productividad del Área</span>
-                    <i class="fa-solid fa-arrow-right"></i>
+                <div style="color: #94a3b8; font-size: 1.1rem;">
+                    <i class="fa-solid fa-chevron-right"></i>
                 </div>
             </div>
         `;
@@ -201,6 +195,7 @@ function renderProdHubCards(sectoresData, perms, hasGlobal, isAdmin) {
 
 /**
  * Controller para Vista de Gerencia Independiente (#/productividad_analistas/:gerencia)
+ * Rediseñado: Sin tarjetas innecesarias, con selector dropdown de analistas y reporte de productividad embebido.
  */
 export async function loadProductividadGerenciaView(gerenciaKey) {
     const conf = PROD_GERENCIAS_CONFIG[gerenciaKey];
@@ -209,13 +204,21 @@ export async function loadProductividadGerenciaView(gerenciaKey) {
         return;
     }
 
-    const cardsContainer = document.getElementById(`prod-${gerenciaKey}-cards`);
-    const tableBody = document.getElementById(`prod-${gerenciaKey}-table-body`);
-    const countEl = document.getElementById(`prod-${gerenciaKey}-analistas-count`);
-    const pdfBtn = document.getElementById(`prod-${gerenciaKey}-reporte-pdf-btn`);
+    const selectEl = document.getElementById(`prod-${gerenciaKey}-analyst-select`);
+    const fromInput = document.getElementById(`prod-${gerenciaKey}-date-from`);
+    const toInput = document.getElementById(`prod-${gerenciaKey}-date-to`);
+    const loaderEl = document.getElementById(`prod-${gerenciaKey}-loader`);
+    const emptyEl = document.getElementById(`prod-${gerenciaKey}-empty`);
+    const dashboardEl = document.getElementById(`prod-${gerenciaKey}-dashboard`);
 
-    if (tableBody) {
-        tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Cargando analistas del sector...</p></td></tr>';
+    // Inicializar fechas por defecto (últimos 90 días) si están vacías
+    if (fromInput && !fromInput.value) {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        fromInput.value = ninetyDaysAgo.toISOString().substring(0, 10);
+    }
+    if (toInput && !toInput.value) {
+        toInput.value = new Date().toISOString().substring(0, 10);
     }
 
     try {
@@ -232,75 +235,354 @@ export async function loadProductividadGerenciaView(gerenciaKey) {
             analysts = _cachedSectoresData['regularizacion'] || [];
         }
 
-        if (countEl) {
-            countEl.innerText = `${analysts.length} ${analysts.length === 1 ? 'analista activo asignado' : 'analistas activos asignados'} a esta gerencia.`;
-        }
-
-        if (pdfBtn) {
-            pdfBtn.onclick = () => downloadSectorComparativePDF(gerenciaKey);
-        }
-
-        if (cardsContainer) {
-            cardsContainer.innerHTML = `
-                <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
-                    <div style="width: 50px; height: 50px; border-radius: 12px; background: ${conf.bg}; color: ${conf.color}; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-users"></i></div>
-                    <div>
-                        <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Analistas del Área</span>
-                        <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: var(--primary-dark);">${analysts.length}</h3>
-                    </div>
-                </div>
-                <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
-                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-shield-check"></i></div>
-                    <div>
-                        <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Estado de Planta</span>
-                        <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #16a34a;">Activo</h3>
-                    </div>
-                </div>
-                <div class="metric-card-premium" style="background: white; border: 1px solid #cbd5e1; padding: 18px 22px; border-radius: 12px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
-                    <div style="width: 50px; height: 50px; border-radius: 12px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;"><i class="fa-solid fa-file-pdf"></i></div>
-                    <div>
-                        <span style="font-size: 0.78rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Reporte Comparativo</span>
-                        <h3 style="margin: 2px 0 0 0; font-family: 'Outfit'; font-weight: 800; font-size: 1.6rem; color: #2563eb;">Exportable PDF</h3>
-                    </div>
-                </div>
-            `;
-        }
-
-        if (tableBody) {
+        if (selectEl) {
             if (analysts.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #64748b;">No hay analistas asignados a esta gerencia.</td></tr>';
+                selectEl.innerHTML = '<option value="">Sin analistas asignados</option>';
+                if (loaderEl) loaderEl.style.display = 'none';
+                if (emptyEl) emptyEl.style.display = 'block';
+                if (dashboardEl) dashboardEl.style.display = 'none';
                 return;
             }
 
-            let rows = '';
+            let optionsHtml = '';
             analysts.forEach(a => {
-                const uEsc = (a.usuario || '').replace(/'/g, "\\'");
-                const nEsc = (a.nombre || a.usuario || '').replace(/'/g, "\\'");
-                rows += `
-                    <tr class="prod-analista-row" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                        <td style="padding: 12px 14px; font-weight: 700; color: var(--primary-dark);">${a.usuario}</td>
-                        <td style="padding: 12px 14px; color: #334155;">${a.nombre}</td>
-                        <td style="padding: 12px 14px; text-align: center;"><span class="badge-builtin" style="background: #f0fdf4; color: #16a34a; font-weight: 700; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px;">Activo</span></td>
-                        <td style="padding: 12px 14px; text-align: center;">
-                            <button type="button" onclick="openProductividadModal('${uEsc}', '${nEsc}', '${gerenciaKey}')" style="padding: 6px 14px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 0.82rem; font-family: 'Outfit'; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                <i class="fa-solid fa-chart-pie"></i> Ver Productividad
-                            </button>
-                        </td>
-                    </tr>
-                `;
+                const displayName = a.nombre ? `${a.nombre} (${a.usuario})` : a.usuario;
+                optionsHtml += `<option value="${a.usuario}" data-nombre="${a.nombre || a.usuario}">${displayName}</option>`;
             });
-            tableBody.innerHTML = rows;
+            selectEl.innerHTML = optionsHtml;
+
+            // Seleccionar automáticamente el primer analista y cargar su reporte
+            if (emptyEl) emptyEl.style.display = 'none';
+            await loadProductividadGerenciaAnalistaData(gerenciaKey);
         }
     } catch (err) {
         console.error("Error loading gerencia productivity view:", err);
-        if (tableBody) {
-            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: #ef4444;">Error al cargar datos.</td></tr>';
-        }
+        if (selectEl) selectEl.innerHTML = '<option value="">Error al cargar analistas</option>';
     }
 }
 
 /**
- * Filtro de tabla de analistas por gerencia
+ * Disparado al cambiar el dropdown del analista en una vista de gerencia
+ */
+export function onSelectAnalistaGerencia(gerenciaKey) {
+    loadProductividadGerenciaAnalistaData(gerenciaKey);
+}
+
+/**
+ * Carga y renderiza el reporte de productividad del analista seleccionado en la vista de gerencia
+ */
+export async function loadProductividadGerenciaAnalistaData(gerenciaKey) {
+    const selectEl = document.getElementById(`prod-${gerenciaKey}-analyst-select`);
+    const loaderEl = document.getElementById(`prod-${gerenciaKey}-loader`);
+    const emptyEl = document.getElementById(`prod-${gerenciaKey}-empty`);
+    const dashboardEl = document.getElementById(`prod-${gerenciaKey}-dashboard`);
+    const fromInput = document.getElementById(`prod-${gerenciaKey}-date-from`);
+    const toInput = document.getElementById(`prod-${gerenciaKey}-date-to`);
+
+    if (!selectEl || !selectEl.value) {
+        if (loaderEl) loaderEl.style.display = 'none';
+        if (dashboardEl) dashboardEl.style.display = 'none';
+        return;
+    }
+
+    const username = selectEl.value;
+    const from = fromInput ? fromInput.value : '';
+    const to = toInput ? toInput.value : '';
+
+    if (loaderEl) loaderEl.style.display = 'block';
+    if (dashboardEl) dashboardEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    const API_BASE = window.API_BASE || '/api';
+    const token = state.authToken || localStorage.getItem('sgdu_token') || '';
+
+    try {
+        const url = `${API_BASE}/productividad/analista/${username}?date_from=${from}&date_to=${to}`;
+        const resp = window.def_fetch 
+            ? await window.def_fetch(url)
+            : await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+
+        if (!resp || !resp.ok) {
+            console.error('Error al cargar la productividad del analista:', username);
+            if (loaderEl) loaderEl.style.display = 'none';
+            return;
+        }
+
+        const data = await resp.json();
+        const kpis = data.kpis || {};
+
+        // Rellenar KPIs
+        const kpiTareas = document.getElementById(`prod-${gerenciaKey}-kpi-tareas`);
+        const kpiDiario = document.getElementById(`prod-${gerenciaKey}-kpi-diario`);
+        const kpiJornada = document.getElementById(`prod-${gerenciaKey}-kpi-jornada`);
+        const kpiStock = document.getElementById(`prod-${gerenciaKey}-kpi-stock`);
+        const kpiStockDetails = document.getElementById(`prod-${gerenciaKey}-kpi-stock-details`);
+        const kpiFirmas = document.getElementById(`prod-${gerenciaKey}-kpi-firmas`);
+        const kpiRechazoRate = document.getElementById(`prod-${gerenciaKey}-kpi-rechazo-rate`);
+
+        if (kpiTareas) kpiTareas.textContent = kpis.tareas_totales ?? 0;
+        if (kpiDiario) kpiDiario.textContent = kpis.promedio_diario ?? 0;
+        if (kpiJornada) kpiJornada.textContent = `${kpis.jornada_media ?? 0}h`;
+        if (kpiStock) kpiStock.textContent = kpis.stock_total ?? 0;
+        if (kpiStockDetails) kpiStockDetails.textContent = `Propio: ${kpis.stock_propio ?? 0} | Subs: ${kpis.stock_subs ?? 0}`;
+        if (kpiFirmas) kpiFirmas.textContent = `${kpis.firmados ?? 0} / ${kpis.rechazados ?? 0}`;
+        if (kpiRechazoRate) kpiRechazoRate.textContent = `Tasa de rechazo: ${kpis.tasa_rechazo ?? 0}%`;
+
+        // Renderizar Gráficos y Tablas para esta gerencia
+        renderGerenciaMixChart(gerenciaKey, data.mix_tareas);
+        renderGerenciaDailyChart(gerenciaKey, data.desglose_diario);
+        renderGerenciaHorariosTable(gerenciaKey, data.detalles_jornada);
+        renderGerenciaTimelineChart(gerenciaKey, data.detalles_jornada);
+
+        if (loaderEl) loaderEl.style.display = 'none';
+        if (dashboardEl) dashboardEl.style.display = 'flex';
+
+    } catch (err) {
+        console.error("Error fetching analista productivity data for gerencia:", err);
+        if (loaderEl) loaderEl.style.display = 'none';
+    }
+}
+
+/**
+ * Renderiza gráfico Mix para una vista de gerencia específica
+ */
+function renderGerenciaMixChart(gerenciaKey, mix) {
+    const canvas = document.getElementById(`prod-${gerenciaKey}-chart-mix`);
+    if (!canvas) return;
+
+    if (!_gerenciaCharts[gerenciaKey]) _gerenciaCharts[gerenciaKey] = {};
+    if (_gerenciaCharts[gerenciaKey].mix) {
+        _gerenciaCharts[gerenciaKey].mix.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    const labels = Object.keys(mix || {});
+    const data = labels.map(k => mix[k].cantidad);
+    const colors = [
+        '#2563eb', '#10b981', '#f59e0b', '#ef4444', 
+        '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'
+    ];
+
+    _gerenciaCharts[gerenciaKey].mix = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Outfit', size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const val = context.raw || 0;
+                            const pct = mix[label] ? mix[label].porcentaje : 0;
+                            return `${label}: ${val} (${pct}%)`;
+                        }
+                    }
+                }
+            },
+            cutout: '65%'
+        }
+    });
+}
+
+/**
+ * Renderiza gráfico de Actividad Diaria apilada para una vista de gerencia específica
+ */
+function renderGerenciaDailyChart(gerenciaKey, desglose) {
+    const canvas = document.getElementById(`prod-${gerenciaKey}-chart-diario`);
+    if (!canvas) return;
+
+    if (!_gerenciaCharts[gerenciaKey]) _gerenciaCharts[gerenciaKey] = {};
+    if (_gerenciaCharts[gerenciaKey].diario) {
+        _gerenciaCharts[gerenciaKey].diario.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    const dates = Object.keys(desglose || {}).sort();
+    const taskTypes = [
+        "OBSERVACIÓN DE EXPEDIENTE", 
+        "PEDIDO DE PLANOS", 
+        "VINCULACIÓN DE GEDO Y PASE A OBRAS ADMIN", 
+        "ENVÍO A FIRMA", 
+        "OBSERVACIÓN EN SUBSANACIÓN", 
+        "SUSPENSIÓN DE EXPEDIENTE"
+    ];
+
+    const colors = {
+        "OBSERVACIÓN DE EXPEDIENTE": '#f59e0b',
+        "PEDIDO DE PLANOS": '#3b82f6',
+        "VINCULACIÓN DE GEDO Y PASE A OBRAS ADMIN": '#6366f1',
+        "ENVÍO A FIRMA": '#10b981',
+        "OBSERVACIÓN EN SUBSANACIÓN": '#ec4899',
+        "SUSPENSIÓN DE EXPEDIENTE": '#ef4444'
+    };
+
+    const datasets = taskTypes.map(t => ({
+        label: t,
+        data: dates.map(d => (desglose[d] && desglose[d][t]) || 0),
+        backgroundColor: colors[t] || '#94a3b8',
+        borderRadius: 4
+    }));
+
+    _gerenciaCharts[gerenciaKey].diario = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: dates, datasets: datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Outfit', size: 10 } } },
+                y: { stacked: true, beginAtZero: true, ticks: { font: { family: 'Outfit', size: 11 } } }
+            },
+            plugins: {
+                legend: { position: 'top', labels: { boxWidth: 10, font: { family: 'Outfit', size: 10 } } }
+            }
+        }
+    });
+}
+
+/**
+ * Renderiza la tabla de Horarios Activos para una vista de gerencia específica
+ */
+function renderGerenciaHorariosTable(gerenciaKey, detalles) {
+    const tbody = document.getElementById(`prod-${gerenciaKey}-table-horarios`);
+    if (!tbody) return;
+
+    const sorted = [...(detalles || [])].sort((a,b) => b.fecha.localeCompare(a.fecha));
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:15px; color:#94a3b8; text-align:center;">Sin actividad registrada</td></tr>';
+        return;
+    }
+
+    let html = '';
+    sorted.forEach(d => {
+        let badgeColor = '#10b981';
+        if (d.duracion < 4) badgeColor = '#ef4444';
+        else if (d.duracion < 6) badgeColor = '#f59e0b';
+
+        html += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 8px 10px; font-weight: 600; font-size: 0.82rem;">${d.fecha}</td>
+                <td style="padding: 8px 10px; color: #64748b; font-size: 0.82rem;">${d.primera_accion}</td>
+                <td style="padding: 8px 10px; color: #64748b; font-size: 0.82rem;">${d.ultima_accion}</td>
+                <td style="padding: 8px 10px;">
+                    <span style="background: ${badgeColor}15; color: ${badgeColor}; padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.8rem;">
+                        ${d.duracion}h
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+    tbody.innerHTML = html;
+}
+
+/**
+ * Renderiza gráfico Timeline de conexión para una vista de gerencia específica
+ */
+function renderGerenciaTimelineChart(gerenciaKey, detalles) {
+    const canvas = document.getElementById(`prod-${gerenciaKey}-chart-timeline`);
+    if (!canvas) return;
+
+    if (!_gerenciaCharts[gerenciaKey]) _gerenciaCharts[gerenciaKey] = {};
+    if (_gerenciaCharts[gerenciaKey].timeline) {
+        _gerenciaCharts[gerenciaKey].timeline.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    const sorted = [...(detalles || [])].sort((a,b) => a.fecha.localeCompare(b.fecha));
+    const labels = sorted.map(d => d.fecha.substring(5)); // MM-DD
+
+    const timeToDecimal = (tStr) => {
+        if (!tStr) return 0;
+        const [h, m] = tStr.split(':').map(Number);
+        return h + m/60.0;
+    };
+
+    const dataStart = sorted.map(d => timeToDecimal(d.primera_accion));
+    const dataEnd = sorted.map(d => timeToDecimal(d.ultima_accion));
+
+    _gerenciaCharts[gerenciaKey].timeline = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Rango Activo (Horario)',
+                data: sorted.map((d, i) => [dataStart[i], dataEnd[i]]),
+                backgroundColor: 'rgba(37, 99, 235, 0.45)',
+                borderColor: '#2563eb',
+                borderWidth: 1,
+                borderRadius: 4,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    min: 6,
+                    max: 22,
+                    ticks: {
+                        stepSize: 2,
+                        callback: val => `${Math.floor(val)}:00`,
+                        font: { family: 'Outfit', size: 10 }
+                    }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Outfit', size: 10 } }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            const item = sorted[index];
+                            return `Conectado: ${item.primera_accion} - ${item.ultima_accion} (${item.duracion}h)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Descarga de reporte individual PDF desde la barra superior de la gerencia
+ */
+export function downloadIndividualPDFGerencia(gerenciaKey) {
+    const selectEl = document.getElementById(`prod-${gerenciaKey}-analyst-select`);
+    const fromInput = document.getElementById(`prod-${gerenciaKey}-date-from`);
+    const toInput = document.getElementById(`prod-${gerenciaKey}-date-to`);
+
+    if (!selectEl || !selectEl.value) {
+        alert('Por favor selecciona un analista para descargar su reporte PDF.');
+        return;
+    }
+
+    const username = selectEl.value;
+    const from = fromInput ? fromInput.value : '';
+    const to = toInput ? toInput.value : '';
+    const API_BASE = window.API_BASE || '/api';
+    const token = state.authToken || localStorage.getItem('sgdu_token') || '';
+
+    window.open(`${API_BASE}/productividad/pdf/individual?username=${encodeURIComponent(username)}&date_from=${from}&date_to=${to}&token=${token}`, '_blank');
+}
+
+/**
+ * Filtro de tabla de analistas por gerencia (mantenido por compatibilidad)
  */
 export function filterProductividadGerenciaTable(gerenciaKey, query) {
     const q = (query || '').toLowerCase().trim();
@@ -312,7 +594,7 @@ export function filterProductividadGerenciaTable(gerenciaKey, query) {
 }
 
 /**
- * Modal / Detalle de Productividad Individual de un Analista
+ * Modal / Detalle de Productividad Individual de un Analista (mantenido por compatibilidad)
  */
 export async function openProductividadModal(username, fullname, sector) {
     _selectedAnalystUser = username;

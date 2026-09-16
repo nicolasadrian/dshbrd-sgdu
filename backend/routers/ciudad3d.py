@@ -2582,7 +2582,7 @@ async def get_sectores_analistas(current_user: User = Depends(get_current_user))
                 
                 # Filter by permissions if not global
                 if not has_global:
-                    if not (perms.get(f"productividad_{sec}") or (sec == 'conforme' and perms.get('productividad_conforme')) or (sec == 'otros' and perms.get('productividad_otros'))):
+                    if not (perms.get(f"productividad_{sec}") or (sec == 'conforme' and (perms.get('productividad_conforme') or perms.get('productividad_regularizacion'))) or (sec == 'otros' and perms.get('productividad_otros'))):
                         continue
 
                 if sec not in sectores:

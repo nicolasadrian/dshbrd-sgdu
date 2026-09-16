@@ -4,6 +4,7 @@
     <strong>Privada</strong>
 </div>
 
+<!-- Encabezado de la Gerencia -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
     <div style="display: flex; align-items: center; gap: 12px;">
         <div style="width: 48px; height: 48px; border-radius: 12px; background: #f7fee7; color: #65a30d; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
@@ -14,52 +15,143 @@
                 <h1 class="landing-title" style="margin: 0;">Privada</h1>
                 <span class="badge-builtin" style="background: #f7fee7; color: #65a30d; font-weight: 700; font-size: 0.78rem; padding: 3px 10px; border-radius: 12px;">DGIUR</span>
             </div>
-            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.92rem;">Monitoreo de tareas resueltas, stock en bandeja, ratios y actividad SADE de analistas.</p>
+            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.92rem;">Reporte y auditoría de productividad individual de analistas.</p>
         </div>
     </div>
     <div style="display: flex; gap: 10px; align-items: center;">
-        <button type="button" id="prod-privada-reporte-pdf-btn" class="btn-primary" style="padding: 9px 16px; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: #dc2626; color: white; box-shadow: 0 2px 4px rgba(220,38,38,0.2);">
-            <i class="fa-solid fa-file-pdf"></i> Reporte Comparativo (PDF)
+        <button type="button" id="prod-privada-pdf-btn" onclick="downloadIndividualPDFGerencia('privada')" class="btn-primary" style="padding: 9px 16px; font-family: 'Outfit'; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; border: none; cursor: pointer; border-radius: 8px; background: var(--primary); color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <i class="fa-solid fa-file-pdf"></i> Reporte PDF
         </button>
         <button type="button" onclick="window.location.hash='#/productividad_analistas'" class="btn-secondary" style="padding: 9px 16px; border: 1px solid #cbd5e1; background: white; border-radius: 8px; font-family: 'Outfit'; font-weight: 700; cursor: pointer; font-size: 0.88rem; color: #334155; display: inline-flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-arrow-left"></i> Volver a Gerencias
+            <i class="fa-solid fa-arrow-left"></i> Volver al Hub
         </button>
     </div>
 </div>
 
-<!-- KPIs del Sector -->
-<div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;" id="prod-privada-cards">
-    <!-- Dinámico -->
+<!-- Selector de Analista y Rango de Fechas -->
+<div class="admin-card" style="background: white; padding: 18px 25px; border-radius: 16px; border: 1px solid #cbd5e1; margin-bottom: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
+    <div style="display: flex; align-items: flex-end; gap: 15px; flex-wrap: wrap;">
+        <div style="flex: 1.5; min-width: 260px;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: var(--primary-dark); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; font-family: 'Outfit';">
+                <i class="fa-solid fa-user-check" style="color: #65a30d;"></i> Analista a Analizar:
+            </label>
+            <select id="prod-privada-analyst-select" onchange="onSelectAnalistaGerencia('privada')" style="width: 100%; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); outline: none; background: #f8fafc; cursor: pointer; font-size: 0.92rem;">
+                <option value="">Cargando analistas...</option>
+            </select>
+        </div>
+        <div style="flex: 1; min-width: 150px;">
+            <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; font-family: 'Outfit';">Fecha Desde</label>
+            <input type="date" id="prod-privada-date-from" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; background: white;">
+        </div>
+        <div style="flex: 1; min-width: 150px;">
+            <label style="font-size: 0.75rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 6px; display: block; font-family: 'Outfit';">Fecha Hasta</label>
+            <input type="date" id="prod-privada-date-to" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.88rem; outline: none; background: white;">
+        </div>
+        <div>
+            <button type="button" onclick="loadProductividadGerenciaAnalistaData('privada')" class="btn-primary" style="padding: 9px 20px; font-family: 'Outfit'; font-weight: 700; height: 38px; display: inline-flex; align-items: center; gap: 6px; border: none; cursor: pointer; border-radius: 8px; background: #65a30d; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+            </button>
+        </div>
+    </div>
 </div>
 
-<!-- Tabla de Analistas -->
-<div class="admin-card" style="background: white; border-radius: 16px; border: 1px solid #cbd5e1; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.04); margin-bottom: 2rem;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <h4 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-users" style="color: #65a30d;"></i> Analistas Asignados
-            </h4>
-            <p id="prod-privada-analistas-count" style="margin: 2px 0 0 0; font-size: 0.8rem; color: #64748b;">Listado de analistas asignados a esta gerencia.</p>
+<!-- Loader -->
+<div id="prod-privada-loader" style="display: none; padding: 4rem 2rem; text-align: center; background: white; border-radius: 16px; border: 1px solid #cbd5e1; margin-bottom: 2rem;">
+    <span class="loader" style="width: 48px; height: 48px; border-width: 5px; margin: 0 auto 1rem auto;"></span>
+    <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">Procesando productividad del analista...</h3>
+    <p style="color: #64748b; margin-top: 0.4rem; font-size: 0.9rem;">Unificando tareas resueltas, pases y tiempos de conexión SADE.</p>
+</div>
+
+<!-- Empty State -->
+<div id="prod-privada-empty" style="display: none; padding: 3.5rem 2rem; text-align: center; background: white; border-radius: 16px; border: 1px solid #cbd5e1; margin-bottom: 2rem;">
+    <div style="width: 60px; height: 60px; border-radius: 50%; background: #f1f5f9; color: #94a3b8; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; margin: 0 auto 1rem auto;">
+        <i class="fa-solid fa-user-slash"></i>
+    </div>
+    <h3 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark);">No hay analistas asignados a esta gerencia</h3>
+    <p style="color: #64748b; margin-top: 0.4rem; font-size: 0.9rem;">Puedes asignar personal desde el Backlog de Analistas.</p>
+</div>
+
+<!-- Dashboard Content del Analista -->
+<div id="prod-privada-dashboard" style="display: flex; flex-direction: column; gap: 2rem; margin-bottom: 3rem;">
+    
+    <!-- Panel de KPIs -->
+    <div class="admin-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; display: grid;">
+        <div class="analyst-card-premium" style="padding: 20px; border-radius: 14px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Tareas Totales</span>
+            <span id="prod-privada-kpi-tareas" style="font-size: 2.1rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit'; margin: 8px 0;">0</span>
+            <span style="font-size: 0.78rem; color: #94a3b8;">En el período seleccionado</span>
         </div>
-        <div style="position: relative; width: 280px;">
-            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem;"></i>
-            <input type="text" id="prod-privada-search" placeholder="Buscar por usuario o nombre..." oninput="filterProductividadGerenciaTable('privada', this.value)" style="width: 100%; padding: 8px 12px 8px 32px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.85rem; outline: none; background: white;">
+        <div class="analyst-card-premium" style="padding: 20px; border-radius: 14px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Promedio Diario</span>
+            <span id="prod-privada-kpi-diario" style="font-size: 2.1rem; font-weight: 800; color: var(--primary); font-family: 'Outfit'; margin: 8px 0;">0</span>
+            <span style="font-size: 0.78rem; color: #94a3b8;">Tareas por día hábil</span>
+        </div>
+        <div class="analyst-card-premium" style="padding: 20px; border-radius: 14px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Jornada Media</span>
+            <span id="prod-privada-kpi-jornada" style="font-size: 2.1rem; font-weight: 800; color: #0f766e; font-family: 'Outfit'; margin: 8px 0;">0h</span>
+            <span style="font-size: 0.78rem; color: #94a3b8;">Primera a última acción</span>
+        </div>
+        <div class="analyst-card-premium" style="padding: 20px; border-radius: 14px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Stock en Bandeja</span>
+            <span id="prod-privada-kpi-stock" style="font-size: 2.1rem; font-weight: 800; color: #b45309; font-family: 'Outfit'; margin: 8px 0;">0</span>
+            <span id="prod-privada-kpi-stock-details" style="font-size: 0.78rem; color: #94a3b8;">Propio: -- | Subs: --</span>
+        </div>
+        <div class="analyst-card-premium" style="padding: 20px; border-radius: 14px; background: white; border: 1px solid #cbd5e1; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);">
+            <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Firmados / Rechazados</span>
+            <span id="prod-privada-kpi-firmas" style="font-size: 1.7rem; font-weight: 800; color: #15803d; font-family: 'Outfit'; margin: 8px 0;">0 / 0</span>
+            <span id="prod-privada-kpi-rechazo-rate" style="font-size: 0.78rem; color: #ef4444; font-weight: 600;">Tasa de rechazo: --%</span>
         </div>
     </div>
 
-    <div class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;">
-        <table class="report-table" style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left; font-size: 0.82rem;">
-                    <th style="padding: 12px 14px; font-weight: 700; color: #475569;">Usuario SADE</th>
-                    <th style="padding: 12px 14px; font-weight: 700; color: #475569;">Nombre y Apellido</th>
-                    <th style="padding: 12px 14px; font-weight: 700; color: #475569; text-align: center;">Estado</th>
-                    <th style="padding: 12px 14px; font-weight: 700; color: #475569; text-align: center;">Acción</th>
-                </tr>
-            </thead>
-            <tbody id="prod-privada-table-body" style="font-size: 0.88rem;">
-                <!-- Dinámico -->
-            </tbody>
-        </table>
+    <!-- Gráficos de Productividad (Mix y Tareas por Día) -->
+    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1.5rem; flex-wrap: wrap;">
+        <!-- Mix de Tareas -->
+        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <h3 style="margin-top: 0; margin-bottom: 1.25rem; align-self: flex-start; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.05rem;">
+                <i class="fa-solid fa-chart-pie" style="color: #65a30d; margin-right: 6px;"></i> Mix de Tareas (%)
+            </h3>
+            <div style="width: 250px; height: 250px; position: relative;">
+                <canvas id="prod-privada-chart-mix"></canvas>
+            </div>
+        </div>
+        <!-- Actividad Diaria -->
+        <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
+            <h3 style="margin-top: 0; margin-bottom: 1.25rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.05rem;">
+                <i class="fa-solid fa-chart-column" style="color: #65a30d; margin-right: 6px;"></i> Tareas Completadas por Día
+            </h3>
+            <div style="height: 250px; position: relative;">
+                <canvas id="prod-privada-chart-diario"></canvas>
+            </div>
+        </div>
     </div>
+
+    <!-- Rango de Conexión Diario y Horarios Activos -->
+    <div style="background: white; border: 1px solid #cbd5e1; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);">
+        <h3 style="margin-top: 0; margin-bottom: 1.25rem; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.05rem;">
+            <i class="fa-solid fa-clock-rotate-left" style="color: #65a30d; margin-right: 6px;"></i> Rango de Conexión Diario y Horarios Activos
+        </h3>
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1.5rem; align-items: start;">
+            <!-- Gráfico Timeline -->
+            <div style="height: 290px; position: relative; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; background: #f8fafc;">
+                <canvas id="prod-privada-chart-timeline"></canvas>
+            </div>
+            <!-- Tabla de Detalles de Conexión -->
+            <div style="max-height: 290px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+                <table style="width: 100%; border-collapse: collapse; text-align: center; font-size: 0.85rem;" class="cierre-table">
+                    <thead>
+                        <tr style="background: #f8fafc; font-family: 'Outfit'; font-weight: 700; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #cbd5e1;">
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Fecha</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Inicio</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Fin</th>
+                            <th style="padding: 10px; border-bottom: 1px solid #e2e8f0;">Activo (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prod-privada-table-horarios">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div>

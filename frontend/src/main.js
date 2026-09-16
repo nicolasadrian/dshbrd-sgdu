@@ -12,6 +12,9 @@ import {
 import {
     loadProductividadHubView,
     loadProductividadGerenciaView,
+    onSelectAnalistaGerencia,
+    loadProductividadGerenciaAnalistaData,
+    downloadIndividualPDFGerencia,
     filterProductividadGerenciaTable,
     openProductividadModal,
     closeProductividadModal,
@@ -32,6 +35,9 @@ window.closeRRHHAgentPage = closeRRHHAgentPage;
 
 window.loadProductividadHubView = loadProductividadHubView;
 window.loadProductividadGerenciaView = loadProductividadGerenciaView;
+window.onSelectAnalistaGerencia = onSelectAnalistaGerencia;
+window.loadProductividadGerenciaAnalistaData = loadProductividadGerenciaAnalistaData;
+window.downloadIndividualPDFGerencia = downloadIndividualPDFGerencia;
 window.filterProductividadGerenciaTable = filterProductividadGerenciaTable;
 window.openProductividadModal = openProductividadModal;
 window.closeProductividadModal = closeProductividadModal;
