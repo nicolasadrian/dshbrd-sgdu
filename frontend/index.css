@@ -3823,63 +3823,106 @@ span.perf-low {
     }
 }
 
-/* Sidebar Role Cards */
-.role-item-card {
+/* Sidebar Role Simplified Item Buttons */
+.role-item-btn, .role-item-card {
     background: var(--white);
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 16px;
+    border-radius: 8px;
+    padding: 10px 14px;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    position: relative;
-    overflow: hidden;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
     text-align: left;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    font-family: 'Outfit', sans-serif;
+    box-sizing: border-box;
 }
 
-.role-item-card:hover {
+.role-item-btn:hover, .role-item-card:hover {
     border-color: #cbd5e1;
     background: #f8fafc;
-    transform: translateX(4px);
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    transform: translateX(2px);
 }
 
-.role-item-card.active {
+.role-item-btn.active, .role-item-card.active {
     border-color: var(--primary);
     background: #eff6ff;
-    box-shadow: 0 4px 12px rgba(0, 118, 187, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 118, 187, 0.08);
 }
 
-.role-item-card.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: var(--primary);
-    border-radius: 0 4px 4px 0;
+.role-btn-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 
-.role-card-title {
-    font-weight: 700;
-    color: var(--primary-dark);
+.role-btn-left .role-icon {
+    color: #94a3b8;
     font-size: 0.95rem;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-shrink: 0;
+    transition: color 0.2s;
 }
 
-.role-card-meta {
-    font-size: 0.78rem;
-    color: #64748b;
+.role-item-btn.active .role-btn-left .role-icon,
+.role-item-card.active .role-btn-left .role-icon {
+    color: var(--primary);
+}
+
+.role-name-text {
+    font-weight: 600;
+    color: var(--primary-dark);
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.role-item-btn.active .role-name-text,
+.role-item-card.active .role-name-text {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.role-btn-right {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.role-badge-count {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s;
+}
+
+.role-item-btn.active .role-badge-count,
+.role-item-card.active .role-badge-count {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #bfdbfe;
+}
+
+.role-chevron {
+    font-size: 0.7rem;
+    color: #cbd5e1;
+    transition: all 0.2s;
+}
+
+.role-item-btn.active .role-chevron,
+.role-item-card.active .role-chevron {
+    color: var(--primary);
+    transform: translateX(2px);
 }
 
 /* Detail Panel */

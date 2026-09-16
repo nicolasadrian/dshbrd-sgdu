@@ -4303,17 +4303,16 @@ async function loadAdminRoles() {
             }
 
             sidebarHtml += `
-                <div class="role-item-card" data-role-name="${r.role_name}" onclick="selectRole('${r.role_name}')">
-                    <div class="role-card-title">
-                        <span>${r.role_name.toUpperCase()}</span>
-                        ${isBuiltin ? '<span class="badge-builtin">Sistema</span>' : '<span class="badge-custom">Personalizado</span>'}
+                <button type="button" class="role-item-btn" data-role-name="${r.role_name}" onclick="selectRole('${r.role_name}')">
+                    <div class="role-btn-left">
+                        <i class="fa-solid fa-shield-halved role-icon"></i>
+                        <span class="role-name-text">${r.role_name.toUpperCase()}</span>
                     </div>
-                    <div class="role-card-meta">
-                        <span id="role-count-badge-${r.role_name}" style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-weight: 600;">
-                            ${activeCount} / ${totalCount} accesos
-                        </span>
+                    <div class="role-btn-right">
+                        <span class="role-badge-count" id="role-count-badge-${r.role_name}">${activeCount}/${totalCount}</span>
+                        <i class="fa-solid fa-chevron-right role-chevron"></i>
                     </div>
-                </div>
+                </button>
             `;
         });
 
@@ -4341,6 +4340,48 @@ async function loadAdminRoles() {
         container.innerHTML = '<p style="padding: 1rem; color: #ef4444; text-align: center; font-size: 0.85rem;">Error al cargar roles.</p>';
     }
 }
+
+function toggleCreateRoleBox(forceState = null) {
+    const box = document.getElementById('create-role-box');
+    const input = document.getElementById('new-role-name');
+    if (!box) return;
+    const isShowing = forceState !== null ? forceState : (box.style.display === 'none' || !box.style.display);
+    box.style.display = isShowing ? 'block' : 'none';
+    if (isShowing && input) {
+        input.focus();
+    }
+}
+window.toggleCreateRoleBox = toggleCreateRoleBox;
+
+async function handleCreateRoleSubmit(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('new-role-name');
+    if (!input) return;
+    const role_name = input.value.trim().toLowerCase();
+    if (!role_name) return;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/roles`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role_name })
+        });
+
+        if (resp && resp.ok) {
+            input.value = '';
+            toggleCreateRoleBox(false);
+            await loadAdminRoles();
+            selectRole(role_name);
+        } else {
+            const err = await resp.json();
+            alert('Error: ' + (err.detail || 'No se pudo crear el rol'));
+        }
+    } catch (err) {
+        console.error("Error al crear rol:", err);
+        alert('Error al crear el rol');
+    }
+}
+window.handleCreateRoleSubmit = handleCreateRoleSubmit;
 
 function selectRole(roleName) {
     currentSelectedRole = roleName;
