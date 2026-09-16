@@ -4287,6 +4287,8 @@ span.perf-low {
     margin-left: 2px;
     background-color: var(--white);
     min-width: 190px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
     box-shadow: 0 10px 25px rgba(0, 45, 71, 0.12);
     border: 1px solid #e2e8f0;
     border-radius: 12px;

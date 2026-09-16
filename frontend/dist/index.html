@@ -103,8 +103,8 @@
             transition: opacity 0.3s;
         }
     </style>
-  <script type="module" crossorigin src="/assets/index-Bs2u-oxW.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BNN5dNot.css">
+  <script type="module" crossorigin src="/assets/index-BjHGTWTP.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-SzwzawCq.css">
 </head>
 
 <body>
@@ -251,27 +251,47 @@
                                 <span>Reporte RRHH</span>
                                 <span class="submenu-chevron">▶</span>
                             </a>
-                            <div class="submenu-content">
-                                <a href="#/reportes_rrhh" id="link-rrhh-hub" onclick="event.preventDefault(); showView('reportes_rrhh');">Hub Central RRHH</a>
-                                <a href="#/reportes_rrhh/carga" id="link-rrhh-carga" onclick="event.preventDefault(); showView('reportes_rrhh_carga');">Cargar Planilla Excel</a>
-                                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
-                                <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; padding: 4px 12px; text-transform: uppercase; font-family: 'Outfit';">DGROC</div>
-                                <a href="#/reportes_rrhh/catastro" id="link-rrhh-catastro" onclick="event.preventDefault(); showView('reportes_rrhh_catastro');">Catastro</a>
-                                <a href="#/reportes_rrhh/instalaciones" id="link-rrhh-instalaciones" onclick="event.preventDefault(); showView('reportes_rrhh_instalaciones');">Instalaciones</a>
-                                <a href="#/reportes_rrhh/conforme" id="link-rrhh-conforme" onclick="event.preventDefault(); showView('reportes_rrhh_conforme');">Conforme</a>
-                                <a href="#/reportes_rrhh/contable" id="link-rrhh-contable" onclick="event.preventDefault(); showView('reportes_rrhh_contable');">Contable</a>
-                                <a href="#/reportes_rrhh/etapa_proyecto" id="link-rrhh-etapa_proyecto" onclick="event.preventDefault(); showView('reportes_rrhh_etapa_proyecto');">Etapa Proyecto</a>
-                                <a href="#/reportes_rrhh/aviso_obra" id="link-rrhh-aviso_obra" onclick="event.preventDefault(); showView('reportes_rrhh_aviso_obra');">Aviso de Obra</a>
-                                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
-                                <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; padding: 4px 12px; text-transform: uppercase; font-family: 'Outfit';">DGIUR</div>
-                                <a href="#/reportes_rrhh/morfologia" id="link-rrhh-morfologia" onclick="event.preventDefault(); showView('reportes_rrhh_morfologia');">Morfología Urbana</a>
-                                <a href="#/reportes_rrhh/aph" id="link-rrhh-aph" onclick="event.preventDefault(); showView('reportes_rrhh_aph');">APH</a>
-                                <a href="#/reportes_rrhh/usos" id="link-rrhh-usos" onclick="event.preventDefault(); showView('reportes_rrhh_usos');">Usos</a>
-                                <a href="#/reportes_rrhh/publico_privado" id="link-rrhh-publico_privado" onclick="event.preventDefault(); showView('reportes_rrhh_publico_privado');">Público Privado</a>
-                                <a href="#/reportes_rrhh/copua" id="link-rrhh-copua" onclick="event.preventDefault(); showView('reportes_rrhh_copua');">COPUA</a>
-                                <a href="#/reportes_rrhh/privada" id="link-rrhh-privada" onclick="event.preventDefault(); showView('reportes_rrhh_privada');">Privada</a>
-                                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
-                                <a href="#/reportes_rrhh/otros" id="link-rrhh-otros" onclick="event.preventDefault(); showView('reportes_rrhh_otros');">Otros / General</a>
+                            <div class="submenu-content" style="min-width: 440px; padding: 12px 16px; top: -80px; max-height: calc(100vh - 100px); overflow-y: auto; box-shadow: 0 15px 35px rgba(0,45,71,0.18);">
+                                <!-- Top Quick Links -->
+                                <div style="display: flex; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                                    <a href="#/reportes_rrhh" id="link-rrhh-hub" onclick="event.preventDefault(); showView('reportes_rrhh');" style="flex: 1; padding: 7px 10px; background: #eff6ff; color: #1d4ed8; border-radius: 8px; font-weight: 700; text-align: center; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                        <i class="fa-solid fa-chart-pie"></i> Hub Central RRHH
+                                    </a>
+                                    <a href="#/reportes_rrhh/carga" id="link-rrhh-carga" onclick="event.preventDefault(); showView('reportes_rrhh_carga');" style="flex: 1; padding: 7px 10px; background: #f0fdf4; color: #15803d; border-radius: 8px; font-weight: 700; text-align: center; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> Cargar Planilla Excel
+                                    </a>
+                                </div>
+
+                                <!-- 2-Column Grid -->
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                                    <!-- Column DGROC -->
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #2563eb; padding: 4px 8px; text-transform: uppercase; font-family: 'Outfit'; border-bottom: 1px solid #dbeafe; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-building-user"></i> DGROC
+                                        </div>
+                                        <a href="#/reportes_rrhh/catastro" id="link-rrhh-catastro" onclick="event.preventDefault(); showView('reportes_rrhh_catastro');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Catastro</a>
+                                        <a href="#/reportes_rrhh/instalaciones" id="link-rrhh-instalaciones" onclick="event.preventDefault(); showView('reportes_rrhh_instalaciones');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Instalaciones</a>
+                                        <a href="#/reportes_rrhh/conforme" id="link-rrhh-conforme" onclick="event.preventDefault(); showView('reportes_rrhh_conforme');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Conforme</a>
+                                        <a href="#/reportes_rrhh/contable" id="link-rrhh-contable" onclick="event.preventDefault(); showView('reportes_rrhh_contable');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Contable</a>
+                                        <a href="#/reportes_rrhh/etapa_proyecto" id="link-rrhh-etapa_proyecto" onclick="event.preventDefault(); showView('reportes_rrhh_etapa_proyecto');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Etapa Proyecto</a>
+                                        <a href="#/reportes_rrhh/aviso_obra" id="link-rrhh-aviso_obra" onclick="event.preventDefault(); showView('reportes_rrhh_aviso_obra');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Aviso de Obra</a>
+                                    </div>
+
+                                    <!-- Column DGIUR & Otros -->
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <div style="font-size: 0.72rem; font-weight: 800; color: #16a34a; padding: 4px 8px; text-transform: uppercase; font-family: 'Outfit'; border-bottom: 1px solid #dcfce7; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-city"></i> DGIUR
+                                        </div>
+                                        <a href="#/reportes_rrhh/morfologia" id="link-rrhh-morfologia" onclick="event.preventDefault(); showView('reportes_rrhh_morfologia');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Morfología Urbana</a>
+                                        <a href="#/reportes_rrhh/aph" id="link-rrhh-aph" onclick="event.preventDefault(); showView('reportes_rrhh_aph');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">APH</a>
+                                        <a href="#/reportes_rrhh/usos" id="link-rrhh-usos" onclick="event.preventDefault(); showView('reportes_rrhh_usos');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Usos del Suelo</a>
+                                        <a href="#/reportes_rrhh/publico_privado" id="link-rrhh-publico_privado" onclick="event.preventDefault(); showView('reportes_rrhh_publico_privado');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Público Privado</a>
+                                        <a href="#/reportes_rrhh/copua" id="link-rrhh-copua" onclick="event.preventDefault(); showView('reportes_rrhh_copua');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">COPUA</a>
+                                        <a href="#/reportes_rrhh/privada" id="link-rrhh-privada" onclick="event.preventDefault(); showView('reportes_rrhh_privada');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Privada</a>
+                                        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 4px 0;">
+                                        <a href="#/reportes_rrhh/otros" id="link-rrhh-otros" onclick="event.preventDefault(); showView('reportes_rrhh_otros');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block; color: #64748b;">Otros / General</a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
