@@ -184,7 +184,25 @@ function initAuth() {
         if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
 
         const rrhhLink = document.getElementById('rrhh-link');
-        if (rrhhLink) rrhhLink.style.display = hasRrhhAccess ? 'block' : 'none';
+        const menuSubRrhh = document.getElementById('menu-sub-rrhh');
+        if (menuSubRrhh) menuSubRrhh.style.display = hasRrhhAccess ? 'block' : 'none';
+        else if (rrhhLink) rrhhLink.style.display = hasRrhhAccess ? 'block' : 'none';
+
+        setDisplay('link-rrhh-hub', perms.reportes_rrhh || isAdmin);
+        setDisplay('link-rrhh-carga', perms.carga_reportes_rrhh || isAdmin);
+        setDisplay('link-rrhh-catastro', perms.reportes_rrhh || perms.rrhh_catastro || isAdmin);
+        setDisplay('link-rrhh-instalaciones', perms.reportes_rrhh || perms.rrhh_instalaciones || isAdmin);
+        setDisplay('link-rrhh-conforme', perms.reportes_rrhh || perms.rrhh_conforme || isAdmin);
+        setDisplay('link-rrhh-contable', perms.reportes_rrhh || perms.rrhh_contable || isAdmin);
+        setDisplay('link-rrhh-etapa_proyecto', perms.reportes_rrhh || perms.rrhh_etapa_proyecto || isAdmin);
+        setDisplay('link-rrhh-aviso_obra', perms.reportes_rrhh || perms.rrhh_aviso_obra || isAdmin);
+        setDisplay('link-rrhh-morfologia', perms.reportes_rrhh || perms.rrhh_morfologia || isAdmin);
+        setDisplay('link-rrhh-aph', perms.reportes_rrhh || perms.rrhh_aph || isAdmin);
+        setDisplay('link-rrhh-usos', perms.reportes_rrhh || perms.rrhh_usos || isAdmin);
+        setDisplay('link-rrhh-publico_privado', perms.reportes_rrhh || perms.rrhh_publico_privado || isAdmin);
+        setDisplay('link-rrhh-copua', perms.reportes_rrhh || perms.rrhh_copua || isAdmin);
+        setDisplay('link-rrhh-privada', perms.reportes_rrhh || perms.rrhh_privada || isAdmin);
+        setDisplay('link-rrhh-otros', perms.reportes_rrhh || perms.rrhh_otros || isAdmin);
 
         const linkUniversoTratas = document.getElementById('universo-tratas-link');
         if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
@@ -450,61 +468,6 @@ async function showView(viewId, updateHash = true) {
         }
     }
 
-    // Ocultar todas las vistas
-    const views = document.querySelectorAll('.view-container');
-    views.forEach(v => {
-        v.style.display = 'none';
-        v.classList.remove('active');
-    });
-
-    // Si existe la función del router modular (mountView), usarla para cargar la plantilla dinámicamente
-    if (typeof window.mountView === 'function') {
-        window.mountView(viewId);
-    }
-
-    // Mostrar la vista solicitada
-    const activeView = document.getElementById(viewId);
-    if (activeView) {
-        activeView.style.display = 'block';
-        setTimeout(() => activeView.classList.add('active'), 10);
-    }
-
-    // Cargar datos específicos de cada vista
-    if (viewId === 'metas' || viewId === 'seguimiento') {
-        loadMetasData();
-    }
-
-    if (viewId === 'sla') {
-        loadSLAReporte();
-    }
-
-    if (viewId === 'cierre') {
-        loadCierreMesData();
-    }
-
-    if (viewId === 'subsanaciones') {
-        loadSubsanacionesReport();
-    }
-
-    if (viewId === 'productividad_analistas') {
-        loadProductividadAnalistasView();
-    }
-
-    if (viewId === 'reportes_rrhh') {
-        if (typeof window.loadRRHHHubView === 'function') {
-            window.loadRRHHHubView();
-        }
-    } else if (viewId === 'reportes_rrhh_carga') {
-        if (typeof window.initRRHHCargaView === 'function') {
-            window.initRRHHCargaView();
-        }
-    } else if (viewId.startsWith('reportes_rrhh_')) {
-        const gKey = viewId.replace('reportes_rrhh_', '');
-        if (typeof window.loadRRHHGerenciaView === 'function') {
-            window.loadRRHHGerenciaView(gKey);
-        }
-    }
-
     if (updateHash) {
         const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
         const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
@@ -512,6 +475,12 @@ async function showView(viewId, updateHash = true) {
             window.location.hash = `#/dgiur/${viewId}`;
         } else if (dgrocGerencias.includes(viewId)) {
             window.location.hash = `#/dgroc/${viewId}`;
+        } else if (viewId === 'reportes_rrhh') {
+            window.location.hash = `#/reportes_rrhh`;
+        } else if (viewId === 'reportes_rrhh_carga') {
+            window.location.hash = `#/reportes_rrhh/carga`;
+        } else if (viewId.startsWith('reportes_rrhh_')) {
+            window.location.hash = `#/reportes_rrhh/${viewId.replace('reportes_rrhh_', '')}`;
         } else if (viewId === 'c3d_extensiones_todas' || viewId === 'ciudad3d_troneras') {
             window.location.hash = `#/ciudad3d/extensiones/todas`;
         } else if (viewId === 'c3d_extensiones_mis_trazados') {
@@ -592,10 +561,17 @@ async function showView(viewId, updateHash = true) {
     }
 
     if (viewId === 'reportes_rrhh') {
-        if (typeof window.renderRRHHView === 'function') {
-            window.renderRRHHView();
-        } else {
-            initRRHHReportView();
+        if (typeof window.loadRRHHHubView === 'function') {
+            window.loadRRHHHubView();
+        }
+    } else if (viewId === 'reportes_rrhh_carga') {
+        if (typeof window.initRRHHCargaView === 'function') {
+            window.initRRHHCargaView();
+        }
+    } else if (viewId.startsWith('reportes_rrhh_')) {
+        const gKey = viewId.replace('reportes_rrhh_', '');
+        if (typeof window.loadRRHHGerenciaView === 'function') {
+            window.loadRRHHGerenciaView(gKey);
         }
     }
 
