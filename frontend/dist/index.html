@@ -103,7 +103,7 @@
             transition: opacity 0.3s;
         }
     </style>
-  <script type="module" crossorigin src="/assets/index-DXAeqmMn.js"></script>
+  <script type="module" crossorigin src="/assets/index-Bs2u-oxW.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-BNN5dNot.css">
 </head>
 
@@ -244,7 +244,37 @@
                         <a href="#" id="sla-link" onclick="event.preventDefault(); showView('sla')">Tiempos de Tramitacion</a>
                         <a href="#" onclick="event.preventDefault(); showView('subsanaciones')">Subsanaciones</a>
                         <a href="#" id="productividad-link" onclick="event.preventDefault(); showView('productividad_analistas')">Productividad Analistas</a>
-                        <a href="#" id="rrhh-link" onclick="event.preventDefault(); showView('reportes_rrhh')">Reporte RRHH</a>
+                        
+                        <!-- Reporte RRHH Submenu -->
+                        <div class="dropdown-submenu" id="menu-sub-rrhh">
+                            <a href="#/reportes_rrhh" class="submenu-trigger" id="rrhh-link" onclick="event.preventDefault(); showView('reportes_rrhh');">
+                                <span>Reporte RRHH</span>
+                                <span class="submenu-chevron">▶</span>
+                            </a>
+                            <div class="submenu-content">
+                                <a href="#/reportes_rrhh" id="link-rrhh-hub" onclick="event.preventDefault(); showView('reportes_rrhh');">Hub Central RRHH</a>
+                                <a href="#/reportes_rrhh/carga" id="link-rrhh-carga" onclick="event.preventDefault(); showView('reportes_rrhh_carga');">Cargar Planilla Excel</a>
+                                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
+                                <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; padding: 4px 12px; text-transform: uppercase; font-family: 'Outfit';">DGROC</div>
+                                <a href="#/reportes_rrhh/catastro" id="link-rrhh-catastro" onclick="event.preventDefault(); showView('reportes_rrhh_catastro');">Catastro</a>
+                                <a href="#/reportes_rrhh/instalaciones" id="link-rrhh-instalaciones" onclick="event.preventDefault(); showView('reportes_rrhh_instalaciones');">Instalaciones</a>
+                                <a href="#/reportes_rrhh/conforme" id="link-rrhh-conforme" onclick="event.preventDefault(); showView('reportes_rrhh_conforme');">Conforme</a>
+                                <a href="#/reportes_rrhh/contable" id="link-rrhh-contable" onclick="event.preventDefault(); showView('reportes_rrhh_contable');">Contable</a>
+                                <a href="#/reportes_rrhh/etapa_proyecto" id="link-rrhh-etapa_proyecto" onclick="event.preventDefault(); showView('reportes_rrhh_etapa_proyecto');">Etapa Proyecto</a>
+                                <a href="#/reportes_rrhh/aviso_obra" id="link-rrhh-aviso_obra" onclick="event.preventDefault(); showView('reportes_rrhh_aviso_obra');">Aviso de Obra</a>
+                                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
+                                <div style="font-size: 0.7rem; font-weight: 800; color: #94a3b8; padding: 4px 12px; text-transform: uppercase; font-family: 'Outfit';">DGIUR</div>
+                                <a href="#/reportes_rrhh/morfologia" id="link-rrhh-morfologia" onclick="event.preventDefault(); showView('reportes_rrhh_morfologia');">Morfología Urbana</a>
+                                <a href="#/reportes_rrhh/aph" id="link-rrhh-aph" onclick="event.preventDefault(); showView('reportes_rrhh_aph');">APH</a>
+                                <a href="#/reportes_rrhh/usos" id="link-rrhh-usos" onclick="event.preventDefault(); showView('reportes_rrhh_usos');">Usos</a>
+                                <a href="#/reportes_rrhh/publico_privado" id="link-rrhh-publico_privado" onclick="event.preventDefault(); showView('reportes_rrhh_publico_privado');">Público Privado</a>
+                                <a href="#/reportes_rrhh/copua" id="link-rrhh-copua" onclick="event.preventDefault(); showView('reportes_rrhh_copua');">COPUA</a>
+                                <a href="#/reportes_rrhh/privada" id="link-rrhh-privada" onclick="event.preventDefault(); showView('reportes_rrhh_privada');">Privada</a>
+                                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
+                                <a href="#/reportes_rrhh/otros" id="link-rrhh-otros" onclick="event.preventDefault(); showView('reportes_rrhh_otros');">Otros / General</a>
+                            </div>
+                        </div>
+
                         <a href="#" id="universo-tratas-link" onclick="event.preventDefault(); showView('universo_tratas')">Universo Tratas y Buzones</a>
                         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
                         <a href="#" id="planificacion-nov-2026-link" onclick="event.preventDefault(); showView('planificacion_nov_2026')">Planificación Noviembre 2026</a>
