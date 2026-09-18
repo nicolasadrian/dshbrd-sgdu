@@ -211,12 +211,12 @@ function initAuth() {
         if (linkPlanifNov2026) linkPlanifNov2026.style.display = perms.planificacion_nov_2026 ? 'block' : 'none';
 
         // 4. Toggles for Analytics dropdown and its contents
-        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo;
+        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_conformes_obra || perms.analytics_pdl_blanqueo;
         const navAnalytics = document.getElementById('nav-dropdown-analytics');
         if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
 
         const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
-        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo) ? 'block' : 'none';
+        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_conformes_obra || perms.analytics_pdl_blanqueo) ? 'block' : 'none';
         const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
         if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
 
@@ -231,11 +231,15 @@ function initAuth() {
         }
         const cardM2Permisados = document.getElementById('card-goto-m2-permisados');
         if (cardM2Permisados) {
-            cardM2Permisados.style.display = perms.analytics_m2_permisados ? 'flex' : 'none';
+            cardM2Permisados.style.display = (perms.analytics_m2_permisados || perms.analytics_estadistica || isAdmin) ? 'flex' : 'none';
         }
         const cardAvisosObra = document.getElementById('card-goto-avisos-obra');
         if (cardAvisosObra) {
-            cardAvisosObra.style.display = perms.analytics_avisos_obra ? 'flex' : 'none';
+            cardAvisosObra.style.display = (perms.analytics_avisos_obra || perms.analytics_estadistica || isAdmin) ? 'flex' : 'none';
+        }
+        const cardConformesObra = document.getElementById('card-goto-conformes-obra');
+        if (cardConformesObra) {
+            cardConformesObra.style.display = (perms.analytics_conformes_obra || perms.analytics_estadistica || isAdmin) ? 'flex' : 'none';
         }
         const cardPdlBlanqueo = document.getElementById('card-goto-pdl-blanqueo');
         if (cardPdlBlanqueo) {
@@ -422,8 +426,8 @@ async function showView(viewId, updateHash = true) {
         } else if (viewId.startsWith('contable_')) {
             hasPermission = !!(perms.contable_calculadora || perms[viewId] || isAdmin);
         } else if (viewId === 'analytics_estadistica') {
-            hasPermission = !!(perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_pdl_blanqueo || perms.analytics_datasets || isAdmin);
-        } else if (viewId === 'analytics_m2_permisados' || viewId === 'analytics_avisos_obra' || viewId === 'analytics_pdl_blanqueo' || viewId === 'ley_blanqueo' || viewId === 'analytics_datasets') {
+            hasPermission = !!(perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_conformes_obra || perms.analytics_pdl_blanqueo || perms.analytics_datasets || isAdmin);
+        } else if (viewId === 'analytics_m2_permisados' || viewId === 'analytics_avisos_obra' || viewId === 'analytics_conformes_obra' || viewId === 'analytics_pdl_blanqueo' || viewId === 'ley_blanqueo' || viewId === 'analytics_datasets') {
             hasPermission = !!(perms[viewId] || perms.analytics_estadistica || isAdmin);
         } else if (viewId === 'asignados-mi') {
             hasPermission = !!(perms['asignados-mi'] || isAdmin);
@@ -14456,6 +14460,19 @@ let conformesChartComuna = null;
 let conformesChartEvolucion = null;
 let debounceConformesTimer = null;
 
+function populateFilterSelect(elementId, items, currentVal, placeholder) {
+    const select = document.getElementById(elementId);
+    if (!select || select.options.length > 1) return;
+    
+    let html = `<option value="">${placeholder}</option>`;
+    (items || []).forEach(item => {
+        if (!item) return;
+        const selectedAttr = String(item) === String(currentVal) ? 'selected' : '';
+        html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+    });
+    select.innerHTML = html;
+}
+
 async function loadConformesObra(resetPage = false) {
     if (resetPage) {
         conformesCurrentPage = 1;
@@ -14548,6 +14565,10 @@ async function loadConformesObra(resetPage = false) {
                         : `<span style="background: #f3e8ff; color: #6b21a8; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #e9d5ff;">IFSMI</span>`);
 
                 const fechaFormateada = row.fecha_creacion ? String(row.fecha_creacion).substring(0, 10) : '-';
+                const profesionalText = (row.apellido_profesional || row.nombre_profesional) 
+                    ? `<strong>${row.apellido_profesional || ''} ${row.nombre_profesional || ''}</strong>` 
+                    : '<span style="color: #94a3b8;">-</span>';
+                const matriculaText = row.matricula_profesional ? `<div style="font-size: 0.75rem; color: #64748b;">Mat: ${row.matricula_profesional}</div>` : '';
 
                 return `
                     <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
@@ -14557,11 +14578,11 @@ async function loadConformesObra(resetPage = false) {
                             <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;">${row.documento || ''}</div>
                         </td>
                         <td style="padding: 12px 16px;">
-                            <div style="font-weight: 600; color: #1e293b;">${row.direccion || '-'}</div>
-                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">SMP: ${row.smp || '-'}</div>
+                            <div style="font-weight: 600; color: #1e293b;">${row.direccion || '<span style="color: #94a3b8;">-</span>'}</div>
+                            ${row.smp ? `<div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">SMP: ${row.smp}</div>` : ''}
                         </td>
                         <td style="padding: 12px 16px;">
-                            <div style="font-weight: 600; color: #334155;">${row.comuna || '-'}</div>
+                            <div style="font-weight: 600; color: #334155;">${row.comuna || '<span style="color: #94a3b8;">-</span>'}</div>
                             <div style="font-size: 0.75rem; color: #64748b;">${row.barrio || ''}</div>
                         </td>
                         <td style="padding: 12px 16px; font-size: 0.8rem; color: #475569;">
@@ -14569,17 +14590,17 @@ async function loadConformesObra(resetPage = false) {
                             <div style="color: #64748b; font-size: 0.75rem;">${row.tipo_tarea || ''}</div>
                         </td>
                         <td style="padding: 12px 16px; text-align: right; font-weight: 600; color: #16a34a;">
-                            ${row.sup_construida ? Math.round(row.sup_construida).toLocaleString('es-AR') : '0'} m²
+                            ${row.sup_construida ? Math.round(row.sup_construida).toLocaleString('es-AR') + ' m²' : '<span style="color:#94a3b8;">-</span>'}
                         </td>
                         <td style="padding: 12px 16px; text-align: right; font-weight: 600; color: #a855f7;">
-                            ${row.sup_modificada ? Math.round(row.sup_modificada).toLocaleString('es-AR') : '0'} m²
+                            ${row.sup_modificada ? Math.round(row.sup_modificada).toLocaleString('es-AR') + ' m²' : '<span style="color:#94a3b8;">-</span>'}
                         </td>
                         <td style="padding: 12px 16px; text-align: right; font-weight: 700; color: var(--primary);">
-                            ${row.sup_total_afectada ? Math.round(row.sup_total_afectada).toLocaleString('es-AR') : '0'} m²
+                            ${row.sup_total_afectada ? Math.round(row.sup_total_afectada).toLocaleString('es-AR') + ' m²' : '<span style="color:#94a3b8;">-</span>'}
                         </td>
                         <td style="padding: 12px 16px;">
-                            <strong>${row.apellido_profesional || ''} ${row.nombre_profesional || ''}</strong>
-                            <div style="font-size: 0.75rem; color: #64748b;">Mat: ${row.matricula_profesional || '-'}</div>
+                            ${profesionalText}
+                            ${matriculaText}
                         </td>
                         <td style="padding: 12px 16px; font-size: 0.8rem; color: #475569;">
                             ${fechaFormateada}
@@ -17410,6 +17431,7 @@ async function loadCiudad3DTroneras() {
             calculateLFIStats();
             renderLFIMisTrazados();
             renderLFIRevision();
+            renderLFIPlanFases();
             renderLFIEquipo();
             // Actualizar filtros del mapa si ya está inicializado
             lfiApplyManzanaFilter();
@@ -17972,8 +17994,194 @@ function renderLFIRevision() {
     }).join('');
 }
 
+async function renderLFIPlanFases() {
+    const tbody = document.getElementById('plan-fases-table-body');
+    const tfoot = document.getElementById('plan-fases-table-foot');
+    const elGlobalPct = document.getElementById('plan-fases-avance-global-pct');
+    const elGlobalRatio = document.getElementById('plan-fases-avance-global-ratio');
+    const elGlobalTotal = document.getElementById('plan-fases-total-manzanas');
+
+    if (!tbody) return;
+
+    const PLAN_FASES_CONFIG = [
+        { fase: 1, barrio: 'Belgrano', fecha: '29/10/2026', isoDate: '2026-10-29', match: (b) => b.includes('BELGRANO') },
+        { fase: 2, barrio: 'Nuñez', fecha: '09/11/2026', isoDate: '2026-11-09', match: (b) => b.includes('NU') || b.includes('NUEZ') || b.includes('NUNEZ') },
+        { fase: 3, barrio: 'Palermo', fecha: '01/12/2026', isoDate: '2026-12-01', match: (b) => b.includes('PALERMO') },
+        { fase: 4, barrio: 'Saavedra', fecha: '18/12/2026', isoDate: '2026-12-18', match: (b) => b.includes('SAAVEDRA') },
+        { fase: 5, barrio: 'Colegiales', fecha: '24/12/2026', isoDate: '2026-12-24', match: (b) => b.includes('COLEGIALES') },
+        { fase: 6, barrio: 'Recoleta', fecha: '05/01/2027', isoDate: '2027-01-05', match: (b) => b.includes('RECOLETA') },
+        { fase: 7, barrio: 'Retiro', fecha: '11/01/2027', isoDate: '2027-01-11', match: (b) => b.includes('RETIRO') },
+        { fase: 8, barrio: 'Villa Urquiza', fecha: '29/01/2027', isoDate: '2027-01-29', match: (b) => b.includes('URQUIZA') }
+    ];
+
+    const normalize = (str) => {
+        if (!str) return '';
+        return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+    };
+
+    // Estructura de conteo por fase
+    const statsPorFase = PLAN_FASES_CONFIG.map(f => ({
+        ...f,
+        total: 0,
+        aprobadas: 0,
+        revision: 0,
+        en_curso: 0,
+        pendientes: 0
+    }));
+
+    (c3dTronerasRawData || []).forEach(row => {
+        const bNorm = normalize(row.barrio);
+        const faseObj = statsPorFase.find(f => f.match(bNorm));
+        if (!faseObj) return;
+
+        faseObj.total++;
+        const est = (row.estado || '').toLowerCase().trim();
+        if (est === 'subir a ciudad 3d' || est === 'aprobado' || est === 'aprobada') {
+            faseObj.aprobadas++;
+        } else if (est === 'para revisión' || est === 'para revision') {
+            faseObj.revision++;
+        } else if (est === 'en curso') {
+            faseObj.en_curso++;
+        } else {
+            faseObj.pendientes++;
+        }
+    });
+
+    let sumTotal = 0, sumAprob = 0, sumRev = 0, sumCurso = 0, sumPend = 0;
+    const now = new Date();
+
+    const rowsHtml = statsPorFase.map(f => {
+        sumTotal += f.total;
+        sumAprob += f.aprobadas;
+        sumRev += f.revision;
+        sumCurso += f.en_curso;
+        sumPend += f.pendientes;
+
+        const pct = f.total > 0 ? ((f.aprobadas / f.total) * 100).toFixed(1) : '0.0';
+        const pctNum = parseFloat(pct);
+
+        // Estado del plazo
+        const targetDate = new Date(f.isoDate + 'T23:59:59');
+        const diffDays = Math.ceil((targetDate - now) / (1000 * 60 * 60 * 24));
+        let plazoBadge = '';
+        if (pctNum >= 100) {
+            plazoBadge = `<span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> Completado</span>`;
+        } else if (diffDays < 0) {
+            plazoBadge = `<span style="background: #fee2e2; color: #b91c1c; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Vencido</span>`;
+        } else if (diffDays <= 15) {
+            plazoBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-clock"></i> Cierra pronto</span>`;
+        } else {
+            plazoBadge = `<span style="background: #f1f5f9; color: #475569; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-calendar-check"></i> En cronograma</span>`;
+        }
+
+        // Color de barra de avance
+        let barColor = '#3b82f6';
+        if (pctNum >= 100) barColor = '#16a34a';
+        else if (pctNum >= 50) barColor = '#0284c7';
+        else if (pctNum > 0) barColor = '#eab308';
+        else barColor = '#cbd5e1';
+
+        return `
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #64748b;">
+                    <span style="background: #f1f5f9; color: #334155; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem;">
+                        #${f.fase}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; font-weight: 700; color: #0f172a; font-size: 0.95rem;">
+                    ${f.barrio}
+                </td>
+                <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #475569; font-size: 0.88rem;">
+                    <i class="fa-regular fa-calendar" style="margin-right: 5px; color: #94a3b8;"></i>${f.fecha}
+                </td>
+                <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 0.95rem;">
+                    ${f.total.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                        ${f.aprobadas}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                        ${f.revision}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                        ${f.en_curso}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                        ${f.pendientes}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 9px; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${pctNum}%; background: ${barColor}; height: 100%; border-radius: 5px; transition: width 0.3s;"></div>
+                        </div>
+                        <span style="font-weight: 800; font-size: 0.85rem; color: ${pctNum > 0 ? '#15803d' : '#64748b'}; min-width: 44px; text-align: right;">${pct}%</span>
+                    </div>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    ${plazoBadge}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowsHtml;
+
+    // Totales del footer
+    const globalPct = sumTotal > 0 ? ((sumAprob / sumTotal) * 100).toFixed(1) : '0.0';
+    if (tfoot) {
+        tfoot.innerHTML = `
+            <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td colspan="3" style="padding: 14px 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.85rem;">
+                    Totales Plan Troneras
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 1rem;">
+                    ${sumTotal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.95rem;">
+                    ${sumAprob.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.95rem;">
+                    ${sumRev.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0369a1; font-size: 0.95rem;">
+                    ${sumCurso.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #64748b; font-size: 0.95rem;">
+                    ${sumPend.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${parseFloat(globalPct)}%; background: #16a34a; height: 100%; border-radius: 5px;"></div>
+                        </div>
+                        <span style="font-weight: 800; font-size: 0.9rem; color: #15803d; min-width: 44px; text-align: right;">${globalPct}%</span>
+                    </div>
+                </td>
+                <td style="padding: 14px 16px; text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 600;">
+                    8 Barrios
+                </td>
+            </tr>
+        `;
+    }
+
+    if (elGlobalTotal) elGlobalTotal.innerText = sumTotal.toLocaleString('es-AR');
+    if (elGlobalPct) elGlobalPct.innerText = `${globalPct}%`;
+    if (elGlobalRatio) elGlobalRatio.innerText = `(${sumAprob.toLocaleString('es-AR')} / ${sumTotal.toLocaleString('es-AR')})`;
+}
+window.renderLFIPlanFases = renderLFIPlanFases;
+
 async function renderLFIEquipo() {
     const tbody = document.getElementById('c3d-lfi-equipo-table-body');
+    const tfoot = document.getElementById('c3d-lfi-equipo-table-foot');
+    const countEl = document.getElementById('equipo-total-analistas-count');
     if (!tbody) return;
 
     // Obtener lista completa de analistas de trazados
@@ -18016,7 +18224,7 @@ async function renderLFIEquipo() {
             };
         }
         
-        const est = (row.estado || '').toLowerCase();
+        const est = (row.estado || '').toLowerCase().trim();
         if (est === 'en curso') {
             stats[u].en_curso++;
             stats[u].total++;
@@ -18030,6 +18238,7 @@ async function renderLFIEquipo() {
     });
 
     const rowsList = Object.values(stats);
+    if (countEl) countEl.innerText = rowsList.length;
     
     if (rowsList.length === 0) {
         tbody.innerHTML = `
@@ -18045,24 +18254,33 @@ async function renderLFIEquipo() {
 
     rowsList.sort((a, b) => b.total - a.total);
 
+    let sumAprob = 0, sumRev = 0, sumCurso = 0, sumTotal = 0;
+
     tbody.innerHTML = rowsList.map(s => {
+        sumAprob += s.aprobados;
+        sumRev += s.revision;
+        sumCurso += s.en_curso;
+        sumTotal += s.total;
+
         const pct = s.total > 0 ? Math.round((s.aprobados / s.total) * 100) : 0;
+        let barColor = pct >= 100 ? '#16a34a' : pct > 0 ? '#0284c7' : '#cbd5e1';
+
         return `
-            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
                 <td style="padding: 12px 16px; font-weight: 700; color: #0f172a;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <div style="width: 32px; height: 32px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.82rem;">
                             ${(s.full_name || s.username).charAt(0).toUpperCase()}
                         </div>
                         <div>
-                            <div style="font-weight: 700;">${s.full_name}</div>
+                            <div style="font-weight: 700; font-size: 0.92rem;">${s.full_name}</div>
                             <div style="font-size: 0.75rem; color: #64748b; font-family: monospace;">@${s.username}</div>
                         </div>
                     </div>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
-                        ${s.en_curso}
+                    <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.aprobados}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
@@ -18071,8 +18289,8 @@ async function renderLFIEquipo() {
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
-                        ${s.aprobados}
+                    <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.en_curso}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #1e293b; font-size: 0.95rem;">
@@ -18080,15 +18298,46 @@ async function renderLFIEquipo() {
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                        <div style="flex: 1; max-width: 100px; background: #e2e8f0; height: 8px; border-radius: 4px; overflow: hidden;">
-                            <div style="width: ${pct}%; background: #16a34a; height: 100%; border-radius: 4px;"></div>
+                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 9px; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${pct}%; background: ${barColor}; height: 100%; border-radius: 5px; transition: width 0.3s;"></div>
                         </div>
-                        <span style="font-weight: 700; font-size: 0.82rem; color: #15803d; min-width: 36px; text-align: right;">${pct}%</span>
+                        <span style="font-weight: 800; font-size: 0.85rem; color: ${pct > 0 ? '#15803d' : '#64748b'}; min-width: 40px; text-align: right;">${pct}%</span>
                     </div>
                 </td>
             </tr>
         `;
     }).join('');
+
+    if (tfoot) {
+        const teamPct = sumTotal > 0 ? Math.round((sumAprob / sumTotal) * 100) : 0;
+        tfoot.innerHTML = `
+            <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 14px 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.85rem;">
+                    Totales del Equipo
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.95rem;">
+                    ${sumAprob.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.95rem;">
+                    ${sumRev.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0369a1; font-size: 0.95rem;">
+                    ${sumCurso.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 1rem;">
+                    ${sumTotal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center;">
+                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
+                            <div style="width: ${teamPct}%; background: #16a34a; height: 100%; border-radius: 5px;"></div>
+                        </div>
+                        <span style="font-weight: 800; font-size: 0.9rem; color: #15803d; min-width: 40px; text-align: right;">${teamPct}%</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
 }
 window.renderLFIEquipo = renderLFIEquipo;
 

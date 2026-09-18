@@ -4621,6 +4621,25 @@
                                 </div>
                             </div>
 
+                            <!-- Tarjeta Conformes de Obra -->
+                            <div class="meta-card hover-card" id="card-goto-conformes-obra"
+                                onclick="showView('analytics_conformes_obra')"
+                                style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border-left: 5px solid #10b981; transition: all 0.2s ease;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <div
+                                        style="background: rgba(16, 185, 129, 0.1); width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #10b981;">
+                                        <i class="fa-solid fa-clipboard-check" style="font-size: 1.4rem;"></i>
+                                    </div>
+                                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; color: #1e293b;">Conformes de Obra</h3>
+                                </div>
+                                <p style="margin: 0; color: #64748b; font-size: 0.95rem; line-height: 1.45;">
+                                    Análisis de Conformes de Obra (IFPCO), Obras en Contravención (IFROC) y Sin Modificación (IFSMI).</p>
+                                <div
+                                    style="margin-top: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; color: #10b981; font-size: 0.85rem;">
+                                    Ver estadísticas <i class="fa-solid fa-arrow-right"></i>
+                                </div>
+                            </div>
+
                             <!-- Tarjeta PDL Blanqueo Análisis -->
                             <div class="meta-card hover-card" id="card-goto-pdl-blanqueo"
                                 onclick="switchAnalyticsTab('pdl_blanqueo')"
@@ -5719,6 +5738,286 @@
                                 <!-- Populated dynamically -->
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vista: Conformes de Obra -->
+        <section id="analytics_conformes_obra" class="view-container" style="display: none; padding: 2rem;">
+            <div class="breadcrumbs">
+                <span onclick="showView('landing')">Inicio</span> / <span onclick="showView('analytics_estadistica')" style="cursor: pointer;">Estadística</span> / Conformes de Obra
+            </div>
+
+            <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <h1 style="margin: 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 800; font-size: 1.8rem;">Conformes de Obra</h1>
+                    <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">Análisis integral y dataset de Conformes de Obra, Obras en Contravención y Sin Modificación (IFPCO, IFROC, IFSMI).</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #475569; font-family: 'Outfit';">Acrónimo:</span>
+                        <select id="conformes-filter-acronimo" style="padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.88rem; font-weight: 700; background: white; color: var(--primary-dark);" onchange="loadConformesObra(true)">
+                            <option value="" selected>[Todos los Acrónimos]</option>
+                            <option value="IFPCO">IFPCO - Conforme de Obra</option>
+                            <option value="IFROC">IFROC - Reg. Contravención</option>
+                            <option value="IFSMI">IFSMI - Sin Modificación</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: #475569; font-family: 'Outfit';">Año:</span>
+                        <select id="conformes-filter-anio" style="padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.88rem; font-weight: 700; background: white; color: var(--primary-dark);" onchange="loadConformesObra(true)">
+                            <option value="">[Todos los Años]</option>
+                            <option value="2026">2026</option>
+                            <option value="2025">2025</option>
+                            <option value="2024">2024</option>
+                            <option value="2023">2023</option>
+                        </select>
+                    </div>
+                    <button onclick="downloadConformesObraDataset()" class="btn-primary" style="padding: 10px 20px; font-size: 0.88rem; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; background: #10b981; color: white;">
+                        <i class="fa-solid fa-file-excel"></i> Descargar Dataset (.csv)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub-tabs navigation -->
+            <div style="display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; padding-bottom: 0px;">
+                <button class="conformes-subtab-btn active" onclick="switchConformesSubTab('stats')" style="padding: 10px 20px; border: none; background: none; font-weight: 700; cursor: pointer; border-bottom: 3px solid var(--primary); font-family: 'Outfit'; color: var(--primary-dark); font-size: 0.95rem; transition: all 0.2s;">Estadísticas y Datos</button>
+                <button class="conformes-subtab-btn" onclick="switchConformesSubTab('map')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Mapa de Conformes</button>
+                <button class="conformes-subtab-btn" onclick="switchConformesSubTab('pastillas')" style="padding: 10px 20px; border: none; background: none; font-weight: 600; cursor: pointer; font-family: 'Outfit'; color: #64748b; font-size: 0.95rem; transition: all 0.2s;">Pastillas de Datos</button>
+            </div>
+
+            <!-- Tab 1: Estadísticas y Datos -->
+            <div id="conformes-panel-stats" class="conformes-subview-panel">
+                <!-- KPI Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+                    <!-- Total Expedientes -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(0, 159, 227, 0.08); color: var(--primary); width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">Total Trámites</span>
+                            <span id="conformes-kpi-expedientes" style="font-size: 1.5rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0</span>
+                        </div>
+                    </div>
+                    <!-- Total IFPCO -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(16, 185, 129, 0.08); color: #10b981; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-clipboard-check"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFPCO (Conformes)</span>
+                            <span id="conformes-kpi-ifpco" style="font-size: 1.5rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0</span>
+                        </div>
+                    </div>
+                    <!-- Total IFROC -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(249, 115, 22, 0.08); color: #f97316; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFROC (Contrav.)</span>
+                            <span id="conformes-kpi-ifroc" style="font-size: 1.5rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0</span>
+                        </div>
+                    </div>
+                    <!-- Total IFSMI -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(168, 85, 247, 0.08); color: #a855f7; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-house-circle-check"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">IFSMI (Sin Modif.)</span>
+                            <span id="conformes-kpi-ifsmi" style="font-size: 1.5rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0</span>
+                        </div>
+                    </div>
+                    <!-- Total m2 Afectados -->
+                    <div style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--card-shadow);">
+                        <div style="background: rgba(14, 165, 233, 0.08); color: #0ea5e9; width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                            <i class="fa-solid fa-ruler-combined"></i>
+                        </div>
+                        <div>
+                            <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block; text-transform: uppercase;">M² Total Sup. Afectada</span>
+                            <span id="conformes-kpi-m2-total" style="font-size: 1.5rem; font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark);">0 m²</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Stacked -->
+                <div style="display: flex; flex-direction: column; gap: 2rem; margin-bottom: 2.5rem;">
+                    <!-- Chart 1: Barrio -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">Conformes de Obra por Barrio</h3>
+                        <div style="height: 650px; width: 100%; overflow-y: auto;">
+                            <div id="conformes-chart-barrio-wrapper" style="position: relative; height: 1200px; width: 100%;">
+                                <canvas id="conformes-chart-barrio"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Chart 2: Comuna -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">Conformes de Obra por Comuna</h3>
+                        <div style="position: relative; height: 450px; width: 100%;">
+                            <canvas id="conformes-chart-comuna"></canvas>
+                        </div>
+                    </div>
+                    <!-- Chart 3: Evolución Mensual -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem;">Evolución Mensual de Conformes de Obra</h3>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="conformes-chart-evolucion"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters & Table Panel -->
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); margin-bottom: 3rem;">
+                    <!-- Filter bar -->
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex: 1; min-width: 300px;">
+                            <input type="text" id="conformes-filter-search" placeholder="Buscar por exp, SMP, profesional, dirección..." style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; width: 220px;" oninput="debounceConformesSearch()">
+                            <select id="conformes-filter-comuna" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadConformesObra()">
+                                <option value="">[Comuna]</option>
+                            </select>
+                            <select id="conformes-filter-barrio" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadConformesObra()">
+                                <option value="">[Barrio]</option>
+                            </select>
+                            <select id="conformes-filter-obra" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadConformesObra()">
+                                <option value="">[Tipo Obra]</option>
+                            </select>
+                            <select id="conformes-filter-tarea" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; background: white;" onchange="loadConformesObra()">
+                                <option value="">[Tipo Tarea]</option>
+                            </select>
+                            <button onclick="clearConformesFilters()" style="padding: 8px 14px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #475569;">Limpiar</button>
+                        </div>
+                        <div>
+                            <select id="conformes-table-limit" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.82rem; background: white;" onchange="loadConformesObra()">
+                                <option value="25">25 filas</option>
+                                <option value="50" selected>50 filas</option>
+                                <option value="100">100 filas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Table wrapper -->
+                    <div style="overflow-x: auto; width: 100%; border: 1px solid #f1f5f9; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; font-family: inherit;">
+                            <thead>
+                                <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                    <th style="padding: 12px 16px; width: 80px;">Acrónimo</th>
+                                    <th style="padding: 12px 16px; min-width: 150px;">Expediente / Doc</th>
+                                    <th style="padding: 12px 16px; min-width: 180px;">Dirección / SMP</th>
+                                    <th style="padding: 12px 16px; min-width: 110px;">Comuna / Barrio</th>
+                                    <th style="padding: 12px 16px; min-width: 150px;">Tipo Obra / Tarea</th>
+                                    <th style="padding: 12px 16px; text-align: right;">Sup. Construida</th>
+                                    <th style="padding: 12px 16px; text-align: right;">Sup. Modificada</th>
+                                    <th style="padding: 12px 16px; text-align: right;">Sup. Total Afectada</th>
+                                    <th style="padding: 12px 16px; min-width: 150px;">Profesional</th>
+                                    <th style="padding: 12px 16px; min-width: 110px;">Fecha Creación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="conformes-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination footer -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                        <span id="conformes-pagination-info" style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Mostrando 0 - 0 de 0 registros</span>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <button id="conformes-pg-prev" onclick="changeConformesPage(-1)" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.82rem;">Anterior</button>
+                            <span id="conformes-pg-current" style="font-weight: 700; font-size: 0.85rem; padding: 4px 10px; background: var(--primary); color: white; border-radius: 6px;">1</span>
+                            <button id="conformes-pg-next" onclick="changeConformesPage(1)" style="padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.82rem;">Siguiente</button>
+                        </div>
+                    </div>
+                </div>
+            </div> <!-- Cerrar #conformes-panel-stats -->
+
+            <!-- Tab 2: Mapa de Conformes -->
+            <div id="conformes-panel-map" class="conformes-subview-panel" style="display: none;">
+                <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); margin-bottom: 3rem;">
+                    <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.2rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                        <span>Mapa de Distribución de Conformes de Obra</span>
+                        <span id="conformes-map-total-points" style="font-size: 0.85rem; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 20px; font-weight: 700;">0 puntos georreferenciados</span>
+                    </h3>
+                    <div id="conformes-map" style="height: 600px; width: 100%; border-radius: 12px; border: 1px solid #cbd5e1;"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Pastillas de Datos -->
+            <div id="conformes-panel-pastillas" class="conformes-subview-panel" style="display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; width: 100%; margin-bottom: 3rem;">
+                    <!-- Columna Izquierda: Ranking de Barrios -->
+                    <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); display: flex; flex-direction: column;">
+                        <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: gap: 8px;">
+                            <i class="fa-solid fa-list-ol" style="color: var(--primary);"></i> Resumen y Ranking de Barrios
+                        </h3>
+                        <div style="overflow-x: auto; width: 100%; flex-grow: 1;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                        <th style="padding: 10px; text-align: center; width: 50px;">Pos</th>
+                                        <th style="padding: 10px;">Barrio</th>
+                                        <th style="padding: 10px; text-align: right;">Trámites</th>
+                                        <th style="padding: 10px; text-align: right;">Total M² Afectados</th>
+                                        <th style="padding: 10px; text-align: right;">Prom. M²/Trámite</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="conformes-pastillas-barrios-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Columna Derecha: Totales y Evolución Temporal -->
+                    <div style="display: flex; flex-direction: column; gap: 2rem;">
+                        <!-- Card de Métricas Generales -->
+                        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow);">
+                            <h3 style="margin: 0 0 1.2rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-calculator" style="color: #10b981;"></i> Promedios y Totales Generales
+                            </h3>
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div style="display: justify; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px; display: flex;">
+                                    <span style="font-weight: 600; color: #64748b;">Promedio M² por Barrio:</span>
+                                    <span id="conformes-pastilla-prom-m2-barrio" style="font-weight: 700; color: var(--primary-dark);">0 m²</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                    <span style="font-weight: 600; color: #64748b;">Promedio Trámites por Barrio:</span>
+                                    <span id="conformes-pastilla-prom-exp-barrio" style="font-weight: 700; color: var(--primary-dark);">0</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 8px;">
+                                    <span style="font-weight: 600; color: #64748b;">Promedio M² por Trámite:</span>
+                                    <span id="conformes-pastilla-prom-m2-exp" style="font-weight: 700; color: var(--primary-dark);">0 m²</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; padding-bottom: 4px;">
+                                    <span style="font-weight: 600; color: #64748b;">Total General M² Superficie Afectada:</span>
+                                    <span id="conformes-pastilla-total-m2" style="font-weight: 800; color: var(--primary); font-size: 1.05rem;">0 m²</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card de Evolución Mes a Mes -->
+                        <div style="background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 1.5rem; box-shadow: var(--card-shadow); flex-grow: 1; display: flex; flex-direction: column;">
+                            <h3 style="margin: 0 0 1rem 0; font-family: 'Outfit'; color: var(--primary-dark); font-weight: 700; font-size: 1.1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-chart-line" style="color: #f59e0b;"></i> Evolución Mes a Mes
+                            </h3>
+                            <div style="overflow-y: auto; max-height: 380px; flex-grow: 1;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem;">
+                                    <thead>
+                                        <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 700;">
+                                            <th style="padding: 10px;">Período / Mes</th>
+                                            <th style="padding: 10px; text-align: right;">Trámites</th>
+                                            <th style="padding: 10px; text-align: right;">Total M² Afectados</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="conformes-pastillas-evolucion-body">
+                                        <!-- Populated dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6885,8 +7184,8 @@
 
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
-    <script src="/app.js?v=71"></script>
-    <script type="module" src="/src/main.js?v=71"></script>
+    <script src="/app.js?v=76"></script>
+    <script type="module" src="/src/main.js?v=76"></script>
 </body>
 
 
