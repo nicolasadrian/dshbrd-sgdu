@@ -61,7 +61,7 @@
             <h3
                 style="margin-top: 0; margin-bottom: 20px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.3rem;">
                 Crear Nuevo Usuario</h3>
-            <form id="create-user-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <form id="create-user-form" onsubmit="handleCreateUserSubmit(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
                 <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
                     <div class="form-group">
                         <label
@@ -139,7 +139,7 @@
             <h3 id="edit-user-title-header"
                 style="margin-top: 0; margin-bottom: 20px; font-family: 'Outfit'; font-weight: 700; color: var(--primary-dark); font-size: 1.3rem;">
                 Editar Usuario</h3>
-            <form id="edit-user-form" style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <form id="edit-user-form" onsubmit="handleEditUserSubmit(event)" style="display: flex; flex-direction: column; gap: 1.25rem;">
                 <input type="hidden" id="edit-username-hidden">
                 <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
                     <div class="form-group">

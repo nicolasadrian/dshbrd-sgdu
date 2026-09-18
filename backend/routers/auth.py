@@ -189,23 +189,28 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         hashed = bcrypt.hashpw(user_data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        with engine.connect() as conn:
-            # Intentar insertar con el nombre nuevo, si falla probamos con el viejo
-            try:
-                conn.execute(
-                    text("INSERT INTO auth_users (username, password_hash, role) VALUES (:u, :p, :r)"),
-                    {"u": user_data.username, "p": hashed, "r": user_data.role}
-                )
-            except Exception:
-                conn.execute(
-                    text("INSERT INTO auth_users (username, password_hash, role) VALUES (:u, :p, :r)"),
-                    {"u": user_data.username, "p": hashed, "r": user_data.role}
-                )
-            conn.commit()
-            return {"status": "ok", "message": f"Usuario {user_data.username} creado"}
+        perms_json = json.dumps(user_data.permissions) if user_data.permissions is not None else None
+        
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO auth_users (username, password_hash, role, full_name, sector, email, permissions) 
+                    VALUES (:u, :p, :r, :fn, :s, :e, :perms)
+                """),
+                {
+                    "u": user_data.username.strip(),
+                    "p": hashed,
+                    "r": user_data.role,
+                    "fn": user_data.full_name or user_data.username.strip(),
+                    "s": user_data.sector or "General",
+                    "e": user_data.email or "",
+                    "perms": perms_json
+                }
+            )
+        return {"status": "ok", "message": f"Usuario {user_data.username} creado correctamente"}
     except Exception as e:
         logger.error(f"Error creando usuario: {e}")
-        raise HTTPException(status_code=400, detail=f"Error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error al crear usuario: {str(e)}")
 
 @router.delete("/api/admin/users/{username}")
 async def delete_user(username: str, current_user: User = Depends(get_current_user)):

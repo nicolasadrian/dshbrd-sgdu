@@ -76,6 +76,7 @@ const VIEW_ROUTES = {
     'analytics_datasets': () => import('./views/analytics/datasets/analytics_datasets.html?raw'),
     'analytics_m2_permisados': () => import('./views/analytics/estadistica/analytics_m2_permisados.html?raw'),
     'analytics_avisos_obra': () => import('./views/analytics/estadistica/analytics_avisos_obra.html?raw'),
+    'analytics_conformes_obra': () => import('./views/analytics/estadistica/analytics_conformes_obra.html?raw'),
 
     // Ciudad 3D
     'ciudad3d_home': () => import('./views/ciudad3d/home/ciudad3d_home.html?raw'),
@@ -256,6 +257,8 @@ function triggerViewInit(viewId) {
         window.loadM2Permisados(true);
     } else if (viewId === 'analytics_avisos_obra' && typeof window.loadAvisosObra === 'function') {
         window.loadAvisosObra(true);
+    } else if (viewId === 'analytics_conformes_obra' && typeof window.loadConformesObra === 'function') {
+        window.loadConformesObra(true);
     } else if (viewId === 'ciudad3d_home' && typeof window.loadCiudad3DStats === 'function') {
         window.loadCiudad3DStats();
     } else if ((viewId === 'ciudad3d_troneras' || viewId === 'c3d_extensiones_todas' || viewId === 'c3d_extensiones_mis_trazados' || viewId === 'c3d_extensiones_revision' || viewId === 'c3d_extensiones_equipo' || viewId === 'c3d_extensiones_mapa') && typeof window.loadCiudad3DTroneras === 'function') {

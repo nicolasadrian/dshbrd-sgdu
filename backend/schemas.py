@@ -67,6 +67,10 @@ class UserCreate(BaseModel):
     username: str
     password: str
     role: str
+    full_name: Optional[str] = None
+    sector: Optional[str] = None
+    email: Optional[str] = None
+    permissions: Optional[Dict[str, bool]] = None
 
 class FamiliaUpdate(BaseModel):
     tratas: List[str]

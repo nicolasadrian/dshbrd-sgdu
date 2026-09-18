@@ -79,7 +79,7 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
             "rrhh_catastro", "rrhh_instalaciones", "rrhh_conforme", "rrhh_contable", "rrhh_etapa_proyecto", "rrhh_aviso_obra",
             "rrhh_morfologia", "rrhh_aph", "rrhh_usos", "rrhh_publico_privado", "rrhh_copua", "rrhh_privada", "rrhh_otros",
             # Analytics
-            "analytics_estadistica", "ley_blanqueo", "analytics_m2_permisados", "analytics_avisos_obra", "analytics_pdl_blanqueo", "analytics_datasets",
+            "analytics_estadistica", "ley_blanqueo", "analytics_m2_permisados", "analytics_avisos_obra", "analytics_conformes_obra", "analytics_pdl_blanqueo", "analytics_datasets",
             # Ciudad 3D
             "ciudad_3d", "c3d_home", "c3d_extensiones_todas", "c3d_extensiones_mis_trazados", "c3d_extensiones_revision", "c3d_extensiones_equipo", "c3d_extensiones_mapa", "ciudad3d_manzanas_atipicas", "lfi_dibujar", "lfi_revisar",
             # Contable

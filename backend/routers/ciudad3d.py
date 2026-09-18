@@ -1950,6 +1950,318 @@ async def download_analytics_avisos_obra(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/analytics/conformes-obra")
+async def get_analytics_conformes_obra(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    comuna: Optional[str] = Query(None),
+    barrio: Optional[str] = Query(None),
+    acronimo: Optional[str] = Query(None),
+    tipo_obra: Optional[str] = Query(None),
+    tipo_tarea: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        page_val = int(page.default) if hasattr(page, 'default') else int(page)
+        limit_val = int(limit.default) if hasattr(limit, 'default') else int(limit)
+        search_str = str(search).strip() if search and isinstance(search, str) else None
+        comuna_str = str(comuna).strip() if comuna and isinstance(comuna, str) else None
+        barrio_str = str(barrio).strip() if barrio and isinstance(barrio, str) else None
+        acronimo_str = str(acronimo).strip() if acronimo and isinstance(acronimo, str) else None
+        tipo_obra_str = str(tipo_obra).strip() if tipo_obra and isinstance(tipo_obra, str) else None
+        tipo_tarea_str = str(tipo_tarea).strip() if tipo_tarea and isinstance(tipo_tarea, str) else None
+        anio_val = anio if isinstance(anio, int) else (int(anio.default) if hasattr(anio, 'default') and isinstance(anio.default, int) else None)
+
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if search_str:
+            search_clean = f"%{search_str}%"
+            where_clauses.append("(expediente ILIKE :search OR documento ILIKE :search OR direccion ILIKE :search OR smp ILIKE :search OR matricula_profesional ILIKE :search OR apellido_profesional ILIKE :search)")
+            params["search"] = search_clean
+            
+        if comuna_str:
+            where_clauses.append("comuna = :comuna")
+            params["comuna"] = comuna_str
+            
+        if barrio_str:
+            where_clauses.append("barrio = :barrio")
+            params["barrio"] = barrio_str
+
+        if acronimo_str:
+            where_clauses.append("acronimo = :acronimo")
+            params["acronimo"] = acronimo_str.upper()
+            
+        if tipo_obra_str:
+            where_clauses.append("tipo_obra = :tipo_obra")
+            params["tipo_obra"] = tipo_obra_str
+            
+        if tipo_tarea_str:
+            where_clauses.append("tipo_tarea = :tipo_tarea")
+            params["tipo_tarea"] = tipo_tarea_str
+            
+        if isinstance(anio_val, int) and anio_val > 0:
+            where_clauses.append("EXTRACT(YEAR FROM fecha_creacion)::int = :anio")
+            params["anio"] = anio_val
+
+        where_str = " AND ".join(where_clauses)
+        offset = (page_val - 1) * limit_val
+        
+        with engine.connect() as conn:
+            # 1. Total records count
+            total_count = conn.execute(text(f"SELECT COUNT(*) FROM public.mvw_conformes_obra WHERE {where_str}"), params).scalar() or 0
+            
+            # 2. Count by acronym (IFPCO, IFROC, IFSMI)
+            acro_res = conn.execute(text(f"""
+                SELECT acronimo, COUNT(*) as cant
+                FROM public.mvw_conformes_obra
+                WHERE {where_str}
+                GROUP BY acronimo
+            """), params).fetchall()
+            acro_counts = {r[0]: int(r[1]) for r in acro_res}
+
+            # 3. Summary stats
+            stats = conn.execute(text(f"""
+                SELECT 
+                    COALESCE(SUM(sup_construida), 0) as total_construida,
+                    COALESCE(SUM(sup_modificada), 0) as total_modificada,
+                    COALESCE(SUM(sup_existente), 0) as total_existente,
+                    COALESCE(SUM(sup_total_afectada), 0) as total_afectada,
+                    COALESCE(SUM(sup_terreno), 0) as total_terreno
+                FROM public.mvw_conformes_obra
+                WHERE {where_str}
+            """), params).mappings().fetchone()
+            
+            # 4. Paginated records
+            records_res = conn.execute(text(f"""
+                SELECT * FROM public.mvw_conformes_obra
+                WHERE {where_str}
+                ORDER BY fecha_creacion DESC NULLS LAST, id_expediente DESC
+                LIMIT :limit OFFSET :offset
+            """), {**params, "limit": limit_val, "offset": offset})
+            records = [dict(r._mapping) for r in records_res]
+            for r in records:
+                if r.get("fecha_creacion"):
+                    r["fecha_creacion"] = str(r["fecha_creacion"])
+            
+            # 5. Barrio chart data (ranking por cantidad de trámites y m2)
+            barrio_res = conn.execute(text(f"""
+                SELECT 
+                    COALESCE(barrio, 'SIN ESPECIFICAR') as barrio,
+                    COUNT(DISTINCT id_expediente) as cantidad_expedientes,
+                    ROUND(SUM(sup_construida)::numeric, 2) as total_construida,
+                    ROUND(SUM(sup_modificada)::numeric, 2) as total_modificada,
+                    ROUND(SUM(sup_total_afectada)::numeric, 2) as total_m2
+                FROM public.mvw_conformes_obra
+                WHERE {where_str}
+                GROUP BY 1
+                ORDER BY cantidad_expedientes DESC, total_m2 DESC
+            """), params)
+            barrio_data = [dict(r._mapping) for r in barrio_res]
+            
+            # 6. Comuna chart data
+            comuna_res = conn.execute(text(f"""
+                SELECT 
+                    COALESCE(comuna, 'SIN ESPECIFICAR') as comuna,
+                    COUNT(DISTINCT id_expediente) as cantidad_expedientes,
+                    ROUND(SUM(sup_construida)::numeric, 2) as total_construida,
+                    ROUND(SUM(sup_modificada)::numeric, 2) as total_modificada,
+                    ROUND(SUM(sup_total_afectada)::numeric, 2) as total_m2
+                FROM public.mvw_conformes_obra
+                WHERE {where_str}
+                GROUP BY 1
+                ORDER BY cantidad_expedientes DESC, total_m2 DESC
+            """), params)
+            comuna_data = [dict(r._mapping) for r in comuna_res]
+            
+            # 7. Evolución mensual / anual
+            if isinstance(anio_val, int) and anio_val > 0:
+                monthly_res = conn.execute(text(f"""
+                    SELECT 
+                        EXTRACT(MONTH FROM fecha_creacion)::int as mes,
+                        COUNT(DISTINCT id_expediente) as cantidad_expedientes,
+                        ROUND(SUM(sup_total_afectada)::numeric, 2) as total_m2
+                    FROM public.mvw_conformes_obra
+                    WHERE {where_str} AND fecha_creacion IS NOT NULL
+                    GROUP BY 1
+                    ORDER BY 1
+                """), params)
+                monthly_data = [dict(r._mapping) for r in monthly_res]
+            else:
+                monthly_res = conn.execute(text(f"""
+                    SELECT 
+                        EXTRACT(YEAR FROM fecha_creacion)::int as anio,
+                        EXTRACT(MONTH FROM fecha_creacion)::int as mes,
+                        COUNT(DISTINCT id_expediente) as cantidad_expedientes,
+                        ROUND(SUM(sup_total_afectada)::numeric, 2) as total_m2
+                    FROM public.mvw_conformes_obra
+                    WHERE {where_str} AND fecha_creacion IS NOT NULL
+                    GROUP BY 1, 2
+                    ORDER BY 1, 2
+                """), params)
+                monthly_data = [dict(r._mapping) for r in monthly_res]
+            
+            # 8. Map points (con coordenadas x, y válidas)
+            map_points_res = conn.execute(text(f"""
+                SELECT x, y, acronimo, expediente, documento, direccion, smp, barrio, comuna, sup_construida, sup_modificada, sup_total_afectada, tipo_obra, tipo_tarea, apellido_profesional, nombre_profesional
+                FROM public.mvw_conformes_obra
+                WHERE {where_str} AND x IS NOT NULL AND y IS NOT NULL
+            """), params)
+            map_points = [dict(r._mapping) for r in map_points_res]
+
+            # 9. Summary records lightweight list
+            all_summary_res = conn.execute(text(f"""
+                SELECT id_expediente, acronimo, sup_construida, sup_modificada, sup_total_afectada
+                FROM public.mvw_conformes_obra
+                WHERE {where_str}
+            """), params)
+            summary_records = [{"id": r[0], "acro": r[1], "c": float(r[2] or 0), "m": float(r[3] or 0), "t": float(r[4] or 0)} for r in all_summary_res.fetchall()]
+            
+            # 10. Filters metadata
+            filter_comunas = [r[0] for r in conn.execute(text("SELECT DISTINCT comuna FROM public.mvw_conformes_obra WHERE comuna IS NOT NULL AND comuna <> '' ORDER BY 1")).fetchall()]
+            filter_barrios = [r[0] for r in conn.execute(text("SELECT DISTINCT barrio FROM public.mvw_conformes_obra WHERE barrio IS NOT NULL AND barrio <> '' ORDER BY 1")).fetchall()]
+            filter_acronimos = [r[0] for r in conn.execute(text("SELECT DISTINCT acronimo FROM public.mvw_conformes_obra WHERE acronimo IS NOT NULL AND acronimo <> '' ORDER BY 1")).fetchall()]
+            filter_obras = [r[0] for r in conn.execute(text("SELECT DISTINCT tipo_obra FROM public.mvw_conformes_obra WHERE tipo_obra IS NOT NULL AND tipo_obra <> '' ORDER BY 1")).fetchall()]
+            filter_tareas = [r[0] for r in conn.execute(text("SELECT DISTINCT tipo_tarea FROM public.mvw_conformes_obra WHERE tipo_tarea IS NOT NULL AND tipo_tarea <> '' ORDER BY 1")).fetchall()]
+            filter_anios = [int(r[0]) for r in conn.execute(text("SELECT DISTINCT EXTRACT(YEAR FROM fecha_creacion)::int as anio FROM public.mvw_conformes_obra WHERE fecha_creacion IS NOT NULL ORDER BY 1 DESC")).fetchall()]
+            
+            return {
+                "total_records": total_count,
+                "page": page_val,
+                "limit": limit_val,
+                "acronimo_counts": acro_counts,
+                "summary": {
+                    "total_construida": float(stats["total_construida"] or 0),
+                    "total_modificada": float(stats["total_modificada"] or 0),
+                    "total_existente": float(stats["total_existente"] or 0),
+                    "total_afectada": float(stats["total_afectada"] or 0),
+                    "total_terreno": float(stats["total_terreno"] or 0)
+                },
+                "summary_records": summary_records,
+                "records": records,
+                "map_points": map_points,
+                "charts": {
+                    "barrio": barrio_data,
+                    "comuna": comuna_data,
+                    "evolucion_mensual": monthly_data
+                },
+                "filters": {
+                    "acronimos": filter_acronimos,
+                    "comunas": filter_comunas,
+                    "barrios": filter_barrios,
+                    "tipos_obra": filter_obras,
+                    "tipos_tarea": filter_tareas,
+                    "anios": filter_anios
+                }
+            }
+    except Exception as e:
+        logger.error(f"Error in conformes-obra analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/analytics/conformes-obra/download")
+async def download_analytics_conformes_obra(
+    search: Optional[str] = Query(None),
+    comuna: Optional[str] = Query(None),
+    barrio: Optional[str] = Query(None),
+    acronimo: Optional[str] = Query(None),
+    tipo_obra: Optional[str] = Query(None),
+    tipo_tarea: Optional[str] = Query(None),
+    anio: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        where_clauses = ["1=1"]
+        params = {}
+        
+        if search:
+            search_clean = f"%{search.strip()}%"
+            where_clauses.append("(expediente ILIKE :search OR documento ILIKE :search OR direccion ILIKE :search OR smp ILIKE :search OR matricula_profesional ILIKE :search OR apellido_profesional ILIKE :search)")
+            params["search"] = search_clean
+            
+        if comuna:
+            where_clauses.append("comuna = :comuna")
+            params["comuna"] = comuna.strip()
+            
+        if barrio:
+            where_clauses.append("barrio = :barrio")
+            params["barrio"] = barrio.strip()
+
+        if acronimo:
+            where_clauses.append("acronimo = :acronimo")
+            params["acronimo"] = acronimo.strip().upper()
+            
+        if tipo_obra:
+            where_clauses.append("tipo_obra = :tipo_obra")
+            params["tipo_obra"] = tipo_obra.strip()
+
+        if tipo_tarea:
+            where_clauses.append("tipo_tarea = :tipo_tarea")
+            params["tipo_tarea"] = tipo_tarea.strip()
+
+        if anio is not None and anio > 0:
+            where_clauses.append("EXTRACT(YEAR FROM fecha_creacion)::int = :anio")
+            params["anio"] = anio
+
+        where_str = " AND ".join(where_clauses)
+
+        from fastapi.responses import StreamingResponse
+        import csv
+        import io
+        
+        def generate_csv():
+            output = io.StringIO()
+            output.write('\ufeff')
+            writer = csv.writer(output, delimiter=';')
+            
+            writer.writerow([
+                "Acrónimo", "ID Expediente", "Expediente", "Documento", "Fecha Creación",
+                "Dirección", "SMP", "Sección", "Manzana", "Parcela", "Comuna", "Barrio",
+                "Tipo de Obra", "Tipo de Tarea", "Código Edificación",
+                "Apellido Profesional", "Nombre Profesional", "Matrícula Profesional",
+                "Superficie Terreno", "Superficie Existente", "Superficie Construida",
+                "Superficie Modificada", "Superficie Permiso Previo", "Superficie Total Afectada",
+                "Coordenada X", "Coordenada Y"
+            ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+            
+            with engine.connect() as conn:
+                res = conn.execute(text(f"""
+                    SELECT * FROM public.mvw_conformes_obra
+                    WHERE {where_str}
+                    ORDER BY fecha_creacion DESC NULLS LAST, id_expediente DESC
+                """), params)
+                
+                for row in res:
+                    r = row._mapping
+                    writer.writerow([
+                        r["acronimo"], r["id_expediente"], r["expediente"], r["documento"],
+                        str(r["fecha_creacion"]) if r["fecha_creacion"] else "",
+                        r["direccion"], r["smp"], r["seccion"], r["manzana"], r["parcela"],
+                        r["comuna"], r["barrio"], r["tipo_obra"], r["tipo_tarea"], r["codigo_edificacion"],
+                        r["apellido_profesional"], r["nombre_profesional"], r["matricula_profesional"],
+                        r["sup_terreno"], r["sup_existente"], r["sup_construida"],
+                        r["sup_modificada"], r["sup_permiso_previo"], r["sup_total_afectada"],
+                        r["x"], r["y"]
+                    ])
+                    yield output.getvalue()
+                    output.seek(0)
+                    output.truncate(0)
+                    
+        return StreamingResponse(
+            generate_csv(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=conformes_de_obra.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Error in download conformes-obra: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/api/analytics/ley-blanqueo")
 async def get_analytics_ley_blanqueo(current_user: User = Depends(get_current_user)):
     try:

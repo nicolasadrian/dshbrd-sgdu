@@ -544,6 +544,10 @@ async function showView(viewId, updateHash = true) {
         loadAvisosObra(true);
     }
 
+    if (viewId === 'analytics_conformes_obra') {
+        loadConformesObra(true);
+    }
+
     if (viewId === 'seguimiento') {
         loadSeguimientoData();
     }
@@ -4078,6 +4082,7 @@ const PERMISSION_GROUPS = {
         ley_blanqueo: { label: "Ley de Blanqueo", desc: "Módulo de análisis de trámites de Ley de Blanqueo." },
         analytics_m2_permisados: { label: "M2 Permisados", desc: "Consulta y análisis geoespacial de M2 Permisados." },
         analytics_avisos_obra: { label: "Avisos de Obra", desc: "Estadísticas y mapas analíticos de Avisos de Obra." },
+        analytics_conformes_obra: { label: "Conformes de Obra", desc: "Estadísticas y mapas analíticos de Conformes de Obra (IFPCO, IFROC, IFSMI)." },
         analytics_pdl_blanqueo: { label: "PDL Blanqueo (Análisis)", desc: "Análisis de parcelas y contravenciones CE/CUR." },
         analytics_datasets: { label: "Datasets", desc: "Descarga de datasets crudos del tablero." }
     },
@@ -4390,7 +4395,122 @@ function openEditUser(username) {
     showEditUserView();
 }
 
-let currentSelectedRole = null;
+async function handleCreateUserSubmit(e) {
+    if (e) e.preventDefault();
+    const usernameInput = document.getElementById('new-username');
+    const passwordInput = document.getElementById('new-password');
+    const roleInput = document.getElementById('new-role');
+    const fullnameInput = document.getElementById('new-fullname');
+    const sectorInput = document.getElementById('new-sector');
+    const emailInput = document.getElementById('new-email');
+
+    if (!usernameInput || !passwordInput || !roleInput) return;
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    const role = roleInput.value;
+    const full_name = fullnameInput ? fullnameInput.value.trim() : '';
+    const sector = sectorInput ? sectorInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
+
+    if (!username || !password) {
+        alert('Por favor complete usuario y contraseña.');
+        return;
+    }
+
+    // Collect checked permissions from #new-user-perms-grid
+    const permissions = {};
+    document.querySelectorAll('#new-user-perms-grid .user-perm-checkbox').forEach(cb => {
+        const permKey = cb.getAttribute('data-permission');
+        if (permKey) permissions[permKey] = cb.checked;
+    });
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username, 
+                password, 
+                role, 
+                full_name, 
+                sector, 
+                email, 
+                permissions 
+            })
+        });
+
+        if (resp && resp.ok) {
+            alert(`Usuario ${username} creado correctamente.`);
+            const createForm = document.getElementById('create-user-form');
+            if (createForm) createForm.reset();
+            showUsersListView();
+            await loadUsers();
+        } else {
+            let errorMsg = 'No se pudo crear el usuario';
+            try {
+                const err = await resp.json();
+                errorMsg = err.detail || errorMsg;
+            } catch (_) {}
+            alert('Error: ' + errorMsg);
+        }
+    } catch (err) {
+        console.error("Error al crear usuario:", err);
+        alert('Error de conexión al crear usuario: ' + (err.message || err));
+    }
+}
+window.handleCreateUserSubmit = handleCreateUserSubmit;
+
+async function handleEditUserSubmit(e) {
+    if (e) e.preventDefault();
+    const usernameInput = document.getElementById('edit-username-hidden');
+    const fullnameInput = document.getElementById('edit-fullname');
+    const sectorInput = document.getElementById('edit-sector');
+    const roleInput = document.getElementById('edit-role');
+    const passwordInput = document.getElementById('edit-password');
+
+    if (!usernameInput) return;
+    const username = usernameInput.value.trim();
+    const full_name = fullnameInput ? fullnameInput.value.trim() : '';
+    const sector = sectorInput ? sectorInput.value.trim() : '';
+    const role = roleInput ? roleInput.value : '';
+    const password = passwordInput ? passwordInput.value : '';
+
+    // Collect permissions from #edit-user-perms-grid
+    const permissions = {};
+    document.querySelectorAll('#edit-user-perms-grid .user-perm-checkbox').forEach(cb => {
+        const permKey = cb.getAttribute('data-permission');
+        if (permKey) permissions[permKey] = cb.checked;
+    });
+
+    const data = { full_name, sector, role, permissions };
+    if (password) data.password = password;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/users/${username}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (resp && resp.ok) {
+            alert('Usuario actualizado correctamente');
+            showUsersListView();
+            await loadUsers();
+        } else {
+            let errorMsg = 'No se pudo actualizar el usuario';
+            try {
+                const err = await resp.json();
+                errorMsg = err.detail || errorMsg;
+            } catch (_) {}
+            alert('Error: ' + errorMsg);
+        }
+    } catch (err) {
+        console.error("Error al actualizar usuario:", err);
+        alert("Error de conexión al actualizar el usuario");
+    }
+}
+window.handleEditUserSubmit = handleEditUserSubmit;
 
 async function loadAdminRoles() {
     const container = document.getElementById('roles-list-container');
@@ -14325,6 +14445,665 @@ window.switchAvisoSubTab = switchAvisoSubTab;
 window.downloadAvisosObraDataset = downloadAvisosObraDataset;
 window.toggleAvisoMapLayer = toggleAvisoMapLayer;
 
+// --- MÓDULO CONFORMES DE OBRA (IFPCO, IFROC, IFSMI) ---
+let conformesCurrentPage = 1;
+let conformesLimit = 50;
+let lastConformesData = null;
+let conformesMap = null;
+let conformesMapPoints = [];
+let conformesChartBarrio = null;
+let conformesChartComuna = null;
+let conformesChartEvolucion = null;
+let debounceConformesTimer = null;
+
+async function loadConformesObra(resetPage = false) {
+    if (resetPage) {
+        conformesCurrentPage = 1;
+    }
+
+    const tableBody = document.getElementById('conformes-table-body');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #64748b; padding: 2.5rem;"><span class="loader"></span><p style="margin-top: 0.5rem;">Cargando Conformes de Obra...</p></td></tr>';
+
+    try {
+        const searchVal = document.getElementById('conformes-filter-search') ? document.getElementById('conformes-filter-search').value.trim() : '';
+        const anioVal = document.getElementById('conformes-filter-anio') ? document.getElementById('conformes-filter-anio').value : '';
+        const comunaVal = document.getElementById('conformes-filter-comuna') ? document.getElementById('conformes-filter-comuna').value : '';
+        const barrioVal = document.getElementById('conformes-filter-barrio') ? document.getElementById('conformes-filter-barrio').value : '';
+        const acronimoVal = document.getElementById('conformes-filter-acronimo') ? document.getElementById('conformes-filter-acronimo').value : '';
+        const obraVal = document.getElementById('conformes-filter-obra') ? document.getElementById('conformes-filter-obra').value : '';
+        const tareaVal = document.getElementById('conformes-filter-tarea') ? document.getElementById('conformes-filter-tarea').value : '';
+        const limitVal = document.getElementById('conformes-table-limit') ? parseInt(document.getElementById('conformes-table-limit').value, 10) : conformesLimit;
+        conformesLimit = limitVal;
+
+        const queryParams = new URLSearchParams({
+            page: conformesCurrentPage,
+            limit: limitVal
+        });
+
+        if (searchVal) queryParams.append('search', searchVal);
+        if (anioVal) queryParams.append('anio', anioVal);
+        if (comunaVal) queryParams.append('comuna', comunaVal);
+        if (barrioVal) queryParams.append('barrio', barrioVal);
+        if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+        if (obraVal) queryParams.append('tipo_obra', obraVal);
+        if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+
+        const response = await def_fetch(`${API_BASE}/analytics/conformes-obra?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error del servidor: ${response ? response.status : 'Sin respuesta'}`);
+        }
+
+        const data = await response.json();
+        lastConformesData = data;
+
+        // 1. Población dinámica de selects de filtros
+        if (data.filters) {
+            populateFilterSelect('conformes-filter-comuna', data.filters.comunas, comunaVal, '[Comuna]');
+            populateFilterSelect('conformes-filter-barrio', data.filters.barrios, barrioVal, '[Barrio]');
+            populateFilterSelect('conformes-filter-obra', data.filters.tipos_obra, obraVal, '[Tipo Obra]');
+            populateFilterSelect('conformes-filter-tarea', data.filters.tipos_tarea, tareaVal, '[Tipo Tarea]');
+            if (data.filters.anios && document.getElementById('conformes-filter-anio')) {
+                const anioSelect = document.getElementById('conformes-filter-anio');
+                const currSelected = anioSelect.value;
+                let optHtml = '<option value="">[Todos los Años]</option>';
+                data.filters.anios.forEach(yr => {
+                    optHtml += `<option value="${yr}" ${currSelected == yr ? 'selected' : ''}>${yr}</option>`;
+                });
+                anioSelect.innerHTML = optHtml;
+            }
+        }
+
+        // 2. Render KPIs
+        const totalRecords = data.total_records || 0;
+        const kpiExpEl = document.getElementById('conformes-kpi-expedientes');
+        if (kpiExpEl) kpiExpEl.innerText = totalRecords.toLocaleString('es-AR');
+
+        const acroCounts = data.acronimo_counts || {};
+        const kpiIfpco = document.getElementById('conformes-kpi-ifpco');
+        if (kpiIfpco) kpiIfpco.innerText = (acroCounts['IFPCO'] || 0).toLocaleString('es-AR');
+
+        const kpiIfroc = document.getElementById('conformes-kpi-ifroc');
+        if (kpiIfroc) kpiIfroc.innerText = (acroCounts['IFROC'] || 0).toLocaleString('es-AR');
+
+        const kpiIfsmi = document.getElementById('conformes-kpi-ifsmi');
+        if (kpiIfsmi) kpiIfsmi.innerText = (acroCounts['IFSMI'] || 0).toLocaleString('es-AR');
+
+        const kpiM2Total = document.getElementById('conformes-kpi-m2-total');
+        if (kpiM2Total && data.summary) {
+            kpiM2Total.innerText = `${Math.round(data.summary.total_afectada || 0).toLocaleString('es-AR')} m²`;
+        }
+
+        // 3. Render Table
+        const recordsList = data.records || [];
+        if (recordsList.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #64748b; padding: 2rem;">No se encontraron registros que coincidan con los filtros aplicados.</td></tr>';
+        } else {
+            tableBody.innerHTML = recordsList.map(row => {
+                const acroBadge = row.acronimo === 'IFPCO' 
+                    ? `<span style="background: #dcfce7; color: #166534; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #bbf7d0;">IFPCO</span>`
+                    : (row.acronimo === 'IFROC'
+                        ? `<span style="background: #ffedd5; color: #9a3412; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #fed7aa;">IFROC</span>`
+                        : `<span style="background: #f3e8ff; color: #6b21a8; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; border: 1px solid #e9d5ff;">IFSMI</span>`);
+
+                const fechaFormateada = row.fecha_creacion ? String(row.fecha_creacion).substring(0, 10) : '-';
+
+                return `
+                    <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                        <td style="padding: 12px 16px; text-align: center;">${acroBadge}</td>
+                        <td style="padding: 12px 16px; font-weight: 600; color: var(--primary-dark);">
+                            <a href="javascript:void(0)" onclick="openDetalleExpedienteModal('${row.expediente}')" style="color: var(--primary); text-decoration: none; font-weight: 700;">${row.expediente || '-'}</a>
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 500;">${row.documento || ''}</div>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight: 600; color: #1e293b;">${row.direccion || '-'}</div>
+                            <div style="font-size: 0.75rem; color: #64748b; font-weight: 600;">SMP: ${row.smp || '-'}</div>
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <div style="font-weight: 600; color: #334155;">${row.comuna || '-'}</div>
+                            <div style="font-size: 0.75rem; color: #64748b;">${row.barrio || ''}</div>
+                        </td>
+                        <td style="padding: 12px 16px; font-size: 0.8rem; color: #475569;">
+                            <div style="font-weight: 600;">${row.tipo_obra || '-'}</div>
+                            <div style="color: #64748b; font-size: 0.75rem;">${row.tipo_tarea || ''}</div>
+                        </td>
+                        <td style="padding: 12px 16px; text-align: right; font-weight: 600; color: #16a34a;">
+                            ${row.sup_construida ? Math.round(row.sup_construida).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align: right; font-weight: 600; color: #a855f7;">
+                            ${row.sup_modificada ? Math.round(row.sup_modificada).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px; text-align: right; font-weight: 700; color: var(--primary);">
+                            ${row.sup_total_afectada ? Math.round(row.sup_total_afectada).toLocaleString('es-AR') : '0'} m²
+                        </td>
+                        <td style="padding: 12px 16px;">
+                            <strong>${row.apellido_profesional || ''} ${row.nombre_profesional || ''}</strong>
+                            <div style="font-size: 0.75rem; color: #64748b;">Mat: ${row.matricula_profesional || '-'}</div>
+                        </td>
+                        <td style="padding: 12px 16px; font-size: 0.8rem; color: #475569;">
+                            ${fechaFormateada}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 4. Pagination update
+        const fromRow = recordsList.length > 0 ? (conformesCurrentPage - 1) * limitVal + 1 : 0;
+        const toRow = (conformesCurrentPage - 1) * limitVal + recordsList.length;
+
+        const elInfo = document.getElementById('conformes-pagination-info');
+        if (elInfo) elInfo.innerText = `Mostrando ${fromRow} - ${toRow} de ${totalRecords.toLocaleString('es-AR')} registros`;
+
+        const elPgCurr = document.getElementById('conformes-pg-current');
+        if (elPgCurr) elPgCurr.innerText = conformesCurrentPage;
+
+        const elPgPrev = document.getElementById('conformes-pg-prev');
+        if (elPgPrev) elPgPrev.disabled = (conformesCurrentPage === 1);
+
+        const elPgNext = document.getElementById('conformes-pg-next');
+        if (elPgNext) elPgNext.disabled = (toRow >= totalRecords);
+
+        // 5. Render Charts
+        if (data.charts) {
+            renderConformesCharts(data.charts);
+        }
+
+        // 6. Map points
+        conformesMapPoints = data.map_points || recordsList;
+        const mapPanel = document.getElementById('conformes-panel-map');
+        if (mapPanel && mapPanel.style.display !== 'none') {
+            renderConformesMap(conformesMapPoints);
+        }
+
+        // 7. Render Pastillas
+        renderConformesPastillas();
+
+    } catch (err) {
+        console.error("Error loading Conformes de Obra:", err);
+        tableBody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: #ef4444; padding: 2rem;">Error al conectar con el servidor.</td></tr>';
+    }
+}
+
+function debounceConformesSearch() {
+    clearTimeout(debounceConformesTimer);
+    debounceConformesTimer = setTimeout(() => {
+        loadConformesObra(true);
+    }, 350);
+}
+
+function changeConformesPage(delta) {
+    const newPage = conformesCurrentPage + delta;
+    if (newPage >= 1) {
+        conformesCurrentPage = newPage;
+        loadConformesObra();
+    }
+}
+
+function clearConformesFilters() {
+    if (document.getElementById('conformes-filter-search')) document.getElementById('conformes-filter-search').value = '';
+    if (document.getElementById('conformes-filter-comuna')) document.getElementById('conformes-filter-comuna').value = '';
+    if (document.getElementById('conformes-filter-barrio')) document.getElementById('conformes-filter-barrio').value = '';
+    if (document.getElementById('conformes-filter-acronimo')) document.getElementById('conformes-filter-acronimo').value = '';
+    if (document.getElementById('conformes-filter-obra')) document.getElementById('conformes-filter-obra').value = '';
+    if (document.getElementById('conformes-filter-tarea')) document.getElementById('conformes-filter-tarea').value = '';
+    if (document.getElementById('conformes-filter-anio')) document.getElementById('conformes-filter-anio').value = '';
+    loadConformesObra(true);
+}
+
+function switchConformesSubTab(tabName) {
+    document.querySelectorAll('.conformes-subtab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottom = 'none';
+        btn.style.fontWeight = '600';
+        btn.style.color = '#64748b';
+    });
+
+    const activeBtn = Array.from(document.querySelectorAll('.conformes-subtab-btn')).find(btn => 
+        btn.getAttribute('onclick').includes(tabName)
+    );
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+        activeBtn.style.borderBottom = '3px solid var(--primary)';
+        activeBtn.style.fontWeight = '700';
+        activeBtn.style.color = 'var(--primary-dark)';
+    }
+
+    document.querySelectorAll('.conformes-subview-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+
+    const activePanel = document.getElementById(`conformes-panel-${tabName}`);
+    if (activePanel) {
+        activePanel.style.display = 'block';
+    }
+
+    if (tabName === 'map') {
+        setTimeout(() => {
+            renderConformesMap(conformesMapPoints);
+            if (conformesMap) {
+                conformesMap.resize();
+            }
+        }, 150);
+    } else if (tabName === 'pastillas') {
+        renderConformesPastillas();
+    }
+}
+
+function renderConformesMap(records) {
+    const mapContainer = document.getElementById('conformes-map');
+    if (!mapContainer) return;
+
+    const validPoints = records.filter(row => 
+        row.x && row.y && !isNaN(row.x) && !isNaN(row.y) &&
+        row.x > -59.0 && row.x < -58.0 && row.y > -35.0 && row.y < -34.0
+    );
+
+    const labelEl = document.getElementById('conformes-map-total-points');
+    if (labelEl) {
+        labelEl.innerText = `${validPoints.length.toLocaleString('es-AR')} puntos georreferenciados`;
+    }
+
+    const geojson = {
+        type: 'FeatureCollection',
+        features: validPoints.map(row => ({
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [row.x, row.y]
+            },
+            properties: {
+                acronimo: row.acronimo,
+                expediente: row.expediente,
+                documento: row.documento || '',
+                direccion: row.direccion || '',
+                smp: row.smp || '',
+                sup_total_afectada: row.sup_total_afectada || 0,
+                tipo_obra: row.tipo_obra || '',
+                tipo_tarea: row.tipo_tarea || '',
+                apellido_profesional: row.apellido_profesional || '',
+                nombre_profesional: row.nombre_profesional || ''
+            }
+        }))
+    };
+
+    const fitToData = () => {
+        if (validPoints.length > 0) {
+            const bounds = new maplibregl.LngLatBounds();
+            validPoints.forEach(p => bounds.extend([p.x, p.y]));
+            conformesMap.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+        } else {
+            conformesMap.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
+        }
+    };
+
+    if (!conformesMap) {
+        conformesMap = new maplibregl.Map({
+            container: 'conformes-map',
+            style: {
+                version: 8,
+                sources: {
+                    'osm-tiles': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '&copy; OpenStreetMap contributors',
+                        maxzoom: 19
+                    }
+                },
+                layers: [{
+                    id: 'osm-basemap',
+                    type: 'raster',
+                    source: 'osm-tiles',
+                    minzoom: 0,
+                    maxzoom: 22
+                }]
+            },
+            center: [-58.4173, -34.6118],
+            zoom: 11.5,
+            attributionControl: false
+        });
+
+        conformesMap.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+
+        conformesMap.on('load', () => {
+            conformesMap.addSource('conformes-points', {
+                type: 'geojson',
+                data: geojson
+            });
+
+            conformesMap.addLayer({
+                id: 'conformes-points-layer',
+                type: 'circle',
+                source: 'conformes-points',
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': [
+                        'match',
+                        ['get', 'acronimo'],
+                        'IFPCO', '#10b981',
+                        'IFROC', '#f97316',
+                        'IFSMI', '#8b5cf6',
+                        '#0284c7'
+                    ],
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-color': '#ffffff',
+                    'circle-opacity': 0.85
+                }
+            });
+
+            conformesMap.on('click', 'conformes-points-layer', (e) => {
+                const coordinates = e.features[0].geometry.coordinates.slice();
+                const props = e.features[0].properties;
+
+                const popupContent = `
+                    <div style="font-family:'Outfit', sans-serif; padding:5px; font-size:0.85rem; line-height: 1.4;">
+                        <span style="display:inline-block; font-size:0.75rem; font-weight:700; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; margin-bottom:4px;">${props.acronimo}</span>
+                        <h4 style="margin:0 0 5px 0; color:var(--primary); font-weight:700; font-size:0.9rem;">${props.expediente}</h4>
+                        <div style="margin-bottom:3px;"><strong>Dirección:</strong> ${props.direccion || ''}</div>
+                        <div style="margin-bottom:3px;"><strong>SMP:</strong> ${props.smp || ''}</div>
+                        <div style="margin-bottom:3px;"><strong>Sup. Total Afectada:</strong> ${Math.round(props.sup_total_afectada).toLocaleString('es-AR')} m²</div>
+                        <div style="margin-bottom:3px;"><strong>Obra:</strong> ${props.tipo_obra || ''} (${props.tipo_tarea || ''})</div>
+                        <div><strong>Profesional:</strong> ${props.apellido_profesional || ''} ${props.nombre_profesional || ''}</div>
+                    </div>
+                `;
+
+                new maplibregl.Popup({ offset: 10 })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(conformesMap);
+            });
+
+            conformesMap.on('mouseenter', 'conformes-points-layer', () => {
+                conformesMap.getCanvas().style.cursor = 'pointer';
+            });
+            conformesMap.on('mouseleave', 'conformes-points-layer', () => {
+                conformesMap.getCanvas().style.cursor = '';
+            });
+
+            fitToData();
+        });
+    } else {
+        if (conformesMap.getSource('conformes-points')) {
+            conformesMap.getSource('conformes-points').setData(geojson);
+            fitToData();
+        } else {
+            conformesMap.once('idle', () => {
+                if (conformesMap.getSource('conformes-points')) {
+                    conformesMap.getSource('conformes-points').setData(geojson);
+                    fitToData();
+                }
+            });
+        }
+    }
+}
+
+function renderConformesCharts(chartsData) {
+    const ctxBarrio = document.getElementById('conformes-chart-barrio')?.getContext('2d');
+    const ctxComuna = document.getElementById('conformes-chart-comuna')?.getContext('2d');
+    const ctxEvolucion = document.getElementById('conformes-chart-evolucion')?.getContext('2d');
+
+    const wrapperBarrio = document.getElementById('conformes-chart-barrio-wrapper');
+    if (wrapperBarrio && chartsData.barrio) {
+        wrapperBarrio.style.height = `${Math.max(600, chartsData.barrio.length * 36)}px`;
+    }
+
+    if (conformesChartBarrio) conformesChartBarrio.destroy();
+    if (conformesChartComuna) conformesChartComuna.destroy();
+    if (conformesChartEvolucion) conformesChartEvolucion.destroy();
+
+    // Chart 1: Barrio (Horizontal Stacked Bar)
+    if (ctxBarrio && chartsData.barrio) {
+        const labels = chartsData.barrio.map(x => x.barrio);
+        const dataConstruida = chartsData.barrio.map(x => x.total_construida);
+        const dataModificada = chartsData.barrio.map(x => x.total_modificada);
+
+        conformesChartBarrio = new Chart(ctxBarrio, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Sup. Construida (m²)',
+                        data: dataConstruida,
+                        backgroundColor: '#10b981',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Sup. Modificada (m²)',
+                        data: dataModificada,
+                        backgroundColor: '#a855f7',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { family: 'Outfit', weight: '600' } } },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${Math.round(context.raw).toLocaleString('es-AR')} m²`
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 10 } },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    y: {
+                        stacked: true,
+                        ticks: { font: { family: 'Outfit', size: 10, weight: '600' } },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Comuna
+    if (ctxComuna && chartsData.comuna) {
+        const labels = chartsData.comuna.map(x => x.comuna);
+        const dataExp = chartsData.comuna.map(x => x.cantidad_expedientes);
+        const dataM2 = chartsData.comuna.map(x => x.total_m2);
+
+        conformesChartComuna = new Chart(ctxComuna, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Trámites Conformes',
+                        data: dataExp,
+                        backgroundColor: '#009fe3',
+                        borderRadius: 6,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Total M² Afectados',
+                        data: dataM2,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'transparent',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#f59e0b',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { family: 'Outfit', weight: '600' } } }
+                },
+                scales: {
+                    x: { ticks: { font: { family: 'Outfit', size: 10, weight: '600' } }, grid: { color: '#f1f5f9' } },
+                    y: { type: 'linear', display: true, position: 'left', ticks: { font: { family: 'Outfit', size: 10 } }, title: { display: true, text: 'Cantidad de Trámites' } },
+                    y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Outfit', size: 10 } }, title: { display: true, text: 'Superficie (m²)' } }
+                }
+            }
+        });
+    }
+
+    // Chart 3: Evolución Mensual
+    if (ctxEvolucion && chartsData.evolucion_mensual) {
+        const labels = chartsData.evolucion_mensual.map(x => {
+            if (x.anio) return `${x.mes}/${x.anio}`;
+            return MESES[x.mes - 1] || `Mes ${x.mes}`;
+        });
+        const dataExp = chartsData.evolucion_mensual.map(x => x.cantidad_expedientes);
+
+        conformesChartEvolucion = new Chart(ctxEvolucion, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Trámites Registrados',
+                    data: dataExp,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#10b981'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `Trámites: ${context.raw.toLocaleString('es-AR')}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { font: { family: 'Outfit', size: 10, weight: '600' } }, grid: { color: '#f1f5f9' } },
+                    y: { ticks: { font: { family: 'Outfit', size: 10 } }, grid: { color: '#f1f5f9' } }
+                }
+            }
+        });
+    }
+}
+
+function renderConformesPastillas() {
+    if (!lastConformesData) return;
+
+    // 1. Ranking de barrios
+    const barrioBody = document.getElementById('conformes-pastillas-barrios-body');
+    if (barrioBody && lastConformesData.charts && lastConformesData.charts.barrio) {
+        barrioBody.innerHTML = lastConformesData.charts.barrio.map((row, index) => {
+            const promM2 = row.cantidad_expedientes > 0 ? Math.round(row.total_m2 / row.cantidad_expedientes) : 0;
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; text-align: center; font-weight: 700; color: #64748b;">${index + 1}</td>
+                    <td style="padding: 10px; font-weight: 600; color: var(--primary-dark);">${row.barrio}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #475569;">${row.cantidad_expedientes.toLocaleString('es-AR')}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; color: var(--primary);">${Math.round(row.total_m2).toLocaleString('es-AR')} m²</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #10b981;">${promM2.toLocaleString('es-AR')} m²</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // 2. Promedios y Totales Generales
+    if (lastConformesData.charts && lastConformesData.charts.barrio && lastConformesData.summary) {
+        const barriosList = lastConformesData.charts.barrio;
+        const totalM2Barrios = barriosList.reduce((acc, x) => acc + parseFloat(x.total_m2 || 0), 0);
+        const promM2Barrio = barriosList.length > 0 ? totalM2Barrios / barriosList.length : 0;
+        
+        const totalExpBarrios = barriosList.reduce((acc, x) => acc + parseInt(x.cantidad_expedientes || 0, 10), 0);
+        const promExpBarrio = barriosList.length > 0 ? totalExpBarrios / barriosList.length : 0;
+        
+        const totalM2Global = parseFloat(lastConformesData.summary.total_afectada || 0);
+        const totalExpGlobal = parseInt(lastConformesData.total_records || 0, 10);
+        const promM2Exp = totalExpGlobal > 0 ? totalM2Global / totalExpGlobal : 0;
+
+        const p1 = document.getElementById('conformes-pastilla-prom-m2-barrio');
+        if (p1) p1.innerText = `${Math.round(promM2Barrio).toLocaleString('es-AR')} m²`;
+        const p2 = document.getElementById('conformes-pastilla-prom-exp-barrio');
+        if (p2) p2.innerText = Math.round(promExpBarrio).toLocaleString('es-AR');
+        const p3 = document.getElementById('conformes-pastilla-prom-m2-exp');
+        if (p3) p3.innerText = `${Math.round(promM2Exp).toLocaleString('es-AR')} m²`;
+        const p4 = document.getElementById('conformes-pastilla-total-m2');
+        if (p4) p4.innerText = `${Math.round(totalM2Global).toLocaleString('es-AR')} m²`;
+    }
+
+    // 3. Evolución Mes a Mes
+    const evoBody = document.getElementById('conformes-pastillas-evolucion-body');
+    if (evoBody && lastConformesData.charts && lastConformesData.charts.evolucion_mensual) {
+        evoBody.innerHTML = lastConformesData.charts.evolucion_mensual.map(row => {
+            const label = row.anio ? `${row.mes}/${row.anio}` : (MESES[row.mes - 1] || `Mes ${row.mes}`);
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px; font-weight: 600; color: #475569;">${label}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 600; color: #0284c7;">${row.cantidad_expedientes.toLocaleString('es-AR')}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; color: #10b981;">${Math.round(row.total_m2).toLocaleString('es-AR')} m²</td>
+                </tr>
+            `;
+        }).join('');
+    }
+}
+
+async function downloadConformesObraDataset() {
+    try {
+        const searchVal = document.getElementById('conformes-filter-search') ? document.getElementById('conformes-filter-search').value.trim() : '';
+        const anioVal = document.getElementById('conformes-filter-anio') ? document.getElementById('conformes-filter-anio').value : '';
+        const comunaVal = document.getElementById('conformes-filter-comuna') ? document.getElementById('conformes-filter-comuna').value : '';
+        const barrioVal = document.getElementById('conformes-filter-barrio') ? document.getElementById('conformes-filter-barrio').value : '';
+        const acronimoVal = document.getElementById('conformes-filter-acronimo') ? document.getElementById('conformes-filter-acronimo').value : '';
+        const obraVal = document.getElementById('conformes-filter-obra') ? document.getElementById('conformes-filter-obra').value : '';
+        const tareaVal = document.getElementById('conformes-filter-tarea') ? document.getElementById('conformes-filter-tarea').value : '';
+
+        const queryParams = new URLSearchParams();
+        if (searchVal) queryParams.append('search', searchVal);
+        if (anioVal) queryParams.append('anio', anioVal);
+        if (comunaVal) queryParams.append('comuna', comunaVal);
+        if (barrioVal) queryParams.append('barrio', barrioVal);
+        if (acronimoVal) queryParams.append('acronimo', acronimoVal);
+        if (obraVal) queryParams.append('tipo_obra', obraVal);
+        if (tareaVal) queryParams.append('tipo_tarea', tareaVal);
+
+        const response = await def_fetch(`${API_BASE}/analytics/conformes-obra/download?${queryParams.toString()}`);
+        if (!response || !response.ok) {
+            throw new Error(`Error en el servidor: ${response ? response.status : 'Sin respuesta'}`);
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'conformes_de_obra.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (err) {
+        console.error("Error al descargar dataset Conformes de Obra:", err);
+        alert("No se pudo descargar el dataset. Verifique sus permisos e intente nuevamente.");
+    }
+}
+
+window.loadConformesObra = loadConformesObra;
+window.changeConformesPage = changeConformesPage;
+window.switchConformesSubTab = switchConformesSubTab;
+window.downloadConformesObraDataset = downloadConformesObraDataset;
+window.debounceConformesSearch = debounceConformesSearch;
+window.clearConformesFilters = clearConformesFilters;
+
 // --- CONFIGURACIÓN DE BUZONES / ANALISTAS POR GERENCIA (ADMIN BACKLOG) ---
 let allAdminGerenciasBuzonesData = [];
 
@@ -15261,6 +16040,8 @@ window.filterAdminUsersGrid = filterAdminUsersGrid;
 window.showUsersListView = showUsersListView;
 window.showCreateUserView = showCreateUserView;
 window.showEditUserView = showEditUserView;
+window.handleCreateUserSubmit = handleCreateUserSubmit;
+window.handleEditUserSubmit = handleEditUserSubmit;
 window.openEditUser = openEditUser;
 window.deleteUser = deleteUser;
 window.handleRoleSelectionChange = handleRoleSelectionChange;

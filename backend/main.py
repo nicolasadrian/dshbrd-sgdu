@@ -317,6 +317,11 @@ try:
             """))
             conn.execute(text("""
                 UPDATE auth_roles 
+                SET permissions = permissions || '{"analytics_conformes_obra": true}'::jsonb
+                WHERE NOT (permissions ? 'analytics_conformes_obra')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles 
                 SET permissions = permissions || '{"asignados-mi": true}'::jsonb
                 WHERE NOT (permissions ? 'asignados-mi')
             """))
