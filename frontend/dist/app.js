@@ -18000,6 +18000,7 @@ async function renderLFIPlanFases() {
     const elGlobalPct = document.getElementById('plan-fases-avance-global-pct');
     const elGlobalRatio = document.getElementById('plan-fases-avance-global-ratio');
     const elGlobalTotal = document.getElementById('plan-fases-total-manzanas');
+    const elCiudadTotal = document.getElementById('plan-ciudad-total-manzanas');
 
     if (!tbody) return;
 
@@ -18029,42 +18030,82 @@ async function renderLFIPlanFases() {
         pendientes: 0
     }));
 
+    // Estructura para Resto de la Ciudad
+    const restoStats = {
+        fase: '-',
+        barrio: 'Resto de la Ciudad',
+        fecha: 'A designar',
+        isoDate: null,
+        total: 0,
+        aprobadas: 0,
+        revision: 0,
+        en_curso: 0,
+        pendientes: 0
+    };
+
     (c3dTronerasRawData || []).forEach(row => {
         const bNorm = normalize(row.barrio);
         const faseObj = statsPorFase.find(f => f.match(bNorm));
-        if (!faseObj) return;
+        const targetObj = faseObj || restoStats;
 
-        faseObj.total++;
+        targetObj.total++;
         const est = (row.estado || '').toLowerCase().trim();
         if (est === 'subir a ciudad 3d' || est === 'aprobado' || est === 'aprobada') {
-            faseObj.aprobadas++;
+            targetObj.aprobadas++;
         } else if (est === 'para revisión' || est === 'para revision') {
-            faseObj.revision++;
+            targetObj.revision++;
         } else if (est === 'en curso') {
-            faseObj.en_curso++;
+            targetObj.en_curso++;
         } else {
-            faseObj.pendientes++;
+            targetObj.pendientes++;
         }
     });
 
-    let sumTotal = 0, sumAprob = 0, sumRev = 0, sumCurso = 0, sumPend = 0;
+    const renderStackedBar = (total, aprobadas, revision) => {
+        if (!total || total === 0) {
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                    <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 9px; border-radius: 5px;"></div>
+                    <span style="font-weight: 700; font-size: 0.82rem; color: #94a3b8; min-width: 44px; text-align: right;">0.0%</span>
+                </div>
+            `;
+        }
+        const pctAprob = (aprobadas / total) * 100;
+        const pctRev = (revision / total) * 100;
+        return `
+            <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden; display: flex;" 
+                     title="Aprobadas: ${aprobadas} (${pctAprob.toFixed(1)}%) | Para Revisión: ${revision} (${pctRev.toFixed(1)}%)">
+                    <div style="width: ${pctAprob.toFixed(1)}%; background: #16a34a; height: 100%; transition: width 0.3s;"></div>
+                    <div style="width: ${pctRev.toFixed(1)}%; background: #f59e0b; height: 100%; transition: width 0.3s;"></div>
+                </div>
+                <div style="min-width: 46px; text-align: right; line-height: 1.15;">
+                    <span style="font-weight: 800; font-size: 0.85rem; color: ${pctAprob > 0 ? '#15803d' : pctRev > 0 ? '#b45309' : '#64748b'};">
+                        ${pctAprob.toFixed(1)}%
+                    </span>
+                    ${pctRev > 0 ? `<div style="font-size: 0.68rem; color: #b45309; font-weight: 700;">+${pctRev.toFixed(1)}% rev</div>` : ''}
+                </div>
+            </div>
+        `;
+    };
+
+    let sumPlanTotal = 0, sumPlanAprob = 0, sumPlanRev = 0, sumPlanCurso = 0, sumPlanPend = 0;
     const now = new Date();
 
     const rowsHtml = statsPorFase.map(f => {
-        sumTotal += f.total;
-        sumAprob += f.aprobadas;
-        sumRev += f.revision;
-        sumCurso += f.en_curso;
-        sumPend += f.pendientes;
+        sumPlanTotal += f.total;
+        sumPlanAprob += f.aprobadas;
+        sumPlanRev += f.revision;
+        sumPlanCurso += f.en_curso;
+        sumPlanPend += f.pendientes;
 
-        const pct = f.total > 0 ? ((f.aprobadas / f.total) * 100).toFixed(1) : '0.0';
-        const pctNum = parseFloat(pct);
+        const pctAprob = f.total > 0 ? (f.aprobadas / f.total) * 100 : 0;
 
         // Estado del plazo
         const targetDate = new Date(f.isoDate + 'T23:59:59');
         const diffDays = Math.ceil((targetDate - now) / (1000 * 60 * 60 * 24));
         let plazoBadge = '';
-        if (pctNum >= 100) {
+        if (pctAprob >= 100) {
             plazoBadge = `<span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> Completado</span>`;
         } else if (diffDays < 0) {
             plazoBadge = `<span style="background: #fee2e2; color: #b91c1c; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Vencido</span>`;
@@ -18073,13 +18114,6 @@ async function renderLFIPlanFases() {
         } else {
             plazoBadge = `<span style="background: #f1f5f9; color: #475569; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-calendar-check"></i> En cronograma</span>`;
         }
-
-        // Color de barra de avance
-        let barColor = '#3b82f6';
-        if (pctNum >= 100) barColor = '#16a34a';
-        else if (pctNum >= 50) barColor = '#0284c7';
-        else if (pctNum > 0) barColor = '#eab308';
-        else barColor = '#cbd5e1';
 
         return `
             <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
@@ -18118,12 +18152,7 @@ async function renderLFIPlanFases() {
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 9px; border-radius: 5px; overflow: hidden;">
-                            <div style="width: ${pctNum}%; background: ${barColor}; height: 100%; border-radius: 5px; transition: width 0.3s;"></div>
-                        </div>
-                        <span style="font-weight: 800; font-size: 0.85rem; color: ${pctNum > 0 ? '#15803d' : '#64748b'}; min-width: 44px; text-align: right;">${pct}%</span>
-                    </div>
+                    ${renderStackedBar(f.total, f.aprobadas, f.revision)}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     ${plazoBadge}
@@ -18132,49 +18161,99 @@ async function renderLFIPlanFases() {
         `;
     }).join('');
 
-    tbody.innerHTML = rowsHtml;
+    // Fila de Resto de la Ciudad
+    const restoRowHtml = `
+        <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+            <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #64748b;">
+                <span style="background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">
+                    -
+                </span>
+            </td>
+            <td style="padding: 12px 16px; font-weight: 700; color: #334155; font-size: 0.95rem;">
+                <i class="fa-solid fa-city" style="color: #94a3b8; margin-right: 6px;"></i>Resto de la Ciudad
+            </td>
+            <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #64748b; font-size: 0.88rem; font-style: italic;">
+                A designar
+            </td>
+            <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 0.95rem;">
+                ${restoStats.total.toLocaleString('es-AR')}
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                    ${restoStats.aprobadas}
+                </span>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                    ${restoStats.revision}
+                </span>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                    ${restoStats.en_curso}
+                </span>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                    ${restoStats.pendientes}
+                </span>
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                ${renderStackedBar(restoStats.total, restoStats.aprobadas, restoStats.revision)}
+            </td>
+            <td style="padding: 12px 16px; text-align: center;">
+                <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> A designar
+                </span>
+            </td>
+        </tr>
+    `;
 
-    // Totales del footer
-    const globalPct = sumTotal > 0 ? ((sumAprob / sumTotal) * 100).toFixed(1) : '0.0';
+    tbody.innerHTML = rowsHtml + restoRowHtml;
+
+    // Totales de la Ciudad (8 Fases + Resto)
+    const sumCiudadTotal = sumPlanTotal + restoStats.total;
+    const sumCiudadAprob = sumPlanAprob + restoStats.aprobadas;
+    const sumCiudadRev = sumPlanRev + restoStats.revision;
+    const sumCiudadCurso = sumPlanCurso + restoStats.en_curso;
+    const sumCiudadPend = sumPlanPend + restoStats.pendientes;
+
     if (tfoot) {
         tfoot.innerHTML = `
             <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
                 <td colspan="3" style="padding: 14px 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.85rem;">
-                    Totales Plan Troneras
+                    Total General Ciudad
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 1rem;">
-                    ${sumTotal.toLocaleString('es-AR')}
+                    ${sumCiudadTotal.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.95rem;">
-                    ${sumAprob.toLocaleString('es-AR')}
+                    ${sumCiudadAprob.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.95rem;">
-                    ${sumRev.toLocaleString('es-AR')}
+                    ${sumCiudadRev.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0369a1; font-size: 0.95rem;">
-                    ${sumCurso.toLocaleString('es-AR')}
+                    ${sumCiudadCurso.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #64748b; font-size: 0.95rem;">
-                    ${sumPend.toLocaleString('es-AR')}
+                    ${sumCiudadPend.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center;">
-                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
-                            <div style="width: ${parseFloat(globalPct)}%; background: #16a34a; height: 100%; border-radius: 5px;"></div>
-                        </div>
-                        <span style="font-weight: 800; font-size: 0.9rem; color: #15803d; min-width: 44px; text-align: right;">${globalPct}%</span>
-                    </div>
+                    ${renderStackedBar(sumCiudadTotal, sumCiudadAprob, sumCiudadRev)}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 600;">
-                    8 Barrios
+                    Toda la Ciudad
                 </td>
             </tr>
         `;
     }
 
-    if (elGlobalTotal) elGlobalTotal.innerText = sumTotal.toLocaleString('es-AR');
-    if (elGlobalPct) elGlobalPct.innerText = `${globalPct}%`;
-    if (elGlobalRatio) elGlobalRatio.innerText = `(${sumAprob.toLocaleString('es-AR')} / ${sumTotal.toLocaleString('es-AR')})`;
+    const planPct = sumPlanTotal > 0 ? ((sumPlanAprob / sumPlanTotal) * 100).toFixed(1) : '0.0';
+    if (elGlobalTotal) elGlobalTotal.innerText = sumPlanTotal.toLocaleString('es-AR');
+    if (elGlobalPct) elGlobalPct.innerText = `${planPct}%`;
+    if (elGlobalRatio) elGlobalRatio.innerText = `(${sumPlanAprob.toLocaleString('es-AR')} / ${sumPlanTotal.toLocaleString('es-AR')})`;
+    if (elCiudadTotal) elCiudadTotal.innerText = `${sumCiudadTotal.toLocaleString('es-AR')} mzs`;
 }
 window.renderLFIPlanFases = renderLFIPlanFases;
 
@@ -18256,14 +18335,39 @@ async function renderLFIEquipo() {
 
     let sumAprob = 0, sumRev = 0, sumCurso = 0, sumTotal = 0;
 
+    const renderStackedBarEquipo = (total, aprobados, revision) => {
+        if (!total || total === 0) {
+            return `
+                <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                    <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 9px; border-radius: 5px;"></div>
+                    <span style="font-weight: 700; font-size: 0.82rem; color: #94a3b8; min-width: 44px; text-align: right;">0%</span>
+                </div>
+            `;
+        }
+        const pctAprob = (aprobados / total) * 100;
+        const pctRev = (revision / total) * 100;
+        return `
+            <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden; display: flex;" 
+                     title="Aprobadas: ${aprobados} (${pctAprob.toFixed(1)}%) | Para Revisión: ${revision} (${pctRev.toFixed(1)}%)">
+                    <div style="width: ${pctAprob.toFixed(1)}%; background: #16a34a; height: 100%; transition: width 0.3s;"></div>
+                    <div style="width: ${pctRev.toFixed(1)}%; background: #f59e0b; height: 100%; transition: width 0.3s;"></div>
+                </div>
+                <div style="min-width: 46px; text-align: right; line-height: 1.15;">
+                    <span style="font-weight: 800; font-size: 0.85rem; color: ${pctAprob > 0 ? '#15803d' : pctRev > 0 ? '#b45309' : '#64748b'};">
+                        ${pctAprob.toFixed(0)}%
+                    </span>
+                    ${pctRev > 0 ? `<div style="font-size: 0.68rem; color: #b45309; font-weight: 700;">+${pctRev.toFixed(0)}% rev</div>` : ''}
+                </div>
+            </div>
+        `;
+    };
+
     tbody.innerHTML = rowsList.map(s => {
         sumAprob += s.aprobados;
         sumRev += s.revision;
         sumCurso += s.en_curso;
         sumTotal += s.total;
-
-        const pct = s.total > 0 ? Math.round((s.aprobados / s.total) * 100) : 0;
-        let barColor = pct >= 100 ? '#16a34a' : pct > 0 ? '#0284c7' : '#cbd5e1';
 
         return `
             <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
@@ -18297,19 +18401,13 @@ async function renderLFIEquipo() {
                     ${s.total}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
-                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 9px; border-radius: 5px; overflow: hidden;">
-                            <div style="width: ${pct}%; background: ${barColor}; height: 100%; border-radius: 5px; transition: width 0.3s;"></div>
-                        </div>
-                        <span style="font-weight: 800; font-size: 0.85rem; color: ${pct > 0 ? '#15803d' : '#64748b'}; min-width: 40px; text-align: right;">${pct}%</span>
-                    </div>
+                    ${renderStackedBarEquipo(s.total, s.aprobados, s.revision)}
                 </td>
             </tr>
         `;
     }).join('');
 
     if (tfoot) {
-        const teamPct = sumTotal > 0 ? Math.round((sumAprob / sumTotal) * 100) : 0;
         tfoot.innerHTML = `
             <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
                 <td style="padding: 14px 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.85rem;">
@@ -18328,12 +18426,7 @@ async function renderLFIEquipo() {
                     ${sumTotal.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center;">
-                    <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
-                        <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
-                            <div style="width: ${teamPct}%; background: #16a34a; height: 100%; border-radius: 5px;"></div>
-                        </div>
-                        <span style="font-weight: 800; font-size: 0.9rem; color: #15803d; min-width: 40px; text-align: right;">${teamPct}%</span>
-                    </div>
+                    ${renderStackedBarEquipo(sumTotal, sumAprob, sumRev)}
                 </td>
             </tr>
         `;

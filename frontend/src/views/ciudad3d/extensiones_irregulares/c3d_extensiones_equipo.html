@@ -128,30 +128,35 @@
         <div>
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="background: #e0e7ff; color: #4338ca; font-size: 0.8rem; font-weight: 800; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;">
-                    Fase 1 a 8
+                    Fases 1 a 8 + Resto de la Ciudad
                 </span>
                 <h2 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-size: 1.4rem; font-weight: 800;">
                     1. Avance por Fases
                 </h2>
             </div>
             <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.95rem;">
-                Control y seguimiento del avance de manzanas trazadas respecto a las fechas límites estimadas por barrio.
+                Control y seguimiento del cronograma por barrio y balance del resto de la ciudad.
             </p>
         </div>
 
         <!-- Banner de Resumen Consolidado del Plan -->
-        <div style="display: flex; align-items: center; gap: 16px; background: #f8fafc; padding: 10px 18px; border-radius: 12px; border: 1px solid #e2e8f0;">
+        <div style="display: flex; align-items: center; gap: 16px; background: #f8fafc; padding: 10px 18px; border-radius: 12px; border: 1px solid #e2e8f0; flex-wrap: wrap;">
             <div>
-                <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Total Manzanas Plan</div>
-                <div id="plan-fases-total-manzanas" style="font-size: 1.25rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit';">1.405</div>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Manzanas Plan (8 Fases)</div>
+                <div id="plan-fases-total-manzanas" style="font-size: 1.2rem; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit';">1.405</div>
             </div>
-            <div style="width: 1px; height: 32px; background: #cbd5e1;"></div>
+            <div style="width: 1px; height: 30px; background: #cbd5e1;"></div>
             <div>
-                <div style="font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Avance General Plan</div>
-                <div style="display: flex; align-items: baseline; gap: 6px;">
-                    <span id="plan-fases-avance-global-pct" style="font-size: 1.25rem; font-weight: 800; color: #16a34a; font-family: 'Outfit';">0%</span>
-                    <span id="plan-fases-avance-global-ratio" style="font-size: 0.8rem; color: #64748b; font-weight: 600;">(0 / 1.405)</span>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Avance Plan Fases</div>
+                <div style="display: flex; align-items: baseline; gap: 5px;">
+                    <span id="plan-fases-avance-global-pct" style="font-size: 1.2rem; font-weight: 800; color: #16a34a; font-family: 'Outfit';">0%</span>
+                    <span id="plan-fases-avance-global-ratio" style="font-size: 0.78rem; color: #64748b; font-weight: 600;">(0 / 1.405)</span>
                 </div>
+            </div>
+            <div style="width: 1px; height: 30px; background: #cbd5e1;"></div>
+            <div>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Total General Ciudad</div>
+                <div id="plan-ciudad-total-manzanas" style="font-size: 1.2rem; font-weight: 800; color: #0284c7; font-family: 'Outfit';">-</div>
             </div>
         </div>
     </div>
@@ -169,7 +174,13 @@
                     <th style="padding: 14px 16px; text-align: center;">Para Revisión</th>
                     <th style="padding: 14px 16px; text-align: center;">En Curso</th>
                     <th style="padding: 14px 16px; text-align: center;">Pendientes</th>
-                    <th style="padding: 14px 16px; text-align: center; min-width: 180px;">% Avance</th>
+                    <th style="padding: 14px 16px; text-align: center; min-width: 200px;">
+                        <div>% Avance</div>
+                        <div style="font-size: 0.7rem; font-weight: 600; color: #64748b; margin-top: 2px; display: flex; gap: 8px; justify-content: center;">
+                            <span style="color: #16a34a;"><i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> Aprobadas</span>
+                            <span style="color: #d97706;"><i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> Revisión</span>
+                        </div>
+                    </th>
                     <th style="padding: 14px 16px; text-align: center;">Estado Plazo</th>
                 </tr>
             </thead>
@@ -220,7 +231,13 @@
                     <th style="padding: 14px 16px; text-align: center;">Para Revisión</th>
                     <th style="padding: 14px 16px; text-align: center;">En Curso</th>
                     <th style="padding: 14px 16px; text-align: center;">Total Asignado</th>
-                    <th style="padding: 14px 16px; text-align: center; min-width: 180px;">% Avance / Completado</th>
+                    <th style="padding: 14px 16px; text-align: center; min-width: 200px;">
+                        <div>% Avance / Completado</div>
+                        <div style="font-size: 0.7rem; font-weight: 600; color: #64748b; margin-top: 2px; display: flex; gap: 8px; justify-content: center;">
+                            <span style="color: #16a34a;"><i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> Aprobadas</span>
+                            <span style="color: #d97706;"><i class="fa-solid fa-square" style="font-size: 0.65rem;"></i> Revisión</span>
+                        </div>
+                    </th>
                 </tr>
             </thead>
             <tbody id="c3d-lfi-equipo-table-body" style="color: #334155;">
