@@ -9,10 +9,17 @@
         </h1>
         <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem;">Visualización y análisis de línea de frente interno y trazado de extensiones regulares e irregulares</p>
     </div>
-    <button onclick="showView('ciudad3d_home')"
-        style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; transition: all 0.2s;">
-        <i class="fa-solid fa-arrow-left"></i> Volver a Ciudad 3D
-    </button>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button id="btn-extraer-lfi-troneras" onclick="extraerLFITronerasAdmin()"
+            style="display: none; background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); color: white; border: none; padding: 10px 18px; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.25); transition: all 0.2s;"
+            title="Extraer vectores de capas LFI, Tronera SI e Irregular hacia geo-mdr (Solo Administradores)">
+            <i class="fa-solid fa-layer-group"></i> Extraer Vectores DXF
+        </button>
+        <button onclick="showView('ciudad3d_home')"
+            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 18px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; transition: all 0.2s;">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Ciudad 3D
+        </button>
+    </div>
 </div>
 
 <!-- Dashboard de Indicadores (KPI Cards) -->

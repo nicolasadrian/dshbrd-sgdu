@@ -38,10 +38,13 @@ def recreate_catastro_views():
                      AND (r.firmantes_egreso IS NULL OR (d.usuario_creador = ANY (r.firmantes_egreso))) 
                      AND d.fecha_asociacion >= u.fecha_primer_ingreso_gerencia
                 WHERE u.es_trata_propia = true
-                  AND EXISTS (
-                      SELECT 1 FROM mvw_ee_pases_secgdu p
-                      WHERE p.id_expediente = u.id_expediente
-                        AND p.motivo ~* 'constituc|certific'
+                  AND (
+                      u.trata <> 'MDUG0134N'
+                      OR EXISTS (
+                          SELECT 1 FROM mvw_ee_pases_secgdu p
+                          WHERE p.id_expediente = u.id_expediente
+                            AND p.motivo ~* 'constituc|certific'
+                      )
                   )
             )
             SELECT id_expediente,
@@ -90,10 +93,13 @@ def recreate_catastro_views():
                      AND (r.firmantes_egreso IS NULL OR (d.usuario_creador = ANY (r.firmantes_egreso))) 
                      AND d.fecha_asociacion >= u.fecha_primer_ingreso_gerencia
                 WHERE u.es_trata_propia = true
-                  AND EXISTS (
-                      SELECT 1 FROM mvw_ee_pases_secgdu p
-                      WHERE p.id_expediente = u.id_expediente
-                        AND p.motivo ~* 'constituc|certific'
+                  AND (
+                      u.trata <> 'MDUG0134N'
+                      OR EXISTS (
+                          SELECT 1 FROM mvw_ee_pases_secgdu p
+                          WHERE p.id_expediente = u.id_expediente
+                            AND p.motivo ~* 'constituc|certific'
+                      )
                   )
             )
             SELECT id_expediente,

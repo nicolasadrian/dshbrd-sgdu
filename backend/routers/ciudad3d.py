@@ -4108,3 +4108,27 @@ async def download_manzana_dxf(
         filename=filename,
         background=background_tasks
     )
+
+@router.post("/api/ciudad3d/extraer_lfi_troneras")
+def extraer_lfi_troneras_endpoint(current_user: User = Depends(get_current_user)):
+    user_role = (current_user.role or "").lower()
+    user_perms = current_user.permissions or {}
+    is_admin = user_role in ['admin', 'administrador'] or bool(user_perms.get("admin"))
+    
+    if not is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Acceso restringido: Solo los administradores del tablero pueden ejecutar la extracción de vectores a public.lfi_troneras."
+        )
+        
+    try:
+        try:
+            from extract_lfi_troneras import run_extraction_lfi_troneras
+        except ImportError:
+            from backend.extract_lfi_troneras import run_extraction_lfi_troneras
+            
+        result = run_extraction_lfi_troneras()
+        return result
+    except Exception as e:
+        logger.error(f"Error en extracción LFI/Troneras: {e}")
+        raise HTTPException(status_code=500, detail=f"Error durante el proceso de extracción: {str(e)}")

@@ -17441,13 +17441,16 @@ async function loadCiudad3DTroneras() {
             const uRole = (currentUser && currentUser.role || '').toLowerCase();
             const canManageTroneras = !!uPerms.lfi_dibujar;
             const canReviewTroneras = !!uPerms.lfi_revisar || uRole === 'admin' || uRole === 'administrador';
+            const isAdmin = uRole === 'admin' || uRole === 'administrador' || !!uPerms.admin;
             
             const btnMisTrazados = document.getElementById('lfi-tab-btn-mis-trazados');
             const btnRevision = document.getElementById('lfi-tab-btn-revision');
             const btnEquipo = document.getElementById('lfi-tab-btn-equipo');
+            const btnExtraer = document.getElementById('btn-extraer-lfi-troneras');
             if (btnMisTrazados) btnMisTrazados.style.display = canManageTroneras ? 'flex' : 'none';
             if (btnRevision) btnRevision.style.display = canReviewTroneras ? 'flex' : 'none';
             if (btnEquipo) btnEquipo.style.display = canReviewTroneras ? 'flex' : 'none';
+            if (btnExtraer) btnExtraer.style.display = isAdmin ? 'inline-flex' : 'none';
             
         } else {
             throw new Error("Respuesta no exitosa del servidor");
@@ -19365,6 +19368,68 @@ window.filterAtipicasBySelect = filterAtipicasBySelect;
 window.debounceAtipicasSearch = debounceAtipicasSearch;
 window.changeAtipicasPage = changeAtipicasPage;
 window.openLFIFicha = openLFIFicha;
+
+async function extraerLFITronerasAdmin() {
+    const uPerms = (currentUser && currentUser.permissions) ? currentUser.permissions : {};
+    const uRole = (currentUser && currentUser.role || '').toLowerCase();
+    const isAdmin = uRole === 'admin' || uRole === 'administrador' || !!uPerms.admin;
+    
+    if (!isAdmin) {
+        alert("Acceso restringido: Solo los administradores del tablero pueden ejecutar la extracción de vectores.");
+        return;
+    }
+
+    if (!confirm("¿Desea iniciar la extracción de vectores DXF (LFI, Tronera SI, Irregular) de las manzanas aprobadas hacia la tabla public.lfi_troneras en geo-mdr?")) {
+        return;
+    }
+
+    const btn = document.getElementById('btn-extraer-lfi-troneras');
+    const originalHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Extrayendo vectores...`;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/extraer_lfi_troneras`, {
+            method: 'POST'
+        });
+
+        if (res && res.ok) {
+            const data = await res.json();
+            let msg = `Extracción completada con éxito:\n\n`;
+            msg += `• Manzanas aprobadas encontradas: ${data.total_manzanas_encontradas}\n`;
+            msg += `• Manzanas procesadas: ${data.manzanas_procesadas}\n`;
+            msg += `• Vectores insertados en public.lfi_troneras: ${data.vectores_totales_insertados}\n`;
+            
+            if (data.detalles && data.detalles.length > 0) {
+                msg += `\nDetalle:\n`;
+                data.detalles.forEach(d => {
+                    const desgloseStr = Object.entries(d.desglose || {}).map(([k, v]) => `${k}: ${v}`).join(', ');
+                    msg += `- SM ${d.sm} (${d.seccion}-${d.manzana}): ${d.vectores} vectores [${desgloseStr}]\n`;
+                });
+            }
+
+            if (data.errores && data.errores.length > 0) {
+                msg += `\nAvisos:\n` + data.errores.join('\n');
+            }
+
+            alert(msg);
+        } else {
+            const errData = res ? await res.json().catch(() => ({})) : {};
+            alert("Error al ejecutar la extracción: " + (errData.detail || "Error en el servidor"));
+        }
+    } catch (e) {
+        console.error("Error en extraerLFITronerasAdmin:", e);
+        alert("Error de conexión al procesar la extracción: " + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+}
+window.extraerLFITronerasAdmin = extraerLFITronerasAdmin;
 
 async function openLFIFicha(seccion, manzana) {
     activeWorkflowSeccion = seccion;
