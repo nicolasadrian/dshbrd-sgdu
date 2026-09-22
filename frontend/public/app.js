@@ -19379,7 +19379,7 @@ async function extraerLFITronerasAdmin() {
         return;
     }
 
-    if (!confirm("¿Desea iniciar la extracción de vectores DXF (LFI, Tronera SI, Irregular) de las manzanas aprobadas hacia la tabla public.lfi_troneras en geo-mdr?")) {
+    if (!confirm("¿Desea iniciar la extracción y generación de contornos disueltos (LFI, Tronera SI, Irregular) de las manzanas aprobadas hacia las tablas public.lfi_troneras y public.lfi_troneras_contorno en geo-mdr?")) {
         return;
     }
 
@@ -19387,7 +19387,7 @@ async function extraerLFITronerasAdmin() {
     const originalHtml = btn ? btn.innerHTML : '';
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Extrayendo vectores...`;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Procesando vectores y contornos...`;
     }
 
     try {
@@ -19397,16 +19397,17 @@ async function extraerLFITronerasAdmin() {
 
         if (res && res.ok) {
             const data = await res.json();
-            let msg = `Extracción completada con éxito:\n\n`;
+            let msg = `Extracción y generación de contornos completada con éxito:\n\n`;
             msg += `• Manzanas aprobadas encontradas: ${data.total_manzanas_encontradas}\n`;
             msg += `• Manzanas procesadas: ${data.manzanas_procesadas}\n`;
-            msg += `• Vectores insertados en public.lfi_troneras: ${data.vectores_totales_insertados}\n`;
+            msg += `• Vectores guardados en public.lfi_troneras: ${data.vectores_totales_insertados}\n`;
+            msg += `• Contornos disueltos en public.lfi_troneras_contorno: ${data.contornos_totales_insertados}\n`;
             
             if (data.detalles && data.detalles.length > 0) {
                 msg += `\nDetalle:\n`;
                 data.detalles.forEach(d => {
                     const desgloseStr = Object.entries(d.desglose || {}).map(([k, v]) => `${k}: ${v}`).join(', ');
-                    msg += `- SM ${d.sm} (${d.seccion}-${d.manzana}): ${d.vectores} vectores [${desgloseStr}]\n`;
+                    msg += `- SM ${d.sm} (${d.seccion}-${d.manzana}): ${d.vectores} vectores [${desgloseStr}] (Contorno: ${d.contorno_generado ? 'OK' : 'No'})\n`;
                 });
             }
 
