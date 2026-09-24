@@ -17433,6 +17433,9 @@ async function loadCiudad3DTroneras() {
             renderLFIRevision();
             renderLFIPlanFases();
             renderLFIEquipo();
+            if (typeof renderCiudad3DCronograma === 'function') {
+                renderCiudad3DCronograma();
+            }
             // Actualizar filtros del mapa si ya está inicializado
             lfiApplyManzanaFilter();
             
@@ -17798,7 +17801,7 @@ document.addEventListener('click', (e) => {
 
 
 function calculateLFIStats() {
-    let pendientes = 0, enCurso = 0, revision = 0, aprobadas = 0;
+    let pendientes = 0, enCurso = 0, revision = 0, aprobadas = 0, conDisposicion = 0, ciudad3D = 0;
     let pendSi = 0, pendNo = 0;
     let cursoSi = 0, cursoNo = 0;
     let revSi = 0, revNo = 0;
@@ -17808,7 +17811,12 @@ function calculateLFIStats() {
         const estado = (row.estado || 'Pendiente').toLowerCase();
         const si = Number(row.irregular_si || 0);
         const no = Number(row.irregular_no || 0);
+        const hasDispo = !!(row.disposicion && row.disposicion.trim() !== '');
         
+        if (hasDispo) {
+            conDisposicion++;
+        }
+
         if (estado === 'pendiente' || estado === '') {
             pendientes++;
             pendSi += si;
@@ -17834,16 +17842,22 @@ function calculateLFIStats() {
     const elEnCurso = document.getElementById('kpi-lfi-val-en-curso');
     const elRevision = document.getElementById('kpi-lfi-val-revision');
     const elAprobadas = document.getElementById('kpi-lfi-val-aprobadas');
+    const elDisposicion = document.getElementById('kpi-lfi-val-disposicion');
+    const elCiudad3d = document.getElementById('kpi-lfi-val-ciudad3d');
     
     if (elPendientes) elPendientes.innerText = pendientes.toLocaleString('es-AR');
     if (elEnCurso) elEnCurso.innerText = enCurso.toLocaleString('es-AR');
     if (elRevision) elRevision.innerText = revision.toLocaleString('es-AR');
     if (elAprobadas) elAprobadas.innerText = aprobadas.toLocaleString('es-AR');
+    if (elDisposicion) elDisposicion.innerText = conDisposicion.toLocaleString('es-AR');
+    if (elCiudad3d) elCiudad3d.innerText = ciudad3D.toLocaleString('es-AR');
     
     const elPctPendientes = document.getElementById('kpi-lfi-pct-pendientes');
     const elPctEnCurso = document.getElementById('kpi-lfi-pct-en-curso');
     const elPctRevision = document.getElementById('kpi-lfi-pct-revision');
     const elPctAprobadas = document.getElementById('kpi-lfi-pct-aprobadas');
+    const elPctDisposicion = document.getElementById('kpi-lfi-pct-disposicion');
+    const elPctCiudad3d = document.getElementById('kpi-lfi-pct-ciudad3d');
     
     if (total > 0) {
         const calcPctStr = (val) => {
@@ -17856,11 +17870,15 @@ function calculateLFIStats() {
         if (elPctEnCurso) elPctEnCurso.innerText = calcPctStr(enCurso);
         if (elPctRevision) elPctRevision.innerText = calcPctStr(revision);
         if (elPctAprobadas) elPctAprobadas.innerText = calcPctStr(aprobadas);
+        if (elPctDisposicion) elPctDisposicion.innerText = calcPctStr(conDisposicion);
+        if (elPctCiudad3d) elPctCiudad3d.innerText = calcPctStr(ciudad3D);
     } else {
         if (elPctPendientes) elPctPendientes.innerText = `(0%)`;
         if (elPctEnCurso) elPctEnCurso.innerText = `(0%)`;
         if (elPctRevision) elPctRevision.innerText = `(0%)`;
         if (elPctAprobadas) elPctAprobadas.innerText = `(0%)`;
+        if (elPctDisposicion) elPctDisposicion.innerText = `(0%)`;
+        if (elPctCiudad3d) elPctCiudad3d.innerText = `(0%)`;
     }
 
     // Desglose de esquinas dentro de cada tarjeta
@@ -18000,9 +18018,11 @@ function renderLFIRevision() {
 async function renderLFIPlanFases() {
     const tbody = document.getElementById('plan-fases-table-body');
     const tfoot = document.getElementById('plan-fases-table-foot');
+    const tbodyResto = document.getElementById('resto-ciudad-table-body');
     const elGlobalPct = document.getElementById('plan-fases-avance-global-pct');
     const elGlobalRatio = document.getElementById('plan-fases-avance-global-ratio');
     const elGlobalTotal = document.getElementById('plan-fases-total-manzanas');
+    const elRestoTotal = document.getElementById('resto-ciudad-total-manzanas');
     const elCiudadTotal = document.getElementById('plan-ciudad-total-manzanas');
 
     if (!tbody) return;
@@ -18023,44 +18043,78 @@ async function renderLFIPlanFases() {
         return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
     };
 
-    // Estructura de conteo por fase
+    // Estructura de conteo por fase (Fases 1 a 8)
     const statsPorFase = PLAN_FASES_CONFIG.map(f => ({
         ...f,
         total: 0,
         aprobadas: 0,
+        con_disposicion: 0,
+        ciudad_3d: 0,
         revision: 0,
         en_curso: 0,
         pendientes: 0
     }));
 
-    // Estructura para Resto de la Ciudad
-    const restoStats = {
-        fase: '-',
-        barrio: 'Resto de la Ciudad',
-        fecha: 'A designar',
-        isoDate: null,
-        total: 0,
-        aprobadas: 0,
-        revision: 0,
-        en_curso: 0,
-        pendientes: 0
-    };
+    // Estructura separada para el desglose de barrios de Resto de la Ciudad
+    const restoBarriosMap = {};
+    let restoTotalGlobal = 0, restoAprobGlobal = 0, restoDispoGlobal = 0, restoC3DGlobal = 0, restoRevGlobal = 0, restoCursoGlobal = 0, restoPendGlobal = 0;
 
     (c3dTronerasRawData || []).forEach(row => {
         const bNorm = normalize(row.barrio);
         const faseObj = statsPorFase.find(f => f.match(bNorm));
-        const targetObj = faseObj || restoStats;
 
-        targetObj.total++;
         const est = (row.estado || '').toLowerCase().trim();
-        if (est === 'subir a ciudad 3d' || est === 'aprobado' || est === 'aprobada') {
-            targetObj.aprobadas++;
-        } else if (est === 'para revisión' || est === 'para revision') {
-            targetObj.revision++;
-        } else if (est === 'en curso') {
-            targetObj.en_curso++;
+        const isAprob = est === 'subir a ciudad 3d' || est === 'aprobado' || est === 'aprobada';
+        const isRev = est === 'para revisión' || est === 'para revision';
+        const isCurso = est === 'en curso';
+        const hasDispo = !!(row.disposicion && row.disposicion.trim() !== '');
+
+        if (faseObj) {
+            faseObj.total++;
+            if (hasDispo) faseObj.con_disposicion++;
+            if (isAprob) faseObj.aprobadas++;
+            else if (isRev) faseObj.revision++;
+            else if (isCurso) faseObj.en_curso++;
+            else faseObj.pendientes++;
         } else {
-            targetObj.pendientes++;
+            // Barrio que no está en las 8 fases
+            const rawBarrioName = (row.barrio || 'Sin Barrio Asignado').trim();
+            // Capitalizar nombre de barrio para mejor estética
+            const barrioDisplay = rawBarrioName.charAt(0).toUpperCase() + rawBarrioName.slice(1).toLowerCase();
+
+            if (!restoBarriosMap[barrioDisplay]) {
+                restoBarriosMap[barrioDisplay] = {
+                    barrio: barrioDisplay,
+                    total: 0,
+                    aprobadas: 0,
+                    con_disposicion: 0,
+                    ciudad_3d: 0,
+                    revision: 0,
+                    en_curso: 0,
+                    pendientes: 0
+                };
+            }
+
+            const bObj = restoBarriosMap[barrioDisplay];
+            bObj.total++;
+            restoTotalGlobal++;
+            if (hasDispo) {
+                bObj.con_disposicion++;
+                restoDispoGlobal++;
+            }
+            if (isAprob) {
+                bObj.aprobadas++;
+                restoAprobGlobal++;
+            } else if (isRev) {
+                bObj.revision++;
+                restoRevGlobal++;
+            } else if (isCurso) {
+                bObj.en_curso++;
+                restoCursoGlobal++;
+            } else {
+                bObj.pendientes++;
+                restoPendGlobal++;
+            }
         }
     });
 
@@ -18092,12 +18146,14 @@ async function renderLFIPlanFases() {
         `;
     };
 
-    let sumPlanTotal = 0, sumPlanAprob = 0, sumPlanRev = 0, sumPlanCurso = 0, sumPlanPend = 0;
+    let sumPlanTotal = 0, sumPlanAprob = 0, sumPlanDispo = 0, sumPlanC3D = 0, sumPlanRev = 0, sumPlanCurso = 0, sumPlanPend = 0;
     const now = new Date();
 
     const rowsHtml = statsPorFase.map(f => {
         sumPlanTotal += f.total;
         sumPlanAprob += f.aprobadas;
+        sumPlanDispo += f.con_disposicion;
+        sumPlanC3D += f.ciudad_3d;
         sumPlanRev += f.revision;
         sumPlanCurso += f.en_curso;
         sumPlanPend += f.pendientes;
@@ -18140,6 +18196,16 @@ async function renderLFIPlanFases() {
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #ede9fe; color: #6d28d9; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                        ${f.con_disposicion}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #cffafe; color: #0891b2; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                        ${f.ciudad_3d}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
                     <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
                         ${f.revision}
                     </span>
@@ -18164,98 +18230,157 @@ async function renderLFIPlanFases() {
         `;
     }).join('');
 
-    // Fila de Resto de la Ciudad
-    const restoRowHtml = `
-        <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
-            <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #64748b;">
-                <span style="background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;">
-                    -
-                </span>
-            </td>
-            <td style="padding: 12px 16px; font-weight: 700; color: #334155; font-size: 0.95rem;">
-                <i class="fa-solid fa-city" style="color: #94a3b8; margin-right: 6px;"></i>Resto de la Ciudad
-            </td>
-            <td style="padding: 12px 16px; text-align: center; font-weight: 600; color: #64748b; font-size: 0.88rem; font-style: italic;">
-                A designar
-            </td>
-            <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 0.95rem;">
-                ${restoStats.total.toLocaleString('es-AR')}
-            </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
-                    ${restoStats.aprobadas}
-                </span>
-            </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
-                    ${restoStats.revision}
-                </span>
-            </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
-                    ${restoStats.en_curso}
-                </span>
-            </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
-                    ${restoStats.pendientes}
-                </span>
-            </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                ${renderStackedBar(restoStats.total, restoStats.aprobadas, restoStats.revision)}
-            </td>
-            <td style="padding: 12px 16px; text-align: center;">
-                <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;">
-                    <i class="fa-solid fa-clock-rotate-left"></i> A designar
-                </span>
-            </td>
-        </tr>
-    `;
+    tbody.innerHTML = rowsHtml;
 
-    tbody.innerHTML = rowsHtml + restoRowHtml;
-
-    // Totales de la Ciudad (8 Fases + Resto)
-    const sumCiudadTotal = sumPlanTotal + restoStats.total;
-    const sumCiudadAprob = sumPlanAprob + restoStats.aprobadas;
-    const sumCiudadRev = sumPlanRev + restoStats.revision;
-    const sumCiudadCurso = sumPlanCurso + restoStats.en_curso;
-    const sumCiudadPend = sumPlanPend + restoStats.pendientes;
-
+    // Totales Consolidados del Plan (8 Fases) en el Footer de la tabla 1
     if (tfoot) {
         tfoot.innerHTML = `
             <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
                 <td colspan="3" style="padding: 14px 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.85rem;">
-                    Total General Ciudad
+                    Total Plan (Fases 1 a 8)
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 1rem;">
-                    ${sumCiudadTotal.toLocaleString('es-AR')}
+                    ${sumPlanTotal.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.95rem;">
-                    ${sumCiudadAprob.toLocaleString('es-AR')}
+                    ${sumPlanAprob.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #6d28d9; font-size: 0.95rem;">
+                    ${sumPlanDispo.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0891b2; font-size: 0.95rem;">
+                    ${sumPlanC3D.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.95rem;">
-                    ${sumCiudadRev.toLocaleString('es-AR')}
+                    ${sumPlanRev.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0369a1; font-size: 0.95rem;">
-                    ${sumCiudadCurso.toLocaleString('es-AR')}
+                    ${sumPlanCurso.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #64748b; font-size: 0.95rem;">
-                    ${sumCiudadPend.toLocaleString('es-AR')}
+                    ${sumPlanPend.toLocaleString('es-AR')}
                 </td>
                 <td style="padding: 14px 16px; text-align: center;">
-                    ${renderStackedBar(sumCiudadTotal, sumCiudadAprob, sumCiudadRev)}
+                    ${renderStackedBar(sumPlanTotal, sumPlanAprob, sumPlanRev)}
                 </td>
-                <td style="padding: 14px 16px; text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 600;">
-                    Toda la Ciudad
+                <td style="padding: 14px 16px; text-align: center; color: var(--primary); font-size: 0.8rem; font-weight: 700;">
+                    Plan 8 Fases
                 </td>
             </tr>
         `;
     }
 
+    // Render del Desglose de Barrios en Resto de la Ciudad (Cuadro 2)
+    const tfootResto = document.getElementById('resto-ciudad-table-foot');
+    const sortedRestoBarrios = Object.values(restoBarriosMap).sort((a, b) => b.total - a.total);
+
+    if (tbodyResto) {
+        if (sortedRestoBarrios.length === 0) {
+            tbodyResto.innerHTML = `
+                <tr>
+                    <td colspan="10" style="text-align: center; padding: 2rem; color: #64748b;">
+                        No se registraron manzanas fuera de las 8 fases iniciales.
+                    </td>
+                </tr>
+            `;
+        } else {
+            tbodyResto.innerHTML = sortedRestoBarrios.map(b => `
+                <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <td style="padding: 12px 16px; font-weight: 700; color: #334155; font-size: 0.92rem;">
+                        <i class="fa-solid fa-location-dot" style="color: #94a3b8; margin-right: 6px; font-size: 0.85rem;"></i>
+                        ${b.barrio}
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 0.95rem;">
+                        ${b.total.toLocaleString('es-AR')}
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                            ${b.aprobadas}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #ede9fe; color: #6d28d9; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                            ${b.con_disposicion}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #cffafe; color: #0891b2; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                            ${b.ciudad_3d}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                            ${b.revision}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #e0f2fe; color: #0369a1; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                            ${b.en_curso}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 3px 9px; border-radius: 10px; font-size: 0.82rem; display: inline-block; min-width: 28px;">
+                            ${b.pendientes}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        ${renderStackedBar(b.total, b.aprobadas, b.revision)}
+                    </td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                        <span style="background: #f1f5f9; color: #64748b; font-weight: 700; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Fuera de fase
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    if (tfootResto) {
+        tfootResto.innerHTML = `
+            <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 14px 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.85rem;">
+                    Subtotal Resto de la Ciudad (${sortedRestoBarrios.length} barrios)
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0f172a; font-size: 1rem;">
+                    ${restoTotalGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.95rem;">
+                    ${restoAprobGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #6d28d9; font-size: 0.95rem;">
+                    ${restoDispoGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0891b2; font-size: 0.95rem;">
+                    ${restoC3DGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.95rem;">
+                    ${restoRevGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0369a1; font-size: 0.95rem;">
+                    ${restoCursoGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #64748b; font-size: 0.95rem;">
+                    ${restoPendGlobal.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center;">
+                    ${renderStackedBar(restoTotalGlobal, restoAprobGlobal, restoRevGlobal)}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; color: #64748b; font-size: 0.8rem; font-weight: 700;">
+                    Fuera de Plan
+                </td>
+            </tr>
+        `;
+    }
+
+    // Totales Consolidados de la Ciudad (8 Fases + Resto)
+    const sumCiudadTotal = sumPlanTotal + restoTotalGlobal;
+
     const planPct = sumPlanTotal > 0 ? ((sumPlanAprob / sumPlanTotal) * 100).toFixed(1) : '0.0';
     if (elGlobalTotal) elGlobalTotal.innerText = sumPlanTotal.toLocaleString('es-AR');
     if (elGlobalPct) elGlobalPct.innerText = `${planPct}%`;
     if (elGlobalRatio) elGlobalRatio.innerText = `(${sumPlanAprob.toLocaleString('es-AR')} / ${sumPlanTotal.toLocaleString('es-AR')})`;
+    if (elRestoTotal) elRestoTotal.innerText = `${restoTotalGlobal.toLocaleString('es-AR')} mzs`;
     if (elCiudadTotal) elCiudadTotal.innerText = `${sumCiudadTotal.toLocaleString('es-AR')} mzs`;
 }
 window.renderLFIPlanFases = renderLFIPlanFases;
@@ -18286,6 +18411,8 @@ async function renderLFIEquipo() {
             en_curso: 0,
             revision: 0,
             aprobados: 0,
+            con_disposicion: 0,
+            ciudad_3d: 0,
             total: 0
         };
     });
@@ -18302,8 +18429,15 @@ async function renderLFIEquipo() {
                 en_curso: 0,
                 revision: 0,
                 aprobados: 0,
+                con_disposicion: 0,
+                ciudad_3d: 0,
                 total: 0
             };
+        }
+
+        const hasDispo = !!(row.disposicion && row.disposicion.trim() !== '');
+        if (hasDispo) {
+            stats[u].con_disposicion++;
         }
         
         const est = (row.estado || '').toLowerCase().trim();
@@ -18325,7 +18459,7 @@ async function renderLFIEquipo() {
     if (rowsList.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">
+                <td colspan="8" style="text-align: center; padding: 2rem; color: #64748b;">
                     <i class="fa-solid fa-users-slash" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
                     <p style="margin: 0; font-size: 0.9rem;">No hay analistas de trazados o manzanas asignadas registradas.</p>
                 </td>
@@ -18336,7 +18470,7 @@ async function renderLFIEquipo() {
 
     rowsList.sort((a, b) => b.total - a.total);
 
-    let sumAprob = 0, sumRev = 0, sumCurso = 0, sumTotal = 0;
+    let sumAprob = 0, sumDispo = 0, sumC3D = 0, sumRev = 0, sumCurso = 0, sumTotal = 0;
 
     const renderStackedBarEquipo = (total, aprobados, revision) => {
         if (!total || total === 0) {
@@ -18368,6 +18502,8 @@ async function renderLFIEquipo() {
 
     tbody.innerHTML = rowsList.map(s => {
         sumAprob += s.aprobados;
+        sumDispo += s.con_disposicion;
+        sumC3D += s.ciudad_3d;
         sumRev += s.revision;
         sumCurso += s.en_curso;
         sumTotal += s.total;
@@ -18388,6 +18524,16 @@ async function renderLFIEquipo() {
                 <td style="padding: 12px 16px; text-align: center;">
                     <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
                         ${s.aprobados}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #ede9fe; color: #6d28d9; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.con_disposicion}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <span style="background: #cffafe; color: #0891b2; font-weight: 700; padding: 4px 10px; border-radius: 12px; font-size: 0.82rem; display: inline-block; min-width: 30px;">
+                        ${s.ciudad_3d}
                     </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
@@ -18419,6 +18565,12 @@ async function renderLFIEquipo() {
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.95rem;">
                     ${sumAprob.toLocaleString('es-AR')}
                 </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #6d28d9; font-size: 0.95rem;">
+                    ${sumDispo.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #0891b2; font-size: 0.95rem;">
+                    ${sumC3D.toLocaleString('es-AR')}
+                </td>
                 <td style="padding: 14px 16px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.95rem;">
                     ${sumRev.toLocaleString('es-AR')}
                 </td>
@@ -18436,6 +18588,708 @@ async function renderLFIEquipo() {
     }
 }
 window.renderLFIEquipo = renderLFIEquipo;
+
+let currentLFIEquipoMainTab = 'fases';
+
+function switchLFIEquipoMainTab(tabId) {
+    currentLFIEquipoMainTab = tabId;
+    const btnFases = document.getElementById('lfi-equipo-tab-btn-fases');
+    const btnAnalistas = document.getElementById('lfi-equipo-tab-btn-analistas');
+    const btnCronograma = document.getElementById('lfi-equipo-tab-btn-cronograma');
+
+    const secFases = document.getElementById('lfi-equipo-section-fases');
+    const secAnalistas = document.getElementById('lfi-equipo-section-analistas');
+    const secCronograma = document.getElementById('lfi-equipo-section-cronograma');
+
+    const resetTabBtn = (btn) => {
+        if (btn) {
+            btn.style.color = '#64748b';
+            btn.style.borderBottom = '3px solid transparent';
+            btn.style.fontWeight = '700';
+            btn.style.background = 'transparent';
+        }
+    };
+
+    const activeTabBtn = (btn) => {
+        if (btn) {
+            btn.style.color = 'var(--primary)';
+            btn.style.borderBottom = '3px solid var(--primary)';
+            btn.style.fontWeight = '800';
+            btn.style.background = '#eff6ff';
+        }
+    };
+
+    resetTabBtn(btnFases);
+    resetTabBtn(btnAnalistas);
+    resetTabBtn(btnCronograma);
+
+    if (secFases) secFases.style.display = 'none';
+    if (secAnalistas) secAnalistas.style.display = 'none';
+    if (secCronograma) secCronograma.style.display = 'none';
+
+    if (tabId === 'fases') {
+        activeTabBtn(btnFases);
+        if (secFases) secFases.style.display = 'block';
+    } else if (tabId === 'analistas') {
+        activeTabBtn(btnAnalistas);
+        if (secAnalistas) secAnalistas.style.display = 'block';
+    } else if (tabId === 'cronograma') {
+        activeTabBtn(btnCronograma);
+        if (secCronograma) secCronograma.style.display = 'block';
+        setTimeout(() => {
+            if (typeof renderCiudad3DCronograma === 'function') {
+                renderCiudad3DCronograma();
+            }
+        }, 50);
+    }
+}
+window.switchLFIEquipoMainTab = switchLFIEquipoMainTab;
+
+let c3dCronogramaRawEvents = null;
+let c3dCronoChartInstance = null;
+let currentCronoViewMode = 'grid';
+
+function switchCronoViewMode(mode) {
+    currentCronoViewMode = mode;
+    const btnGrid = document.getElementById('btn-crono-view-grid');
+    const btnChart = document.getElementById('btn-crono-view-chart');
+    const btnCalendar = document.getElementById('btn-crono-view-calendar');
+    const containerGrid = document.getElementById('crono-container-grid');
+    const containerChart = document.getElementById('crono-container-chart');
+    const containerCalendar = document.getElementById('crono-container-calendar');
+
+    const resetBtn = (btn) => {
+        if (btn) {
+            btn.style.background = 'transparent';
+            btn.style.color = '#64748b';
+            btn.style.boxShadow = 'none';
+        }
+    };
+    const activeBtn = (btn) => {
+        if (btn) {
+            btn.style.background = 'white';
+            btn.style.color = 'var(--primary-dark)';
+            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+        }
+    };
+
+    resetBtn(btnGrid);
+    resetBtn(btnChart);
+    resetBtn(btnCalendar);
+
+    if (containerGrid) containerGrid.style.display = 'none';
+    if (containerChart) containerChart.style.display = 'none';
+    if (containerCalendar) containerCalendar.style.display = 'none';
+
+    if (mode === 'grid') {
+        activeBtn(btnGrid);
+        if (containerGrid) containerGrid.style.display = 'block';
+    } else if (mode === 'chart') {
+        activeBtn(btnChart);
+        if (containerChart) containerChart.style.display = 'block';
+        setTimeout(() => renderCiudad3DCronogramaChart(), 50);
+    } else if (mode === 'calendar') {
+        activeBtn(btnCalendar);
+        if (containerCalendar) containerCalendar.style.display = 'block';
+        setTimeout(() => renderCiudad3DCronograma(), 50);
+    }
+}
+window.switchCronoViewMode = switchCronoViewMode;
+
+async function fetchCiudad3DCronogramaEvents() {
+    if (c3dCronogramaRawEvents) return c3dCronogramaRawEvents;
+    try {
+        const res = await def_fetch(`${API_BASE}/ciudad3d/cronograma_avance`);
+        if (res && res.ok) {
+            c3dCronogramaRawEvents = await res.json();
+        } else {
+            c3dCronogramaRawEvents = [];
+        }
+    } catch (e) {
+        console.warn("Error fetching cronograma avance events:", e);
+        c3dCronogramaRawEvents = [];
+    }
+    return c3dCronogramaRawEvents;
+}
+
+// Obtener el lunes de la semana de una fecha ISO
+function getWeekMonday(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    const day = d.getDay(); // 0 domingo, 1 lunes...
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+}
+
+const MONTH_NAMES_ES = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+
+async function renderCiudad3DCronograma() {
+    const tbody = document.getElementById('c3d-crono-table-body');
+    const tfoot = document.getElementById('c3d-crono-table-foot');
+    const selectAnalista = document.getElementById('c3d-crono-filtro-analista');
+    const selectEstado = document.getElementById('c3d-crono-filtro-estado');
+    if (!tbody) return;
+
+    const events = await fetchCiudad3DCronogramaEvents();
+
+    // 1. Poblar el dropdown de analistas si tiene sólo la opción por defecto
+    if (selectAnalista && selectAnalista.options.length <= 1) {
+        const usersMap = {};
+        events.forEach(ev => {
+            const u = (ev.analista_usuario || '').trim().toLowerCase();
+            if (u && u !== 'sin asignar') {
+                usersMap[u] = ev.analista_nombre || ev.analista_usuario;
+            }
+        });
+        const sortedUsers = Object.keys(usersMap).sort((a, b) => usersMap[a].localeCompare(usersMap[b]));
+        sortedUsers.forEach(uKey => {
+            const opt = document.createElement('option');
+            opt.value = uKey;
+            opt.textContent = `${usersMap[uKey]} (@${uKey})`;
+            selectAnalista.appendChild(opt);
+        });
+    }
+
+    const selectedAnalista = selectAnalista ? selectAnalista.value : 'ALL';
+    const selectedEstado = selectEstado ? selectEstado.value : 'ALL';
+
+    // 2. Filtrar eventos por analista y estado seleccionados
+    const filteredEvents = events.filter(ev => {
+        if (selectedAnalista !== 'ALL') {
+            const u = (ev.analista_usuario || '').trim().toLowerCase();
+            if (u !== selectedAnalista.toLowerCase()) return false;
+        }
+        if (selectedEstado !== 'ALL') {
+            if (ev.tipo !== selectedEstado) return false;
+        }
+        return true;
+    });
+
+    // 3. Agrupar por Mes y Semana (Lunes a Domingo)
+    // Estructura: weeksMap[weekKey] = { mondayDate, monthName, year, weekLabel, aprobadas, correcciones, revision, total }
+    const weeksMap = {};
+
+    filteredEvents.forEach(ev => {
+        if (!ev.fecha) return;
+        const monday = getWeekMonday(ev.fecha);
+        if (!monday) return;
+
+        const y = monday.getFullYear();
+        const m = monday.getMonth();
+        const d = monday.getDate();
+        const weekKey = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+        if (!weeksMap[weekKey]) {
+            const sunday = new Date(monday);
+            sunday.setDate(sunday.getDate() + 6);
+            
+            const monthName = MONTH_NAMES_ES[m];
+            const weekLabel = `Sem ${String(d).padStart(2, '0')}/${String(m + 1).padStart(2, '0')} al ${String(sunday.getDate()).padStart(2, '0')}/${String(sunday.getMonth() + 1).padStart(2, '0')}`;
+
+            weeksMap[weekKey] = {
+                key: weekKey,
+                mondayDate: monday,
+                year: y,
+                monthIndex: m,
+                monthName: `${monthName} ${y}`,
+                weekLabel: weekLabel,
+                aprobadas: 0,
+                correcciones: 0,
+                revision: 0,
+                total: 0
+            };
+        }
+
+        const wObj = weeksMap[weekKey];
+        if (ev.tipo === 'aprobada') {
+            wObj.aprobadas++;
+            wObj.total++;
+        } else if (ev.tipo === 'correccion') {
+            wObj.correcciones++;
+            wObj.total++;
+        } else if (ev.tipo === 'enviada_revision') {
+            wObj.revision++;
+            wObj.total++;
+        }
+    });
+
+    const sortedWeekKeys = Object.keys(weeksMap).sort(); // Orden cronológico ascendente
+
+    // Actualizar KPIs de cabecera
+    let sumAprob = 0, sumCorrec = 0, sumRev = 0;
+    sortedWeekKeys.forEach(k => {
+        const w = weeksMap[k];
+        sumAprob += w.aprobadas;
+        sumCorrec += w.correcciones;
+        sumRev += w.revision;
+    });
+
+    const kpiAprobEl = document.getElementById('crono-kpi-aprobadas');
+    const kpiCorrecEl = document.getElementById('crono-kpi-correcciones');
+    const kpiRevEl = document.getElementById('crono-kpi-revision');
+    const kpiSemEl = document.getElementById('crono-kpi-semanas');
+
+    if (kpiAprobEl) kpiAprobEl.innerText = sumAprob.toLocaleString('es-AR');
+    if (kpiCorrecEl) kpiCorrecEl.innerText = sumCorrec.toLocaleString('es-AR');
+    if (kpiRevEl) kpiRevEl.innerText = sumRev.toLocaleString('es-AR');
+    if (kpiSemEl) kpiSemEl.innerText = sortedWeekKeys.length;
+
+    // Renderizar Calendario de Calor
+    renderCiudad3DCalendarHeatmap(filteredEvents, selectedEstado);
+
+    if (sortedWeekKeys.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 2.5rem; color: #64748b;">
+                    <i class="fa-solid fa-calendar-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">No se registraron movimientos en el periodo seleccionado con los filtros activos.</p>
+                </td>
+            </tr>
+        `;
+        if (tfoot) tfoot.innerHTML = '';
+        renderCiudad3DCronogramaChart([]);
+        return;
+    }
+
+    // Agrupar semanas por mes para visualización en grilla
+    const monthsGrouped = {};
+    sortedWeekKeys.forEach(k => {
+        const w = weeksMap[k];
+        if (!monthsGrouped[w.monthName]) {
+            monthsGrouped[w.monthName] = [];
+        }
+        monthsGrouped[w.monthName].push(w);
+    });
+
+    const renderDistStackedBar = (total, aprob, correc, rev) => {
+        if (!total || total === 0) {
+            return `<div style="color: #94a3b8; font-size: 0.72rem; text-align: center;">Sin actividad</div>`;
+        }
+        const pctAprob = ((aprob / total) * 100).toFixed(1);
+        const pctCorrec = ((correc / total) * 100).toFixed(1);
+        const pctRev = ((rev / total) * 100).toFixed(1);
+
+        return `
+            <div style="display: flex; align-items: center; gap: 6px; justify-content: center;">
+                <div style="flex: 1; max-width: 110px; background: #e2e8f0; height: 7px; border-radius: 4px; overflow: hidden; display: flex;"
+                     title="Aprobadas: ${aprob} (${pctAprob}%) | Correcciones: ${correc} (${pctCorrec}%) | En revisión: ${rev} (${pctRev}%)">
+                    <div style="width: ${pctAprob}%; background: #16a34a; height: 100%;"></div>
+                    <div style="width: ${pctCorrec}%; background: #dc2626; height: 100%;"></div>
+                    <div style="width: ${pctRev}%; background: #d97706; height: 100%;"></div>
+                </div>
+                <div style="font-size: 0.75rem; font-weight: 800; color: #334155; min-width: 40px; text-align: right;">
+                    ${total.toLocaleString('es-AR')} mzs
+                </div>
+            </div>
+        `;
+    };
+
+    let tableHtml = '';
+    const monthKeys = Object.keys(monthsGrouped);
+
+    monthKeys.forEach((mName, mIdx) => {
+        const weeksInMonth = monthsGrouped[mName];
+        let mTotalAprob = 0, mTotalCorrec = 0, mTotalRev = 0, mTotal = 0;
+
+        weeksInMonth.forEach((w, wIdx) => {
+            mTotalAprob += w.aprobadas;
+            mTotalCorrec += w.correcciones;
+            mTotalRev += w.revision;
+            mTotal += w.total;
+
+            const isFirstWeek = wIdx === 0;
+            const monthCell = isFirstWeek ? `
+                <td rowspan="${weeksInMonth.length + 1}" style="padding: 8px 12px; vertical-align: top; font-weight: 800; font-family: 'Outfit'; color: var(--primary-dark); background: #f8fafc; border-right: 1px solid #e2e8f0;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-regular fa-calendar-days" style="color: var(--primary); font-size: 0.85rem;"></i>
+                        <span style="font-size: 0.88rem;">${mName}</span>
+                    </div>
+                    <div style="margin-top: 3px; font-size: 0.7rem; color: #64748b; font-weight: 600;">
+                        ${weeksInMonth.length} ${weeksInMonth.length === 1 ? 'semana' : 'semanas'}
+                    </div>
+                </td>
+            ` : '';
+
+            tableHtml += `
+                <tr style="border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif; transition: background 0.15s;" onmouseover="this.style.background='#fdfdfe'" onmouseout="this.style.background=''">
+                    ${monthCell}
+                    <td style="padding: 6px 12px; font-weight: 600; color: #334155; font-size: 0.82rem;">
+                        <span style="background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-right: 4px;">
+                            ${w.weekLabel}
+                        </span>
+                    </td>
+                    <td style="padding: 6px 12px; text-align: center;">
+                        <span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 2px 7px; border-radius: 8px; font-size: 0.78rem; display: inline-block; min-width: 24px;">
+                            ${w.aprobadas}
+                        </span>
+                    </td>
+                    <td style="padding: 6px 12px; text-align: center;">
+                        <span style="background: ${w.correcciones > 0 ? '#fee2e2' : '#f8fafc'}; color: ${w.correcciones > 0 ? '#b91c1c' : '#94a3b8'}; font-weight: 700; padding: 2px 7px; border-radius: 8px; font-size: 0.78rem; display: inline-block; min-width: 24px;">
+                            ${w.correcciones}
+                        </span>
+                    </td>
+                    <td style="padding: 6px 12px; text-align: center;">
+                        <span style="background: ${w.revision > 0 ? '#fef3c7' : '#f8fafc'}; color: ${w.revision > 0 ? '#b45309' : '#94a3b8'}; font-weight: 700; padding: 2px 7px; border-radius: 8px; font-size: 0.78rem; display: inline-block; min-width: 24px;">
+                            ${w.revision}
+                        </span>
+                    </td>
+                    <td style="padding: 6px 12px; text-align: center;">
+                        ${renderDistStackedBar(w.total, w.aprobadas, w.correcciones, w.revision)}
+                    </td>
+                </tr>
+            `;
+        });
+
+        // Subtotal mensual
+        tableHtml += `
+            <tr style="border-bottom: 2px solid #cbd5e1; background: #fafafa; font-family: 'Outfit', sans-serif;">
+                <td style="padding: 6px 12px; font-weight: 800; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Subtotal ${mName}
+                </td>
+                <td style="padding: 6px 12px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.82rem;">
+                    ${mTotalAprob.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 6px 12px; text-align: center; font-weight: 800; color: #b91c1c; font-size: 0.82rem;">
+                    ${mTotalCorrec.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 6px 12px; text-align: center; font-weight: 800; color: #b45309; font-size: 0.82rem;">
+                    ${mTotalRev.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 6px 12px; text-align: center;">
+                    ${renderDistStackedBar(mTotal, mTotalAprob, mTotalCorrec, mTotalRev)}
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = tableHtml;
+
+    // Totales Generales en el Footer
+    const totalGral = sumAprob + sumCorrec + sumRev;
+    if (tfoot) {
+        tfoot.innerHTML = `
+            <tr style="border-top: 2px solid #cbd5e1; background: #f8fafc; font-family: 'Outfit', sans-serif;">
+                <td colspan="2" style="padding: 9px 12px; font-weight: 800; color: #0f172a; text-transform: uppercase; font-size: 0.8rem;">
+                    Total Acumulado Período
+                </td>
+                <td style="padding: 9px 12px; text-align: center; font-weight: 800; color: #15803d; font-size: 0.88rem;">
+                    ${sumAprob.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 9px 12px; text-align: center; font-weight: 800; color: #dc2626; font-size: 0.88rem;">
+                    ${sumCorrec.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 9px 12px; text-align: center; font-weight: 800; color: #d97706; font-size: 0.88rem;">
+                    ${sumRev.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 9px 12px; text-align: center;">
+                    ${renderDistStackedBar(totalGral, sumAprob, sumCorrec, sumRev)}
+                </td>
+            </tr>
+        `;
+    }
+
+    // Actualizar Gráfico
+    const chartWeeks = sortedWeekKeys.map(k => weeksMap[k]);
+    renderCiudad3DCronogramaChart(chartWeeks);
+}
+window.renderCiudad3DCronograma = renderCiudad3DCronograma;
+
+function renderCiudad3DCronogramaChart(weeksData = null) {
+    const canvas = document.getElementById('c3d-crono-chart-canvas');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (!weeksData) {
+        return;
+    }
+
+    if (c3dCronoChartInstance) {
+        c3dCronoChartInstance.destroy();
+        c3dCronoChartInstance = null;
+    }
+
+    if (weeksData.length === 0) return;
+
+    const labels = weeksData.map(w => w.weekLabel.replace('Sem ', ''));
+    const dataAprob = weeksData.map(w => w.aprobadas);
+    const dataCorrec = weeksData.map(w => w.correcciones);
+    const dataRev = weeksData.map(w => w.revision);
+
+    const ctx = canvas.getContext('2d');
+    c3dCronoChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Aprobadas',
+                    data: dataAprob,
+                    backgroundColor: '#16a34a',
+                    borderRadius: 4,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                },
+                {
+                    label: 'A Corrección',
+                    data: dataCorrec,
+                    backgroundColor: '#dc2626',
+                    borderRadius: 4,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                },
+                {
+                    label: 'Enviadas a Revisión',
+                    data: dataRev,
+                    backgroundColor: '#d97706',
+                    borderRadius: 4,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: { family: "'Outfit', sans-serif", weight: 'bold', size: 12 },
+                        usePointStyle: true,
+                        boxWidth: 10
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    titleFont: { family: "'Outfit', sans-serif" },
+                    bodyFont: { family: "'Outfit', sans-serif" },
+                    padding: 10
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { family: "'Outfit', sans-serif", size: 11 },
+                        color: '#475569'
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        font: { family: "'Outfit', sans-serif", size: 11 },
+                        color: '#475569',
+                        stepSize: 5
+                    }
+                }
+            }
+        }
+    });
+}
+window.renderCiudad3DCronogramaChart = renderCiudad3DCronogramaChart;
+
+// Render del Gráfico de Calor de Calendario (Heatmap Grilla Compacta)
+function renderCiudad3DCalendarHeatmap(events, selectedEstado = 'ALL') {
+    const wrapper = document.getElementById('crono-calendar-heatmap-wrapper');
+    if (!wrapper) return;
+
+    if (!events || events.length === 0) {
+        wrapper.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: #64748b;">
+                <i class="fa-regular fa-calendar-xmark" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                <p style="margin: 0; font-size: 0.88rem; font-weight: 600;">No hay actividad registrada con los filtros seleccionados.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const dailyMap = {};
+    let minDate = new Date();
+    let maxDate = new Date(0);
+
+    events.forEach(ev => {
+        if (!ev.fecha) return;
+        const d = new Date(ev.fecha);
+        if (isNaN(d.getTime())) return;
+        
+        if (d < minDate) minDate = new Date(d);
+        if (d > maxDate) maxDate = new Date(d);
+
+        const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (!dailyMap[dayKey]) {
+            dailyMap[dayKey] = {
+                date: d,
+                aprobadas: 0,
+                correcciones: 0,
+                revision: 0,
+                total: 0,
+                items: []
+            };
+        }
+
+        const obj = dailyMap[dayKey];
+        if (ev.tipo === 'aprobada') obj.aprobadas++;
+        else if (ev.tipo === 'correccion') obj.correcciones++;
+        else if (ev.tipo === 'enviada_revision') obj.revision++;
+        obj.total++;
+        obj.items.push(ev);
+    });
+
+    const startYear = minDate.getFullYear();
+    const startMonth = minDate.getMonth();
+    const endYear = maxDate.getFullYear();
+    const endMonth = maxDate.getMonth();
+
+    const monthsList = [];
+    let curY = startYear;
+    let curM = startMonth;
+
+    while (curY < endYear || (curY === endYear && curM <= endMonth)) {
+        monthsList.push({ year: curY, month: curM });
+        curM++;
+        if (curM > 11) {
+            curM = 0;
+            curY++;
+        }
+    }
+
+    const dayHeaders = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+    const getHeatColor = (dayObj) => {
+        if (!dayObj || dayObj.total === 0) return '#f8fafc';
+        
+        if (selectedEstado === 'aprobada') {
+            const cnt = dayObj.aprobadas;
+            if (cnt === 0) return '#f8fafc';
+            if (cnt <= 2) return '#bbf7d0';
+            if (cnt <= 5) return '#86efac';
+            if (cnt <= 10) return '#4ade80';
+            return '#16a34a';
+        } else if (selectedEstado === 'correccion') {
+            const cnt = dayObj.correcciones;
+            if (cnt === 0) return '#f8fafc';
+            if (cnt <= 2) return '#fecaca';
+            if (cnt <= 5) return '#f87171';
+            if (cnt <= 10) return '#ef4444';
+            return '#b91c1c';
+        } else if (selectedEstado === 'enviada_revision') {
+            const cnt = dayObj.revision;
+            if (cnt === 0) return '#f8fafc';
+            if (cnt <= 2) return '#fde68a';
+            if (cnt <= 5) return '#fcd34d';
+            if (cnt <= 10) return '#fbbf24';
+            return '#d97706';
+        } else {
+            const cnt = dayObj.total;
+            if (cnt === 0) return '#f8fafc';
+            if (cnt <= 2) return '#e0f2fe';
+            if (cnt <= 6) return '#7dd3fc';
+            if (cnt <= 12) return '#38bdf8';
+            if (cnt <= 20) return '#0284c7';
+            return '#0369a1';
+        }
+    };
+
+    let html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 8px 14px; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-fire-flame-curved" style="color: #ea580c; font-size: 0.95rem;"></i>
+                <span style="font-weight: 800; font-family: 'Outfit'; font-size: 0.88rem; color: var(--primary-dark);">
+                    Intensidad Diaria (${selectedEstado === 'ALL' ? 'Todos los movimientos' : selectedEstado === 'aprobada' ? 'Aprobaciones' : selectedEstado === 'correccion' ? 'Correcciones' : 'Envíos a Revisión'})
+                </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #64748b; font-weight: 700;">
+                <span>Menos</span>
+                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #f8fafc; border: 1px solid #cbd5e1;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: ${selectedEstado === 'aprobada' ? '#bbf7d0' : selectedEstado === 'correccion' ? '#fecaca' : selectedEstado === 'enviada_revision' ? '#fde68a' : '#e0f2fe'};"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: ${selectedEstado === 'aprobada' ? '#86efac' : selectedEstado === 'correccion' ? '#f87171' : selectedEstado === 'enviada_revision' ? '#fcd34d' : '#7dd3fc'};"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: ${selectedEstado === 'aprobada' ? '#4ade80' : selectedEstado === 'correccion' ? '#ef4444' : selectedEstado === 'enviada_revision' ? '#fbbf24' : '#38bdf8'};"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: ${selectedEstado === 'aprobada' ? '#16a34a' : selectedEstado === 'correccion' ? '#b91c1c' : selectedEstado === 'enviada_revision' ? '#d97706' : '#0284c7'};"></span>
+                <span>Más</span>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
+    `;
+
+    monthsList.forEach(({ year, month }) => {
+        const monthName = MONTH_NAMES_ES[month];
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDayOfWeek = (new Date(year, month, 1).getDay() + 6) % 7;
+
+        let monthAprob = 0, monthCorrec = 0, monthRev = 0, monthTotal = 0;
+
+        let daysGridHtml = '';
+        for (let i = 0; i < firstDayOfWeek; i++) {
+            daysGridHtml += `<div style="aspect-ratio: 1; border-radius: 4px; background: transparent;"></div>`;
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayData = dailyMap[dayKey] || { aprobadas: 0, correcciones: 0, revision: 0, total: 0 };
+            
+            monthAprob += dayData.aprobadas;
+            monthCorrec += dayData.correcciones;
+            monthRev += dayData.revision;
+            monthTotal += dayData.total;
+
+            const heatBg = getHeatColor(dayData);
+            const hasActivity = dayData.total > 0;
+            const tooltipTitle = `${day} de ${monthName} ${year}: ${dayData.total} movs (Aprob: ${dayData.aprobadas}, Correc: ${dayData.correcciones}, Rev: ${dayData.revision})`;
+
+            const isDarkBg = dayData.total >= 10 || (selectedEstado === 'aprobada' && dayData.aprobadas >= 10) || (selectedEstado === 'correccion' && dayData.correcciones >= 5);
+            const textColor = hasActivity ? (isDarkBg ? '#ffffff' : '#0f172a') : '#94a3b8';
+
+            daysGridHtml += `
+                <div style="aspect-ratio: 1; border-radius: 4px; background: ${heatBg}; border: 1px solid ${hasActivity ? 'rgba(0,0,0,0.08)' : '#f1f5f9'}; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: ${hasActivity ? 'pointer' : 'default'}; transition: transform 0.15s;"
+                     title="${tooltipTitle}"
+                     onmouseover="if(${hasActivity}) { this.style.transform='scale(1.2)'; this.style.zIndex='10'; }"
+                     onmouseout="if(${hasActivity}) { this.style.transform='none'; this.style.zIndex='1'; }">
+                    <span style="font-size: 0.68rem; font-weight: 700; color: ${textColor}; font-family: 'Outfit';">${day}</span>
+                    ${hasActivity ? `<span style="font-size: 0.55rem; font-weight: 800; color: ${textColor}; line-height: 1;">${selectedEstado === 'aprobada' ? dayData.aprobadas : selectedEstado === 'correccion' ? dayData.correcciones : selectedEstado === 'enviada_revision' ? dayData.revision : dayData.total}</span>` : ''}
+                </div>
+            `;
+        }
+
+        html += `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #f1f5f9;">
+                    <div style="font-family: 'Outfit'; font-weight: 800; color: var(--primary-dark); font-size: 0.92rem;">
+                        <i class="fa-regular fa-calendar-check" style="color: var(--primary); margin-right: 4px;"></i> ${monthName} ${year}
+                    </div>
+                    <div style="font-size: 0.72rem; font-weight: 700; color: #64748b;">
+                        ${monthTotal} movs
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; font-size: 0.65rem; font-weight: 700; color: #94a3b8; margin-bottom: 4px;">
+                    ${dayHeaders.map(h => `<div>${h}</div>`).join('')}
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px;">
+                    ${daysGridHtml}
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #e2e8f0; font-size: 0.68rem; font-weight: 700;">
+                    <span style="color: #16a34a;"><i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> ${monthAprob} aprob.</span>
+                    <span style="color: #dc2626;"><i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> ${monthCorrec} correc.</span>
+                    <span style="color: #d97706;"><i class="fa-solid fa-circle" style="font-size: 0.45rem;"></i> ${monthRev} rev.</span>
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    wrapper.innerHTML = html;
+}
+window.renderCiudad3DCalendarHeatmap = renderCiudad3DCalendarHeatmap;
 
 function filterLFIByStatus(statusName) {
     // Clear active status on all cards

@@ -3746,6 +3746,94 @@ def update_manzana_lfi_disposicion(req: LFIDisposicionRequest, current_user: Use
         
     return {"status": "ok"}
 
+@router.get("/api/ciudad3d/cronograma_avance")
+def get_ciudad3d_cronograma_avance(current_user: User = Depends(get_current_user)):
+    if not current_user.permissions.get("ciudad_3d"):
+        raise HTTPException(status_code=403, detail="No tiene permisos para acceder a Ciudad 3D")
+    
+    try:
+        with engine.connect() as conn:
+            # 1. Usuarios / Analistas
+            users_res = conn.execute(text("SELECT username, full_name FROM public.auth_users")).fetchall()
+            user_map = {r[0].strip().lower(): (r[1] or r[0]) for r in users_res if r[0]}
+
+            # 2. Aprobadas desde manzanas_lfi_workflow (SOLO las realizadas por analistas, excluyendo carga masiva sin analista)
+            wf_aprob = conn.execute(text("""
+                SELECT w.seccion, w.manzana, w.estado, w.analista_asignado, w.disposicion, w.updated_at
+                FROM public.manzanas_lfi_workflow w
+                WHERE w.estado IN ('Subir a Ciudad 3D', 'Aprobado', 'Aprobada')
+                  AND w.analista_asignado IS NOT NULL 
+                  AND TRIM(w.analista_asignado) <> ''
+                  AND w.updated_at IS NOT NULL
+                ORDER BY w.updated_at ASC
+            """)).fetchall()
+
+            # 3. Correcciones, Reversiones y Envíos a Revisión desde manzanas_lfi_notes
+            notes_events = conn.execute(text("""
+                SELECT 
+                    n.id,
+                    n.seccion,
+                    n.manzana,
+                    n.username,
+                    n.nota,
+                    n.created_at,
+                    COALESCE(
+                        (SELECT username FROM public.manzanas_lfi_notes n2 
+                         WHERE TRIM(n2.seccion) = TRIM(n.seccion) AND TRIM(n2.manzana) = TRIM(n.manzana)
+                           AND n2.nota LIKE '%ENVIADO A REVISI%' 
+                           AND n2.created_at <= n.created_at 
+                         ORDER BY n2.created_at DESC LIMIT 1),
+                        w.analista_asignado,
+                        n.username,
+                        ''
+                    ) as analista_trazador
+                FROM public.manzanas_lfi_notes n
+                LEFT JOIN public.manzanas_lfi_workflow w ON TRIM(w.seccion) = TRIM(n.seccion) AND TRIM(w.manzana) = TRIM(n.manzana)
+                WHERE n.nota LIKE '%REVISI%[REJECT]%' 
+                   OR n.nota LIKE '%REAPERTURA%'
+                   OR n.nota LIKE '%ENVIADO A REVISI%'
+                ORDER BY n.created_at ASC
+            """)).fetchall()
+
+            events = []
+
+            for r in wf_aprob:
+                u_analista = (r[3] or "").strip().lower()
+                events.append({
+                    "seccion": r[0].strip() if r[0] else "",
+                    "manzana": r[1].strip() if r[1] else "",
+                    "tipo": "aprobada",
+                    "analista_usuario": u_analista,
+                    "analista_nombre": user_map.get(u_analista, r[3] if r[3] else "Sin asignar"),
+                    "fecha": r[5].isoformat() if r[5] else "",
+                    "detalle": r[4] or "Aprobada para Ciudad 3D"
+                })
+
+            for n in notes_events:
+                nota_text = n[4] or ""
+                if "REVISI" in nota_text and "[REJECT]" in nota_text or "REAPERTURA" in nota_text:
+                    tipo_ev = "correccion"
+                elif "ENVIADO A REVISI" in nota_text:
+                    tipo_ev = "enviada_revision"
+                else:
+                    tipo_ev = "otra_nota"
+
+                u_trazador = (n[6] or "").strip().lower()
+                events.append({
+                    "seccion": n[1].strip() if n[1] else "",
+                    "manzana": n[2].strip() if n[2] else "",
+                    "tipo": tipo_ev,
+                    "analista_usuario": u_trazador,
+                    "analista_nombre": user_map.get(u_trazador, n[6] if n[6] else (n[3] or "Sin asignar")),
+                    "fecha": n[5].isoformat() if n[5] else "",
+                    "detalle": nota_text
+                })
+
+            return events
+    except Exception as e:
+        logger.error(f"Error fetching Cronograma Avance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/api/ciudad3d/manzanas_atipicas")
 def get_ciudad3d_manzanas_atipicas(current_user: User = Depends(get_current_user)):
     if not current_user.permissions.get("ciudad_3d"):
