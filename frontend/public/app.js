@@ -19961,53 +19961,7 @@ function renderAtipicasKPIs(data) {
         pctSinDispEl.innerText = `${pct}% sin acto administrativo`;
     }
 
-    // Nivel 2: Cobertura LFI / LIB en Trazado SI
-    const conLfiLibEl = document.getElementById('atip-kpi-con-lfi-lib');
-    if (conLfiLibEl) conLfiLibEl.innerText = formatNum(d.con_lfi_o_lib);
-
-    const pctConLfiLibEl = document.getElementById('atip-pct-con-lfi-lib');
-    if (pctConLfiLibEl && d.total > 0) {
-        const pct = ((d.con_lfi_o_lib / d.total) * 100).toFixed(1);
-        pctConLfiLibEl.innerText = `${pct}% de las trazado SI (${formatNum(d.con_lfi_o_lib)} mzas)`;
-    }
-
-    const ningunaEl = document.getElementById('atip-kpi-ninguna');
-    if (ningunaEl) ningunaEl.innerText = formatNum(d.ninguna);
-
-    const pctNingunaEl = document.getElementById('atip-pct-ninguna');
-    if (pctNingunaEl && d.total > 0) {
-        const pct = ((d.ninguna / d.total) * 100).toFixed(1);
-        pctNingunaEl.innerText = `${pct}% sin nada en las tablas (${formatNum(d.ninguna)} mzas)`;
-    }
-
-    const ambasEl = document.getElementById('atip-kpi-ambas');
-    if (ambasEl) ambasEl.innerText = formatNum(d.ambas);
-
-    const pctAmbasEl = document.getElementById('atip-pct-ambas');
-    if (pctAmbasEl && d.total > 0) {
-        const pct = ((d.ambas / d.total) * 100).toFixed(1);
-        pctAmbasEl.innerText = `${pct}% con ambas (${formatNum(d.ambas)} mzas)`;
-    }
-
-    const soloLfiEl = document.getElementById('atip-kpi-solo-lfi');
-    if (soloLfiEl) soloLfiEl.innerText = formatNum(d.solo_lfi);
-
-    const pctSoloLfiEl = document.getElementById('atip-pct-solo-lfi');
-    if (pctSoloLfiEl && d.total > 0) {
-        const pct = ((d.solo_lfi / d.total) * 100).toFixed(1);
-        pctSoloLfiEl.innerText = `${pct}% solo LFI particularizada`;
-    }
-
-    const soloLibEl = document.getElementById('atip-kpi-solo-lib');
-    if (soloLibEl) soloLibEl.innerText = formatNum(d.solo_lib);
-
-    const pctSoloLibEl = document.getElementById('atip-pct-solo-lib');
-    if (pctSoloLibEl && d.total > 0) {
-        const pct = ((d.solo_lib / d.total) * 100).toFixed(1);
-        pctSoloLibEl.innerText = `${pct}% solo LIB particularizada`;
-    }
-
-    // Nivel 3: Alertas Comparativas Morfología vs Ciudad 3D
+    // Nivel 2: Alertas Comparativas Morfología vs Ciudad 3D
     const faltaC3dEl = document.getElementById('atip-kpi-falta-c3d');
     if (faltaC3dEl) faltaC3dEl.innerText = formatNum(a.falta_dispo_c3d);
 
