@@ -20016,6 +20016,9 @@ function renderAtipicasKPIs(data) {
 
     const sinActMorfoEl = document.getElementById('atip-kpi-sin-actualizar-morfo');
     if (sinActMorfoEl) sinActMorfoEl.innerText = formatNum(a.sin_actualizar_morfo);
+
+    const sinDispoAmbosEl = document.getElementById('atip-kpi-sin-dispo-ambos');
+    if (sinDispoAmbosEl) sinDispoAmbosEl.innerText = formatNum(a.sin_dispo_ambos);
 }
 
 async function loadAtipicasList() {
@@ -20122,6 +20125,8 @@ function renderAtipicasTable(data) {
             alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #f1f5f9; color: #475569;"><i class="fa-solid fa-clock-rotate-left"></i> Sin act. en morfo</span>`;
         } else if (r.alerta_dispo === 'Coinciden OK') {
             alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #dcfce7; color: #15803d;"><i class="fa-solid fa-circle-check"></i> Coinciden OK</span>`;
+        } else if (r.alerta_dispo === 'Sin Disposicion en Ambos' || r.alerta_dispo === 'Sin Disposicion') {
+            alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #f1f5f9; color: #64748b;"><i class="fa-solid fa-circle-xmark"></i> Sin dispo (Ambos)</span>`;
         }
 
         // Badge LFI / LIB Particularizadas
@@ -20206,6 +20211,7 @@ function updateAtipicasActiveFilterLabel(groupKey) {
         'alerta_falta_c3d': '⚠️ Falta dispo en Ciudad 3D',
         'alerta_verificar_version': '⚠️ Verificar Versión (Disposiciones distintas)',
         'alerta_sin_actualizar_morfo': '⚠️ Sin actualizar en Morfología',
+        'alerta_sin_dispo_ambos': '⚠️ Sin disposición en ambos universos',
         'alerta_coinciden': '✅ Coinciden en ambas bases'
     };
     labelEl.innerText = `Mostrando: ${mapLabels[groupKey] || groupKey}`;

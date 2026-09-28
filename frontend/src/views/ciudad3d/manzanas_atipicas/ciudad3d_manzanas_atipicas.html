@@ -304,6 +304,24 @@
                 C3D tiene dispo y Morfo nulo
             </div>
         </div>
+
+        <!-- Sin Disposición en Ambos Universos -->
+        <div class="kpi-card" onclick="filterAtipicasByGroup('alerta_sin_dispo_ambos')"
+            style="background: white; border: 2px solid #cbd5e1; border-radius: 16px; padding: 1.25rem; box-shadow: 0 2px 4px rgba(0,0,0,0.03); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Sin Disposición (Ambos)</span>
+                    <h3 id="atip-kpi-sin-dispo-ambos" style="font-size: 2rem; font-weight: 800; color: #334155; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 44px; height: 44px; border-radius: 12px; background: #e2e8f0; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #64748b; font-weight: 600;">
+                Sin dispo ni en C3D ni en Morfo
+            </div>
+        </div>
     </div>
 </div>
 
@@ -342,6 +360,7 @@
                     <option value="alerta_falta_c3d">⚠️ Falta dispo en Ciudad 3D</option>
                     <option value="alerta_verificar_version">⚠️ Verificar Versión (Disposiciones distintas)</option>
                     <option value="alerta_sin_actualizar_morfo">⚠️ Sin actualizar en Morfología</option>
+                    <option value="alerta_sin_dispo_ambos">⚠️ Sin disposición en ambos universos</option>
                     <option value="alerta_coinciden">✅ Coinciden en ambas bases</option>
                 </optgroup>
             </select>

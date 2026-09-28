@@ -1177,7 +1177,8 @@ def get_pdi_atipicas_analysis(current_user: User = Depends(get_current_user)):
                     COUNT(CASE WHEN (m.disposicio IS NULL OR TRIM(m.disposicio) = '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') THEN 1 END) AS falta_dispo_c3d,
                     COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') AND TRIM(m.disposicio) != TRIM(b.disposicion) THEN 1 END) AS verificar_version,
                     COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NULL OR TRIM(b.disposicion) = '') THEN 1 END) AS sin_actualizar_morfo,
-                    COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') AND TRIM(m.disposicio) = TRIM(b.disposicion) THEN 1 END) AS coinciden_ok
+                    COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') AND TRIM(m.disposicio) = TRIM(b.disposicion) THEN 1 END) AS coinciden_ok,
+                    COUNT(CASE WHEN (m.disposicio IS NULL OR TRIM(m.disposicio) = '') AND (b.disposicion IS NULL OR TRIM(b.disposicion) = '') THEN 1 END) AS sin_dispo_ambos
                 FROM public.cur_manzanasatipicas m
                 LEFT JOIN public.atipicas_base_morfo b ON m.sm = b.sm
                 WHERE UPPER(TRIM(m.mz_tipo)) = 'ATIPICA'
@@ -1208,7 +1209,8 @@ def get_pdi_atipicas_analysis(current_user: User = Depends(get_current_user)):
                     "falta_dispo_c3d": alertas_res.get("falta_dispo_c3d", 0),
                     "verificar_version": alertas_res.get("verificar_version", 0),
                     "sin_actualizar_morfo": alertas_res.get("sin_actualizar_morfo", 0),
-                    "coinciden_ok": alertas_res.get("coinciden_ok", 0)
+                    "coinciden_ok": alertas_res.get("coinciden_ok", 0),
+                    "sin_dispo_ambos": alertas_res.get("sin_dispo_ambos", 0)
                 }
             }
     except Exception as e:
@@ -1268,6 +1270,8 @@ def get_pdi_atipicas_list(
         where_clauses.append("((m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) != TRIM(bm.disposicion))")
     elif filter_group == "alerta_sin_actualizar_morfo":
         where_clauses.append("((m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NULL OR TRIM(bm.disposicion) = ''))")
+    elif filter_group == "alerta_sin_dispo_ambos" or filter_group == "alerta_sin_dispo":
+        where_clauses.append("((m.disposicio IS NULL OR TRIM(m.disposicio) = '') AND (bm.disposicion IS NULL OR TRIM(bm.disposicion) = ''))")
     elif filter_group == "alerta_coinciden":
         where_clauses.append("((m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) = TRIM(bm.disposicion))")
 
@@ -1321,7 +1325,7 @@ def get_pdi_atipicas_list(
                 WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) != TRIM(bm.disposicion) THEN 'Verificar Version'
                 WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NULL OR TRIM(bm.disposicion) = '') THEN 'Sin actualizar en morfo'
                 WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) = TRIM(bm.disposicion) THEN 'Coinciden OK'
-                ELSE 'Sin Disposicion'
+                ELSE 'Sin Disposicion en Ambos'
             END as alerta_dispo,
             COALESCE(l.cant_lfi, 0) as cant_lfi,
             COALESCE(b.cant_lib, 0) as cant_lib,
