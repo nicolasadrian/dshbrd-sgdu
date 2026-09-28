@@ -423,6 +423,12 @@ async function showView(viewId, updateHash = true) {
             hasPermission = !!(perms.ciudad_3d || perms.c3d_home || isAdmin);
         } else if (viewId === 'ciudad3d_manzanas_atipicas') {
             hasPermission = !!(perms.ciudad_3d || perms.ciudad3d_manzanas_atipicas || isAdmin);
+        } else if (viewId === 'ciudad3d_pdi') {
+            hasPermission = !!(perms.ciudad_3d || perms.ciudad3d_pdi || isAdmin);
+        } else if (viewId === 'ciudad3d_pdi_validacion') {
+            hasPermission = !!(perms.ciudad_3d || perms.ciudad3d_pdi_validacion || isAdmin);
+        } else if (viewId === 'ciudad3d_pdi_validacion_c3d') {
+            hasPermission = !!(perms.ciudad_3d || perms.ciudad3d_pdi_validacion_c3d || isAdmin);
         } else if (viewId.startsWith('contable_')) {
             hasPermission = !!(perms.contable_calculadora || perms[viewId] || isAdmin);
         } else if (viewId === 'analytics_estadistica') {
@@ -3983,6 +3989,9 @@ const PERMISSION_KEYS = {
     c3d_extensiones_equipo: "Ciudad 3D: Avance por Analista",
     c3d_extensiones_mapa: "Ciudad 3D: Mapa Geoespacial",
     ciudad3d_manzanas_atipicas: "Ciudad 3D: Manzanas Atípicas",
+    ciudad3d_pdi: "Ciudad 3D: Backend PDI (Inventario & Estado)",
+    ciudad3d_pdi_validacion: "Ciudad 3D: Backend PDI (Validación de Datos)",
+    ciudad3d_pdi_validacion_c3d: "Ciudad 3D: Backend PDI (Validación Ciudad 3D)",
     lfi_dibujar: "Ciudad 3D: Dibujar Trazados (LFI)",
     lfi_revisar: "Ciudad 3D: Revisar Trazados (LFI)",
 
@@ -4099,6 +4108,9 @@ const PERMISSION_GROUPS = {
         c3d_extensiones_equipo: { label: "Avance por Analista", desc: "Monitor de productividad y carga del equipo de trazadores." },
         c3d_extensiones_mapa: { label: "Mapa Geoespacial", desc: "Visualizador de parcelas, troneras y líneas LFI." },
         ciudad3d_manzanas_atipicas: { label: "Manzanas Atípicas", desc: "Módulo de gestión y consulta de manzanas atípicas." },
+        ciudad3d_pdi: { label: "Backend PDI (Inventario)", desc: "Consulta de inventario y capas del servidor PDI." },
+        ciudad3d_pdi_validacion: { label: "Backend PDI (Validación)", desc: "Validación de integridad y geometrías de capas PDI." },
+        ciudad3d_pdi_validacion_c3d: { label: "Backend PDI (Validación C3D)", desc: "Validación de parcelas e inconsistencias contra Ciudad 3D." },
         lfi_dibujar: { label: "LFI: Permiso Dibujar", desc: "Permiso para autoasignarse manzanas y subir borradores." },
         lfi_revisar: { label: "LFI: Permiso Revisar", desc: "Permiso para visar, aprobar o rechazar trazados finalizados." }
     },
