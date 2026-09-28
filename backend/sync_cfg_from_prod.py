@@ -13,7 +13,8 @@ p_cur = p_conn.cursor()
 p_cur.execute("""
     SELECT id, gerencia, trata_reporte, tratas_incluidas, buzones_ingreso, 
            analistas_oficiales, acronimos_egreso, metas_mensuales, activo, 
-           firmantes_egreso, buzones_ingreso_intervenciones, descripciones_validas
+           firmantes_egreso, buzones_ingreso_intervenciones, descripciones_validas,
+           descripcion_trata, direccion
     FROM cfg_gestion_metas 
     ORDER BY id;
 """)

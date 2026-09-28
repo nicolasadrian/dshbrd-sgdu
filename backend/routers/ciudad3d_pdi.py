@@ -4,7 +4,7 @@ from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import text
 
-from database import pdi_engine
+from database import pdi_engine, geo_engine
 from schemas import User
 from auth_utils import get_current_user
 
@@ -1116,21 +1116,17 @@ def check_c3d_validation_single(smp: str, current_user: User = Depends(get_curre
 
 
 # =============================================================================
-# ANÁLISIS DE MANZANAS ATÍPICAS (cur_manzanasatipicas vs cur_lfi/lib)
+# ANÁLISIS DE MANZANAS ATÍPICAS (cur_manzanasatipicas vs atipicas_base_morfo vs cur_lfi/lib)
 # =============================================================================
 
 @router.get("/atipicas-analysis")
 def get_pdi_atipicas_analysis(current_user: User = Depends(get_current_user)):
     """
-    Analiza el universo completo de cur_manzanasatipicas donde mz_tipo = 'ATIPICA'.
-    Calcula:
-    1. Total de manzanas atípicas.
-    2. Con disposición no nula / Sin disposición.
-    3. De las que tienen disposición: Trazado SI vs Trazado NO (vs otros).
-    4. De las que tienen Trazado SI: cuántas tienen LFI, LIB, ambas o ninguna cargadas en cur_lfi_particularizadas / cur_lib_particularizadas.
+    Analiza el universo completo de cur_manzanasatipicas donde mz_tipo = 'ATIPICA' desde geo-mdr.
+    Calcula KPIs del Universo/Disposiciones, Cobertura LFI/LIB y Comparativa con Morfología.
     """
     try:
-        with pdi_engine.connect() as conn:
+        with geo_engine.connect() as conn:
             # Métricas globales de mz_tipo = 'ATIPICA'
             kpis_q = text("""
                 SELECT 
@@ -1175,6 +1171,19 @@ def get_pdi_atipicas_analysis(current_user: User = Depends(get_current_user)):
             """)
             lfi_lib_res = dict(conn.execute(lfi_lib_q).mappings().fetchone() or {})
 
+            # Métricas de Alertas Comparativas Morfología vs Ciudad 3D
+            alertas_q = text("""
+                SELECT 
+                    COUNT(CASE WHEN (m.disposicio IS NULL OR TRIM(m.disposicio) = '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') THEN 1 END) AS falta_dispo_c3d,
+                    COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') AND TRIM(m.disposicio) != TRIM(b.disposicion) THEN 1 END) AS verificar_version,
+                    COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NULL OR TRIM(b.disposicion) = '') THEN 1 END) AS sin_actualizar_morfo,
+                    COUNT(CASE WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (b.disposicion IS NOT NULL AND TRIM(b.disposicion) != '') AND TRIM(m.disposicio) = TRIM(b.disposicion) THEN 1 END) AS coinciden_ok
+                FROM public.cur_manzanasatipicas m
+                LEFT JOIN public.atipicas_base_morfo b ON m.sm = b.sm
+                WHERE UPPER(TRIM(m.mz_tipo)) = 'ATIPICA'
+            """)
+            alertas_res = dict(conn.execute(alertas_q).mappings().fetchone() or {})
+
             return {
                 "connected": True,
                 "universo_atipicas": {
@@ -1194,16 +1203,23 @@ def get_pdi_atipicas_analysis(current_user: User = Depends(get_current_user)):
                     "solo_lib": lfi_lib_res.get("solo_lib", 0),
                     "total_con_lfi": lfi_lib_res.get("total_con_lfi", 0),
                     "total_con_lib": lfi_lib_res.get("total_con_lib", 0)
+                },
+                "alertas_morfo": {
+                    "falta_dispo_c3d": alertas_res.get("falta_dispo_c3d", 0),
+                    "verificar_version": alertas_res.get("verificar_version", 0),
+                    "sin_actualizar_morfo": alertas_res.get("sin_actualizar_morfo", 0),
+                    "coinciden_ok": alertas_res.get("coinciden_ok", 0)
                 }
             }
     except Exception as e:
-        logger.error(f"Error obteniendo análisis de manzanas atípicas PDI: {e}")
+        logger.error(f"Error obteniendo análisis de manzanas atípicas geo-mdr: {e}")
         return {
             "connected": False,
-            "error": VPN_ERROR_MESSAGE,
+            "error": "Error consultando base de datos geo-mdr",
             "detail": str(e),
             "universo_atipicas": {},
-            "trazado_si_detalle": {}
+            "trazado_si_detalle": {},
+            "alertas_morfo": {}
         }
 
 
@@ -1216,8 +1232,8 @@ def get_pdi_atipicas_list(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Retorna el listado paginado y filtrado de manzanas atípicas con su estado morfológico de LFI/LIB.
-    filter_group: 'todos', 'con_disp', 'sin_disp', 'trazado_si', 'trazado_no', 'con_lfi_o_lib', 'ambas', 'solo_lfi', 'solo_lib', 'ninguna'
+    Retorna el listado paginado y filtrado de manzanas atípicas desde geo-mdr,
+    comparando cur_manzanasatipicas vs atipicas_base_morfo y las tablas de trazado LFI/LIB.
     """
     safe_limit = max(1, min(limit, 500))
     safe_offset = max(0, offset)
@@ -1226,6 +1242,7 @@ def get_pdi_atipicas_list(
     where_clauses = ["UPPER(TRIM(m.mz_tipo)) = 'ATIPICA'"]
     params: Dict[str, Any] = {"lim": safe_limit, "off": safe_offset}
 
+    # Filtros de Grupo
     if filter_group == "con_disp":
         where_clauses.append("(m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '')")
     elif filter_group == "sin_disp":
@@ -1244,10 +1261,19 @@ def get_pdi_atipicas_list(
         where_clauses.append("(m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '' AND UPPER(TRIM(m.trazado)) = 'SI' AND COALESCE(l.cant_lfi, 0) = 0 AND COALESCE(b.cant_lib, 0) > 0)")
     elif filter_group == "ninguna":
         where_clauses.append("(m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '' AND UPPER(TRIM(m.trazado)) = 'SI' AND COALESCE(l.cant_lfi, 0) = 0 AND COALESCE(b.cant_lib, 0) = 0)")
+    # Filtros por Alertas Morfología
+    elif filter_group == "alerta_falta_c3d":
+        where_clauses.append("((m.disposicio IS NULL OR TRIM(m.disposicio) = '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != ''))")
+    elif filter_group == "alerta_verificar_version":
+        where_clauses.append("((m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) != TRIM(bm.disposicion))")
+    elif filter_group == "alerta_sin_actualizar_morfo":
+        where_clauses.append("((m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NULL OR TRIM(bm.disposicion) = ''))")
+    elif filter_group == "alerta_coinciden":
+        where_clauses.append("((m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) = TRIM(bm.disposicion))")
 
     if clean_search:
         params["search"] = clean_search
-        where_clauses.append("(m.sm ILIKE :search OR m.seccion ILIKE :search OR m.manzana ILIKE :search OR m.disposicio ILIKE :search)")
+        where_clauses.append("(m.sm ILIKE :search OR m.seccion ILIKE :search OR m.manzana ILIKE :search OR m.disposicio ILIKE :search OR bm.disposicion ILIKE :search OR p.barrio ILIKE :search)")
 
     where_sql = " AND ".join(where_clauses)
 
@@ -1257,11 +1283,16 @@ def get_pdi_atipicas_list(
         ),
         lib_agg AS (
             SELECT sm, COUNT(*) as cant_lib FROM public.cur_lib_particularizadas WHERE sm IS NOT NULL GROUP BY sm
+        ),
+        barrios_agg AS (
+            SELECT sm, MAX(barrio) as barrio FROM public.cur_parcelas_ok GROUP BY sm
         )
         SELECT COUNT(*)
         FROM public.cur_manzanasatipicas m
+        LEFT JOIN public.atipicas_base_morfo bm ON m.sm = bm.sm
         LEFT JOIN lfi_agg l ON m.sm = l.sm
         LEFT JOIN lib_agg b ON m.sm = b.sm
+        LEFT JOIN barrios_agg p ON m.sm = p.sm
         WHERE {where_sql}
     """
 
@@ -1271,17 +1302,40 @@ def get_pdi_atipicas_list(
         ),
         lib_agg AS (
             SELECT sm, COUNT(*) as cant_lib FROM public.cur_lib_particularizadas WHERE sm IS NOT NULL GROUP BY sm
+        ),
+        barrios_agg AS (
+            SELECT sm, MAX(barrio) as barrio FROM public.cur_parcelas_ok GROUP BY sm
         )
         SELECT 
             m.sm,
             m.seccion,
             m.manzana,
-            m.mz_tipo,
-            m.disposicio,
-            m.trazado,
+            COALESCE(p.barrio, 'SIN BARRIO') as barrio,
             m.comuna,
+            m.disposicio as dispo_c3d,
+            m.trazado,
+            bm.disposicion as dispo_morfo,
+            bm.trazado as trazado_morfo,
+            CASE
+                WHEN (m.disposicio IS NULL OR TRIM(m.disposicio) = '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') THEN 'Falta dispo en Ciudad 3D'
+                WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) != TRIM(bm.disposicion) THEN 'Verificar Version'
+                WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NULL OR TRIM(bm.disposicion) = '') THEN 'Sin actualizar en morfo'
+                WHEN (m.disposicio IS NOT NULL AND TRIM(m.disposicio) != '') AND (bm.disposicion IS NOT NULL AND TRIM(bm.disposicion) != '') AND TRIM(m.disposicio) = TRIM(bm.disposicion) THEN 'Coinciden OK'
+                ELSE 'Sin Disposicion'
+            END as alerta_dispo,
             COALESCE(l.cant_lfi, 0) as cant_lfi,
             COALESCE(b.cant_lib, 0) as cant_lib,
+            CASE 
+                WHEN UPPER(TRIM(m.trazado)) = 'NO' THEN 'No requiere'
+                WHEN UPPER(TRIM(m.trazado)) = 'SI' THEN
+                    CASE
+                        WHEN COALESCE(l.cant_lfi, 0) > 0 AND COALESCE(b.cant_lib, 0) > 0 THEN 'Ambas (LFI + LIB)'
+                        WHEN COALESCE(l.cant_lfi, 0) > 0 THEN 'Solo LFI'
+                        WHEN COALESCE(b.cant_lib, 0) > 0 THEN 'Solo LIB'
+                        ELSE 'Faltante (Ninguna)'
+                    END
+                ELSE 'N/A'
+            END as estado_trazado_part,
             CASE 
                 WHEN UPPER(TRIM(m.trazado)) != 'SI' OR m.disposicio IS NULL OR TRIM(m.disposicio) = '' THEN 'N/A'
                 WHEN COALESCE(l.cant_lfi, 0) > 0 AND COALESCE(b.cant_lib, 0) > 0 THEN 'AMBAS'
@@ -1290,15 +1344,17 @@ def get_pdi_atipicas_list(
                 ELSE 'NINGUNA'
             END as cobertura_particularizada
         FROM public.cur_manzanasatipicas m
+        LEFT JOIN public.atipicas_base_morfo bm ON m.sm = bm.sm
         LEFT JOIN lfi_agg l ON m.sm = l.sm
         LEFT JOIN lib_agg b ON m.sm = b.sm
+        LEFT JOIN barrios_agg p ON m.sm = p.sm
         WHERE {where_sql}
         ORDER BY m.seccion, m.manzana
         LIMIT :lim OFFSET :off
     """
 
     try:
-        with pdi_engine.connect() as conn:
+        with geo_engine.connect() as conn:
             total_filtered = conn.execute(text(query_count), params).scalar() or 0
             rows = conn.execute(text(query_rows), params).mappings().fetchall()
             return {
@@ -1310,14 +1366,15 @@ def get_pdi_atipicas_list(
                 "records": [dict(r) for r in rows]
             }
     except Exception as e:
-        logger.error(f"Error listando manzanas atípicas PDI: {e}")
+        logger.error(f"Error listando manzanas atípicas geo-mdr: {e}")
         return {
             "connected": False,
-            "error": VPN_ERROR_MESSAGE,
+            "error": "Error consultando base de datos geo-mdr",
             "detail": str(e),
             "total": 0,
             "records": []
         }
+
 
 
 

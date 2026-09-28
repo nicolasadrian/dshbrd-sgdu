@@ -19923,10 +19923,11 @@ function renderAtipicasKPIs(data) {
     if (!data || !data.universo_atipicas) return;
     const u = data.universo_atipicas;
     const d = data.trazado_si_detalle || {};
+    const a = data.alertas_morfo || {};
 
     const formatNum = (n) => (n !== undefined && n !== null) ? Number(n).toLocaleString('es-AR') : '0';
 
-    // Nivel 1: Universo y Disposiciones
+    // Nivel 1: Universo y Disposiciones (Ciudad 3D)
     const totalEl = document.getElementById('atip-kpi-total');
     if (totalEl) totalEl.innerText = formatNum(u.total);
 
@@ -19948,26 +19949,7 @@ function renderAtipicasKPIs(data) {
         pctSinDispEl.innerText = `${pct}% sin acto administrativo`;
     }
 
-    // Nivel 2: Trazado en Manzanas con Disposición
-    const trazSiEl = document.getElementById('atip-kpi-trazado-si');
-    if (trazSiEl) trazSiEl.innerText = formatNum(u.disp_trazado_si);
-
-    const pctTrazSiEl = document.getElementById('atip-pct-trazado-si');
-    if (pctTrazSiEl && u.con_disposicion > 0) {
-        const pct = ((u.disp_trazado_si / u.con_disposicion) * 100).toFixed(1);
-        pctTrazSiEl.innerText = `${pct}% de las que tienen disposición`;
-    }
-
-    const trazNoEl = document.getElementById('atip-kpi-trazado-no');
-    if (trazNoEl) trazNoEl.innerText = formatNum(u.disp_trazado_no);
-
-    const pctTrazNoEl = document.getElementById('atip-pct-trazado-no');
-    if (pctTrazNoEl && u.con_disposicion > 0) {
-        const pct = ((u.disp_trazado_no / u.con_disposicion) * 100).toFixed(1);
-        pctTrazNoEl.innerText = `${pct}% de las que tienen disposición`;
-    }
-
-    // Nivel 3: Cobertura LFI / LIB en Trazado SI
+    // Nivel 2: Cobertura LFI / LIB en Trazado SI
     const conLfiLibEl = document.getElementById('atip-kpi-con-lfi-lib');
     if (conLfiLibEl) conLfiLibEl.innerText = formatNum(d.con_lfi_o_lib);
 
@@ -20012,6 +19994,16 @@ function renderAtipicasKPIs(data) {
         const pct = ((d.solo_lib / d.total) * 100).toFixed(1);
         pctSoloLibEl.innerText = `${pct}% solo LIB particularizada`;
     }
+
+    // Nivel 3: Alertas Comparativas Morfología vs Ciudad 3D
+    const faltaC3dEl = document.getElementById('atip-kpi-falta-c3d');
+    if (faltaC3dEl) faltaC3dEl.innerText = formatNum(a.falta_dispo_c3d);
+
+    const verifVerEl = document.getElementById('atip-kpi-verificar-version');
+    if (verifVerEl) verifVerEl.innerText = formatNum(a.verificar_version);
+
+    const sinActMorfoEl = document.getElementById('atip-kpi-sin-actualizar-morfo');
+    if (sinActMorfoEl) sinActMorfoEl.innerText = formatNum(a.sin_actualizar_morfo);
 }
 
 async function loadAtipicasList() {
@@ -20023,8 +20015,8 @@ async function loadAtipicasList() {
     if (tbody) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; color: #0284c7; margin-bottom: 8px;"></i>
+                <td colspan="10" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; color: #ec4899; margin-bottom: 8px;"></i>
                     <div>Recuperando registros de manzanas atípicas...</div>
                 </td>
             </tr>
@@ -20045,8 +20037,8 @@ async function loadAtipicasList() {
             if (tbody) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
-                            <i class="fa-solid fa-triangle-exclamation"></i> Sin conexión a base de datos PDI.
+                        <td colspan="10" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Error al conectar con geo-mdr.
                         </td>
                     </tr>
                 `;
@@ -20060,7 +20052,7 @@ async function loadAtipicasList() {
         if (tbody) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
+                    <td colspan="10" style="text-align: center; padding: 2rem; color: #ef4444; font-family: 'Outfit', sans-serif;">
                         <i class="fa-solid fa-triangle-exclamation"></i> No se pudieron recuperar los registros.
                     </td>
                 </tr>
@@ -20083,7 +20075,7 @@ function renderAtipicasTable(data) {
     if (rows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                <td colspan="10" style="text-align: center; padding: 2.5rem; color: #64748b; font-family: 'Outfit', sans-serif;">
                     No se encontraron manzanas atípicas con los filtros aplicados.
                 </td>
             </tr>
@@ -20108,42 +20100,49 @@ function renderAtipicasTable(data) {
             trazBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #f1f5f9; color: #475569;">NO</span>`;
         }
 
-        // Badge LFI
-        const lfiBadge = (r.cant_lfi > 0)
-            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #e0f2fe; color: #0284c7;"><i class="fa-solid fa-check" style="font-size: 0.68rem;"></i> ${r.cant_lfi}</span>`
-            : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+        // Badge Alerta Comparativa Morfología vs C3D
+        let alertaBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; background: #f8fafc; color: #94a3b8;">Sin Dispo</span>`;
+        if (r.alerta_dispo === 'Falta dispo en Ciudad 3D') {
+            alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #ffedd5; color: #c2410c;"><i class="fa-solid fa-triangle-exclamation"></i> Falta dispo en C3D</span>`;
+        } else if (r.alerta_dispo === 'Verificar Version') {
+            alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #fdf2f8; color: #be185d;"><i class="fa-solid fa-code-compare"></i> Verificar Versión</span>`;
+        } else if (r.alerta_dispo === 'Sin actualizar en morfo') {
+            alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #f1f5f9; color: #475569;"><i class="fa-solid fa-clock-rotate-left"></i> Sin act. en morfo</span>`;
+        } else if (r.alerta_dispo === 'Coinciden OK') {
+            alertaBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #dcfce7; color: #15803d;"><i class="fa-solid fa-circle-check"></i> Coinciden OK</span>`;
+        }
 
-        // Badge LIB
-        const libBadge = (r.cant_lib > 0)
-            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #ccfbf1; color: #0f766e;"><i class="fa-solid fa-check" style="font-size: 0.68rem;"></i> ${r.cant_lib}</span>`
-            : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
-
-        // Badge Cobertura
-        let cobBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: #f8fafc; color: #94a3b8;">N/A</span>`;
-        if (r.cobertura_particularizada === 'AMBAS') {
-            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #d1fae5; color: #065f46;"><i class="fa-solid fa-layer-group" style="margin-right: 4px;"></i>LFI + LIB</span>`;
-        } else if (r.cobertura_particularizada === 'SOLO_LFI') {
-            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #e0f2fe; color: #0369a1;">Solo LFI</span>`;
-        } else if (r.cobertura_particularizada === 'SOLO_LIB') {
-            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #ccfbf1; color: #0f766e;">Solo LIB</span>`;
-        } else if (r.cobertura_particularizada === 'NINGUNA') {
-            cobBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #fee2e2; color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 3px;"></i>Sin LFI/LIB</span>`;
+        // Badge LFI / LIB Particularizadas
+        let partBadge = `<span style="color: #94a3b8; font-size: 0.78rem;">-</span>`;
+        if (r.estado_trazado_part === 'No requiere') {
+            partBadge = `<span style="display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 600; background: #f1f5f9; color: #64748b;">No requiere</span>`;
+        } else if (r.estado_trazado_part === 'Ambas (LFI + LIB)') {
+            partBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #d1fae5; color: #065f46;"><i class="fa-solid fa-layer-group"></i> LFI (${r.cant_lfi}) + LIB (${r.cant_lib})</span>`;
+        } else if (r.estado_trazado_part === 'Solo LFI') {
+            partBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #e0f2fe; color: #0369a1;"><i class="fa-solid fa-bezier-curve"></i> Solo LFI (${r.cant_lfi})</span>`;
+        } else if (r.estado_trazado_part === 'Solo LIB') {
+            partBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #ccfbf1; color: #0f766e;"><i class="fa-solid fa-vector-square"></i> Solo LIB (${r.cant_lib})</span>`;
+        } else if (r.estado_trazado_part === 'Faltante (Ninguna)') {
+            partBadge = `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #fee2e2; color: #b91c1c;"><i class="fa-solid fa-triangle-exclamation"></i> Faltante (0 LFI / 0 LIB)</span>`;
         }
 
         tr.innerHTML = `
-            <td style="padding: 10px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">
+            <td style="padding: 10px 12px; color: #475569; font-weight: 600;">${r.seccion || '-'}</td>
+            <td style="padding: 10px 12px; color: #475569; font-weight: 700;">${r.manzana || '-'}</td>
+            <td style="padding: 10px 12px; font-weight: 800; color: var(--primary-dark); font-family: 'Outfit', sans-serif;">
                 ${r.sm || (r.seccion + '-' + r.manzana)}
             </td>
-            <td style="padding: 10px 14px; color: #475569;">${r.seccion || '-'}</td>
-            <td style="padding: 10px 14px; color: #475569; font-weight: 600;">${r.manzana || '-'}</td>
-            <td style="padding: 10px 14px; color: #64748b;">${r.comuna ? 'Comuna ' + r.comuna : '-'}</td>
-            <td style="padding: 10px 14px; font-size: 0.85rem;">
-                ${r.disposicio ? `<span style="font-weight: 600; color: #334155;">${r.disposicio}</span>` : `<span style="color: #94a3b8; font-style: italic;">Sin Disposición</span>`}
+            <td style="padding: 10px 12px; color: #334155; font-weight: 500; white-space: nowrap;">${r.barrio || 'SIN BARRIO'}</td>
+            <td style="padding: 10px 12px; text-align: center; color: #64748b;">${r.comuna ? r.comuna : '-'}</td>
+            <td style="padding: 10px 14px; font-size: 0.82rem;">
+                ${r.dispo_c3d ? `<span style="font-weight: 700; color: #0284c7;">${r.dispo_c3d}</span>` : `<span style="color: #94a3b8; font-style: italic;">Sin Disposición</span>`}
             </td>
-            <td style="padding: 10px 14px; text-align: center;">${trazBadge}</td>
-            <td style="padding: 10px 14px; text-align: center;">${lfiBadge}</td>
-            <td style="padding: 10px 14px; text-align: center;">${libBadge}</td>
-            <td style="padding: 10px 14px; text-align: center;">${cobBadge}</td>
+            <td style="padding: 10px 12px; text-align: center;">${trazBadge}</td>
+            <td style="padding: 10px 14px; font-size: 0.82rem;">
+                ${r.dispo_morfo ? `<span style="font-weight: 700; color: #7c3aed;">${r.dispo_morfo}</span>` : `<span style="color: #94a3b8; font-style: italic;">Sin Disposición</span>`}
+            </td>
+            <td style="padding: 10px 14px; text-align: center;">${alertaBadge}</td>
+            <td style="padding: 10px 14px; text-align: center;">${partBadge}</td>
         `;
 
         tbody.appendChild(tr);
@@ -20183,15 +20182,19 @@ function updateAtipicasActiveFilterLabel(groupKey) {
 
     const mapLabels = {
         'todos': 'Todas las manzanas atípicas',
-        'con_disp': 'Manzanas con Disposición no nula',
-        'sin_disp': 'Manzanas sin Disposición',
-        'trazado_si': 'Con Disposición + Trazado SI',
-        'trazado_no': 'Con Disposición + Trazado NO',
-        'con_lfi_o_lib': 'Trazado SI + Tienen LFI o LIB',
-        'ninguna': 'Trazado SI + No tienen nada en las tablas (Faltantes)',
-        'ambas': 'Trazado SI + Ambas LFI y LIB cargadas',
-        'solo_lfi': 'Trazado SI + Solo LFI cargada',
-        'solo_lib': 'Trazado SI + Solo LIB cargada'
+        'con_disp': 'Con Disposición en Ciudad 3D',
+        'sin_disp': 'Sin Disposición en Ciudad 3D',
+        'trazado_si': 'Trazado SI',
+        'trazado_no': 'Trazado NO (No requiere)',
+        'con_lfi_o_lib': 'Tienen LFI o LIB particularizada',
+        'ninguna': 'Faltantes (Sin LFI ni LIB en tablas)',
+        'ambas': 'Ambas LFI y LIB cargadas',
+        'solo_lfi': 'Solo LFI cargada',
+        'solo_lib': 'Solo LIB cargada',
+        'alerta_falta_c3d': '⚠️ Falta dispo en Ciudad 3D',
+        'alerta_verificar_version': '⚠️ Verificar Versión (Disposiciones distintas)',
+        'alerta_sin_actualizar_morfo': '⚠️ Sin actualizar en Morfología',
+        'alerta_coinciden': '✅ Coinciden en ambas bases'
     };
     labelEl.innerText = `Mostrando: ${mapLabels[groupKey] || groupKey}`;
 }
