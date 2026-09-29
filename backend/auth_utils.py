@@ -52,8 +52,15 @@ def create_access_token(data: dict):
 import json
 
 def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
+    clean_u = (username or "").strip()
+    clean_r = (role_name or "").strip()
+    r_lower = clean_r.lower()
+    
     # 1. Custom user permissions override
-    user_perm = conn.execute(text("SELECT permissions FROM auth_users WHERE username = :u"), {"u": username}).scalar()
+    user_perm = conn.execute(
+        text("SELECT permissions FROM auth_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(:u))"),
+        {"u": clean_u}
+    ).scalar()
     
     if isinstance(user_perm, str):
         try:
@@ -61,15 +68,16 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
         except Exception:
             user_perm = None
 
-    r_lower = (role_name or "").lower()
-    
     resolved = None
     if user_perm is not None and isinstance(user_perm, dict) and len(user_perm) > 0:
         resolved = dict(user_perm)
         
     if resolved is None:
         # Fallback to role permissions
-        role_perm = conn.execute(text("SELECT permissions FROM auth_roles WHERE role_name = :r"), {"r": role_name}).scalar()
+        role_perm = conn.execute(
+            text("SELECT permissions FROM auth_roles WHERE LOWER(TRIM(role_name)) = LOWER(TRIM(:r))"),
+            {"r": clean_r}
+        ).scalar()
         if isinstance(role_perm, str):
             try:
                 role_perm = json.loads(role_perm)

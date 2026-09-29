@@ -252,9 +252,9 @@ async def create_role(role_data: RoleCreate, current_user: User = Depends(get_cu
     try:
         default_perms = json.dumps({
             "admin": False,
-            "dgroc": True,
-            "dgiur": True,
-            "family": True,
+            "dgroc": False,
+            "dgiur": False,
+            "family": False,
             "seguimiento": False,
             "cierre": False,
             "sla": False,

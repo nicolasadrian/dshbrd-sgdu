@@ -92,9 +92,11 @@ function initAuth() {
         displaySector.innerText = currentUser.sector || "General";
 
         const perms = currentUser.permissions || {};
+        const roleLower = (currentUser.role || '').toLowerCase();
+        const isAdmin = roleLower === 'admin' || roleLower === 'administrador' || !!perms.admin;
 
         if (adminLink) {
-            adminLink.style.display = perms.admin ? 'block' : 'none';
+            adminLink.style.display = (perms.admin || isAdmin) ? 'block' : 'none';
         }
         
         // 1. Toggles for Seguimiento dropdown and its contents
@@ -161,6 +163,7 @@ function initAuth() {
         setDisplay('link-buzon-publico_privado', perms.buzon_dgiur || perms.dgiur || perms.buzon_publico_privado || perms.publico_privado);
         setDisplay('link-buzon-copua', perms.buzon_dgiur || perms.dgiur || perms.buzon_copua || perms.copua);
         setDisplay('link-buzon-privada', perms.buzon_dgiur || perms.dgiur || perms.buzon_privada || perms.privada);
+        setDisplay('link-buzon-auditoria', perms.buzon_dgiur || perms.dgiur || perms.buzon_auditoria || isAdmin);
 
         // 3. Toggles for Reportes dropdown and its contents
         const hasProdDgroc = perms.productividad_analistas || perms.productividad_catastro || perms.productividad_instalaciones || perms.productividad_conforme || perms.productividad_contable || perms.productividad_etapa_proyecto || perms.productividad_aviso_obra;
