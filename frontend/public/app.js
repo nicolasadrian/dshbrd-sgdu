@@ -315,8 +315,9 @@ function initAuth() {
         setDisplay('link-exp-fav-seg', perms['favoritos-seguimiento'] || isAdmin);
 
         // Si necesita cambio de clave, forzar modal
-        if (currentUser.needs_password_change) {
-            document.getElementById('change-password-modal').style.display = 'flex';
+        const pwdModal = document.getElementById('change-password-modal');
+        if (pwdModal) {
+            pwdModal.style.display = currentUser.needs_password_change ? 'flex' : 'none';
         }
     } else {
         loginOverlay.style.display = 'flex';
