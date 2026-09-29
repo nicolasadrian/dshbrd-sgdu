@@ -46,13 +46,13 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     r_lower = (role_name or "").lower()
     
     resolved = None
-    if user_perm is not None:
+    if user_perm is not None and isinstance(user_perm, dict) and len(user_perm) > 0:
         resolved = dict(user_perm)
         
     if resolved is None:
         # Fallback to role permissions
         role_perm = conn.execute(text("SELECT permissions FROM auth_roles WHERE role_name = :r"), {"r": role_name}).scalar()
-        if role_perm is not None:
+        if role_perm is not None and isinstance(role_perm, dict):
             resolved = dict(role_perm)
             
     if resolved is None:

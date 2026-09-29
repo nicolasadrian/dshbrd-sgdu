@@ -189,7 +189,7 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
         raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
     try:
         hashed = bcrypt.hashpw(user_data.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        perms_json = json.dumps(user_data.permissions) if user_data.permissions is not None else None
+        perms_json = json.dumps(user_data.permissions) if (user_data.permissions and len(user_data.permissions) > 0) else None
         
         with engine.begin() as conn:
             conn.execute(

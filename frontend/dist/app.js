@@ -1132,57 +1132,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // Event listener para crear usuario
     const createUserForm = document.getElementById('create-user-form');
     if (createUserForm) {
-        createUserForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('new-username').value;
-            const password = document.getElementById('new-password').value;
-            const role = document.getElementById('new-role').value;
-            const full_name = document.getElementById('new-fullname').value;
-            const sector = document.getElementById('new-sector').value;
-            const email = document.getElementById('new-email').value;
-
-            // Collect checked permissions from #new-user-perms-grid
-            const permissions = {};
-            document.querySelectorAll('#new-user-perms-grid .user-perm-checkbox').forEach(cb => {
-                const permKey = cb.getAttribute('data-permission');
-                permissions[permKey] = cb.checked;
-            });
-
-            try {
-                // First POST to create the basic user credentials
-                const resp = await def_fetch(`${API_BASE}/admin/users`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, role })
-                });
-
-                if (resp && resp.ok) {
-                    // Immediately PUT to save extra details (fullname, sector, email, permissions)
-                    const updateResp = await def_fetch(`${API_BASE}/admin/users/${username}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ full_name, sector, email, permissions })
-                    });
-
-                    if (updateResp && updateResp.ok) {
-                        alert('Usuario creado correctamente');
-                        createUserForm.reset();
-                        showUsersListView();
-                        loadUsers();
-                    } else {
-                        const err = await updateResp.json();
-                        alert('Usuario creado pero hubo un error al guardar detalles: ' + err.detail);
-                        showUsersListView();
-                        loadUsers();
-                    }
-                } else {
-                    const err = await resp.json();
-                    alert('Error: ' + err.detail);
-                }
-            } catch (err) {
-                alert('Error al crear usuario');
-            }
-        });
+        createUserForm.addEventListener('submit', handleCreateUserSubmit);
     }
 
     // Event listener para crear rol
