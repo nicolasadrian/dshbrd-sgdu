@@ -39,10 +39,18 @@ def create_access_token(data: dict):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+import json
+
 def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     # 1. Custom user permissions override
     user_perm = conn.execute(text("SELECT permissions FROM auth_users WHERE username = :u"), {"u": username}).scalar()
     
+    if isinstance(user_perm, str):
+        try:
+            user_perm = json.loads(user_perm)
+        except Exception:
+            user_perm = None
+
     r_lower = (role_name or "").lower()
     
     resolved = None
@@ -52,6 +60,11 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
     if resolved is None:
         # Fallback to role permissions
         role_perm = conn.execute(text("SELECT permissions FROM auth_roles WHERE role_name = :r"), {"r": role_name}).scalar()
+        if isinstance(role_perm, str):
+            try:
+                role_perm = json.loads(role_perm)
+            except Exception:
+                role_perm = None
         if role_perm is not None and isinstance(role_perm, dict):
             resolved = dict(role_perm)
             

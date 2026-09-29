@@ -56,11 +56,14 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             
-            # Registrar log de acceso
-            conn.execute(
-                text("INSERT INTO user_access_logs (username, ip_address) VALUES (:u, :ip)"),
-                {"u": result[0], "ip": client_ip}
-            )
+            # Registrar log de acceso de forma segura
+            try:
+                conn.execute(
+                    text("INSERT INTO user_access_logs (username, ip_address) VALUES (:u, :ip)"),
+                    {"u": result[0], "ip": client_ip}
+                )
+            except Exception as log_err:
+                logger.warning(f"No se pudo registrar log de acceso: {log_err}")
             
             access_token = create_access_token(data={
                 "sub": result[0], 
@@ -83,8 +86,8 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error en login: {e}")
-        raise HTTPException(status_code=500, detail="Error interno del servidor")
+        logger.error(f"Error en login: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 @router.post("/api/auth/change-password")
 async def change_password(data: PasswordChange, current_user: User = Depends(get_current_user)):
