@@ -1112,6 +1112,11 @@ async function handleRouting() {
             window.location.hash = `#/dgiur/${viewId}`;
         } else if (dgrocGerencias.includes(viewId)) {
             window.location.hash = `#/dgroc/${viewId}`;
+        } else if (viewId === 'permisosdeobra' || viewId === 'permisos_de_obra') {
+            await showView('analytics_m2_permisados', false);
+            setTimeout(() => {
+                if (typeof switchM2SubTab === 'function') switchM2SubTab('map');
+            }, 100);
         } else {
             showView(viewId, false);
         }

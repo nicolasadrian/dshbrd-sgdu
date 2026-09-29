@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Permisos de Obra | SGDU - Buenos Aires Ciudad</title>
-    <meta name="description" content="Visualizador y mapa interactivo de permisos de obra y metros cuadrados permisados en la Ciudad Autónoma de Buenos Aires.">
+    <meta name="description" content="Mapa interactivo y visor geoespacial de permisos de obra y metros cuadrados permisados en la Ciudad Autónoma de Buenos Aires.">
     <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,100..900;1,100..900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- MapLibre GL JS -->
@@ -19,190 +21,360 @@
             --primary-dark: #004571;
             --secondary: #009fe3;
             --accent: #FFD700;
-            --bg-main: #f8fafc;
+            --bg-glass: rgba(255, 255, 255, 0.92);
+            --border-glass: rgba(226, 232, 240, 0.9);
+            --shadow-glass: 0 10px 30px -5px rgba(0, 0, 0, 0.12), 0 4px 10px -2px rgba(0, 0, 0, 0.05);
         }
 
-        body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-main);
-            color: #1e293b;
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            font-family: 'Archivo', 'Outfit', sans-serif;
         }
 
-        header.public-header {
-            background: #ffffff;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 0.8rem 2rem;
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Archivo', 'Outfit', sans-serif;
+            background-color: #0f172a;
+            color: #1e293b;
+        }
+
+        /* Mapa Fullscreen */
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Banner Superior Flotante */
+        header.floating-header {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            z-index: 100;
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 10px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            box-shadow: var(--shadow-glass);
+            transition: all 0.3s ease;
         }
 
-        .public-container {
-            flex: 1;
-            width: 100%;
-            max-width: 1500px;
-            margin: 0 auto;
-            padding: 1.5rem;
-            box-sizing: border-box;
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
 
-        .map-card {
-            background: white;
-            border-radius: 16px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-            overflow: hidden;
+        .header-brand img {
+            height: 38px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05));
+        }
+
+        .header-titles {
+            border-left: 1.5px solid #cbd5e1;
+            padding-left: 14px;
             display: flex;
             flex-direction: column;
         }
 
-        .map-header {
-            padding: 1.25rem 1.5rem;
+        .header-title-main {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            letter-spacing: -0.3px;
+            line-height: 1.15;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-title-sub {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-header {
+            background: #ffffff;
+            color: var(--primary-dark);
+            border: 1px solid #cbd5e1;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-family: inherit;
+            font-size: 0.86rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.2s ease;
+        }
+
+        .btn-header:hover {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+        }
+
+        /* Panel de Control de Capas y Filtros Flotante (Tipo Drawer/Widget) */
+        .layer-control-panel {
+            position: absolute;
+            top: 88px;
+            left: 16px;
+            z-index: 90;
+            width: 360px;
+            max-height: calc(100vh - 110px);
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            box-shadow: var(--shadow-glass);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        }
+
+        .layer-control-panel.collapsed {
+            transform: translateX(-400px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .layer-panel-header {
+            padding: 14px 18px;
+            background: #ffffff;
             border-bottom: 1px solid #f1f5f9;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-            background: #ffffff;
         }
 
-        .filter-chip-select {
+        .layer-panel-title {
+            font-size: 0.98rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .layer-panel-body {
+            padding: 16px 18px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .layer-section-title {
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .layer-input, .layer-select {
+            width: 100%;
             padding: 8px 12px;
             border: 1px solid #cbd5e1;
             border-radius: 8px;
             font-family: inherit;
             font-size: 0.85rem;
-            background: white;
-            color: #334155;
+            background: #ffffff;
+            color: #1e293b;
             outline: none;
-            cursor: pointer;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
         }
 
-        .filter-chip-select:focus {
+        .layer-input:focus, .layer-select:focus {
             border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 118, 187, 0.12);
         }
 
-        .map-wrapper {
-            position: relative;
-            width: 100%;
-            height: calc(100vh - 220px);
-            min-height: 520px;
-        }
-
-        #public-permisos-map {
-            width: 100%;
-            height: 100%;
-        }
-
-        .map-floating-kpis {
+        /* Botón de alternar panel de filtros */
+        .btn-toggle-panel {
             position: absolute;
-            top: 16px;
+            top: 88px;
+            left: 16px;
+            z-index: 80;
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: var(--primary-dark);
+            box-shadow: var(--shadow-glass);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-toggle-panel:hover {
+            background: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        /* KPIs Flotantes (Superior Derecha) */
+        .kpi-floating-container {
+            position: absolute;
+            top: 88px;
             right: 16px;
-            z-index: 10;
+            z-index: 90;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
             pointer-events: none;
         }
 
-        .floating-badge {
+        .kpi-badge-glass {
             pointer-events: auto;
-            background: rgba(255, 255, 255, 0.94);
-            backdrop-filter: blur(8px);
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 8px 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            background: var(--bg-glass);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            padding: 10px 16px;
+            box-shadow: var(--shadow-glass);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            min-width: 220px;
+            transition: transform 0.2s;
         }
 
-        .floating-badge .badge-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+        .kpi-badge-glass:hover {
+            transform: translateY(-2px);
+        }
+
+        .kpi-icon-box {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            flex-shrink: 0;
         }
 
-        .floating-badge .badge-info {
+        .kpi-texts {
             display: flex;
             flex-direction: column;
         }
 
-        .floating-badge .badge-label {
+        .kpi-lbl {
             font-size: 0.72rem;
-            color: #64748b;
             font-weight: 700;
+            color: #64748b;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .floating-badge .badge-val {
-            font-size: 1.05rem;
+        .kpi-val {
+            font-size: 1.2rem;
             font-weight: 800;
             color: var(--primary-dark);
-            line-height: 1.1;
+            line-height: 1.15;
         }
 
-        /* MapLibre popup custom styles */
-        .maplibregl-popup-content {
-            border-radius: 12px !important;
-            padding: 14px !important;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15) !important;
-            border: 1px solid #e2e8f0 !important;
-        }
-
-        .maplibregl-popup-close-button {
-            padding: 4px 8px !important;
-            font-size: 16px !important;
-            color: #64748b !important;
-        }
-
-        .popup-row {
-            margin-bottom: 4px;
-            font-size: 0.84rem;
-            color: #334155;
-        }
-
-        .popup-label {
-            font-weight: 600;
+        /* Botón de limpiar filtros */
+        .btn-reset-filters {
+            width: 100%;
+            padding: 8px;
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 700;
             color: #64748b;
-            margin-right: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
         }
 
-        .loading-overlay {
+        .btn-reset-filters:hover {
+            background: #fee2e2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+
+        /* Loading Spinner */
+        .map-loading-overlay {
             position: absolute;
             inset: 0;
-            background: rgba(255,255,255,0.7);
-            backdrop-filter: blur(2px);
-            z-index: 20;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(3px);
+            z-index: 150;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            transition: opacity 0.3s;
+            gap: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.25s ease;
         }
 
-        .spinner {
-            width: 36px;
-            height: 36px;
-            border: 3px solid #e2e8f0;
-            border-top: 3px solid var(--primary);
+        .map-loading-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .spinner-ring {
+            width: 42px;
+            height: 42px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid var(--primary);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
@@ -211,105 +383,250 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Popups MapLibre */
+        .maplibregl-popup-content {
+            border-radius: 14px !important;
+            padding: 16px !important;
+            box-shadow: 0 15px 35px -5px rgba(0,0,0,0.2) !important;
+            border: 1px solid #cbd5e1 !important;
+            max-width: 320px !important;
+            font-family: 'Outfit', sans-serif !important;
+        }
+
+        .maplibregl-popup-close-button {
+            padding: 6px 10px !important;
+            font-size: 18px !important;
+            color: #64748b !important;
+        }
+
+        .popup-header-title {
+            margin: 0 0 8px 0;
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 0.98rem;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 6px;
+        }
+
+        .popup-row {
+            margin-bottom: 4px;
+            font-size: 0.84rem;
+            color: #334155;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .popup-label {
+            font-weight: 600;
+            color: #64748b;
+        }
+
+        .popup-value {
+            font-weight: 700;
+            color: #1e293b;
+            text-align: right;
+        }
+
+        /* Leyenda de Capas */
+        .layer-legend {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 0 1px var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            header.floating-header {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 8px 14px;
+            }
+            .header-title-main {
+                font-size: 1rem;
+            }
+            .layer-control-panel {
+                top: 76px;
+                left: 10px;
+                right: 10px;
+                width: calc(100vw - 20px);
+                max-height: 70vh;
+            }
+            .kpi-floating-container {
+                top: auto;
+                bottom: 20px;
+                right: 10px;
+                left: 10px;
+                flex-direction: row;
+            }
+            .kpi-badge-glass {
+                flex: 1;
+                min-width: unset;
+                padding: 8px 12px;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <header class="public-header">
-        <div style="display: flex; align-items: center; gap: 14px;">
-            <img src="assets/logo-ba.svg" alt="BA" style="height: 36px;">
-            <div style="border-left: 1px solid #cbd5e1; padding-left: 14px;">
-                <h1 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--primary-dark); line-height: 1.1;">Mapa de Permisos de Obra</h1>
-                <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b; font-weight: 500;">Secretaría de Gestión y Desarrollo Urbano</p>
+    <!-- Mapa Fullscreen -->
+    <div id="map-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="map-loading" class="map-loading-overlay">
+        <div class="spinner-ring"></div>
+        <span style="font-size: 0.9rem; font-weight: 700; color: var(--primary-dark);">Cargando permisos georreferenciados...</span>
+    </div>
+
+    <!-- Banner Superior Flotante -->
+    <header class="floating-header">
+        <div class="header-brand">
+            <img src="assets/logo-ba.svg" alt="BA">
+            <div class="header-titles">
+                <div class="header-title-main">
+                    <i class="fa-solid fa-map-location-dot" style="color: var(--primary);"></i>
+                    Permisos de Obra
+                </div>
+                <div class="header-title-sub">Secretaría de Gestión y Desarrollo Urbano</div>
             </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <a href="/" style="text-decoration: none; font-size: 0.85rem; font-weight: 700; color: var(--primary); padding: 7px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; display: inline-flex; align-items: center; gap: 6px;">
-                <i class="fa-solid fa-arrow-left"></i> Acceso al Tablero
-            </a>
         </div>
     </header>
 
-    <div class="public-container">
-        <div class="map-card">
-            <!-- Header & Filter Bar -->
-            <div class="map-header">
-                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <div style="position: relative;">
-                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 10px; font-size: 0.8rem; color: #94a3b8;"></i>
-                        <input type="text" id="filter-search" placeholder="Buscar por exp, SMP, dirección..." style="padding: 8px 12px 8px 30px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; width: 220px;" oninput="debounceSearch()">
-                    </div>
+    <!-- Botón Abrir Panel (visible cuando está colapsado) -->
+    <button id="btn-open-panel" class="btn-toggle-panel" onclick="toggleLayerPanel(true)">
+        <i class="fa-solid fa-sliders"></i>
+        <span>Capas y Filtros</span>
+    </button>
 
-                    <select id="filter-anio" class="filter-chip-select" onchange="fetchMapData()">
-                        <option value="2026" selected>2026</option>
-                        <option value="">[Todos los Años]</option>
-                    </select>
+    <!-- Panel de Control de Capas y Filtros (Flotante) -->
+    <aside id="layer-panel" class="layer-control-panel">
+        <div class="layer-panel-header">
+            <div class="layer-panel-title">
+                <i class="fa-solid fa-layer-group" style="color: var(--primary);"></i>
+                <span>Control de Capas y Filtros</span>
+            </div>
+            <button onclick="toggleLayerPanel(false)" style="background: none; border: none; font-size: 1.1rem; color: #94a3b8; cursor: pointer; padding: 4px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
 
-                    <select id="filter-comuna" class="filter-chip-select" onchange="fetchMapData()">
-                        <option value="">[Comuna]</option>
-                    </select>
+        <div class="layer-panel-body">
+            <!-- Leyenda Activa -->
+            <div class="layer-legend">
+                <div class="legend-dot"></div>
+                <span>Capa: Permisos Registrados (IFPDO)</span>
+            </div>
 
-                    <select id="filter-barrio" class="filter-chip-select" onchange="fetchMapData()">
-                        <option value="">[Barrio]</option>
-                    </select>
-
-                    <select id="filter-obra" class="filter-chip-select" onchange="fetchMapData()">
-                        <option value="">[Tipo Obra]</option>
-                    </select>
-
-                    <select id="filter-tarea" class="filter-chip-select" onchange="fetchMapData()">
-                        <option value="">[Tipo Tarea]</option>
-                    </select>
-
-                    <select id="filter-categoria" class="filter-chip-select" onchange="fetchMapData()">
-                        <option value="">[Todas las Superficies]</option>
-                        <option value="construir">A Construir</option>
-                        <option value="ampliar">A Ampliar</option>
-                        <option value="modificar">A Modificar</option>
-                    </select>
-
-                    <button onclick="clearMapFilters()" style="padding: 8px 12px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #475569;">
-                        Limpiar
-                    </button>
-                </div>
-
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span id="map-total-points-badge" style="font-size: 0.85rem; background: #e0f2fe; color: #0369a1; padding: 5px 12px; border-radius: 20px; font-weight: 700;">
-                        0 permisos georreferenciados
-                    </span>
+            <!-- Búsqueda rápida -->
+            <div class="filter-group">
+                <label class="filter-label">Buscar Expediente / SMP / Dirección</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 10px; font-size: 0.8rem; color: #94a3b8;"></i>
+                    <input type="text" id="filter-search" class="layer-input" placeholder="Ej: 1234567, 012-034..." style="padding-left: 30px;" oninput="debounceSearch()">
                 </div>
             </div>
 
-            <!-- Map View Area -->
-            <div class="map-wrapper">
-                <div id="loading-spinner" class="loading-overlay" style="display: none;">
-                    <div class="spinner"></div>
-                    <span style="font-size: 0.88rem; font-weight: 600; color: #475569;">Cargando mapa y permisos...</span>
-                </div>
+            <!-- Filtro Año -->
+            <div class="filter-group">
+                <label class="filter-label">Año de Registro</label>
+                <select id="filter-anio" class="layer-select" onchange="fetchMapData()">
+                    <option value="2026" selected>2026</option>
+                    <option value="">[Todos los Años]</option>
+                </select>
+            </div>
 
-                <!-- Floating KPI Badges -->
-                <div class="map-floating-kpis">
-                    <div class="floating-badge">
-                        <div class="badge-icon" style="background: rgba(0, 159, 227, 0.1); color: var(--primary);">
-                            <i class="fa-solid fa-folder-open"></i>
-                        </div>
-                        <div class="badge-info">
-                            <span class="badge-label">Total Expedientes</span>
-                            <span class="badge-val" id="kpi-expedientes">0</span>
-                        </div>
-                    </div>
-                    <div class="floating-badge">
-                        <div class="badge-icon" style="background: rgba(34, 197, 94, 0.1); color: #16a34a;">
-                            <i class="fa-solid fa-building"></i>
-                        </div>
-                        <div class="badge-info">
-                            <span class="badge-label">M² a Construir</span>
-                            <span class="badge-val" id="kpi-construir">0 m²</span>
-                        </div>
-                    </div>
-                </div>
+            <!-- Filtros Geográficos -->
+            <div class="layer-section-title">
+                <span>Filtro por Ubicación</span>
+            </div>
 
-                <div id="public-permisos-map"></div>
+            <div class="filter-group">
+                <label class="filter-label">Comuna</label>
+                <select id="filter-comuna" class="layer-select" onchange="fetchMapData()">
+                    <option value="">[Todas las Comunas]</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Barrio</label>
+                <select id="filter-barrio" class="layer-select" onchange="fetchMapData()">
+                    <option value="">[Todos los Barrios]</option>
+                </select>
+            </div>
+
+            <!-- Filtros Tipológicos -->
+            <div class="layer-section-title">
+                <span>Tipología de Obra</span>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Tipo de Obra</label>
+                <select id="filter-obra" class="layer-select" onchange="fetchMapData()">
+                    <option value="">[Todos los Tipos]</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Tipo de Tarea</label>
+                <select id="filter-tarea" class="layer-select" onchange="fetchMapData()">
+                    <option value="">[Todas las Tareas]</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Superficie Específica</label>
+                <select id="filter-categoria" class="layer-select" onchange="fetchMapData()">
+                    <option value="">[Todas las Superficies]</option>
+                    <option value="construir">A Construir</option>
+                    <option value="ampliar">A Ampliar</option>
+                    <option value="modificar">A Modificar</option>
+                </select>
+            </div>
+
+            <!-- Acciones -->
+            <button class="btn-reset-filters" onclick="clearMapFilters()">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Restablecer Filtros</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- KPIs Flotantes -->
+    <div class="kpi-floating-container">
+        <div class="kpi-badge-glass">
+            <div class="kpi-icon-box" style="background: rgba(0, 159, 227, 0.12); color: var(--primary);">
+                <i class="fa-solid fa-folder-open"></i>
+            </div>
+            <div class="kpi-texts">
+                <span class="kpi-lbl">Total Expedientes</span>
+                <span class="kpi-val" id="kpi-expedientes">0</span>
+            </div>
+        </div>
+
+        <div class="kpi-badge-glass">
+            <div class="kpi-icon-box" style="background: rgba(34, 197, 94, 0.12); color: #16a34a;">
+                <i class="fa-solid fa-building"></i>
+            </div>
+            <div class="kpi-texts">
+                <span class="kpi-lbl">M² a Construir</span>
+                <span class="kpi-val" id="kpi-construir">0 m²</span>
             </div>
         </div>
     </div>
@@ -322,6 +639,18 @@
         let map = null;
         let searchDebounceTimer = null;
         let cachedFiltersPopulated = false;
+
+        function toggleLayerPanel(show) {
+            const panel = document.getElementById('layer-panel');
+            const openBtn = document.getElementById('btn-open-panel');
+            if (show) {
+                panel.classList.remove('collapsed');
+                openBtn.style.display = 'none';
+            } else {
+                panel.classList.add('collapsed');
+                openBtn.style.display = 'flex';
+            }
+        }
 
         function debounceSearch() {
             clearTimeout(searchDebounceTimer);
@@ -358,8 +687,8 @@
         }
 
         async function fetchMapData() {
-            const spinner = document.getElementById('loading-spinner');
-            if (spinner) spinner.style.display = 'flex';
+            const loading = document.getElementById('map-loading');
+            if (loading) loading.classList.add('active');
 
             const searchVal = (document.getElementById('filter-search')?.value || '').trim();
             const anioVal = document.getElementById('filter-anio')?.value || '';
@@ -384,10 +713,9 @@
 
             try {
                 const res = await fetch(`${API_BASE}/analytics/m2-permisados?${params.toString()}`);
-                if (!res.ok) throw new Error("Error en la respuesta del servidor");
+                if (!res.ok) throw new Error("Error en respuesta API");
                 const data = await res.json();
 
-                // Actualizar KPIs
                 const totalRecords = data.total_records || 0;
                 const summary = data.summary || {};
                 const points = data.map_points || [];
@@ -395,23 +723,21 @@
                 document.getElementById('kpi-expedientes').innerText = totalRecords.toLocaleString('es-AR');
                 document.getElementById('kpi-construir').innerText = `${Math.round(summary.total_construir || 0).toLocaleString('es-AR')} m²`;
 
-                // Poblar filtros en primera carga
                 if (!cachedFiltersPopulated && data.filters) {
                     cachedFiltersPopulated = true;
                     if (data.filters.anios) populateSelect('filter-anio', data.filters.anios, anioVal, null);
-                    if (data.filters.comunas) populateSelect('filter-comuna', data.filters.comunas, comunaVal, 'Comuna');
-                    if (data.filters.barrios) populateSelect('filter-barrio', data.filters.barrios, barrioVal, 'Barrio');
-                    if (data.filters.tipos_obra) populateSelect('filter-obra', data.filters.tipos_obra, obraVal, 'Tipo Obra');
-                    if (data.filters.tipos_tarea) populateSelect('filter-tarea', data.filters.tipos_tarea, tareaVal, 'Tipo Tarea');
+                    if (data.filters.comunas) populateSelect('filter-comuna', data.filters.comunas, comunaVal, 'Todas las Comunas');
+                    if (data.filters.barrios) populateSelect('filter-barrio', data.filters.barrios, barrioVal, 'Todos los Barrios');
+                    if (data.filters.tipos_obra) populateSelect('filter-obra', data.filters.tipos_obra, obraVal, 'Todos los Tipos');
+                    if (data.filters.tipos_tarea) populateSelect('filter-tarea', data.filters.tipos_tarea, tareaVal, 'Todas las Tareas');
                 }
 
-                // Renderizar puntos en el mapa
                 renderMapPoints(points);
 
             } catch (err) {
-                console.error("Error al cargar datos del mapa:", err);
+                console.error("Error al cargar puntos:", err);
             } finally {
-                if (spinner) spinner.style.display = 'none';
+                if (loading) loading.classList.remove('active');
             }
         }
 
@@ -420,8 +746,6 @@
                 row.x && row.y && !isNaN(row.x) && !isNaN(row.y) &&
                 row.x > -59.0 && row.x < -58.0 && row.y > -35.0 && row.y < -34.0
             );
-
-            document.getElementById('map-total-points-badge').innerText = `${validPoints.length.toLocaleString('es-AR')} permisos georreferenciados`;
 
             const geojson = {
                 type: 'FeatureCollection',
@@ -436,6 +760,8 @@
                         direccion: row.direccion,
                         smp: row.smp,
                         sup_construir: row.sup_construir || 0,
+                        sup_ampliar: row.sup_ampliar || 0,
+                        sup_modificar: row.sup_modificar || 0,
                         tipo_obra: row.tipo_obra,
                         tipo_tarea: row.tipo_tarea,
                         apellido_profesional: row.apellido_profesional || '',
@@ -448,40 +774,22 @@
                 if (validPoints.length > 0) {
                     const bounds = new maplibregl.LngLatBounds();
                     validPoints.forEach(p => bounds.extend([p.x, p.y]));
-                    map.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+                    map.fitBounds(bounds, { padding: { top: 100, bottom: 50, left: 380, right: 50 }, maxZoom: 15 });
                 } else {
-                    map.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
+                    map.flyTo({ center: [-58.4173, -34.6118], zoom: 12 });
                 }
             };
 
             if (!map) {
                 map = new maplibregl.Map({
-                    container: 'public-permisos-map',
-                    style: {
-                        version: 8,
-                        sources: {
-                            'osm-tiles': {
-                                type: 'raster',
-                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                                tileSize: 256,
-                                attribution: '&copy; OpenStreetMap contributors',
-                                maxzoom: 19
-                            }
-                        },
-                        layers: [{
-                            id: 'osm-basemap',
-                            type: 'raster',
-                            source: 'osm-tiles',
-                            minzoom: 0,
-                            maxzoom: 22
-                        }]
-                    },
+                    container: 'map-container',
+                    style: 'https://api.maptiler.com/maps/01a0eea1-ae9f-72ac-bc8c-8aa514125d30/style.json?key=LppZW3ZsHCskkOKupD3g',
                     center: [-58.4173, -34.6118],
-                    zoom: 11.5,
+                    zoom: 12,
                     attributionControl: false
                 });
 
-                map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+                map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
 
                 map.on('load', () => {
                     map.addSource('m2-points', {
@@ -489,35 +797,66 @@
                         data: geojson
                     });
 
+                    // Capa de círculos con estilo premium
                     map.addLayer({
                         id: 'm2-points-layer',
                         type: 'circle',
                         source: 'm2-points',
                         paint: {
-                            'circle-radius': 6,
+                            'circle-radius': [
+                                'interpolate', ['linear'], ['zoom'],
+                                10, 4,
+                                14, 7,
+                                18, 12
+                            ],
                             'circle-color': '#0076bb',
-                            'circle-stroke-width': 1.5,
+                            'circle-stroke-width': 1.8,
                             'circle-stroke-color': '#ffffff',
-                            'circle-opacity': 0.85
+                            'circle-opacity': 0.88
                         }
                     });
 
+                    // Popups en click
                     map.on('click', 'm2-points-layer', (e) => {
                         const coordinates = e.features[0].geometry.coordinates.slice();
                         const props = e.features[0].properties;
 
                         const popupContent = `
-                            <div style="font-family:'Outfit', sans-serif; padding:4px; line-height: 1.45;">
-                                <h4 style="margin:0 0 6px 0; color:#0076bb; font-weight:700; font-size:0.92rem;">${props.expediente || 'Permiso de Obra'}</h4>
-                                <div class="popup-row"><span class="popup-label">Dirección:</span> ${props.direccion || 'Sin dirección'}</div>
-                                <div class="popup-row"><span class="popup-label">SMP:</span> ${props.smp || '-'}</div>
-                                <div class="popup-row"><span class="popup-label">Superficie a Construir:</span> <strong>${Math.round(props.sup_construir || 0).toLocaleString('es-AR')} m²</strong></div>
-                                <div class="popup-row"><span class="popup-label">Obra:</span> ${props.tipo_obra || '-'} (${props.tipo_tarea || '-'})</div>
-                                <div class="popup-row"><span class="popup-label">Profesional:</span> ${props.apellido_profesional || ''} ${props.nombre_profesional || ''}</div>
+                            <div>
+                                <h4 class="popup-header-title">${props.expediente || 'Permiso de Obra'}</h4>
+                                <div class="popup-row">
+                                    <span class="popup-label">Dirección:</span>
+                                    <span class="popup-value">${props.direccion || 'Sin dirección'}</span>
+                                </div>
+                                <div class="popup-row">
+                                    <span class="popup-label">SMP:</span>
+                                    <span class="popup-value">${props.smp || '-'}</span>
+                                </div>
+                                <div class="popup-row">
+                                    <span class="popup-label">A Construir:</span>
+                                    <span class="popup-value" style="color: #16a34a;">${Math.round(props.sup_construir || 0).toLocaleString('es-AR')} m²</span>
+                                </div>
+                                ${props.sup_ampliar ? `
+                                <div class="popup-row">
+                                    <span class="popup-label">A Ampliar:</span>
+                                    <span class="popup-value" style="color: #ea580c;">${Math.round(props.sup_ampliar).toLocaleString('es-AR')} m²</span>
+                                </div>` : ''}
+                                <div class="popup-row">
+                                    <span class="popup-label">Obra:</span>
+                                    <span class="popup-value">${props.tipo_obra || '-'}</span>
+                                </div>
+                                <div class="popup-row">
+                                    <span class="popup-label">Tarea:</span>
+                                    <span class="popup-value">${props.tipo_tarea || '-'}</span>
+                                </div>
+                                <div class="popup-row" style="margin-top: 6px; border-top: 1px dashed #e2e8f0; padding-top: 6px;">
+                                    <span class="popup-label">Profesional:</span>
+                                    <span class="popup-value">${props.apellido_profesional || ''} ${props.nombre_profesional || ''}</span>
+                                </div>
                             </div>
                         `;
 
-                        new maplibregl.Popup({ offset: 10 })
+                        new maplibregl.Popup({ offset: 12 })
                             .setLngLat(coordinates)
                             .setHTML(popupContent)
                             .addTo(map);
