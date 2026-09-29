@@ -76,7 +76,11 @@ function initAuth() {
                 .then(r => r ? r.json() : null)
                 .then(data => {
                     if (data) {
-                        currentUser = { ...currentUser, ...data };
+                        currentUser = {
+                            ...currentUser,
+                            ...data,
+                            needs_password_change: data.needs_password_change === true || data.needs_password_change === 't' || data.needs_password_change === 'true'
+                        };
                         localStorage.setItem('sgdu_user', JSON.stringify(currentUser));
                         initAuth();
                     }
@@ -351,7 +355,7 @@ async function login(username, password) {
             role: data.role,
             full_name: data.full_name,
             sector: data.sector,
-            needs_password_change: data.needs_password_change,
+            needs_password_change: data.needs_password_change === true || data.needs_password_change === 't' || data.needs_password_change === 'true',
             permissions: data.permissions
         };
 
