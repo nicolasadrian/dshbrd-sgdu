@@ -209,3 +209,32 @@ async def get_current_user_from_param_or_header(token: Optional[str] = Query(Non
             )
     except JWTError:
         raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+async def get_current_user_optional(authorization: Optional[str] = Header(None, alias="Authorization")) -> Optional[User]:
+    if not authorization:
+        return None
+    try:
+        actual_token = authorization.split(" ")[1] if authorization.startswith("Bearer ") else authorization
+        payload = jwt.decode(actual_token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if not username:
+            return None
+        with engine.connect() as conn:
+            user_row = conn.execute(text("""
+                SELECT username, role, full_name, sector, needs_password_change 
+                FROM auth_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(:u))
+            """), {"u": username}).fetchone()
+            if not user_row:
+                return None
+            resolved_perms = get_resolved_permissions(conn, user_row[0], user_row[1])
+            return User(
+                username=user_row[0],
+                role=user_row[1],
+                full_name=user_row[2],
+                sector=user_row[3],
+                needs_password_change=bool(user_row[4]) if user_row[4] is not None else False,
+                permissions=resolved_perms
+            )
+    except Exception:
+        return None
+

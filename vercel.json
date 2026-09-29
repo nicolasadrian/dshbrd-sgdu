@@ -13,6 +13,10 @@
       "dest": "http://api.geo-epesege.com.ar/api/$1"
     },
     {
+      "src": "/permisosdeobra/?",
+      "dest": "/permisosdeobra.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }

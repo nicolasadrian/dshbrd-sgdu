@@ -16,12 +16,12 @@ try:
     from database import engine, geo_engine
     from config import TRAMITES_CONFIG
     from schemas import User
-    from auth_utils import get_current_user, get_current_user_from_param_or_header
+    from auth_utils import get_current_user, get_current_user_from_param_or_header, get_current_user_optional
 except ImportError:
     from backend.database import engine, geo_engine
     from backend.config import TRAMITES_CONFIG
     from backend.schemas import User
-    from backend.auth_utils import get_current_user, get_current_user_from_param_or_header
+    from backend.auth_utils import get_current_user, get_current_user_from_param_or_header, get_current_user_optional
 
 logger = logging.getLogger(__name__)
 
@@ -1424,7 +1424,7 @@ async def get_analytics_m2_permisados(
     tipo_tarea: Optional[str] = Query(None),
     anio: Optional[int] = Query(None),
     categoria: Optional[str] = Query(None), # "construir", "ampliar", "modificar"
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     try:
         page_val = int(page.default) if hasattr(page, 'default') else int(page)
@@ -1623,7 +1623,7 @@ async def download_analytics_m2_permisados(
     tipo_tarea: Optional[str] = Query(None),
     anio: Optional[int] = Query(None),
     categoria: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     try:
         where_clauses = ["1=1"]

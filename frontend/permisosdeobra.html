@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permisos de Obra | SGDU - Buenos Aires Ciudad</title>
+    <meta name="description" content="Visualizador y mapa interactivo de permisos de obra y metros cuadrados permisados en la Ciudad Autónoma de Buenos Aires.">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- MapLibre GL JS -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+    <style>
+        :root {
+            --primary: #0076bb;
+            --primary-dark: #004571;
+            --secondary: #009fe3;
+            --accent: #FFD700;
+            --bg-main: #f8fafc;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-main);
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header.public-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0.8rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        }
+
+        .public-container {
+            flex: 1;
+            width: 100%;
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            box-sizing: border-box;
+        }
+
+        .map-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #ffffff;
+        }
+
+        .filter-chip-select {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            background: white;
+            color: #334155;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .filter-chip-select:focus {
+            border-color: var(--primary);
+        }
+
+        .map-wrapper {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 220px);
+            min-height: 520px;
+        }
+
+        #public-permisos-map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .map-floating-kpis {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .floating-badge {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .floating-badge .badge-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .floating-badge .badge-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .floating-badge .badge-label {
+            font-size: 0.72rem;
+            color: #64748b;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .floating-badge .badge-val {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--primary-dark);
+            line-height: 1.1;
+        }
+
+        /* MapLibre popup custom styles */
+        .maplibregl-popup-content {
+            border-radius: 12px !important;
+            padding: 14px !important;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15) !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+
+        .maplibregl-popup-close-button {
+            padding: 4px 8px !important;
+            font-size: 16px !important;
+            color: #64748b !important;
+        }
+
+        .popup-row {
+            margin-bottom: 4px;
+            font-size: 0.84rem;
+            color: #334155;
+        }
+
+        .popup-label {
+            font-weight: 600;
+            color: #64748b;
+            margin-right: 4px;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(2px);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: opacity 0.3s;
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="public-header">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <img src="assets/logo-ba.svg" alt="BA" style="height: 36px;">
+            <div style="border-left: 1px solid #cbd5e1; padding-left: 14px;">
+                <h1 style="margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--primary-dark); line-height: 1.1;">Mapa de Permisos de Obra</h1>
+                <p style="margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b; font-weight: 500;">Secretaría de Gestión y Desarrollo Urbano</p>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="/" style="text-decoration: none; font-size: 0.85rem; font-weight: 700; color: var(--primary); padding: 7px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrow-left"></i> Acceso al Tablero
+            </a>
+        </div>
+    </header>
+
+    <div class="public-container">
+        <div class="map-card">
+            <!-- Header & Filter Bar -->
+            <div class="map-header">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 10px; font-size: 0.8rem; color: #94a3b8;"></i>
+                        <input type="text" id="filter-search" placeholder="Buscar por exp, SMP, dirección..." style="padding: 8px 12px 8px 30px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 0.85rem; width: 220px;" oninput="debounceSearch()">
+                    </div>
+
+                    <select id="filter-anio" class="filter-chip-select" onchange="fetchMapData()">
+                        <option value="2026" selected>2026</option>
+                        <option value="">[Todos los Años]</option>
+                    </select>
+
+                    <select id="filter-comuna" class="filter-chip-select" onchange="fetchMapData()">
+                        <option value="">[Comuna]</option>
+                    </select>
+
+                    <select id="filter-barrio" class="filter-chip-select" onchange="fetchMapData()">
+                        <option value="">[Barrio]</option>
+                    </select>
+
+                    <select id="filter-obra" class="filter-chip-select" onchange="fetchMapData()">
+                        <option value="">[Tipo Obra]</option>
+                    </select>
+
+                    <select id="filter-tarea" class="filter-chip-select" onchange="fetchMapData()">
+                        <option value="">[Tipo Tarea]</option>
+                    </select>
+
+                    <select id="filter-categoria" class="filter-chip-select" onchange="fetchMapData()">
+                        <option value="">[Todas las Superficies]</option>
+                        <option value="construir">A Construir</option>
+                        <option value="ampliar">A Ampliar</option>
+                        <option value="modificar">A Modificar</option>
+                    </select>
+
+                    <button onclick="clearMapFilters()" style="padding: 8px 12px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: #475569;">
+                        Limpiar
+                    </button>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="map-total-points-badge" style="font-size: 0.85rem; background: #e0f2fe; color: #0369a1; padding: 5px 12px; border-radius: 20px; font-weight: 700;">
+                        0 permisos georreferenciados
+                    </span>
+                </div>
+            </div>
+
+            <!-- Map View Area -->
+            <div class="map-wrapper">
+                <div id="loading-spinner" class="loading-overlay" style="display: none;">
+                    <div class="spinner"></div>
+                    <span style="font-size: 0.88rem; font-weight: 600; color: #475569;">Cargando mapa y permisos...</span>
+                </div>
+
+                <!-- Floating KPI Badges -->
+                <div class="map-floating-kpis">
+                    <div class="floating-badge">
+                        <div class="badge-icon" style="background: rgba(0, 159, 227, 0.1); color: var(--primary);">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </div>
+                        <div class="badge-info">
+                            <span class="badge-label">Total Expedientes</span>
+                            <span class="badge-val" id="kpi-expedientes">0</span>
+                        </div>
+                    </div>
+                    <div class="floating-badge">
+                        <div class="badge-icon" style="background: rgba(34, 197, 94, 0.1); color: #16a34a;">
+                            <i class="fa-solid fa-building"></i>
+                        </div>
+                        <div class="badge-info">
+                            <span class="badge-label">M² a Construir</span>
+                            <span class="badge-val" id="kpi-construir">0 m²</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="public-permisos-map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+            ? 'http://127.0.0.1:8000/api'
+            : (window.location.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) ? `${window.location.origin}/api` : 'https://api.geo-epesege.com.ar/api');
+
+        let map = null;
+        let searchDebounceTimer = null;
+        let cachedFiltersPopulated = false;
+
+        function debounceSearch() {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                fetchMapData();
+            }, 350);
+        }
+
+        function clearMapFilters() {
+            document.getElementById('filter-search').value = '';
+            document.getElementById('filter-anio').value = '2026';
+            document.getElementById('filter-comuna').value = '';
+            document.getElementById('filter-barrio').value = '';
+            document.getElementById('filter-obra').value = '';
+            document.getElementById('filter-tarea').value = '';
+            document.getElementById('filter-categoria').value = '';
+            fetchMapData();
+        }
+
+        function populateSelect(id, items, currentVal, placeholder) {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const currentSelected = select.value || currentVal;
+            let html = placeholder ? `<option value="">[${placeholder}]</option>` : '';
+            items.forEach(item => {
+                if (!item) return;
+                const selectedAttr = String(item) === String(currentSelected) ? 'selected' : '';
+                html += `<option value="${item}" ${selectedAttr}>${item}</option>`;
+            });
+            if (!placeholder) {
+                html += `<option value="" ${!currentSelected ? 'selected' : ''}>[Todos los Años]</option>`;
+            }
+            select.innerHTML = html;
+        }
+
+        async function fetchMapData() {
+            const spinner = document.getElementById('loading-spinner');
+            if (spinner) spinner.style.display = 'flex';
+
+            const searchVal = (document.getElementById('filter-search')?.value || '').trim();
+            const anioVal = document.getElementById('filter-anio')?.value || '';
+            const comunaVal = document.getElementById('filter-comuna')?.value || '';
+            const barrioVal = document.getElementById('filter-barrio')?.value || '';
+            const obraVal = document.getElementById('filter-obra')?.value || '';
+            const tareaVal = document.getElementById('filter-tarea')?.value || '';
+            const categoriaVal = document.getElementById('filter-categoria')?.value || '';
+
+            const params = new URLSearchParams({
+                page: 1,
+                limit: 100
+            });
+
+            if (searchVal) params.append('search', searchVal);
+            if (anioVal) params.append('anio', anioVal);
+            if (comunaVal) params.append('comuna', comunaVal);
+            if (barrioVal) params.append('barrio', barrioVal);
+            if (obraVal) params.append('tipo_obra', obraVal);
+            if (tareaVal) params.append('tipo_tarea', tareaVal);
+            if (categoriaVal) params.append('categoria', categoriaVal);
+
+            try {
+                const res = await fetch(`${API_BASE}/analytics/m2-permisados?${params.toString()}`);
+                if (!res.ok) throw new Error("Error en la respuesta del servidor");
+                const data = await res.json();
+
+                // Actualizar KPIs
+                const totalRecords = data.total_records || 0;
+                const summary = data.summary || {};
+                const points = data.map_points || [];
+
+                document.getElementById('kpi-expedientes').innerText = totalRecords.toLocaleString('es-AR');
+                document.getElementById('kpi-construir').innerText = `${Math.round(summary.total_construir || 0).toLocaleString('es-AR')} m²`;
+
+                // Poblar filtros en primera carga
+                if (!cachedFiltersPopulated && data.filters) {
+                    cachedFiltersPopulated = true;
+                    if (data.filters.anios) populateSelect('filter-anio', data.filters.anios, anioVal, null);
+                    if (data.filters.comunas) populateSelect('filter-comuna', data.filters.comunas, comunaVal, 'Comuna');
+                    if (data.filters.barrios) populateSelect('filter-barrio', data.filters.barrios, barrioVal, 'Barrio');
+                    if (data.filters.tipos_obra) populateSelect('filter-obra', data.filters.tipos_obra, obraVal, 'Tipo Obra');
+                    if (data.filters.tipos_tarea) populateSelect('filter-tarea', data.filters.tipos_tarea, tareaVal, 'Tipo Tarea');
+                }
+
+                // Renderizar puntos en el mapa
+                renderMapPoints(points);
+
+            } catch (err) {
+                console.error("Error al cargar datos del mapa:", err);
+            } finally {
+                if (spinner) spinner.style.display = 'none';
+            }
+        }
+
+        function renderMapPoints(points) {
+            const validPoints = points.filter(row =>
+                row.x && row.y && !isNaN(row.x) && !isNaN(row.y) &&
+                row.x > -59.0 && row.x < -58.0 && row.y > -35.0 && row.y < -34.0
+            );
+
+            document.getElementById('map-total-points-badge').innerText = `${validPoints.length.toLocaleString('es-AR')} permisos georreferenciados`;
+
+            const geojson = {
+                type: 'FeatureCollection',
+                features: validPoints.map(row => ({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [row.x, row.y]
+                    },
+                    properties: {
+                        expediente: row.expediente,
+                        direccion: row.direccion,
+                        smp: row.smp,
+                        sup_construir: row.sup_construir || 0,
+                        tipo_obra: row.tipo_obra,
+                        tipo_tarea: row.tipo_tarea,
+                        apellido_profesional: row.apellido_profesional || '',
+                        nombre_profesional: row.nombre_profesional || ''
+                    }
+                }))
+            };
+
+            const fitToData = () => {
+                if (validPoints.length > 0) {
+                    const bounds = new maplibregl.LngLatBounds();
+                    validPoints.forEach(p => bounds.extend([p.x, p.y]));
+                    map.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+                } else {
+                    map.flyTo({ center: [-58.4173, -34.6118], zoom: 11.5 });
+                }
+            };
+
+            if (!map) {
+                map = new maplibregl.Map({
+                    container: 'public-permisos-map',
+                    style: {
+                        version: 8,
+                        sources: {
+                            'osm-tiles': {
+                                type: 'raster',
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                                tileSize: 256,
+                                attribution: '&copy; OpenStreetMap contributors',
+                                maxzoom: 19
+                            }
+                        },
+                        layers: [{
+                            id: 'osm-basemap',
+                            type: 'raster',
+                            source: 'osm-tiles',
+                            minzoom: 0,
+                            maxzoom: 22
+                        }]
+                    },
+                    center: [-58.4173, -34.6118],
+                    zoom: 11.5,
+                    attributionControl: false
+                });
+
+                map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'top-left');
+
+                map.on('load', () => {
+                    map.addSource('m2-points', {
+                        type: 'geojson',
+                        data: geojson
+                    });
+
+                    map.addLayer({
+                        id: 'm2-points-layer',
+                        type: 'circle',
+                        source: 'm2-points',
+                        paint: {
+                            'circle-radius': 6,
+                            'circle-color': '#0076bb',
+                            'circle-stroke-width': 1.5,
+                            'circle-stroke-color': '#ffffff',
+                            'circle-opacity': 0.85
+                        }
+                    });
+
+                    map.on('click', 'm2-points-layer', (e) => {
+                        const coordinates = e.features[0].geometry.coordinates.slice();
+                        const props = e.features[0].properties;
+
+                        const popupContent = `
+                            <div style="font-family:'Outfit', sans-serif; padding:4px; line-height: 1.45;">
+                                <h4 style="margin:0 0 6px 0; color:#0076bb; font-weight:700; font-size:0.92rem;">${props.expediente || 'Permiso de Obra'}</h4>
+                                <div class="popup-row"><span class="popup-label">Dirección:</span> ${props.direccion || 'Sin dirección'}</div>
+                                <div class="popup-row"><span class="popup-label">SMP:</span> ${props.smp || '-'}</div>
+                                <div class="popup-row"><span class="popup-label">Superficie a Construir:</span> <strong>${Math.round(props.sup_construir || 0).toLocaleString('es-AR')} m²</strong></div>
+                                <div class="popup-row"><span class="popup-label">Obra:</span> ${props.tipo_obra || '-'} (${props.tipo_tarea || '-'})</div>
+                                <div class="popup-row"><span class="popup-label">Profesional:</span> ${props.apellido_profesional || ''} ${props.nombre_profesional || ''}</div>
+                            </div>
+                        `;
+
+                        new maplibregl.Popup({ offset: 10 })
+                            .setLngLat(coordinates)
+                            .setHTML(popupContent)
+                            .addTo(map);
+                    });
+
+                    map.on('mouseenter', 'm2-points-layer', () => {
+                        map.getCanvas().style.cursor = 'pointer';
+                    });
+                    map.on('mouseleave', 'm2-points-layer', () => {
+                        map.getCanvas().style.cursor = '';
+                    });
+
+                    fitToData();
+                });
+            } else {
+                if (map.getSource('m2-points')) {
+                    map.getSource('m2-points').setData(geojson);
+                    fitToData();
+                } else {
+                    map.once('idle', () => {
+                        if (map.getSource('m2-points')) {
+                            map.getSource('m2-points').setData(geojson);
+                            fitToData();
+                        }
+                    });
+                }
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchMapData();
+        });
+    </script>
+</body>
+</html>
