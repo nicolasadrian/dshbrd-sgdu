@@ -96,7 +96,7 @@ async def change_password(data: PasswordChange, current_user: User = Depends(get
         hashed = bcrypt.hashpw(data.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         with engine.begin() as conn:
             conn.execute(
-                text("UPDATE auth_users SET password_hash = :p, needs_password_change = FALSE WHERE username = :u"),
+                text("UPDATE auth_users SET password_hash = :p, needs_password_change = FALSE WHERE LOWER(TRIM(username)) = LOWER(TRIM(:u))"),
                 {"p": hashed, "u": current_user.username}
             )
             return {"status": "ok", "message": "Contraseña actualizada correctamente"}
@@ -198,8 +198,8 @@ async def create_user(user_data: UserCreate, current_user: User = Depends(get_cu
         with engine.begin() as conn:
             conn.execute(
                 text("""
-                    INSERT INTO auth_users (username, password_hash, role, full_name, sector, email, permissions) 
-                    VALUES (:u, :p, :r, :fn, :s, :e, :perms)
+                    INSERT INTO auth_users (username, password_hash, role, full_name, sector, email, permissions, needs_password_change) 
+                    VALUES (:u, :p, :r, :fn, :s, :e, :perms, TRUE)
                 """),
                 {
                     "u": user_data.username.strip(),

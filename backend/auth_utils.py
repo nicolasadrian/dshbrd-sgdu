@@ -143,8 +143,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             
         with engine.connect() as conn:
             user_row = conn.execute(text("""
-                SELECT username, role, full_name, sector 
-                FROM auth_users WHERE username = :u
+                SELECT username, role, full_name, sector, needs_password_change 
+                FROM auth_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(:u))
             """), {"u": username}).fetchone()
             if not user_row:
                 raise credentials_exception
@@ -155,6 +155,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
                 role=user_row[1],
                 full_name=user_row[2],
                 sector=user_row[3],
+                needs_password_change=bool(user_row[4]) if user_row[4] is not None else False,
                 permissions=resolved_perms
             )
             # Guardar en caché

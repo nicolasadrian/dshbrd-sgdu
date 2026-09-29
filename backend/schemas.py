@@ -16,6 +16,7 @@ class User(BaseModel):
     role: str
     full_name: Optional[str] = None
     sector: Optional[str] = None
+    needs_password_change: Optional[bool] = False
     permissions: Optional[Dict[str, bool]] = None
 
 class PasswordChange(BaseModel):
