@@ -239,10 +239,10 @@
                         Reportes <span class="chevron">▼</span>
                     </button>
                     <div class="dropdown-content">
-                        <a href="#" onclick="event.preventDefault(); showView('seguimiento')">Metas</a>
+                        <a href="#" id="link-rep-metas" onclick="event.preventDefault(); showView('seguimiento')">Metas</a>
                         <a href="#" id="cierre-link" onclick="event.preventDefault(); showView('cierre')">Cierre de Mes</a>
                         <a href="#" id="sla-link" onclick="event.preventDefault(); showView('sla')">Tiempos de Tramitacion</a>
-                        <a href="#" onclick="event.preventDefault(); showView('subsanaciones')">Subsanaciones</a>
+                        <a href="#" id="link-rep-subsanaciones" onclick="event.preventDefault(); showView('subsanaciones')">Subsanaciones</a>
                         <!-- Productividad Analistas Submenu -->
                         <div class="dropdown-submenu" id="menu-sub-productividad">
                             <a href="#/productividad_analistas" class="submenu-trigger" id="productividad-link" onclick="event.preventDefault(); showView('productividad_analistas');">
@@ -260,7 +260,7 @@
                                 <!-- 2-Column Grid -->
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                                     <!-- Column DGROC -->
-                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <div style="display: flex; flex-direction: column; gap: 2px;" id="menu-prod-col-dgroc">
                                         <div style="font-size: 0.72rem; font-weight: 800; color: #2563eb; padding: 4px 8px; text-transform: uppercase; font-family: 'Outfit'; border-bottom: 1px solid #dbeafe; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                             <i class="fa-solid fa-building-user"></i> DGROC
                                         </div>
@@ -273,7 +273,7 @@
                                     </div>
 
                                     <!-- Column DGIUR & Otros -->
-                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <div style="display: flex; flex-direction: column; gap: 2px;" id="menu-prod-col-dgiur">
                                         <div style="font-size: 0.72rem; font-weight: 800; color: #16a34a; padding: 4px 8px; text-transform: uppercase; font-family: 'Outfit'; border-bottom: 1px solid #dcfce7; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                                             <i class="fa-solid fa-city"></i> DGIUR
                                         </div>
@@ -283,7 +283,7 @@
                                         <a href="#/productividad_analistas/publico_privado" id="link-prod-publico_privado" onclick="event.preventDefault(); showView('productividad_analistas_publico_privado');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Público Privado</a>
                                         <a href="#/productividad_analistas/copua" id="link-prod-copua" onclick="event.preventDefault(); showView('productividad_analistas_copua');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">COPUA</a>
                                         <a href="#/productividad_analistas/privada" id="link-prod-privada" onclick="event.preventDefault(); showView('productividad_analistas_privada');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Privada</a>
-                                        <hr style="border: 0; border-top: 1px solid #f1f5f9; margin: 4px 0;">
+                                        <hr id="sep-prod-otros" style="border: 0; border-top: 1px solid #f1f5f9; margin: 4px 0;">
                                         <a href="#/productividad_analistas/otros" id="link-prod-otros" onclick="event.preventDefault(); showView('productividad_analistas_otros');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block; color: #64748b;">Otros / General</a>
                                     </div>
                                 </div>
@@ -341,7 +341,7 @@
                         </div>
 
                         <a href="#" id="universo-tratas-link" onclick="event.preventDefault(); showView('universo_tratas')">Universo Tratas y Buzones</a>
-                        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
+                        <hr id="sep-rep-planif" style="border: 0; border-top: 1px solid #e2e8f0; margin: 4px 0;">
                         <a href="#" id="planificacion-nov-2026-link" onclick="event.preventDefault(); showView('planificacion_nov_2026')">Planificación Noviembre 2026</a>
                     </div>
                 </div>
@@ -352,8 +352,8 @@
                         Analytics <span class="chevron">▼</span>
                     </button>
                     <div class="dropdown-content">
-                        <a href="#" onclick="event.preventDefault(); showView('analytics_estadistica')">Estadística</a>
-                        <a href="#" onclick="event.preventDefault(); showView('analytics_datasets')">Datasets</a>
+                        <a href="#" id="link-analytics-estadistica" onclick="event.preventDefault(); showView('analytics_estadistica')">Estadística</a>
+                        <a href="#" id="link-analytics-datasets" onclick="event.preventDefault(); showView('analytics_datasets')">Datasets</a>
                     </div>
                 </div>
 
@@ -363,32 +363,32 @@
                         Ciudad 3D <span class="chevron">▼</span>
                     </button>
                     <div class="dropdown-content">
-                        <a href="#" onclick="event.preventDefault(); showView('ciudad3d_home')">Home</a>
+                        <a href="#" id="link-c3d-home" onclick="event.preventDefault(); showView('ciudad3d_home')">Home</a>
                         <!-- Extensiones Irregulares Submenu -->
                         <div class="dropdown-submenu" id="menu-sub-c3d-extensiones">
-                            <a href="#" class="submenu-trigger" onclick="event.preventDefault(); showView('c3d_extensiones_hub')">
+                            <a href="#" class="submenu-trigger" id="link-c3d-ext-hub" onclick="event.preventDefault(); showView('c3d_extensiones_hub')">
                                 <span>Extensiones Irregulares</span>
                                 <span class="submenu-chevron">▶</span>
                             </a>
                             <div class="submenu-content">
-                                <a href="#" onclick="event.preventDefault(); showView('c3d_extensiones_todas')">Listado de Manzanas</a>
-                                <a href="#" onclick="event.preventDefault(); showView('c3d_extensiones_mis_trazados')">Mis Trazados</a>
-                                <a href="#" onclick="event.preventDefault(); showView('c3d_extensiones_revision')">Bandeja de Revision</a>
-                                <a href="#" onclick="event.preventDefault(); showView('c3d_extensiones_equipo')">Avance por analista</a>
-                                <a href="#" onclick="event.preventDefault(); showView('c3d_extensiones_mapa')">Mapa</a>
+                                <a href="#" id="link-c3d-ext-todas" onclick="event.preventDefault(); showView('c3d_extensiones_todas')">Listado de Manzanas</a>
+                                <a href="#" id="link-c3d-ext-mis-trazados" onclick="event.preventDefault(); showView('c3d_extensiones_mis_trazados')">Mis Trazados</a>
+                                <a href="#" id="link-c3d-ext-revision" onclick="event.preventDefault(); showView('c3d_extensiones_revision')">Bandeja de Revision</a>
+                                <a href="#" id="link-c3d-ext-equipo" onclick="event.preventDefault(); showView('c3d_extensiones_equipo')">Avance por analista</a>
+                                <a href="#" id="link-c3d-ext-mapa" onclick="event.preventDefault(); showView('c3d_extensiones_mapa')">Mapa</a>
                             </div>
                         </div>
-                        <a href="#" onclick="event.preventDefault(); showView('ciudad3d_manzanas_atipicas')">Manzanas Atipicas</a>
+                        <a href="#" id="link-c3d-atipicas" onclick="event.preventDefault(); showView('ciudad3d_manzanas_atipicas')">Manzanas Atipicas</a>
                         <!-- Backend PDI Submenu -->
                         <div class="dropdown-submenu" id="menu-sub-c3d-pdi">
-                            <a href="#" class="submenu-trigger" onclick="event.preventDefault(); showView('ciudad3d_pdi')">
+                            <a href="#" class="submenu-trigger" id="link-c3d-pdi-hub" onclick="event.preventDefault(); showView('ciudad3d_pdi')">
                                 <span>Backend PDI</span>
                                 <span class="submenu-chevron">▶</span>
                             </a>
                             <div class="submenu-content">
-                                <a href="#" onclick="event.preventDefault(); showView('ciudad3d_pdi')">Inventario & Estado</a>
-                                <a href="#" onclick="event.preventDefault(); showView('ciudad3d_pdi_validacion')">Validación de Datos</a>
-                                <a href="#" onclick="event.preventDefault(); showView('ciudad3d_pdi_validacion_c3d')">Validación Ciudad 3D</a>
+                                <a href="#" id="link-c3d-pdi-inventario" onclick="event.preventDefault(); showView('ciudad3d_pdi')">Inventario & Estado</a>
+                                <a href="#" id="link-c3d-pdi-validacion" onclick="event.preventDefault(); showView('ciudad3d_pdi_validacion')">Validación de Datos</a>
+                                <a href="#" id="link-c3d-pdi-validacion-c3d" onclick="event.preventDefault(); showView('ciudad3d_pdi_validacion_c3d')">Validación Ciudad 3D</a>
                             </div>
                         </div>
                     </div>
@@ -402,14 +402,14 @@
                     <div class="dropdown-content">
                         <!-- Calculadora Submenu -->
                         <div class="dropdown-submenu dropdown-submenu-left" id="menu-sub-contable-calc">
-                            <a href="#" class="submenu-trigger" onclick="event.preventDefault(); showView('contable_plusvalia')">
+                            <a href="#" class="submenu-trigger" id="link-contable-calc-hub" onclick="event.preventDefault(); showView('contable_plusvalia')">
                                 <span>Calculadora</span>
                                 <span class="submenu-chevron">◀</span>
                             </a>
                             <div class="submenu-content">
-                                <a href="#" onclick="event.preventDefault(); showView('contable_plusvalia')">Plusvalía</a>
-                                <a href="#" onclick="event.preventDefault(); showView('contable_derechos')">Derechos</a>
-                                <a href="#" onclick="event.preventDefault(); showView('contable_seguimiento')">Seguimiento</a>
+                                <a href="#" id="link-contable-plusvalia" onclick="event.preventDefault(); showView('contable_plusvalia')">Plusvalía</a>
+                                <a href="#" id="link-contable-derechos" onclick="event.preventDefault(); showView('contable_derechos')">Derechos</a>
+                                <a href="#" id="link-contable-seguimiento" onclick="event.preventDefault(); showView('contable_seguimiento')">Seguimiento</a>
                             </div>
                         </div>
                     </div>
@@ -421,10 +421,10 @@
                         Mis Expedientes <span class="chevron">▼</span>
                     </button>
                     <div class="dropdown-content dropdown-content-right">
-                        <a href="#" onclick="event.preventDefault(); showView('buscador')">Buscador</a>
-                        <a href="#" onclick="event.preventDefault(); showView('asignados-mi')">Asignados a Mi</a>
-                        <a href="#" onclick="event.preventDefault(); showView('favoritos')">Marcadores</a>
-                        <a href="#" onclick="event.preventDefault(); showView('favoritos-seguimiento')">Gestión de Marcadores</a>
+                        <a href="#" id="link-exp-buscador" onclick="event.preventDefault(); showView('buscador')">Buscador</a>
+                        <a href="#" id="link-exp-asignados" onclick="event.preventDefault(); showView('asignados-mi')">Asignados a Mi</a>
+                        <a href="#" id="link-exp-favoritos" onclick="event.preventDefault(); showView('favoritos')">Marcadores</a>
+                        <a href="#" id="link-exp-fav-seg" onclick="event.preventDefault(); showView('favoritos-seguimiento')">Gestión de Marcadores</a>
                     </div>
                 </div>
 

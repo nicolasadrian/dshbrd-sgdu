@@ -163,30 +163,48 @@ function initAuth() {
         setDisplay('link-buzon-privada', perms.buzon_dgiur || perms.dgiur || perms.buzon_privada || perms.privada);
 
         // 3. Toggles for Reportes dropdown and its contents
+        const hasProdDgroc = perms.productividad_analistas || perms.productividad_catastro || perms.productividad_instalaciones || perms.productividad_conforme || perms.productividad_contable || perms.productividad_etapa_proyecto || perms.productividad_aviso_obra;
+        const hasProdDgiur = perms.productividad_analistas || perms.productividad_morfologia || perms.productividad_aph || perms.productividad_usos || perms.productividad_publico_privado || perms.productividad_copua || perms.productividad_privada;
+        const hasProductividadAccess = hasProdDgroc || hasProdDgiur || perms.productividad_analistas || perms.productividad_otros;
+
         const hasRrhhAccess = perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]);
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || perms.productividad_analistas || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
+        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || hasProductividadAccess || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
-        const linkSeg = document.querySelector('a[onclick*="showView(\'seguimiento\')"]');
-        if (linkSeg) linkSeg.style.display = perms.seguimiento ? 'block' : 'none';
+        setDisplay('link-rep-metas', perms.seguimiento || isAdmin);
+        setDisplay('cierre-link', perms.cierre || isAdmin);
+        setDisplay('sla-link', perms.sla || isAdmin);
+        setDisplay('link-rep-subsanaciones', perms.subsanaciones || isAdmin);
 
-        const cierreLink = document.getElementById('cierre-link');
-        if (cierreLink) cierreLink.style.display = perms.cierre ? 'block' : 'none';
+        // Submenú Productividad Analistas
+        const menuSubProductividad = document.getElementById('menu-sub-productividad');
+        if (menuSubProductividad) menuSubProductividad.style.display = hasProductividadAccess ? 'block' : 'none';
 
-        const slaLink = document.getElementById('sla-link');
-        if (slaLink) slaLink.style.display = perms.sla ? 'block' : 'none';
+        setDisplay('link-prod-hub', perms.productividad_analistas || isAdmin);
+        const colProdDgroc = document.getElementById('menu-prod-col-dgroc');
+        if (colProdDgroc) colProdDgroc.style.display = (hasProdDgroc || isAdmin) ? 'flex' : 'none';
+        setDisplay('link-prod-catastro', perms.productividad_analistas || perms.productividad_catastro || isAdmin);
+        setDisplay('link-prod-instalaciones', perms.productividad_analistas || perms.productividad_instalaciones || isAdmin);
+        setDisplay('link-prod-conforme', perms.productividad_analistas || perms.productividad_conforme || isAdmin);
+        setDisplay('link-prod-contable', perms.productividad_analistas || perms.productividad_contable || isAdmin);
+        setDisplay('link-prod-etapa_proyecto', perms.productividad_analistas || perms.productividad_etapa_proyecto || isAdmin);
+        setDisplay('link-prod-aviso_obra', perms.productividad_analistas || perms.productividad_aviso_obra || isAdmin);
 
-        const linkSub = document.querySelector('a[onclick*="showView(\'subsanaciones\')"]');
-        if (linkSub) linkSub.style.display = perms.subsanaciones ? 'block' : 'none';
+        const colProdDgiur = document.getElementById('menu-prod-col-dgiur');
+        if (colProdDgiur) colProdDgiur.style.display = (hasProdDgiur || perms.productividad_otros || isAdmin) ? 'flex' : 'none';
+        setDisplay('link-prod-morfologia', perms.productividad_analistas || perms.productividad_morfologia || isAdmin);
+        setDisplay('link-prod-aph', perms.productividad_analistas || perms.productividad_aph || isAdmin);
+        setDisplay('link-prod-usos', perms.productividad_analistas || perms.productividad_usos || isAdmin);
+        setDisplay('link-prod-publico_privado', perms.productividad_analistas || perms.productividad_publico_privado || isAdmin);
+        setDisplay('link-prod-copua', perms.productividad_analistas || perms.productividad_copua || isAdmin);
+        setDisplay('link-prod-privada', perms.productividad_analistas || perms.productividad_privada || isAdmin);
+        setDisplay('sep-prod-otros', perms.productividad_analistas || perms.productividad_otros || isAdmin);
+        setDisplay('link-prod-otros', perms.productividad_analistas || perms.productividad_otros || isAdmin);
 
-        const prodLink = document.getElementById('productividad-link');
-        if (prodLink) prodLink.style.display = perms.productividad_analistas ? 'block' : 'none';
-
-        const rrhhLink = document.getElementById('rrhh-link');
+        // Submenú RRHH
         const menuSubRrhh = document.getElementById('menu-sub-rrhh');
         if (menuSubRrhh) menuSubRrhh.style.display = hasRrhhAccess ? 'block' : 'none';
-        else if (rrhhLink) rrhhLink.style.display = hasRrhhAccess ? 'block' : 'none';
 
         setDisplay('link-rrhh-hub', perms.reportes_rrhh || isAdmin);
         setDisplay('link-rrhh-carga', perms.carga_reportes_rrhh || isAdmin);
@@ -204,21 +222,18 @@ function initAuth() {
         setDisplay('link-rrhh-privada', perms.reportes_rrhh || perms.rrhh_privada || isAdmin);
         setDisplay('link-rrhh-otros', perms.reportes_rrhh || perms.rrhh_otros || isAdmin);
 
-        const linkUniversoTratas = document.getElementById('universo-tratas-link');
-        if (linkUniversoTratas) linkUniversoTratas.style.display = perms.universo_tratas ? 'block' : 'none';
-
-        const linkPlanifNov2026 = document.getElementById('planificacion-nov-2026-link');
-        if (linkPlanifNov2026) linkPlanifNov2026.style.display = perms.planificacion_nov_2026 ? 'block' : 'none';
+        setDisplay('universo-tratas-link', perms.universo_tratas || isAdmin);
+        setDisplay('sep-rep-planif', perms.planificacion_nov_2026 || isAdmin);
+        setDisplay('planificacion-nov-2026-link', perms.planificacion_nov_2026 || isAdmin);
 
         // 4. Toggles for Analytics dropdown and its contents
-        const hasAnalyticsAccess = perms.analytics_estadistica || perms.analytics_datasets || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_conformes_obra || perms.analytics_pdl_blanqueo;
+        const hasAnalyticsGeneral = perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_conformes_obra || perms.analytics_pdl_blanqueo;
+        const hasAnalyticsAccess = hasAnalyticsGeneral || perms.analytics_datasets;
         const navAnalytics = document.getElementById('nav-dropdown-analytics');
         if (navAnalytics) navAnalytics.style.display = hasAnalyticsAccess ? 'inline-block' : 'none';
 
-        const linkEstadistica = document.querySelector('a[onclick*="showView(\'analytics_estadistica\')"]');
-        if (linkEstadistica) linkEstadistica.style.display = (perms.analytics_estadistica || perms.ley_blanqueo || perms.analytics_m2_permisados || perms.analytics_avisos_obra || perms.analytics_conformes_obra || perms.analytics_pdl_blanqueo) ? 'block' : 'none';
-        const linkDatasets = document.querySelector('a[onclick*="showView(\'analytics_datasets\')"]');
-        if (linkDatasets) linkDatasets.style.display = perms.analytics_datasets ? 'block' : 'none';
+        setDisplay('link-analytics-estadistica', hasAnalyticsGeneral || isAdmin);
+        setDisplay('link-analytics-datasets', perms.analytics_datasets || isAdmin);
 
         // Show/hide cards inside Analytics Estadística based on permissions
         const cardPermisosObra = document.getElementById('card-goto-permisos');
@@ -247,28 +262,54 @@ function initAuth() {
         }
 
         // 5. Toggles for Ciudad 3D dropdown and its contents
-        const hasC3DGeneral = perms.ciudad_3d || perms.c3d_home || perms.c3d_extensiones_todas || perms.c3d_extensiones_mis_trazados || perms.c3d_extensiones_revision || perms.c3d_extensiones_equipo || perms.c3d_extensiones_mapa || perms.ciudad3d_manzanas_atipicas || perms.ciudad3d_pdi || perms.lfi_dibujar || perms.lfi_revisar;
+        const hasC3DExtensiones = perms.ciudad_3d || perms.c3d_extensiones_todas || perms.c3d_extensiones_mis_trazados || perms.c3d_extensiones_revision || perms.c3d_extensiones_equipo || perms.c3d_extensiones_mapa || perms.lfi_dibujar || perms.lfi_revisar;
+        const hasC3DPDI = perms.ciudad_3d || perms.ciudad3d_pdi || perms.ciudad3d_pdi_validacion || perms.ciudad3d_pdi_validacion_c3d;
+        const hasC3DGeneral = perms.ciudad_3d || perms.c3d_home || hasC3DExtensiones || perms.ciudad3d_manzanas_atipicas || hasC3DPDI;
+        
         const navCiudad3D = document.getElementById('nav-dropdown-ciudad3d');
         if (navCiudad3D) navCiudad3D.style.display = hasC3DGeneral ? 'inline-block' : 'none';
 
+        setDisplay('link-c3d-home', perms.ciudad_3d || perms.c3d_home || isAdmin);
+
+        // Submenú Extensiones Irregulares
+        const subC3dExt = document.getElementById('menu-sub-c3d-extensiones');
+        if (subC3dExt) subC3dExt.style.display = (hasC3DExtensiones || isAdmin) ? 'block' : 'none';
+        setDisplay('link-c3d-ext-todas', perms.ciudad_3d || perms.c3d_extensiones_todas || isAdmin);
+        setDisplay('link-c3d-ext-mis-trazados', perms.ciudad_3d || perms.c3d_extensiones_mis_trazados || perms.lfi_dibujar || isAdmin);
+        setDisplay('link-c3d-ext-revision', perms.ciudad_3d || perms.c3d_extensiones_revision || perms.lfi_revisar || isAdmin);
+        setDisplay('link-c3d-ext-equipo', perms.ciudad_3d || perms.c3d_extensiones_equipo || isAdmin);
+        setDisplay('link-c3d-ext-mapa', perms.ciudad_3d || perms.c3d_extensiones_mapa || isAdmin);
+
+        // Manzanas Atípicas
+        setDisplay('link-c3d-atipicas', perms.ciudad_3d || perms.ciudad3d_manzanas_atipicas || isAdmin);
+
+        // Submenú Backend PDI
+        const subC3dPdi = document.getElementById('menu-sub-c3d-pdi');
+        if (subC3dPdi) subC3dPdi.style.display = (hasC3DPDI || isAdmin) ? 'block' : 'none';
+        setDisplay('link-c3d-pdi-inventario', perms.ciudad_3d || perms.ciudad3d_pdi || isAdmin);
+        setDisplay('link-c3d-pdi-validacion', perms.ciudad_3d || perms.ciudad3d_pdi_validacion || isAdmin);
+        setDisplay('link-c3d-pdi-validacion-c3d', perms.ciudad_3d || perms.ciudad3d_pdi_validacion_c3d || isAdmin);
+
         // 6. Toggles for Contable dropdown and its contents
-        const hasContableAccess = perms.contable_calculadora || perms.contable_plusvalia || perms.contable_derechos || perms.contable_seguimiento;
+        const hasContableCalc = perms.contable_calculadora || perms.contable_plusvalia || perms.contable_derechos || perms.contable_seguimiento;
         const navContable = document.getElementById('nav-dropdown-contable');
-        if (navContable) navContable.style.display = hasContableAccess ? 'inline-block' : 'none';
+        if (navContable) navContable.style.display = (hasContableCalc || isAdmin) ? 'inline-block' : 'none';
+
+        const subContableCalc = document.getElementById('menu-sub-contable-calc');
+        if (subContableCalc) subContableCalc.style.display = (hasContableCalc || isAdmin) ? 'block' : 'none';
+        setDisplay('link-contable-plusvalia', perms.contable_calculadora || perms.contable_plusvalia || isAdmin);
+        setDisplay('link-contable-derechos', perms.contable_calculadora || perms.contable_derechos || isAdmin);
+        setDisplay('link-contable-seguimiento', perms.contable_calculadora || perms.contable_seguimiento || isAdmin);
 
         // 7. Toggles for Mis Expedientes dropdown and its contents
-        const hasExpedientesAccess = perms.buscador || perms.favoritos || perms['favoritos-seguimiento'] || perms['asignados-mi'];
+        const hasExpedientesAccess = perms.buscador || perms.favoritos || perms['favoritos-seguimiento'] || perms['asignados-mi'] || isAdmin;
         const navExpedientes = document.getElementById('nav-dropdown-expedientes');
         if (navExpedientes) navExpedientes.style.display = hasExpedientesAccess ? 'inline-block' : 'none';
 
-        const linkBuscador = document.querySelector('a[onclick*="showView(\'buscador\')"]');
-        if (linkBuscador) linkBuscador.style.display = perms.buscador ? 'block' : 'none';
-        const linkFavoritos = document.querySelector('a[onclick*="showView(\'favoritos\')"]');
-        if (linkFavoritos) linkFavoritos.style.display = perms.favoritos ? 'block' : 'none';
-        const linkAsignadosMi = document.querySelector('a[onclick*="showView(\'asignados-mi\')"]');
-        if (linkAsignadosMi) linkAsignadosMi.style.display = perms['asignados-mi'] ? 'block' : 'none';
-        const linkFavSeg = document.querySelector('a[onclick*="showView(\'favoritos-seguimiento\')"]');
-        if (linkFavSeg) linkFavSeg.style.display = perms['favoritos-seguimiento'] ? 'block' : 'none';
+        setDisplay('link-exp-buscador', perms.buscador || isAdmin);
+        setDisplay('link-exp-favoritos', perms.favoritos || isAdmin);
+        setDisplay('link-exp-asignados', perms['asignados-mi'] || isAdmin);
+        setDisplay('link-exp-fav-seg', perms['favoritos-seguimiento'] || isAdmin);
 
         // Si necesita cambio de clave, forzar modal
         if (currentUser.needs_password_change) {
@@ -450,9 +491,16 @@ async function showView(viewId, updateHash = true) {
                 const gKey = viewId.replace('reportes_rrhh_', '');
                 hasPermission = !!(perms.reportes_rrhh || perms[`rrhh_${gKey}`] || isAdmin);
             }
+        } else if (viewId === 'productividad_analistas' || viewId.startsWith('productividad_analistas_')) {
+            if (viewId === 'productividad_analistas') {
+                hasPermission = !!(perms.productividad_analistas || Object.keys(perms).some(k => k.startsWith('productividad_') && perms[k]) || isAdmin);
+            } else {
+                const gKey = viewId.replace('productividad_analistas_', '');
+                hasPermission = !!(perms.productividad_analistas || perms[`productividad_${gKey}`] || isAdmin);
+            }
         } else if (viewId === 'familia_tramites' || viewId === 'family') {
             hasPermission = !!(perms.family || perms.familia_tramites || perms.seguimiento || isAdmin);
-        } else if (viewId === 'seguimiento' || viewId === 'cierre' || viewId === 'sla' || viewId === 'subsanaciones' || viewId === 'productividad_analistas' || viewId === 'universo_tratas' || viewId === 'planificacion_nov_2026') {
+        } else if (viewId === 'seguimiento' || viewId === 'cierre' || viewId === 'sla' || viewId === 'subsanaciones' || viewId === 'universo_tratas' || viewId === 'planificacion_nov_2026') {
             hasPermission = !!(perms[viewId] || isAdmin);
         } else if (viewId === 'mis_datos' || viewId === 'backlog' || viewId === 'admin' || viewId.startsWith('backlog_')) {
             hasPermission = isAdmin || (viewId === 'mis_datos');
