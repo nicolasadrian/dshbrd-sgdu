@@ -27,7 +27,17 @@ _auth_cache: Dict[str, Any] = {}
 _AUTH_CACHE_TTL = 60  # segundos
 
 def verify_password(plain_password, password_hash):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), password_hash.encode('utf-8'))
+    try:
+        if not plain_password or not password_hash:
+            return False
+        if isinstance(plain_password, str):
+            plain_password = plain_password.encode('utf-8')
+        if isinstance(password_hash, str):
+            password_hash = password_hash.encode('utf-8')
+        return bcrypt.checkpw(plain_password, password_hash)
+    except Exception as e:
+        logger.error(f"Error en verify_password: {e}")
+        return False
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

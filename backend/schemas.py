@@ -3,12 +3,12 @@ from typing import Optional, List, Dict, Any
 
 class Token(BaseModel):
     access_token: str
-    token_type: str
+    token_type: str = "bearer"
     username: str
-    role: str
-    full_name: str
-    sector: str
-    needs_password_change: bool
+    role: str = "usuario"
+    full_name: Optional[str] = ""
+    sector: Optional[str] = "General"
+    needs_password_change: Optional[bool] = False
     permissions: Optional[Dict[str, bool]] = None
 
 class User(BaseModel):

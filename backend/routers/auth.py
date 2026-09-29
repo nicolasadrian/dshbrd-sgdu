@@ -42,12 +42,13 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
     client_ip = "0.0.0.0" # En producción se puede obtener de request.client.host
     
     try:
+        clean_username = (from_data.username or "").strip()
         with engine.begin() as conn:
             query = text("""
                 SELECT username, password_hash, role, full_name, sector, needs_password_change 
-                FROM auth_users WHERE username = :u
+                FROM auth_users WHERE LOWER(TRIM(username)) = LOWER(TRIM(:u))
             """)
-            result = conn.execute(query, {"u": from_data.username}).fetchone()
+            result = conn.execute(query, {"u": clean_username}).fetchone()
             
             if not result or not verify_password(from_data.password, result[1]):
                 raise HTTPException(
@@ -77,10 +78,10 @@ async def login(from_data: OAuth2PasswordRequestForm = Depends()):
                 "access_token": access_token, 
                 "token_type": "bearer", 
                 "username": result[0], 
-                "role": result[2],
+                "role": result[2] or "usuario",
                 "full_name": result[3] or result[0],
                 "sector": result[4] or "General",
-                "needs_password_change": result[5],
+                "needs_password_change": bool(result[5]) if result[5] is not None else False,
                 "permissions": resolved_perms
             }
     except HTTPException:
