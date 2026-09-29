@@ -20,8 +20,20 @@ WITH ranked_rows AS (
         o.ubicacion_dgseccion AS seccion,
         o.ubicacion_dgmanzana AS manzana,
         o.ubicacion_dgparcela AS parcela,
-        o.ubicacion_dgcomuna AS comuna,
-        o.ubicacion_dgbarrio AS barrio,
+        CASE 
+            WHEN o.ubicacion_dgcomuna IS NULL 
+              OR TRIM(o.ubicacion_dgcomuna) IN ('', '-', 'Comuna 0', '0') 
+            THEN 'Sin dato de Comuna'
+            ELSE TRIM(o.ubicacion_dgcomuna)
+        END AS comuna,
+        CASE 
+            WHEN o.ubicacion_dgbarrio IS NULL 
+              OR TRIM(o.ubicacion_dgbarrio) IN ('', '-') 
+            THEN 'Sin dato de Barrio'
+            WHEN UPPER(TRIM(o.ubicacion_dgbarrio)) IN ('NUÑEZ', 'NÚÑEZ', 'NUEZ', 'NEZ') 
+            THEN 'NÚÑEZ'
+            ELSE UPPER(TRIM(o.ubicacion_dgbarrio))
+        END AS barrio,
         o.hay_uf AS es_uf,
         COALESCE(o.ubicacion_dgseccion, '') || '-' || COALESCE(o.ubicacion_dgmanzana, '') || '-' || COALESCE(o.ubicacion_dgparcela, '') AS smp,
         o.x, -- Columna de longitud (X)
