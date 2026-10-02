@@ -34,6 +34,7 @@ const VIEW_ROUTES = {
     // Reportes
     'seguimiento': () => import('./views/reportes/metas/metas.html?raw'),
     'metas': () => import('./views/reportes/metas/metas.html?raw'),
+    'seguimiento_mh': () => import('./views/reportes/seguimiento_mh/seguimiento_mh.html?raw'),
     'cierre': () => import('./views/reportes/cierre_mes/cierre.html?raw'),
     'sla': () => import('./views/reportes/tiempos_tramitacion/sla.html?raw'),
     'subsanaciones': () => import('./views/reportes/subsanaciones/subsanaciones.html?raw'),
@@ -189,6 +190,8 @@ function triggerViewInit(viewId) {
         window.loadMetasData();
     } else if (viewId === 'seguimiento' && typeof window.loadSeguimientoData === 'function') {
         window.loadSeguimientoData();
+    } else if (viewId === 'seguimiento_mh' && typeof window.loadSeguimientoMHView === 'function') {
+        window.loadSeguimientoMHView();
     } else if (viewId === 'cierre' && typeof window.loadCierreMesData === 'function') {
         window.loadCierreMesData();
     } else if (viewId === 'sla' && typeof window.loadSLAReporte === 'function') {

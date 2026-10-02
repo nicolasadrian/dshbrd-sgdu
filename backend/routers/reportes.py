@@ -11,7 +11,9 @@ from collections import defaultdict
 # Import configs, database, auth and cache utilities
 from config import TRAMITES_CONFIG
 from database import engine
-from schemas import User
+from schemas import (
+    User, MHAssignRequest, MHUnassignRequest
+)
 from auth_utils import get_current_user, get_current_user_from_param_or_header
 from cache_utils import cached_response, set_cache
 
@@ -6315,6 +6317,681 @@ async def get_planificacion_metas_v2(
     except Exception as e:
         logger.error(f"Error en planificacion-nov-2026/metas-v2: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SEGUIMIENTO MH (MDUG0131B - Plano de Propiedad Horizontal Nuevo)
+# ═══════════════════════════════════════════════════════════════════════════
+
+MH_EXISTING_AGENTS = ['MOCON', 'A.LAMPERT', 'BARTROLIG', 'ADILERNIA', 'NPONZO', 'AGUSMAZZONI', 'M.NAPOLI']
+MH_NEW_AGENTS = ['JUANMANUELVILLAGRA', 'C.FEIJOO', 'JVELEZ', 'RNVAZQUEZ', 'R.DOMINGUEZOTERO', 'PCUGLIANDOLOHOLUBOWICZ']
+MH_ALL_AGENTS = MH_EXISTING_AGENTS + MH_NEW_AGENTS
+
+MH_MONTHLY_GOALS = {
+    '2026-10': {'nuevos': 58, 'existentes': 60, 'total': 118, 'label': 'Octubre'},
+    '2026-11': {'nuevos': 72, 'existentes': 75, 'total': 147, 'label': 'Noviembre'},
+    '2026-12': {'nuevos': 86, 'existentes': 75, 'total': 161, 'label': 'Diciembre'},
+    '2027-01': {'nuevos': 96, 'existentes': 75, 'total': 171, 'label': 'Enero'}
+}
+
+@router.get("/api/reportes/seguimiento-mh/dashboard")
+async def get_seguimiento_mh_dashboard(current_user: User = Depends(get_current_user)):
+    """
+    Retorna métricas consolidadas de avance para Seguimiento MH:
+    - Objetivos mensuales vs Egresos efectivos cumplidos por tipo de agente
+    - Resumen de stock vs flujo
+    - Métricas por analista (existentes y nuevos)
+    - Desglose de tenencia real vs asignación
+    """
+    try:
+        with engine.connect() as conn:
+            # 1. Obtener SLA de días para MDUG0131B
+            t_resolucion = 30
+            try:
+                res_sla = conn.execute(text("""
+                    SELECT dias_propio_sector_este_ano, dias_propio_sector
+                    FROM planificacion_tiempos_tramitacion_resumen
+                    WHERE gerencia = 'catastro' AND trata = 'MDUG0131B'
+                    LIMIT 1
+                """)).fetchone()
+                if res_sla:
+                    val_ano, val_ult = res_sla[0], res_sla[1]
+                    if val_ano and float(val_ano) > 0:
+                        t_resolucion = math.ceil(float(val_ano))
+                    elif val_ult and float(val_ult) > 0:
+                        t_resolucion = math.ceil(float(val_ult))
+            except Exception as e_sla:
+                logger.warning(f"Error reading SLA for MDUG0131B: {e_sla}")
+
+            # 2. Resumen de Stock MDUG0131B en Catastro (Excluyendo Egresos Efectivos y No Efectivos)
+            sql_stock_summary = """
+                WITH egresos_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_efectivos
+                    WHERE trata = 'MDUG0131B'
+                ),
+                egresos_no_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_no_efectivos
+                    WHERE trata = 'MDUG0131B'
+                )
+                SELECT 
+                    COUNT(*) as total_stock,
+                    COUNT(*) FILTER (WHERE COALESCE(s.dias_en_gerencia, 0) > :sla) as estancados_stock,
+                    COUNT(*) FILTER (WHERE COALESCE(s.dias_en_gerencia, 0) <= :sla) as flujo_stock
+                FROM mv_catastro_stock_propio s
+                LEFT JOIN egresos_efectivos eef ON s.id_expediente = eef.id_expediente
+                LEFT JOIN egresos_no_efectivos ene ON s.id_expediente = ene.id_expediente
+                WHERE s.trata = 'MDUG0131B'
+                  AND eef.id_expediente IS NULL
+                  AND ene.id_expediente IS NULL
+            """
+            stock_res = conn.execute(text(sql_stock_summary), {"sla": t_resolucion}).mappings().fetchone()
+            stock_propio_count = int(stock_res["total_stock"] or 0) if stock_res else 0
+            stock_estancado = int(stock_res["estancados_stock"] or 0) if stock_res else 0
+            stock_flujo = int(stock_res["flujo_stock"] or 0) if stock_res else 0
+
+            # 3. Subsanaciones abiertas MDUG0131B (Excluyendo Egresos Efectivos y No Efectivos)
+            sql_subs_summary = """
+                WITH egresos_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_efectivos
+                    WHERE trata = 'MDUG0131B'
+                ),
+                egresos_no_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_no_efectivos
+                    WHERE trata = 'MDUG0131B'
+                )
+                SELECT COUNT(*) 
+                FROM mv_catastro_subsanaciones sub
+                LEFT JOIN egresos_efectivos eef ON sub.id_expediente = eef.id_expediente
+                LEFT JOIN egresos_no_efectivos ene ON sub.id_expediente = ene.id_expediente
+                WHERE sub.trata = 'MDUG0131B'
+                  AND eef.id_expediente IS NULL
+                  AND ene.id_expediente IS NULL
+            """
+            subsanaciones_count = conn.execute(text(sql_subs_summary)).scalar() or 0
+
+            # 4. Egresos efectivos y no efectivos históricos/mensuales por usuario para MDUG0131B
+            # Egresos efectivos (Gedos IFMHC)
+            sql_egresos_efectivos = """
+                SELECT 
+                    to_char(d.fecha_asociacion, 'YYYY-MM') as mes_label,
+                    UPPER(TRIM(d.usuario_creador)) as usuario,
+                    COUNT(DISTINCT d.id_expediente) as cant_efectivos
+                FROM mvw_datos_gedo_secgdu d
+                JOIN mvw_expedientes_tratas_secgdu e ON d.id_expediente = e.id_expediente
+                WHERE e.trata = 'MDUG0131B'
+                  AND d.acronimo = 'IFMHC'
+                  AND d.fecha_asociacion >= '2026-09-01'
+                GROUP BY 1, 2
+            """
+            res_egr_ef = conn.execute(text(sql_egresos_efectivos)).mappings().fetchall()
+            
+            # Egresos no efectivos (Guarda Temporal)
+            sql_egresos_ne = """
+                SELECT 
+                    to_char(ne.fecha_ultimo_movimiento, 'YYYY-MM') as mes_label,
+                    COUNT(*) as cant_no_efectivos
+                FROM mv_catastro_egresos_no_efectivos ne
+                WHERE ne.trata = 'MDUG0131B'
+                  AND ne.fecha_ultimo_movimiento >= '2026-09-01'
+                GROUP BY 1
+            """
+            res_egr_ne = conn.execute(text(sql_egresos_ne)).mappings().fetchall()
+            egr_ne_by_mes = {r["mes_label"]: int(r["cant_no_efectivos"]) for r in res_egr_ne}
+
+            # 5. Agrupar métricas por agente y por mes
+            agent_metrics = {}
+            for agent in MH_ALL_AGENTS:
+                agent_type = 'existente' if agent in MH_EXISTING_AGENTS else 'nuevo'
+                agent_metrics[agent] = {
+                    "usuario": agent,
+                    "tipo": agent_type,
+                    "asignados_activos": 0,
+                    "en_poder_sade": 0,
+                    "coincidencia_tenencia": 0,
+                    "egresos_octubre": 0,
+                    "egresos_noviembre": 0,
+                    "egresos_diciembre": 0,
+                    "egresos_enero": 0,
+                    "total_egresos_efectivos": 0
+                }
+
+            # Calcular egresos por agente en cada mes
+            monthly_totals = {
+                '2026-10': {'nuevos': 0, 'existentes': 0, 'total': 0, 'meta_nuevos': 58, 'meta_existentes': 60, 'meta_total': 118, 'label': 'Octubre'},
+                '2026-11': {'nuevos': 0, 'existentes': 0, 'total': 0, 'meta_nuevos': 72, 'meta_existentes': 75, 'meta_total': 147, 'label': 'Noviembre'},
+                '2026-12': {'nuevos': 0, 'existentes': 0, 'total': 0, 'meta_nuevos': 86, 'meta_existentes': 75, 'meta_total': 161, 'label': 'Diciembre'},
+                '2027-01': {'nuevos': 0, 'existentes': 0, 'total': 0, 'meta_nuevos': 96, 'meta_existentes': 75, 'meta_total': 171, 'label': 'Enero'}
+            }
+
+            for row in res_egr_ef:
+                m_label = row["mes_label"]
+                u = row["usuario"]
+                cnt = int(row["cant_efectivos"] or 0)
+                if u in agent_metrics:
+                    agent_metrics[u]["total_egresos_efectivos"] += cnt
+                    if m_label == '2026-10':
+                        agent_metrics[u]["egresos_octubre"] += cnt
+                    elif m_label == '2026-11':
+                        agent_metrics[u]["egresos_noviembre"] += cnt
+                    elif m_label == '2026-12':
+                        agent_metrics[u]["egresos_diciembre"] += cnt
+                    elif m_label == '2027-01':
+                        agent_metrics[u]["egresos_enero"] += cnt
+
+                if m_label in monthly_totals:
+                    if u in MH_EXISTING_AGENTS:
+                        monthly_totals[m_label]["existentes"] += cnt
+                        monthly_totals[m_label]["total"] += cnt
+                    elif u in MH_NEW_AGENTS:
+                        monthly_totals[m_label]["nuevos"] += cnt
+                        monthly_totals[m_label]["total"] += cnt
+
+            # 6. Cruce de Asignaciones vs Poseedor Actual en SADE (Solo sobre cartera activa)
+            sql_assignments = """
+                WITH egresos_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_efectivos
+                    WHERE trata = 'MDUG0131B'
+                ),
+                egresos_no_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_no_efectivos
+                    WHERE trata = 'MDUG0131B'
+                )
+                SELECT 
+                    a.id_expediente,
+                    a.expediente,
+                    a.usuario_asignado,
+                    a.tipo_agente,
+                    lp.destinatario as poseedor_sade,
+                    lp.estado as estado_sade,
+                    lp.fecha as fecha_ultimo_pase
+                FROM public.seguimiento_mh_asignaciones a
+                JOIN mvw_expedientes_tratas_secgdu e ON a.id_expediente = e.id_expediente
+                LEFT JOIN egresos_efectivos eef ON a.id_expediente = eef.id_expediente
+                LEFT JOIN egresos_no_efectivos ene ON a.id_expediente = ene.id_expediente
+                LEFT JOIN LATERAL (
+                    SELECT destinatario, estado, fecha
+                    FROM mvw_ee_pases_secgdu p
+                    WHERE p.id_expediente = a.id_expediente
+                    ORDER BY p.fecha DESC
+                    LIMIT 1
+                ) lp ON true
+                WHERE a.activo = TRUE
+                  AND e.trata = 'MDUG0131B'
+                  AND e.estado != 'Guarda Temporal'
+                  AND (lp.estado IS NULL OR lp.estado != 'Guarda Temporal')
+                  AND eef.id_expediente IS NULL
+                  AND ene.id_expediente IS NULL
+            """
+            active_assignments = conn.execute(text(sql_assignments)).mappings().fetchall()
+            total_asignados = len(active_assignments)
+            total_coincidentes = 0
+
+            for asig in active_assignments:
+                usr = asig["usuario_asignado"]
+                pos = (asig["poseedor_sade"] or "").strip().upper()
+                if usr in agent_metrics:
+                    agent_metrics[usr]["asignados_activos"] += 1
+                if pos in agent_metrics:
+                    agent_metrics[pos]["en_poder_sade"] += 1
+                if usr == pos:
+                    total_coincidentes += 1
+                    if usr in agent_metrics:
+                        agent_metrics[usr]["coincidencia_tenencia"] += 1
+
+            return {
+                "dias_sla": t_resolucion,
+                "stock": {
+                    "stock_propio": stock_propio_count,
+                    "subsanaciones": subsanaciones_count,
+                    "stock_estancado": stock_estancado,
+                    "stock_flujo": stock_flujo,
+                    "total_universo_activo": stock_propio_count + subsanaciones_count
+                },
+                "asignaciones_resumen": {
+                    "total_asignados": total_asignados,
+                    "total_coincidentes": total_coincidentes,
+                    "total_no_coincidentes": max(0, total_asignados - total_coincidentes),
+                    "porcentaje_coincidencia": round((total_coincidentes / total_asignados * 100), 1) if total_asignados > 0 else 0
+                },
+                "monthly_goals": monthly_totals,
+                "agents_summary": list(agent_metrics.values()),
+                "existing_agents": MH_EXISTING_AGENTS,
+                "new_agents": MH_NEW_AGENTS
+            }
+    except Exception as e:
+        logger.error(f"Error en seguimiento-mh/dashboard: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reportes/seguimiento-mh/expedientes")
+async def get_seguimiento_mh_expedientes(
+    filtro_estado: Optional[str] = Query(None, description="all, stock, subsanacion, asignados, no_asignados"),
+    filtro_agente: Optional[str] = Query(None),
+    filtro_tipo_agente: Optional[str] = Query(None),
+    filtro_coincidencia: Optional[str] = Query(None, description="si, no"),
+    search: Optional[str] = Query(None),
+    limit: int = Query(500, le=1000),
+    offset: int = Query(0),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Listado del universo activo de MDUG0131B (Stock + Subsanaciones TAD abiertas).
+    Incluye estado de asignación, poseedor real en SADE y fecha de último pase.
+    """
+    try:
+        with engine.connect() as conn:
+            # Obtener SLA
+            t_resolucion = 30
+            try:
+                res_sla = conn.execute(text("""
+                    SELECT dias_propio_sector_este_ano, dias_propio_sector
+                    FROM planificacion_tiempos_tramitacion_resumen
+                    WHERE gerencia = 'catastro' AND trata = 'MDUG0131B'
+                    LIMIT 1
+                """)).fetchone()
+                if res_sla:
+                    val_ano, val_ult = res_sla[0], res_sla[1]
+                    if val_ano and float(val_ano) > 0:
+                        t_resolucion = math.ceil(float(val_ano))
+                    elif val_ult and float(val_ult) > 0:
+                        t_resolucion = math.ceil(float(val_ult))
+            except Exception:
+                pass
+
+            sql = f"""
+                WITH egresos_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_efectivos
+                    WHERE trata = 'MDUG0131B'
+                ),
+                egresos_no_efectivos AS (
+                    SELECT DISTINCT id_expediente
+                    FROM mv_catastro_egresos_no_efectivos
+                    WHERE trata = 'MDUG0131B'
+                ),
+                subs_abiertas AS (
+                    SELECT DISTINCT ON (id_expediente)
+                        id_expediente,
+                        usuario_alta as subs_usuario,
+                        fecha_alta as subs_fecha_alta,
+                        ROUND(EXTRACT(epoch FROM (CURRENT_TIMESTAMP - fecha_alta)) / 86400.0)::int as dias_subs_abierta
+                    FROM mvw_ee_actividades_secgdu
+                    WHERE estado = 'PENDIENTE'
+                      AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ORDER BY id_expediente, fecha_alta DESC
+                ),
+                ult_pases AS (
+                    SELECT DISTINCT ON (p.id_expediente)
+                        p.id_expediente,
+                        p.destinatario as poseedor_sade,
+                        p.usuario as emisor_ultimo_pase,
+                        p.estado as estado_sade,
+                        p.motivo as motivo_ultimo_pase,
+                        p.fecha as fecha_ultimo_pase,
+                        (CURRENT_DATE - p.fecha::date) as dias_en_poder
+                    FROM mvw_ee_pases_secgdu p
+                    JOIN mvw_expedientes_tratas_secgdu e ON p.id_expediente = e.id_expediente
+                    WHERE e.trata = 'MDUG0131B' AND e.estado != 'Guarda Temporal'
+                    ORDER BY p.id_expediente, p.fecha DESC
+                )
+                SELECT 
+                    e.id_expediente,
+                    e.expediente,
+                    e.trata,
+                    e.descripcion_trata,
+                    e.descripcion,
+                    e.caratula,
+                    e.fecha_creacion,
+                    (CURRENT_DATE - e.fecha_creacion::date) as dias_en_gerencia,
+                    e.estado as estado_expediente,
+                    CASE 
+                        WHEN sa.id_expediente IS NOT NULL THEN 'SUBSANACION'
+                        ELSE 'STOCK_PROPIO'
+                    END as categoria_estado,
+                    sa.dias_subs_abierta,
+                    sa.subs_fecha_alta,
+                    up.poseedor_sade,
+                    up.emisor_ultimo_pase,
+                    up.estado_sade,
+                    up.motivo_ultimo_pase,
+                    up.fecha_ultimo_pase,
+                    COALESCE(up.dias_en_poder, 0) as dias_en_poder,
+                    asig.usuario_asignado,
+                    asig.tipo_agente,
+                    asig.asignado_por,
+                    asig.fecha_asignacion,
+                    asig.observaciones as observaciones_asignacion,
+                    CASE
+                        WHEN asig.usuario_asignado IS NOT NULL AND asig.usuario_asignado = up.poseedor_sade THEN TRUE
+                        WHEN asig.usuario_asignado IS NOT NULL THEN FALSE
+                        ELSE NULL
+                    END as coincide_tenencia_sade,
+                    CASE
+                        WHEN (CURRENT_DATE - e.fecha_creacion::date) <= {t_resolucion} THEN 'FLUJO'
+                        ELSE 'ESTANCADO'
+                    END as tipo_flujo
+                FROM mvw_expedientes_tratas_secgdu e
+                LEFT JOIN subs_abiertas sa ON e.id_expediente = sa.id_expediente
+                LEFT JOIN ult_pases up ON e.id_expediente = up.id_expediente
+                LEFT JOIN public.seguimiento_mh_asignaciones asig ON e.id_expediente = asig.id_expediente AND asig.activo = TRUE
+                LEFT JOIN egresos_efectivos eef ON e.id_expediente = eef.id_expediente
+                LEFT JOIN egresos_no_efectivos ene ON e.id_expediente = ene.id_expediente
+                WHERE e.trata = 'MDUG0131B'
+                  AND e.estado != 'Guarda Temporal'
+                  AND (up.estado_sade IS NULL OR up.estado_sade != 'Guarda Temporal')
+                  AND eef.id_expediente IS NULL
+                  AND ene.id_expediente IS NULL
+            """
+
+            where_clauses = []
+            params = {}
+
+            if filtro_estado == 'stock':
+                where_clauses.append("sa.id_expediente IS NULL")
+            elif filtro_estado == 'subsanacion':
+                where_clauses.append("sa.id_expediente IS NOT NULL")
+            elif filtro_estado == 'asignados':
+                where_clauses.append("asig.usuario_asignado IS NOT NULL")
+            elif filtro_estado == 'no_asignados':
+                where_clauses.append("asig.usuario_asignado IS NULL")
+
+            if filtro_agente:
+                where_clauses.append("asig.usuario_asignado = :agente")
+                params["agente"] = filtro_agente.strip().upper()
+
+            if filtro_tipo_agente:
+                where_clauses.append("asig.tipo_agente = :tipo_agente")
+                params["tipo_agente"] = filtro_tipo_agente.strip().lower()
+
+            if filtro_coincidencia == 'si':
+                where_clauses.append("asig.usuario_asignado IS NOT NULL AND asig.usuario_asignado = up.poseedor_sade")
+            elif filtro_coincidencia == 'no':
+                where_clauses.append("asig.usuario_asignado IS NOT NULL AND asig.usuario_asignado != up.poseedor_sade")
+
+            if search:
+                where_clauses.append("(e.expediente ILIKE :search OR e.descripcion ILIKE :search OR up.poseedor_sade ILIKE :search OR asig.usuario_asignado ILIKE :search)")
+                params["search"] = f"%{search.strip()}%"
+
+            if where_clauses:
+                sql += " AND " + " AND ".join(where_clauses)
+
+            sql += " ORDER BY up.fecha_ultimo_pase DESC NULLS LAST"
+
+            count_sql = f"SELECT COUNT(*) FROM ({sql}) cnt_table"
+            total_items = conn.execute(text(count_sql), params).scalar() or 0
+
+            sql += f" LIMIT {limit} OFFSET {offset}"
+            res = conn.execute(text(sql), params).mappings().fetchall()
+
+            expedientes = []
+            for r in res:
+                expedientes.append({
+                    "id_expediente": r["id_expediente"],
+                    "expediente": r["expediente"],
+                    "trata": r["trata"] or "MDUG0131B",
+                    "descripcion_trata": r["descripcion_trata"] or "Plano de Propiedad Horizontal Nuevo",
+                    "descripcion": r["descripcion"],
+                    "caratula": str(r["caratula"]) if r["caratula"] else None,
+                    "fecha_creacion": str(r["fecha_creacion"]) if r["fecha_creacion"] else None,
+                    "dias_en_gerencia": int(r["dias_en_gerencia"] or 0),
+                    "estado_expediente": r["estado_expediente"],
+                    "categoria_estado": r["categoria_estado"],
+                    "dias_subs_abierta": int(r["dias_subs_abierta"]) if r["dias_subs_abierta"] is not None else None,
+                    "subs_fecha_alta": str(r["subs_fecha_alta"]) if r["subs_fecha_alta"] else None,
+                    "poseedor_sade": r["poseedor_sade"],
+                    "emisor_ultimo_pase": r["emisor_ultimo_pase"],
+                    "estado_sade": r["estado_sade"],
+                    "motivo_ultimo_pase": r["motivo_ultimo_pase"],
+                    "fecha_ultimo_pase": str(r["fecha_ultimo_pase"]) if r["fecha_ultimo_pase"] else None,
+                    "dias_en_poder": int(r["dias_en_poder"] or 0),
+                    "usuario_asignado": r["usuario_asignado"],
+                    "tipo_agente": r["tipo_agente"],
+                    "asignado_por": r["asignado_por"],
+                    "fecha_asignacion": str(r["fecha_asignacion"]) if r["fecha_asignacion"] else None,
+                    "observaciones_asignacion": r["observaciones_asignacion"],
+                    "coincide_tenencia_sade": r["coincide_tenencia_sade"],
+                    "tipo_flujo": r["tipo_flujo"]
+                })
+
+            return {
+                "total": total_items,
+                "limit": limit,
+                "offset": offset,
+                "dias_sla": t_resolucion,
+                "expedientes": expedientes
+            }
+    except Exception as e:
+        logger.error(f"Error en seguimiento-mh/expedientes: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/reportes/seguimiento-mh/asignar")
+async def assign_seguimiento_mh_expedientes(
+    req: MHAssignRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Asigna o reasigna uno o varios expedientes a un agente (existente o nuevo).
+    Registra el evento en seguimiento_mh_historial_asignaciones.
+    """
+    # Verificar permiso de asignación
+    perms = current_user.permissions or {}
+    user_role = (current_user.role or "").lower()
+    has_assign_perm = (
+        user_role in ["admin", "administrador"] 
+        or perms.get("admin") 
+        or perms.get("seguimiento_mh_asignar")
+        or perms.get("seguimiento_mh") # Si tiene permiso general de seguimiento_mh y no está restringido
+    )
+
+    if not has_assign_perm:
+        raise HTTPException(status_code=403, detail="No tienes permisos para asignar expedientes en Seguimiento MH")
+
+    usuario_target = req.usuario_asignado.strip().upper()
+    if usuario_target not in MH_ALL_AGENTS:
+        raise HTTPException(status_code=400, detail=f"El usuario {usuario_target} no pertenece al equipo de seguimiento MH")
+
+    tipo_agente = 'existente' if usuario_target in MH_EXISTING_AGENTS else 'nuevo'
+    asignado_por = current_user.username
+
+    try:
+        with engine.begin() as conn:
+            asignados_count = 0
+            for item in req.expedientes:
+                id_exp = item.id_expediente
+                exp_nombre = item.expediente
+
+                # Obtener usuario asignado anterior si existía
+                prev_row = conn.execute(
+                    text("SELECT usuario_asignado FROM public.seguimiento_mh_asignaciones WHERE id_expediente = :id"),
+                    {"id": id_exp}
+                ).fetchone()
+
+                usuario_ant = prev_row[0] if prev_row else None
+                accion = 'REASIGNACION' if usuario_ant and usuario_ant != usuario_target else 'ASIGNACION'
+
+                # Upsert en seguimiento_mh_asignaciones
+                conn.execute(text("""
+                    INSERT INTO public.seguimiento_mh_asignaciones (
+                        id_expediente, expediente, usuario_asignado, tipo_agente,
+                        asignado_por, fecha_asignacion, observaciones, activo, actualizado_el
+                    ) VALUES (
+                        :id, :exp, :usr, :tipo, :asig_por, NOW(), :obs, TRUE, NOW()
+                    )
+                    ON CONFLICT (id_expediente) DO UPDATE SET
+                        usuario_asignado = EXCLUDED.usuario_asignado,
+                        tipo_agente = EXCLUDED.tipo_agente,
+                        asignado_por = EXCLUDED.asignado_por,
+                        fecha_asignacion = NOW(),
+                        observaciones = EXCLUDED.observaciones,
+                        activo = TRUE,
+                        actualizado_el = NOW();
+                """), {
+                    "id": id_exp,
+                    "exp": exp_nombre,
+                    "usr": usuario_target,
+                    "tipo": tipo_agente,
+                    "asig_por": asignado_por,
+                    "obs": req.observaciones
+                })
+
+                # Insertar en historial de asignaciones
+                conn.execute(text("""
+                    INSERT INTO public.seguimiento_mh_historial_asignaciones (
+                        id_expediente, expediente, usuario_anterior, usuario_asignado,
+                        tipo_agente, asignado_por, accion, observaciones, fecha
+                    ) VALUES (
+                        :id, :exp, :usr_ant, :usr_asig, :tipo, :asig_por, :accion, :obs, NOW()
+                    )
+                """), {
+                    "id": id_exp,
+                    "exp": exp_nombre,
+                    "usr_ant": usuario_ant,
+                    "usr_asig": usuario_target,
+                    "tipo": tipo_agente,
+                    "asig_por": asignado_por,
+                    "accion": accion,
+                    "obs": req.observaciones
+                })
+                asignados_count += 1
+
+            return {
+                "status": "ok",
+                "message": f"Se asignaron exitosamente {asignados_count} expedientes a {usuario_target}",
+                "asignados_count": asignados_count,
+                "usuario_asignado": usuario_target,
+                "tipo_agente": tipo_agente
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error asignando expedientes MH: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/reportes/seguimiento-mh/desasignar")
+async def unassign_seguimiento_mh_expediente(
+    req: MHUnassignRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Desasigna un expediente en Seguimiento MH y registra el evento.
+    """
+    perms = current_user.permissions or {}
+    user_role = (current_user.role or "").lower()
+    has_assign_perm = (
+        user_role in ["admin", "administrador"] 
+        or perms.get("admin") 
+        or perms.get("seguimiento_mh_asignar")
+        or perms.get("seguimiento_mh")
+    )
+
+    if not has_assign_perm:
+        raise HTTPException(status_code=403, detail="No tienes permisos para desasignar expedientes")
+
+    try:
+        with engine.begin() as conn:
+            prev_row = conn.execute(
+                text("SELECT usuario_asignado, tipo_agente FROM public.seguimiento_mh_asignaciones WHERE id_expediente = :id AND activo = TRUE"),
+                {"id": req.id_expediente}
+            ).fetchone()
+
+            if not prev_row:
+                return {"status": "ok", "message": "El expediente no estaba asignado"}
+
+            usuario_ant, tipo_agente = prev_row[0], prev_row[1]
+
+            conn.execute(
+                text("UPDATE public.seguimiento_mh_asignaciones SET activo = FALSE, actualizado_el = NOW() WHERE id_expediente = :id"),
+                {"id": req.id_expediente}
+            )
+
+            conn.execute(text("""
+                INSERT INTO public.seguimiento_mh_historial_asignaciones (
+                    id_expediente, expediente, usuario_anterior, usuario_asignado,
+                    tipo_agente, asignado_por, accion, observaciones, fecha
+                ) VALUES (
+                    :id, :exp, :usr_ant, 'SIN_ASIGNAR', :tipo, :asig_por, 'DESASIGNACION', :obs, NOW()
+                )
+            """), {
+                "id": req.id_expediente,
+                "exp": req.expediente,
+                "usr_ant": usuario_ant,
+                "tipo": tipo_agente,
+                "asig_por": current_user.username,
+                "obs": req.observaciones
+            })
+
+            return {"status": "ok", "message": f"Expediente {req.expediente} desasignado correctamente"}
+    except Exception as e:
+        logger.error(f"Error desasignando expediente MH: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reportes/seguimiento-mh/expediente/{id_expediente}/historial")
+async def get_seguimiento_mh_expediente_historial(
+    id_expediente: int,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retorna tanto el historial de movimientos de SADE (pases)
+    como el historial de asignaciones internas de Seguimiento MH.
+    """
+    try:
+        with engine.connect() as conn:
+            # 1. Info básica del expediente
+            exp_info = conn.execute(text("""
+                SELECT id_expediente, expediente, trata, descripcion_trata, descripcion, caratula, estado, fecha_creacion
+                FROM mvw_expedientes_tratas_secgdu
+                WHERE id_expediente = :id
+            """), {"id": id_expediente}).mappings().fetchone()
+
+            if not exp_info:
+                raise HTTPException(status_code=404, detail="Expediente no encontrado")
+
+            # 2. Historial de Pases en SADE
+            sql_pases = """
+                SELECT fecha, usuario, operacion, estado, motivo, destinatario
+                FROM mvw_ee_pases_secgdu
+                WHERE id_expediente = :id
+                ORDER BY fecha DESC
+            """
+            pases = conn.execute(text(sql_pases), {"id": id_expediente}).mappings().fetchall()
+
+            # 3. Historial de Asignaciones Internas en Seguimiento MH
+            sql_asig = """
+                SELECT id, usuario_anterior, usuario_asignado, tipo_agente, asignado_por, accion, observaciones, fecha
+                FROM public.seguimiento_mh_historial_asignaciones
+                WHERE id_expediente = :id
+                ORDER BY fecha DESC
+            """
+            asignaciones_hist = conn.execute(text(sql_asig), {"id": id_expediente}).mappings().fetchall()
+
+            # 4. Asignación actual
+            asig_actual = conn.execute(text("""
+                SELECT usuario_asignado, tipo_agente, asignado_por, fecha_asignacion, observaciones, activo
+                FROM public.seguimiento_mh_asignaciones
+                WHERE id_expediente = :id AND activo = TRUE
+            """), {"id": id_expediente}).mappings().fetchone()
+
+            return {
+                "expediente": dict(exp_info),
+                "asignacion_actual": dict(asig_actual) if asig_actual else None,
+                "historial_asignaciones": [dict(a) for a in asignaciones_hist],
+                "historial_pases": [dict(p) for p in pases]
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error obteniendo historial de expediente MH: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 

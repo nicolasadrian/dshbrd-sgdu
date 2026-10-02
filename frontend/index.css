@@ -4319,3 +4319,34 @@ span.perf-low {
     transform: translateX(0);
 }
 
+/* ── ESTILOS SEGUIMIENTO MH ── */
+.mh-table-row:hover {
+    background-color: #f8fafc !important;
+}
+
+.table-mh-main th {
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.table-mh-team th {
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+}
+
+.table-mh-team td {
+    border-bottom: 1px solid #f1f5f9;
+}
+
+@media (max-width: 900px) {
+    .mh-teams-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+

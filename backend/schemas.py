@@ -158,3 +158,18 @@ class DisposicionRequest(BaseModel):
     seccion: str
     manzana: str
     disposicion: str
+
+# Seguimiento MH Schemas
+class MHAssignExpedienteItem(BaseModel):
+    id_expediente: int
+    expediente: str
+
+class MHAssignRequest(BaseModel):
+    expedientes: List[MHAssignExpedienteItem]
+    usuario_asignado: str
+    observaciones: Optional[str] = None
+
+class MHUnassignRequest(BaseModel):
+    id_expediente: int
+    expediente: str
+    observaciones: Optional[str] = None

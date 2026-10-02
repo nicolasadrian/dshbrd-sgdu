@@ -22,6 +22,20 @@ import {
     downloadIndividualPDF,
     downloadSectorComparativePDF
 } from './views/reportes/productividad_analistas/productividad.js';
+import {
+    loadSeguimientoMHView,
+    refreshSeguimientoMH,
+    loadSeguimientoMHExpedientes,
+    changeMHPage,
+    debounceMHSearch,
+    filterByMHAgente,
+    toggleMHSelectRow,
+    toggleMHSelectAll,
+    submitMHBulkAssignment,
+    openMHExpedienteModal,
+    closeMHExpedienteModal,
+    switchMHTab
+} from './views/reportes/seguimiento_mh/seguimiento_mh.js';
 
 // Exponer en window para interoperabilidad total
 window.renderLandingView = renderLandingView;
@@ -41,9 +55,21 @@ window.downloadIndividualPDFGerencia = downloadIndividualPDFGerencia;
 window.filterProductividadGerenciaTable = filterProductividadGerenciaTable;
 window.openProductividadModal = openProductividadModal;
 window.closeProductividadModal = closeProductividadModal;
-window.loadProductividadAnalistaData = loadProductividadAnalistaData;
 window.downloadIndividualPDF = downloadIndividualPDF;
 window.downloadSectorComparativePDF = downloadSectorComparativePDF;
+
+window.loadSeguimientoMHView = loadSeguimientoMHView;
+window.refreshSeguimientoMH = refreshSeguimientoMH;
+window.loadSeguimientoMHExpedientes = loadSeguimientoMHExpedientes;
+window.changeMHPage = changeMHPage;
+window.debounceMHSearch = debounceMHSearch;
+window.filterByMHAgente = filterByMHAgente;
+window.toggleMHSelectRow = toggleMHSelectRow;
+window.toggleMHSelectAll = toggleMHSelectAll;
+window.submitMHBulkAssignment = submitMHBulkAssignment;
+window.openMHExpedienteModal = openMHExpedienteModal;
+window.closeMHExpedienteModal = closeMHExpedienteModal;
+window.switchMHTab = switchMHTab;
 
 window.mountView = mountView;
 

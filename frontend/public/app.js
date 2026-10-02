@@ -175,11 +175,12 @@ function initAuth() {
         const hasProductividadAccess = hasProdDgroc || hasProdDgiur || perms.productividad_analistas || perms.productividad_otros;
 
         const hasRrhhAccess = perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]);
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || hasProductividadAccess || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
+        const hasReportesAccess = perms.seguimiento || perms.seguimiento_mh || perms.seguimiento_mh_asignar || perms.cierre || perms.sla || perms.subsanaciones || hasProductividadAccess || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
         setDisplay('link-rep-metas', perms.seguimiento || isAdmin);
+        setDisplay('link-rep-seguimiento-mh', perms.seguimiento_mh || perms.seguimiento_mh_asignar || isAdmin);
         setDisplay('cierre-link', perms.cierre || isAdmin);
         setDisplay('sla-link', perms.sla || isAdmin);
         setDisplay('link-rep-subsanaciones', perms.subsanaciones || isAdmin);
@@ -616,6 +617,12 @@ async function showView(viewId, updateHash = true) {
 
     if (viewId === 'seguimiento') {
         loadSeguimientoData();
+    }
+
+    if (viewId === 'seguimiento_mh') {
+        if (typeof window.loadSeguimientoMHView === 'function') {
+            window.loadSeguimientoMHView();
+        }
     }
 
     if (viewId === 'sla') {
@@ -4078,6 +4085,8 @@ const PERMISSION_GROUPS = {
     },
     "Reportes & Gestión": {
         seguimiento: { label: "Reporte Metas", desc: "Informe consolidado de cumplimiento de metas." },
+        seguimiento_mh: { label: "Seguimiento MH (Lectura)", desc: "Visualizar panel de avance y métricas de Seguimiento MH (MDUG0131B)." },
+        seguimiento_mh_asignar: { label: "Seguimiento MH (Asignar Expedientes)", desc: "Permiso para asignar y reasignar expedientes en Seguimiento MH." },
         cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },

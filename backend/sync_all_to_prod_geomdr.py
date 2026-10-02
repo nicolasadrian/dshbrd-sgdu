@@ -9,6 +9,7 @@ Script para sincronizar y migrar completamente hacia PRODUCCIÓN (geo-mdr):
 import os
 import sys
 import psycopg2
+from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -74,17 +75,12 @@ def copy_table(src_url, src_name, dest_url, dest_name, table_name):
     d_cur.execute(f"TRUNCATE TABLE public.{table_name};")
     
     cols_quoted = [f'"{c}"' for c in cols]
-    placeholders = [f"%s" for _ in cols]
-    insert_sql = f"""
-        INSERT INTO public.{table_name} ({', '.join(cols_quoted)})
-        VALUES ({', '.join(placeholders)})
-    """
+    insert_sql = f"INSERT INTO public.{table_name} ({', '.join(cols_quoted)}) VALUES %s"
     
-    batch_size = 1000
-    for i in range(0, len(rows), batch_size):
-        batch = rows[i:i + batch_size]
-        d_cur.executemany(insert_sql, batch)
-        print(f"[{dest_name}] Insertadas {min(i + batch_size, len(rows))} / {len(rows)} filas...")
+    # Inserción masiva ultra-rápida (Multi-row VALUES en bloques de 1000)
+    execute_values(d_cur, insert_sql, rows, page_size=1000)
+    d_conn.commit()
+    print(f"[{dest_name}] Insertadas {len(rows)} filas en un solo paso.")
         
     # Indices
     try:
@@ -92,6 +88,7 @@ def copy_table(src_url, src_name, dest_url, dest_name, table_name):
             d_cur.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_sm ON public.{table_name} (sm);")
         if "seccion" in cols and "manzana" in cols:
             d_cur.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_sec_man ON public.{table_name} (seccion, manzana);")
+        d_conn.commit()
     except Exception as e:
         print(f"[{dest_name}] Nota sobre índices: {e}")
         

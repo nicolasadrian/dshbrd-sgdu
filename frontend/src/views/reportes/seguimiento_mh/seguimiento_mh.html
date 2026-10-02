@@ -1,0 +1,383 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / Reportes / Seguimiento MH
+</div>
+
+<div class="report-container" style="max-width: 1440px; margin: 0 auto; padding: 1.5rem 1rem;">
+    <!-- Encabezado Principal -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.8rem; flex-wrap: wrap; gap: 1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 1.2rem;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h1 class="landing-title" style="margin: 0; font-size: 1.85rem; color: var(--primary-dark); font-weight: 800;">
+                    Seguimiento MH
+                </h1>
+                <span class="badge-builtin" style="background: #e0f2fe; color: #0369a1; font-size: 0.85rem; font-weight: 700; padding: 5px 12px; border-radius: 8px; border: 1px solid #bae6fd;">
+                    MDUG0131B - Plano de Propiedad Horizontal Nuevo
+                </span>
+            </div>
+            <p style="margin: 0.4rem 0 0 0; color: #64748b; font-size: 0.9rem;">
+                Control de objetivos mensuales, asignación estratégica y validación de tenencia real en SADE para <strong>MDUG0131B (Plano de Propiedad Horizontal Nuevo)</strong>.
+            </p>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button onclick="refreshSeguimientoMH()" class="btn-primary-action" style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                <i class="fa-solid fa-rotate-right"></i> Actualizar
+            </button>
+            <div id="mh-assign-perm-badge" style="display: none; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-user-check"></i> Modo Asignador Activo
+            </div>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Métricas Rápidas (KPIs) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; margin-bottom: 2rem;">
+        <!-- KPI 1: Universo Activo -->
+        <div class="card-kpi-mh" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Universo Activo</span>
+                <span style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-layer-group"></i></span>
+            </div>
+            <div id="kpi-mh-universo" style="font-size: 1.8rem; font-weight: 800; color: #0f172a;">--</div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #64748b; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9;">
+                <span>Stock Propio: <strong id="kpi-mh-stock" style="color: #2563eb;">--</strong></span>
+                <span>Subsanación: <strong id="kpi-mh-subsanacion" style="color: #d97706;">--</strong></span>
+            </div>
+        </div>
+
+        <!-- KPI 2: Stock vs Flujo -->
+        <div class="card-kpi-mh" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Estado del Stock (SLA <span id="kpi-mh-sla-days">30</span>d)</span>
+                <span style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #059669; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-clock-rotate-left"></i></span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span id="kpi-mh-flujo" style="font-size: 1.8rem; font-weight: 800; color: #059669;">--</span>
+                <span style="font-size: 0.85rem; color: #64748b; font-weight: 600;">en Flujo</span>
+            </div>
+            <div style="font-size: 0.78rem; color: #dc2626; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9; font-weight: 600;">
+                Estancados (> SLA): <span id="kpi-mh-estancado">--</span>
+            </div>
+        </div>
+
+        <!-- KPI 3: Asignados vs Tenencia SADE -->
+        <div class="card-kpi-mh" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Expedientes Asignados</span>
+                <span style="width: 32px; height: 32px; border-radius: 8px; background: #fdf4ff; color: #9333ea; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-user-check"></i></span>
+            </div>
+            <div id="kpi-mh-asignados" style="font-size: 1.8rem; font-weight: 800; color: #0f172a;">--</div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #64748b; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9;">
+                <span>Coincide SADE: <strong id="kpi-mh-coinciden" style="color: #059669;">--</strong></span>
+                <span>Difiere: <strong id="kpi-mh-difieren" style="color: #e11d48;">--</strong></span>
+            </div>
+        </div>
+
+        <!-- KPI 4: Meta Mes Actual -->
+        <div class="card-kpi-mh" style="background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 1.2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.82rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Meta Octubre 2026</span>
+                <span style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #d97706; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-bullseye"></i></span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+                <span id="kpi-mh-cumplido-octubre" style="font-size: 1.8rem; font-weight: 800; color: #0f172a;">--</span>
+                <span style="font-size: 0.9rem; color: #64748b; font-weight: 700;">/ 118</span>
+            </div>
+            <div style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f1f5f9;">
+                <div style="background: #f1f5f9; border-radius: 999px; height: 7px; overflow: hidden;">
+                    <div id="kpi-mh-bar-octubre" style="background: #2563eb; width: 0%; height: 100%; transition: width 0.4s ease;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección 1: Curva de Objetivos Mensuales (Octubre a Enero) -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <h3 style="margin: 0; font-family: 'Outfit'; font-size: 1.25rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-chart-line" style="color: #2563eb;"></i> Curva de Objetivos Planteados para MH
+                </h3>
+                <p style="margin: 3px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                    Distribución de metas mensuales por tipo de analista y egresos efectivos logrados.
+                </p>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;" id="mh-monthly-goals-grid">
+            <!-- Renderizado dinámico de tarjetas por mes -->
+        </div>
+    </div>
+
+    <!-- Sección 2: Desglose por Equipo de Analistas (Existentes vs Nuevos) -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;" class="mh-teams-grid">
+        <!-- Existentes -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eff6ff; padding-bottom: 10px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #2563eb; color: white; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; font-weight: 800;">7</span>
+                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e3a8a;">Agentes Existentes</h4>
+                </div>
+                <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Meta Oct: 60 reg</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="table-mh-team" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+                    <thead>
+                        <tr style="background: #f8fafc; color: #475569; text-align: left;">
+                            <th style="padding: 8px 10px;">Usuario</th>
+                            <th style="padding: 8px 6px; text-align: center;">Asignados</th>
+                            <th style="padding: 8px 6px; text-align: center;">En SADE</th>
+                            <th style="padding: 8px 6px; text-align: center;">Coincide</th>
+                            <th style="padding: 8px 6px; text-align: center;">Egr. Oct</th>
+                            <th style="padding: 8px 6px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mh-tbody-existing">
+                        <!-- Llenado dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Nuevos -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.25rem; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f0fdf4; padding-bottom: 10px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="background: #16a34a; color: white; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; font-weight: 800;">6</span>
+                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #14532d;">Agentes Nuevos</h4>
+                </div>
+                <span style="font-size: 0.8rem; font-weight: 600; color: #64748b;">Meta Oct: 58 reg</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="table-mh-team" style="width: 100%; border-collapse: collapse; font-size: 0.84rem;">
+                    <thead>
+                        <tr style="background: #f8fafc; color: #475569; text-align: left;">
+                            <th style="padding: 8px 10px;">Usuario</th>
+                            <th style="padding: 8px 6px; text-align: center;">Asignados</th>
+                            <th style="padding: 8px 6px; text-align: center;">En SADE</th>
+                            <th style="padding: 8px 6px; text-align: center;">Coincide</th>
+                            <th style="padding: 8px 6px; text-align: center;">Egr. Oct</th>
+                            <th style="padding: 8px 6px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mh-tbody-new">
+                        <!-- Llenado dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección 3: Cartera de Expedientes y Panel de Asignación -->
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h3 style="margin: 0; font-family: 'Outfit'; font-size: 1.25rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-folder-tree" style="color: #2563eb;"></i> Cartera de Expedientes Activos MDUG0131B
+                </h3>
+                <p style="margin: 3px 0 0 0; font-size: 0.85rem; color: #64748b;">
+                    Seleccione expedientes para asignar o clickee en cualquier fila para inspeccionar su trazabilidad y movimientos.
+                </p>
+            </div>
+            <!-- Acciones de Asignación Masiva (Solo visibles si tiene permiso) -->
+            <div id="mh-bulk-actions-container" style="display: none; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1;">
+                <span id="mh-selected-count-label" style="font-size: 0.82rem; font-weight: 700; color: #2563eb;">0 seleccionados</span>
+                <select id="mh-assign-target-select" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit'; font-size: 0.84rem; font-weight: 600;">
+                    <option value="">-- Asignar a Analista --</option>
+                    <optgroup label="Agentes Existentes">
+                        <option value="MOCON">MOCON</option>
+                        <option value="A.LAMPERT">A.LAMPERT</option>
+                        <option value="BARTROLIG">BARTROLIG</option>
+                        <option value="ADILERNIA">ADILERNIA</option>
+                        <option value="NPONZO">NPONZO</option>
+                        <option value="AGUSMAZZONI">AGUSMAZZONI</option>
+                        <option value="M.NAPOLI">M.NAPOLI</option>
+                    </optgroup>
+                    <optgroup label="Agentes Nuevos">
+                        <option value="JUANMANUELVILLAGRA">JUANMANUELVILLAGRA</option>
+                        <option value="C.FEIJOO">C.FEIJOO</option>
+                        <option value="JVELEZ">JVELEZ</option>
+                        <option value="RNVAZQUEZ">RNVAZQUEZ</option>
+                        <option value="R.DOMINGUEZOTERO">R.DOMINGUEZOTERO</option>
+                        <option value="PCUGLIANDOLOHOLUBOWICZ">PCUGLIANDOLOHOLUBOWICZ</option>
+                    </optgroup>
+                </select>
+                <button onclick="submitMHBulkAssignment()" style="background: #2563eb; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                    <i class="fa-solid fa-user-plus"></i> Asignar
+                </button>
+            </div>
+        </div>
+
+        <!-- Filtros y Búsqueda -->
+        <div style="display: flex; gap: 10px; margin-bottom: 1.2rem; flex-wrap: wrap; align-items: center; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0;">
+            <div style="flex: 2; min-width: 200px; position: relative;">
+                <input type="text" id="mh-search-input" placeholder="Buscar por expediente, carátula o usuario..." oninput="debounceMHSearch()" style="width: 100%; padding: 8px 12px 8px 34px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit'; font-size: 0.85rem; box-sizing: border-box;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 11px; color: #94a3b8; font-size: 0.85rem;"></i>
+            </div>
+            
+            <select id="mh-filter-estado" onchange="loadSeguimientoMHExpedientes(0)" style="padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit'; font-size: 0.84rem;">
+                <option value="">Todos los Estados</option>
+                <option value="stock">Solo Stock Propio (Sin Subs)</option>
+                <option value="subsanacion">Con Subsanación Abierta</option>
+                <option value="asignados">Solo Asignados</option>
+                <option value="no_asignados">Sin Asignar</option>
+            </select>
+
+            <select id="mh-filter-agente" onchange="loadSeguimientoMHExpedientes(0)" style="padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit'; font-size: 0.84rem;">
+                <option value="">Todos los Agentes Asignados</option>
+                <optgroup label="Existentes">
+                    <option value="MOCON">MOCON</option>
+                    <option value="A.LAMPERT">A.LAMPERT</option>
+                    <option value="BARTROLIG">BARTROLIG</option>
+                    <option value="ADILERNIA">ADILERNIA</option>
+                    <option value="NPONZO">NPONZO</option>
+                    <option value="AGUSMAZZONI">AGUSMAZZONI</option>
+                    <option value="M.NAPOLI">M.NAPOLI</option>
+                </optgroup>
+                <optgroup label="Nuevos">
+                    <option value="JUANMANUELVILLAGRA">JUANMANUELVILLAGRA</option>
+                    <option value="C.FEIJOO">C.FEIJOO</option>
+                    <option value="JVELEZ">JVELEZ</option>
+                    <option value="RNVAZQUEZ">RNVAZQUEZ</option>
+                    <option value="R.DOMINGUEZOTERO">R.DOMINGUEZOTERO</option>
+                    <option value="PCUGLIANDOLOHOLUBOWICZ">PCUGLIANDOLOHOLUBOWICZ</option>
+                </optgroup>
+            </select>
+
+            <select id="mh-filter-coincidencia" onchange="loadSeguimientoMHExpedientes(0)" style="padding: 8px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: 'Outfit'; font-size: 0.84rem;">
+                <option value="">Coincidencia SADE</option>
+                <option value="si">Coincide Asignado = Poseedor</option>
+                <option value="no">Difiere Asignado != Poseedor</option>
+            </select>
+        </div>
+
+        <!-- Tabla Principal de Expedientes -->
+        <div style="overflow-x: auto; max-height: 600px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <table class="table-mh-main" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <tr style="color: #475569; border-bottom: 2px solid #cbd5e1;">
+                        <th style="padding: 10px; width: 40px; text-align: center;">
+                            <input type="checkbox" id="mh-select-all-checkbox" onchange="toggleMHSelectAll(this.checked)">
+                        </th>
+                        <th style="padding: 10px 12px;">Expediente</th>
+                        <th style="padding: 10px 8px;">Estado / Trata</th>
+                        <th style="padding: 10px 8px;">Días</th>
+                        <th style="padding: 10px 8px;">Agente Asignado</th>
+                        <th style="padding: 10px 8px;">Poseedor SADE</th>
+                        <th style="padding: 10px 8px;">Validación Tenencia</th>
+                        <th style="padding: 10px 8px;">Último Movimiento SADE</th>
+                        <th style="padding: 10px 8px; text-align: center;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="mh-expedientes-tbody">
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 2.5rem; color: #64748b;">
+                            <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; margin-bottom: 8px; color: #2563eb;"></i>
+                            <p style="margin: 0;">Cargando cartera de expedientes MH...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginador -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; font-size: 0.85rem; color: #64748b;">
+            <div id="mh-pagination-info">Mostrando 0 de 0 expedientes</div>
+            <div style="display: flex; gap: 6px;">
+                <button id="mh-btn-prev" onclick="changeMHPage(-1)" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer;">
+                    <i class="fa-solid fa-chevron-left"></i> Anterior
+                </button>
+                <button id="mh-btn-next" onclick="changeMHPage(1)" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; background: white; cursor: pointer;">
+                    Siguiente <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Completo: Detalle de Movimientos SADE e Historial de Asignaciones Internas -->
+<div id="mh-expediente-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.6); z-index: 9999; backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 1.5rem;">
+    <div style="background: white; border-radius: 16px; width: 100%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <!-- Modal Header -->
+        <div style="background: #0f172a; color: white; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-folder-open" style="color: #38bdf8; font-size: 1.2rem;"></i>
+                    <h3 id="mh-modal-exp-title" style="margin: 0; font-family: 'Outfit'; font-size: 1.2rem; font-weight: 700;">EX-2026-XXXXXXXX</h3>
+                </div>
+                <p id="mh-modal-exp-caratula" style="margin: 4px 0 0 0; font-size: 0.82rem; color: #94a3b8; max-width: 700px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></p>
+            </div>
+            <button onclick="closeMHExpedienteModal()" style="background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body con Pestañas -->
+        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc; display: flex; gap: 10px;">
+            <button id="mh-tab-btn-asig" onclick="switchMHTab('asig')" class="btn-tab-mh active" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; font-family: 'Outfit'; font-weight: 700; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-clipboard-user" style="color: #2563eb;"></i> Historial de Asignaciones Internas
+            </button>
+            <button id="mh-tab-btn-pases" onclick="switchMHTab('pases')" class="btn-tab-mh" style="padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; background: transparent; font-family: 'Outfit'; font-weight: 700; font-size: 0.85rem; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-arrows-split-up-and-left" style="color: #059669;"></i> Movimientos SADE (Pases)
+            </button>
+        </div>
+
+        <div style="padding: 1.5rem; overflow-y: auto; flex: 1;">
+            <!-- Tab 1: Historial de Asignaciones -->
+            <div id="mh-tab-content-asig">
+                <div id="mh-modal-asig-actual-box" style="margin-bottom: 1.2rem; padding: 12px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <span style="font-size: 0.78rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase;">Asignación Actual</span>
+                        <div id="mh-modal-asig-actual-text" style="font-size: 1.05rem; font-weight: 800; color: #1e3a8a; margin-top: 2px;">Sin asignar</div>
+                    </div>
+                    <div id="mh-modal-asig-meta" style="font-size: 0.8rem; color: #475569; text-align: right;"></div>
+                </div>
+
+                <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700; color: #334155;">Registro Cronológico de Asignaciones</h4>
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.83rem;">
+                        <thead>
+                            <tr style="background: #f8fafc; color: #475569; text-align: left; border-bottom: 1px solid #e2e8f0;">
+                                <th style="padding: 8px 10px;">Fecha</th>
+                                <th style="padding: 8px 10px;">Acción</th>
+                                <th style="padding: 8px 10px;">Agente Asignado</th>
+                                <th style="padding: 8px 10px;">Agente Anterior</th>
+                                <th style="padding: 8px 10px;">Asignado Por</th>
+                                <th style="padding: 8px 10px;">Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mh-modal-asig-tbody">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 2: Movimientos SADE (Pases) -->
+            <div id="mh-tab-content-pases" style="display: none;">
+                <div style="overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                        <thead>
+                            <tr style="background: #f8fafc; color: #475569; text-align: left; border-bottom: 1px solid #e2e8f0;">
+                                <th style="padding: 8px 10px;">Fecha</th>
+                                <th style="padding: 8px 10px;">Emisor</th>
+                                <th style="padding: 8px 10px;">Operación</th>
+                                <th style="padding: 8px 10px;">Estado</th>
+                                <th style="padding: 8px 10px;">Destinatario</th>
+                                <th style="padding: 8px 10px;">Motivo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mh-modal-pases-tbody">
+                            <!-- Filas dinámicas -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+            <button onclick="closeMHExpedienteModal()" style="background: #334155; color: white; border: none; padding: 7px 18px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>

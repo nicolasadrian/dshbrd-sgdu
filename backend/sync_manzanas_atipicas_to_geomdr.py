@@ -11,6 +11,7 @@ Tablas a replicar:
 import os
 import sys
 import psycopg2
+from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -50,7 +51,7 @@ def dump_table_from_pdi(table_name):
     cols_meta = p_cur.fetchall()
     cols = [c[0] for c in cols_meta]
     
-    p_cur.execute(f"SELECT {', '.join(cols)} FROM public.{table_name}")
+    p_cur.execute(f"SELECT {', '.join(['\"' + c + '\"' for c in cols])} FROM public.{table_name}")
     rows = p_cur.fetchall()
     p_conn.close()
     
@@ -58,9 +59,8 @@ def dump_table_from_pdi(table_name):
     return cols_meta, rows
 
 def sync_table_to_dest(dest_url, dest_name, table_name, cols_meta, rows):
-    print(f"[{dest_name}] Sincronizando {table_name}...")
+    print(f"[{dest_name}] Sincronizando {table_name} ({len(rows)} filas)...")
     d_conn = psycopg2.connect(dest_url)
-    d_conn.autocommit = True
     d_cur = d_conn.cursor()
     
     # Habilitar postgis por si las tablas tienen geom
@@ -92,18 +92,13 @@ def sync_table_to_dest(dest_url, dest_name, table_name, cols_meta, rows):
     d_cur.execute(create_sql)
     d_cur.execute(f"TRUNCATE TABLE public.{table_name};")
     
-    cols = [f'"{c[0]}"' for c in cols_meta]
-    placeholders = [f"%s" for _ in cols_meta]
-    insert_sql = f"""
-        INSERT INTO public.{table_name} ({', '.join(cols)})
-        VALUES ({', '.join(placeholders)})
-    """
+    cols_quoted = [f'"{c[0]}"' for c in cols_meta]
+    insert_sql = f"INSERT INTO public.{table_name} ({', '.join(cols_quoted)}) VALUES %s"
     
-    # Batch insert en bloques de 1000
-    batch_size = 1000
-    for i in range(0, len(rows), batch_size):
-        batch = rows[i:i + batch_size]
-        d_cur.executemany(insert_sql, batch)
+    # Inserción masiva ultra-rápida (Multi-row VALUES en bloques de 1000)
+    execute_values(d_cur, insert_sql, rows, page_size=1000)
+    d_conn.commit()
+    print(f"[{dest_name}] Insertadas {len(rows)} filas en un solo paso.")
         
     # Crear índices comunes para acelerar consultas (seccion, manzana, sm, etc.)
     try:
@@ -111,11 +106,12 @@ def sync_table_to_dest(dest_url, dest_name, table_name, cols_meta, rows):
             d_cur.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_sm ON public.{table_name} (sm);")
         if "seccion" in [c[0] for c in cols_meta] and "manzana" in [c[0] for c in cols_meta]:
             d_cur.execute(f"CREATE INDEX IF NOT EXISTS idx_{table_name}_sec_man ON public.{table_name} (seccion, manzana);")
+        d_conn.commit()
     except Exception as e:
         print(f"[{dest_name}] Nota sobre índices: {e}")
         
     d_conn.close()
-    print(f"[{dest_name}] {table_name} migrada: {len(rows)} registros.")
+    print(f"[{dest_name}] {table_name} migrada exitosamente.")
 
 def main():
     print("=== INICIANDO MIGRACIÓN DE TABLAS DE PDI A GEO-MDR ===")
