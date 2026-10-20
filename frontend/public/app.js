@@ -25516,7 +25516,7 @@ function renderDGEUITable(records) {
                 <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${estadoBadge}</td>
                 <td style="padding: 6px 8px; color: #334155; min-width: 110px; max-width: 130px; font-size: 0.78rem; white-space: normal; word-break: break-word; line-height: 1.25;">${r.direccion || '-'}</td>
                 <td style="padding: 6px 8px; color: #475569; min-width: 110px; font-size: 0.78rem;">${r.inmueble || '-'}</td>
-                <td style="padding: 6px 8px; font-family: monospace; color: #0f172a; font-weight: 600; white-space: nowrap; font-size: 0.78rem;">${r.smp || '-'}</td>
+                <td style="padding: 6px 8px; color: #0f172a; font-weight: 600; white-space: nowrap; font-size: 0.78rem;">${r.smp || '-'}</td>
                 <td style="padding: 6px 8px; color: #334155; font-size: 0.78rem;">${r.tipo_tramite || '-'}</td>
                 <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #475569;">
                     <span style="background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-size: 0.72rem;">${r.dg || '-'}</span>
