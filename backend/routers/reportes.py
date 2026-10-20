@@ -613,6 +613,16 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                 else:
                     stock_summary[u]["stock_propio"] += 1
 
+            # Sincronizar el mes en curso con el stock real actual (mv_ultimo_pase)
+            current_month_label = datetime.now().strftime("%Y-%m")
+            for r in rows_prod:
+                if r["mes_label"] == current_month_label:
+                    u = r["analista"]
+                    curr_stk = stock_summary.get(u, {"stock_total": 0, "stock_propio": 0, "stock_subs": 0})
+                    r["stock_propio"] = curr_stk["stock_propio"]
+                    r["stock_subs"] = curr_stk["stock_subs"]
+                    r["stock_total"] = curr_stk["stock_total"]
+
             # 4. Detalle de expedientes intervenidos (desde Marzo 2026 en adelante)
             exp_sql = f"""
                 SELECT DISTINCT ON (id_expediente, analista, mes_label, tipo_evento)

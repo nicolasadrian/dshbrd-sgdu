@@ -24894,6 +24894,15 @@ function renderGProdMatrixTable(data, prefix) {
             <thead>
                 <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
                     <th style="padding: 12px 14px; font-weight: 600; min-width: 190px;">Analista / Buzón</th>
+                    <th style="padding: 10px 8px; font-weight: 700; text-align: center; min-width: 175px; background: #f1f5f9; border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1;">
+                        <div style="font-size: 0.88rem; color: #0f172a; margin-bottom: 4px; font-weight: 800;">Consolidado Actual</div>
+                        <div style="display: flex; justify-content: center; gap: 6px; font-size: 0.70rem;">
+                            <span style="color: #0284c7; font-weight: 700;" title="Total Ingresos Acumulados">ING</span>
+                            <span style="color: #10b981; font-weight: 700;" title="Total Egresos Acumulados">EGR</span>
+                            <span style="color: #b45309; font-weight: 700;" title="Stock Propio Actual">STK</span>
+                            <span style="color: #db2777; font-weight: 700;" title="En Subsanación Actual">SUB</span>
+                        </div>
+                    </th>
     `;
 
     sortedMonths.forEach(m => {
@@ -24919,7 +24928,13 @@ function renderGProdMatrixTable(data, prefix) {
             <tbody>
     `;
 
-    // Totales por columna
+    // Totales acumulados para el consolidado
+    let grandConsolidatedIng = 0;
+    let grandConsolidatedEgr = 0;
+    let grandConsolidatedStk = 0;
+    let grandConsolidatedSubs = 0;
+
+    // Totales por columna mensual
     const colTotalsIng = {};
     const colTotalsEgr = {};
     const colTotalsStock = {};
@@ -24933,6 +24948,17 @@ function renderGProdMatrixTable(data, prefix) {
 
     analistas.forEach((a, idx) => {
         const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+        const userRows = prodList.filter(r => r.analista === a.usuario);
+        const totalIngUser = userRows.reduce((sum, r) => sum + (Number(r.cant_ingresos) || 0), 0);
+        const totalEgrUser = userRows.reduce((sum, r) => sum + (Number(r.cant_egresos) || 0), 0);
+        const currentStkUser = stockSummary[a.usuario] || { stock_propio: 0, stock_subs: 0, stock_total: 0 };
+        const stkPropioActual = Number(currentStkUser.stock_propio) || 0;
+        const stkSubsActual = Number(currentStkUser.stock_subs) || 0;
+
+        grandConsolidatedIng += totalIngUser;
+        grandConsolidatedEgr += totalEgrUser;
+        grandConsolidatedStk += stkPropioActual;
+        grandConsolidatedSubs += stkSubsActual;
 
         html += `
             <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
@@ -24940,6 +24966,14 @@ function renderGProdMatrixTable(data, prefix) {
                     <i class="fa-solid fa-user-circle" style="color: #64748b; margin-right: 6px;"></i>
                     ${a.nombre || a.usuario}
                     <span style="display: block; font-size: 0.75rem; color: #94a3b8; font-weight: 400;">${a.usuario}</span>
+                </td>
+                <td style="padding: 10px 6px; text-align: center; background: rgba(241, 245, 249, 0.45); border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: center; gap: 5px; align-items: center;">
+                        <span style="background: #e0f2fe; color: #0284c7; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="Total histórico ingresos: ${totalIngUser}">${totalIngUser}</span>
+                        <span style="background: #dcfce7; color: #10b981; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="Total histórico egresos: ${totalEgrUser}">${totalEgrUser}</span>
+                        <span style="background: #fef3c7; color: #b45309; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="Stock propio actual en bandeja: ${stkPropioActual}">${stkPropioActual}</span>
+                        <span style="background: #fce7f3; color: #db2777; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="En subsanación actual: ${stkSubsActual}">${stkSubsActual}</span>
+                    </div>
                 </td>
         `;
 
@@ -24990,6 +25024,14 @@ function renderGProdMatrixTable(data, prefix) {
     html += `
             <tr style="background: #f1f5f9; border-top: 2px solid #cbd5e1; font-weight: 700; color: #0f172a;">
                 <td style="padding: 12px 14px;">Total Gerencia</td>
+                <td style="padding: 12px 6px; text-align: center; background: #e2e8f0; border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: center; gap: 5px; align-items: center; font-size: 0.78rem;">
+                        <span style="color: #0284c7; font-weight: 800;" title="Total General Ingresos">${grandConsolidatedIng.toLocaleString('es-AR')}</span>
+                        <span style="color: #10b981; font-weight: 800;" title="Total General Egresos">${grandConsolidatedEgr.toLocaleString('es-AR')}</span>
+                        <span style="color: #b45309; font-weight: 800;" title="Total General Stock Propio Actual">${grandConsolidatedStk.toLocaleString('es-AR')}</span>
+                        <span style="color: #db2777; font-weight: 800;" title="Total General en Subsanación Actual">${grandConsolidatedSubs.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
     `;
 
     sortedMonths.forEach(m => {
