@@ -689,7 +689,7 @@ def get_publico_privado_analisis_produccion(current_user: User = Depends(get_cur
     return _get_gerencia_analisis_produccion_data(
         "publico_privado", 
         "mvw_publico_privado_produccion", 
-        ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP", "E.SALERNO", "JOSPINASUAREZ", "AESCOBARDELCID", "EWILLIAN"]
+        ["NDEFAVERI", "NARGANDONAJULIO", "DGIUR-GERENCIAPPP", "DGIUR-SGOPU", "E.SALERNO", "JOSPINASUAREZ", "AESCOBARDELCID", "EWILLIAN"]
     )
 
 @router.get("/api/reporte/copua/analisis_produccion")
