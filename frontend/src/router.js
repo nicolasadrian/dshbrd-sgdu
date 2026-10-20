@@ -25,6 +25,9 @@ const VIEW_ROUTES = {
     'copua': () => import('./views/seguimiento/dgiur/copua.html?raw'),
     'privada': () => import('./views/seguimiento/dgiur/privada.html?raw'),
 
+    // Seguimiento DGEUI
+    'dgeui': () => import('./views/seguimiento/dgeui/dgeui.html?raw'),
+
     // Buzones
     'buzones': () => import('./views/buzones/buzones_hub.html?raw'),
     'buzones_dgroc_hub': () => import('./views/buzones/buzones_dgroc_hub.html?raw'),
@@ -266,6 +269,15 @@ function triggerViewInit(viewId) {
         window.loadCiudad3DStats();
     } else if ((viewId === 'ciudad3d_troneras' || viewId === 'c3d_extensiones_todas' || viewId === 'c3d_extensiones_mis_trazados' || viewId === 'c3d_extensiones_revision' || viewId === 'c3d_extensiones_equipo' || viewId === 'c3d_extensiones_mapa') && typeof window.loadCiudad3DTroneras === 'function') {
         window.loadCiudad3DTroneras().then(() => {
+            if (typeof window.calculateLFIStats === 'function') {
+                window.calculateLFIStats();
+            }
+            if (viewId === 'c3d_extensiones_mis_trazados' && typeof window.renderLFIMisTrazados === 'function') {
+                window.renderLFIMisTrazados();
+            }
+            if (viewId === 'c3d_extensiones_revision' && typeof window.renderLFIRevision === 'function') {
+                window.renderLFIRevision();
+            }
             if (viewId === 'c3d_extensiones_mapa' && typeof window.initLFIMap === 'function') {
                 setTimeout(() => window.initLFIMap(), 150);
             }
@@ -291,6 +303,8 @@ function triggerViewInit(viewId) {
         window.loadAsignadosMiView();
     } else if (viewId === 'favoritos-seguimiento' && typeof window.loadFavoritosSeguimientoView === 'function') {
         window.loadFavoritosSeguimientoView();
+    } else if (viewId === 'dgeui' && typeof window.loadDGEUIView === 'function') {
+        window.loadDGEUIView();
     } else if (viewId === 'mis_datos') {
         renderMisDatosView();
     } else if (viewId === 'buzones' && typeof window.updateBuzonesViewHeader === 'function') {

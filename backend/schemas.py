@@ -173,3 +173,45 @@ class MHUnassignRequest(BaseModel):
     id_expediente: int
     expediente: str
     observaciones: Optional[str] = None
+
+# DGEUI Schemas
+class DGEUIExpedienteCreate(BaseModel):
+    nro_expediente: str
+    es_nota: Optional[bool] = False
+    sin_expediente: Optional[bool] = False
+    eje: Optional[str] = None
+    prioridad: Optional[str] = None
+    estado: Optional[str] = None
+    direccion: Optional[str] = None
+    inmueble: Optional[str] = None
+    smp: Optional[str] = None
+    tipo_tramite: Optional[str] = None
+    dg: Optional[str] = None
+    gerencia_analista: Optional[str] = None
+    fecha: Optional[str] = None
+    observaciones_internas: Optional[str] = None
+    observaciones_dgroc_dgiur: Optional[str] = None
+    proxima_reunion: Optional[str] = None
+    responsable: Optional[str] = None
+    nico: Optional[str] = None
+
+class DGEUIExpedienteUpdate(BaseModel):
+    nro_expediente: Optional[str] = None
+    es_nota: Optional[bool] = None
+    sin_expediente: Optional[bool] = None
+    eje: Optional[str] = None
+    prioridad: Optional[str] = None
+    estado: Optional[str] = None
+    direccion: Optional[str] = None
+    inmueble: Optional[str] = None
+    smp: Optional[str] = None
+    tipo_tramite: Optional[str] = None
+    dg: Optional[str] = None
+    gerencia_analista: Optional[str] = None
+    fecha: Optional[str] = None
+    observaciones_internas: Optional[str] = None
+    observaciones_dgroc_dgiur: Optional[str] = None
+    proxima_reunion: Optional[str] = None
+    responsable: Optional[str] = None
+    nico: Optional[str] = None
+

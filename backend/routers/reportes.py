@@ -1,5 +1,6 @@
 import logging
 import math
+import re
 import pandas as pd
 import traceback
 from typing import List, Optional, Dict, Any
@@ -12,7 +13,8 @@ from collections import defaultdict
 from config import TRAMITES_CONFIG
 from database import engine
 from schemas import (
-    User, MHAssignRequest, MHUnassignRequest
+    User, MHAssignRequest, MHUnassignRequest,
+    DGEUIExpedienteCreate, DGEUIExpedienteUpdate
 )
 from auth_utils import get_current_user, get_current_user_from_param_or_header
 from cache_utils import cached_response, set_cache
@@ -496,8 +498,66 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                 ORDER BY mes_label DESC, analista ASC
             """
             rows_prod = [dict(r._mapping) for r in conn.execute(text(prod_mes_sql)).fetchall()]
+
+            # 1.b Stock mensual histórico (Stock Propio y Subsanación al cierre de cada mes)
+            monthly_stock_sql = f"""
+                WITH universo_ppp AS (
+                    SELECT DISTINCT id_expediente 
+                    FROM {matview_name}
+                ),
+                fechas_corte AS (
+                    SELECT (date_trunc('month', mes) + interval '1 month - 1 day')::date AS fecha_corte,
+                           to_char(mes, 'YYYY-MM') AS mes_label
+                    FROM generate_series('2026-03-01'::date, CURRENT_DATE, '1 month') mes
+                ),
+                destinatario_por_corte AS (
+                    SELECT DISTINCT ON (u.id_expediente, fc.fecha_corte)
+                        u.id_expediente,
+                        fc.fecha_corte,
+                        fc.mes_label,
+                        p.destinatario AS analista_cierre
+                    FROM universo_ppp u
+                    CROSS JOIN fechas_corte fc
+                    JOIN mvw_ee_pases_secgdu p ON p.id_expediente = u.id_expediente AND p.fecha::date <= fc.fecha_corte
+                    ORDER BY u.id_expediente, fc.fecha_corte, p.fecha DESC
+                ),
+                subsanacion_abierta AS (
+                    SELECT DISTINCT ON (dpc.id_expediente, dpc.fecha_corte)
+                        dpc.id_expediente,
+                        dpc.fecha_corte,
+                        true AS tiene_subs
+                    FROM destinatario_por_corte dpc
+                    JOIN mvw_ee_actividades_secgdu a ON a.id_expediente = dpc.id_expediente
+                        AND a.usuario_alta = dpc.analista_cierre
+                        AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                        AND a.fecha_alta::date <= dpc.fecha_corte
+                        AND (a.fecha_cierre IS NULL OR a.fecha_cierre::date > dpc.fecha_corte)
+                    ORDER BY dpc.id_expediente, dpc.fecha_corte, a.fecha_alta DESC
+                )
+                SELECT 
+                    dpc.mes_label,
+                    dpc.analista_cierre AS analista,
+                    COUNT(*) AS total_stock,
+                    COUNT(CASE WHEN sa.tiene_subs THEN 1 END) AS subs,
+                    COUNT(CASE WHEN sa.tiene_subs IS NULL THEN 1 END) AS propio
+                FROM destinatario_por_corte dpc
+                LEFT JOIN subsanacion_abierta sa ON sa.id_expediente = dpc.id_expediente AND sa.fecha_corte = dpc.fecha_corte
+                WHERE dpc.analista_cierre = ANY(:a)
+                GROUP BY dpc.mes_label, dpc.analista_cierre;
+            """
+            try:
+                monthly_stock_rows = conn.execute(text(monthly_stock_sql), {"a": analysts}).fetchall()
+                stock_map = {(r[0], r[1]): {"stock_propio": r[4], "stock_subs": r[3], "stock_total": r[2]} for r in monthly_stock_rows}
+            except Exception as ex_m_stock:
+                logger.warning(f"No se pudo calcular stock mensual histórico: {ex_m_stock}")
+                stock_map = {}
+
             for r in rows_prod:
                 r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
+                st = stock_map.get((r["mes_label"], r["analista"]), {"stock_propio": 0, "stock_subs": 0, "stock_total": 0})
+                r["stock_propio"] = st["stock_propio"]
+                r["stock_subs"] = st["stock_subs"]
+                r["stock_total"] = st["stock_total"]
 
             # 2. Desglose por trata intervenida (desde Marzo 2026 en adelante)
             tratas_sql = f"""
@@ -518,7 +578,7 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
             for r in rows_tratas:
                 r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
 
-            # 3. Stock actual en poder de los analistas
+            # 3. Stock actual en poder de los analistas y estado de subsanación
             stock_sql = """
                 SELECT 
                     up.destinatario_actual AS analista,
@@ -527,15 +587,31 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                     COALESCE(t.trata, 'SIN TRATA') AS trata,
                     COALESCE(t.descripcion_trata, 'Sin descripción') AS descripcion_trata,
                     to_char(up.fecha_ultimo_pase, 'YYYY-MM-DD HH24:MI:SS') AS fecha_ultimo_pase,
-                    (CURRENT_DATE - up.fecha_ultimo_pase::date) AS dias_en_poder
+                    (CURRENT_DATE - up.fecha_ultimo_pase::date) AS dias_en_poder,
+                    EXISTS (
+                        SELECT 1 FROM mvw_ee_actividades_secgdu a
+                        WHERE a.id_expediente = up.id_expediente
+                          AND a.usuario_alta = up.destinatario_actual
+                          AND a.estado = 'PENDIENTE'
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ) AS tiene_subsanacion
                 FROM mv_ultimo_pase up
                 LEFT JOIN mvw_expedientes_tratas_secgdu t ON t.id_expediente = up.id_expediente
                 WHERE up.destinatario_actual = ANY(:a)
                 ORDER BY dias_en_poder DESC
             """
             rows_stock = [dict(r._mapping) for r in conn.execute(text(stock_sql), {"a": analysts}).fetchall()]
+            stock_summary = {}
             for r in rows_stock:
                 r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
+                u = r["analista"]
+                if u not in stock_summary:
+                    stock_summary[u] = {"stock_total": 0, "stock_propio": 0, "stock_subs": 0}
+                stock_summary[u]["stock_total"] += 1
+                if r.get("tiene_subsanacion"):
+                    stock_summary[u]["stock_subs"] += 1
+                else:
+                    stock_summary[u]["stock_propio"] += 1
 
             # 4. Detalle de expedientes intervenidos (desde Marzo 2026 en adelante)
             exp_sql = f"""
@@ -563,6 +639,23 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
             for r in rows_exp:
                 r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
 
+            # 5. Obtener meta del mes en curso si es publico_privado
+            meta_mes_info = None
+            if gerencia_name == "publico_privado":
+                try:
+                    curr_label = datetime.now().strftime("%Y-%m")
+                    meta_row = conn.execute(text("""
+                        SELECT anio, mes, mes_label, meta_egresos, dias_laborables_mes, promedio_historico_base,
+                               promedio_ingresos, stock_propio_base, pct_reduccion_stock
+                        FROM metas_productividad_ppp
+                        WHERE mes_label = :lbl
+                        LIMIT 1
+                    """), {"lbl": curr_label}).fetchone()
+                    if meta_row:
+                        meta_mes_info = dict(meta_row._mapping)
+                except Exception as ex_meta:
+                    logger.warning(f"No se pudo cargar meta de productividad PPP: {ex_meta}")
+
             return {
                 "gerencia": gerencia_name,
                 "analistas": [
@@ -571,7 +664,9 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                 "produccion_mensual": rows_prod,
                 "tratas_distribucion": rows_tratas,
                 "stock_actual": rows_stock,
-                "expedientes": rows_exp
+                "stock_summary": stock_summary,
+                "expedientes": rows_exp,
+                "meta_actual": meta_mes_info
             }
     except Exception as e:
         logger.error(f"Error en analisis_produccion para {gerencia_name}: {e}")
@@ -6993,9 +7088,376 @@ async def get_seguimiento_mh_expediente_historial(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==============================================================================
+# DGEUI - GESTIÓN Y SEGUIMIENTO DE EXPEDIENTES
+# ==============================================================================
+
+@router.get("/api/dgeui/expedientes")
+def get_dgeui_expedientes(
+    search: Optional[str] = None,
+    eje: Optional[str] = None,
+    prioridad: Optional[str] = None,
+    estado: Optional[str] = None,
+    dg: Optional[str] = None,
+    responsable: Optional[str] = None,
+    proxima_reunion: Optional[str] = None,
+    nico: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        with engine.connect() as conn:
+            query = """
+                SELECT id, id_expediente, nro_expediente, es_nota, sin_expediente, eje, prioridad, estado,
+                       direccion, inmueble, smp, tipo_tramite, dg, gerencia_analista,
+                       to_char(fecha, 'YYYY-MM-DD') AS fecha,
+                       observaciones_internas, observaciones_dgroc_dgiur,
+                       proxima_reunion, responsable, nico, creado_por,
+                       to_char(fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+                       to_char(fecha_actualizacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_actualizacion
+                FROM public.dgeui_expedientes
+                WHERE 1=1
+            """
+            params = {}
+            if search:
+                query += """ AND (
+                    nro_expediente ILIKE :s OR eje ILIKE :s OR direccion ILIKE :s 
+                    OR inmueble ILIKE :s OR smp ILIKE :s OR gerencia_analista ILIKE :s
+                    OR observaciones_internas ILIKE :s OR observaciones_dgroc_dgiur ILIKE :s
+                )"""
+                params["s"] = f"%{search.strip()}%"
+            if eje and eje != 'ALL':
+                query += " AND eje = :eje"
+                params["eje"] = eje
+            if prioridad and prioridad != 'ALL':
+                query += " AND prioridad = :prioridad"
+                params["prioridad"] = prioridad
+            if estado and estado != 'ALL':
+                query += " AND estado = :estado"
+                params["estado"] = estado
+            if dg and dg != 'ALL':
+                query += " AND dg = :dg"
+                params["dg"] = dg
+            if responsable and responsable != 'ALL':
+                query += " AND responsable = :responsable"
+                params["responsable"] = responsable
+            if proxima_reunion and proxima_reunion != 'ALL':
+                query += " AND proxima_reunion = :proxima_reunion"
+                params["proxima_reunion"] = proxima_reunion
+            if nico and nico != 'ALL':
+                query += " AND nico = :nico"
+                params["nico"] = nico
+
+            query += " ORDER BY id DESC"
+            rows = conn.execute(text(query), params).mappings().fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Error al listar expedientes DGEUI: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/api/dgeui/ejes")
+def get_dgeui_ejes(current_user: User = Depends(get_current_user)):
+    """Devuelve la lista única de ejes existentes cargados previamente para el selector."""
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text("""
+                SELECT DISTINCT eje 
+                FROM public.dgeui_expedientes 
+                WHERE eje IS NOT NULL AND TRIM(eje) <> ''
+                ORDER BY eje ASC
+            """)).fetchall()
+            ejes_db = [r[0].strip() for r in rows if r[0]]
+            default_ejes = ["AUSA", "Concesiones", "IRSA"]
+            combined = sorted(list(set(default_ejes + ejes_db)))
+            return combined
+    except Exception as e:
+        logger.error(f"Error al obtener ejes DGEUI: {e}")
+        return ["AUSA", "Concesiones", "IRSA"]
 
 
+def _buscar_y_normalizar_expediente(conn, raw_exp: str):
+    """
+    Normaliza y busca un número de expediente en mvw_expedientes_tratas_secgdu.
+    Soporta variaciones de espacios en blanco, ceros a la izquierda (ej: 08311772 vs 8311772),
+    guiones, minúsculas y diferencias en la repartición/sufijo.
+    """
+    if not raw_exp:
+        return None
+        
+    s = raw_exp.strip().upper()
+    
+    # 1. Búsqueda directa o ILIKE exacta
+    sql_base = """
+        SELECT e.id_expediente, e.expediente, e.descripcion, e.caratula, e.trata, e.descripcion_trata,
+               up.destinatario_actual AS poseedor_actual
+        FROM mvw_expedientes_tratas_secgdu e
+        LEFT JOIN mv_ultimo_pase up ON up.id_expediente = e.id_expediente
+    """
+    row = conn.execute(text(sql_base + " WHERE e.expediente = :nro LIMIT 1"), {"nro": s}).mappings().fetchone()
+    if row:
+        return row
+        
+    row = conn.execute(text(sql_base + " WHERE e.expediente ILIKE :nro LIMIT 1"), {"nro": f"%{s}%"}).mappings().fetchone()
+    if row:
+        return row
+
+    # 2. Extracción inteligente de Año y Número (descartando ceros a la izquierda)
+    # Ej: "EX-2026-08311772- GCABA-DGIUR" -> anio="2026", num="8311772"
+    m = re.search(r'(\d{4})[^\d]+0*(\d+)', s)
+    if m:
+        anio = m.group(1)
+        num = str(int(m.group(2)))
+        
+        # Identificar posibles siglas de repartición al final (ej: DGIUR, DGROC, DGEUI)
+        tokens = [t for t in re.split(r'[^A-Z0-9]+', s) if t and t not in ('EX', anio, num, 'GCABA', 'MGEYA')]
+        rep_suffix = tokens[-1] if tokens else ''
+        
+        # Probar con año + número + repartición
+        if rep_suffix:
+            row = conn.execute(text(sql_base + " WHERE e.expediente LIKE :pat AND e.expediente LIKE :rep LIMIT 1"), {
+                "pat": f"EX-{anio}-{num}-%",
+                "rep": f"%{rep_suffix}%"
+            }).mappings().fetchone()
+            if row:
+                return row
+                
+        # Probar únicamente con año + número canónico
+        row = conn.execute(text(sql_base + " WHERE e.expediente LIKE :pat LIMIT 1"), {
+            "pat": f"EX-{anio}-{num}-%"
+        }).mappings().fetchone()
+        if row:
+            return row
+
+    # 3. Búsqueda por sólo número sin ceros a la izquierda
+    num_only_match = re.search(r'0*([1-9]\d{4,})', s)
+    if num_only_match:
+        num_clean = num_only_match.group(1)
+        row = conn.execute(text(sql_base + " WHERE e.expediente LIKE :pat LIMIT 1"), {
+            "pat": f"%-{num_clean}-%"
+        }).mappings().fetchone()
+        if row:
+            return row
+
+    return None
 
 
+@router.get("/api/dgeui/validar_expediente/{nro_expediente:path}")
+def validar_expediente_dgeui(nro_expediente: str, current_user: User = Depends(get_current_user)):
+    """Valida si un número de expediente existe en SADE/SGDU, lo normaliza automáticamente y devuelve sus metadatos asociados."""
+    raw_nro = nro_expediente.strip()
+    try:
+        with engine.connect() as conn:
+            row = _buscar_y_normalizar_expediente(conn, raw_nro)
+
+            if row:
+                exp_canonical = row["expediente"]
+                ficha_dir = conn.execute(text("SELECT direccion FROM expediente_fichas WHERE expediente = :nro"), {"nro": exp_canonical}).scalar()
+                
+                # Detectar si fue normalizado/corregido respecto a lo que ingresó el usuario
+                normalizado = (raw_nro.upper() != exp_canonical)
+                
+                return {
+                    "valido": True,
+                    "id_expediente": row["id_expediente"],
+                    "nro_expediente": exp_canonical,
+                    "normalizado": normalizado,
+                    "descripcion": row["descripcion"] or row["caratula"],
+                    "trata": row["trata"],
+                    "descripcion_trata": row["descripcion_trata"],
+                    "poseedor_actual": row["poseedor_actual"],
+                    "direccion_sugerida": ficha_dir or ""
+                }
+            else:
+                return {
+                    "valido": False,
+                    "mensaje": f"El expediente '{raw_nro}' no fue encontrado en la base de datos de expedientes."
+                }
+    except Exception as e:
+        logger.error(f"Error al validar expediente DGEUI: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/dgeui/expedientes")
+def create_dgeui_expediente(req: DGEUIExpedienteCreate, current_user: User = Depends(get_current_user)):
+    try:
+        raw_nro = (req.nro_expediente or "").strip()
+        is_nota = bool(req.es_nota)
+        is_sin_exp = bool(req.sin_expediente)
+
+        with engine.connect() as conn:
+            id_exp = None
+            canonical_nro = raw_nro
+
+            if is_sin_exp:
+                canonical_nro = "Sin Expediente Iniciado"
+            elif is_nota:
+                # Si es nota, se guarda tal cual se pegó sin forzar validación contra mvw_expedientes
+                canonical_nro = raw_nro if raw_nro else "Nota S/N"
+            else:
+                # Modo expediente normal: buscar y validar en DB
+                if not raw_nro:
+                    raise HTTPException(status_code=400, detail="Debe ingresar un número de expediente.")
+                row = _buscar_y_normalizar_expediente(conn, raw_nro)
+                if not row:
+                    raise HTTPException(status_code=400, detail=f"El expediente '{raw_nro}' no existe en la base de datos.")
+                id_exp = row["id_expediente"]
+                canonical_nro = row["expediente"]
+
+            ins_sql = """
+                INSERT INTO public.dgeui_expedientes (
+                    id_expediente, nro_expediente, es_nota, sin_expediente,
+                    eje, prioridad, estado,
+                    direccion, inmueble, smp, tipo_tramite, dg, gerencia_analista,
+                    fecha, observaciones_internas, observaciones_dgroc_dgiur,
+                    proxima_reunion, responsable, nico, creado_por, fecha_creacion, fecha_actualizacion
+                ) VALUES (
+                    :id_exp, :nro, :es_nota, :sin_exp,
+                    :eje, :prio, :estado,
+                    :dir, :inmueble, :smp, :tipo_tramite, :dg, :ger_analista,
+                    :fecha, :obs_int, :obs_dg,
+                    :prox_reunion, :resp, :nico, :creado_por, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                ) RETURNING id
+            """
+            fecha_val = None
+            if req.fecha and req.fecha.strip():
+                try:
+                    fecha_val = datetime.strptime(req.fecha.strip(), "%Y-%m-%d").date()
+                except Exception:
+                    fecha_val = None
+
+            new_id = conn.execute(text(ins_sql), {
+                "id_exp": id_exp,
+                "nro": canonical_nro,
+                "es_nota": is_nota,
+                "sin_exp": is_sin_exp,
+                "eje": req.eje.strip() if req.eje else None,
+                "prio": req.prioridad or "Sin prioridad",
+                "estado": req.estado or "Sin Inicio",
+                "dir": req.direccion or None,
+                "inmueble": req.inmueble or None,
+                "smp": req.smp or None,
+                "tipo_tramite": req.tipo_tramite or None,
+                "dg": req.dg or "DGEUI",
+                "ger_analista": req.gerencia_analista or None,
+                "fecha": fecha_val,
+                "obs_int": req.observaciones_internas or None,
+                "obs_dg": req.observaciones_dgroc_dgiur or None,
+                "prox_reunion": req.proxima_reunion or "NO",
+                "resp": req.responsable or None,
+                "nico": req.nico or "No",
+                "creado_por": current_user.username
+            }).scalar()
+            conn.commit()
+
+            return {"ok": True, "id": new_id, "nro_expediente": canonical_nro, "mensaje": "Expediente DGEUI creado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al crear expediente DGEUI: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/api/dgeui/expedientes/{item_id}")
+def update_dgeui_expediente(item_id: int, req: DGEUIExpedienteUpdate, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            existing = conn.execute(text("SELECT id FROM public.dgeui_expedientes WHERE id = :id"), {"id": item_id}).fetchone()
+            if not existing:
+                raise HTTPException(status_code=404, detail="Registro DGEUI no encontrado")
+
+            fecha_val = None
+            if req.fecha and req.fecha.strip():
+                try:
+                    fecha_val = datetime.strptime(req.fecha.strip(), "%Y-%m-%d").date()
+                except Exception:
+                    fecha_val = None
+
+            # Determinar si cambia o se valida el número de expediente
+            id_exp = None
+            canonical_nro = req.nro_expediente
+            is_nota = bool(req.es_nota)
+            is_sin_exp = bool(req.sin_expediente)
+
+            if is_sin_exp or not req.nro_expediente or req.nro_expediente.strip().upper().startswith('SIN INICIO') or req.nro_expediente.strip().upper() == 'SIN EXPEDIENTE':
+                is_sin_exp = True
+                is_nota = False
+                canonical_nro = "Sin Expediente Iniciado"
+                id_exp = None
+            elif is_nota or req.nro_expediente.strip().upper().startswith('NO-'):
+                is_nota = True
+                is_sin_exp = False
+                canonical_nro = req.nro_expediente.strip()
+                id_exp = None
+            else:
+                row_exp = _buscar_y_normalizar_expediente(conn, req.nro_expediente)
+                if row_exp:
+                    id_exp = row_exp["id_expediente"]
+                    canonical_nro = row_exp["expediente"]
+                else:
+                    canonical_nro = req.nro_expediente.strip()
+
+            upd_sql = """
+                UPDATE public.dgeui_expedientes SET
+                    id_expediente = :id_exp,
+                    nro_expediente = :nro,
+                    es_nota = :es_nota,
+                    sin_expediente = :sin_exp,
+                    eje = COALESCE(:eje, eje),
+                    prioridad = COALESCE(:prio, prioridad),
+                    estado = COALESCE(:estado, estado),
+                    direccion = COALESCE(:dir, direccion),
+                    inmueble = COALESCE(:inmueble, inmueble),
+                    smp = COALESCE(:smp, smp),
+                    tipo_tramite = COALESCE(:tipo_tramite, tipo_tramite),
+                    dg = COALESCE(:dg, dg),
+                    gerencia_analista = COALESCE(:ger_analista, gerencia_analista),
+                    fecha = :fecha,
+                    observaciones_internas = :obs_int,
+                    observaciones_dgroc_dgiur = :obs_dg,
+                    proxima_reunion = COALESCE(:prox_reunion, proxima_reunion),
+                    responsable = COALESCE(:resp, responsable),
+                    nico = COALESCE(:nico, nico),
+                    fecha_actualizacion = CURRENT_TIMESTAMP
+                WHERE id = :id
+            """
+            conn.execute(text(upd_sql), {
+                "id": item_id,
+                "id_exp": id_exp,
+                "nro": canonical_nro,
+                "es_nota": is_nota,
+                "sin_exp": is_sin_exp,
+                "eje": req.eje.strip() if req.eje else None,
+                "prio": req.prioridad,
+                "estado": req.estado,
+                "dir": req.direccion,
+                "inmueble": req.inmueble,
+                "smp": req.smp,
+                "tipo_tramite": req.tipo_tramite,
+                "dg": req.dg,
+                "ger_analista": req.gerencia_analista,
+                "fecha": fecha_val,
+                "obs_int": req.observaciones_internas,
+                "obs_dg": req.observaciones_dgroc_dgiur,
+                "prox_reunion": req.proxima_reunion,
+                "resp": req.responsable,
+                "nico": req.nico
+            })
+            conn.commit()
+            return {"ok": True, "nro_expediente": canonical_nro, "mensaje": "Registro DGEUI actualizado exitosamente"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error al actualizar expediente DGEUI: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/api/dgeui/expedientes/{item_id}")
+def delete_dgeui_expediente(item_id: int, current_user: User = Depends(get_current_user)):
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("DELETE FROM public.dgeui_expedientes WHERE id = :id"), {"id": item_id})
+            conn.commit()
+            return {"ok": True, "mensaje": "Registro DGEUI eliminado exitosamente"}
+    except Exception as e:
+        logger.error(f"Error al eliminar expediente DGEUI: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

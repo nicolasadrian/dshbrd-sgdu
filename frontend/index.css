@@ -2248,6 +2248,7 @@ body::after, body::before, html::after, html::before {
 .badge-gerencia.morfologia { background: #fff1f2; color: #be123c; }
 .badge-gerencia.aph { background: #fdf2f8; color: #be185d; }
 .badge-gerencia.usos { background: #f0fdfa; color: #0f766e; }
+.badge-gerencia.publico_privado { background: #eef2ff; color: #4338ca; }
 
 .trata-track-metrics {
     display: grid;
