@@ -25506,39 +25506,39 @@ function renderDGEUITable(records) {
 
         html += `
             <tr style="background: ${bgRow}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='${bgRow}'">
-                <td style="padding: 10px 10px; font-weight: 700; color: #0f172a; white-space: nowrap;">
-                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 5px; font-size: 0.75rem;"></i>${r.eje || '-'}
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; white-space: nowrap;">
+                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 4px; font-size: 0.7rem;"></i>${r.eje || '-'}
                 </td>
-                <td style="padding: 10px 10px; text-align: center; white-space: nowrap;">${prioBadge}</td>
-                <td style="padding: 10px 10px; font-weight: 700; color: #0369a1; white-space: nowrap;">
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${prioBadge}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0369a1; white-space: nowrap;">
                     <span style="cursor: pointer; text-decoration: underline; text-decoration-color: #bae6fd; text-underline-offset: 3px;" onclick="openExpedienteModalFromDGEUI(${r.id})" title="Ver ficha y detalles de este expediente">${r.nro_expediente}</span>
                 </td>
-                <td style="padding: 10px 10px; text-align: center; white-space: nowrap;">${estadoBadge}</td>
-                <td style="padding: 10px 10px; color: #334155; min-width: 160px;">${r.direccion || '-'}</td>
-                <td style="padding: 10px 10px; color: #475569; min-width: 140px;">${r.inmueble || '-'}</td>
-                <td style="padding: 10px 10px; font-family: monospace; color: #0f172a; font-weight: 600; white-space: nowrap;">${r.smp || '-'}</td>
-                <td style="padding: 10px 10px; color: #334155;">${r.tipo_tramite || '-'}</td>
-                <td style="padding: 10px 10px; text-align: center; font-weight: 700; color: #475569;">
-                    <span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 0.74rem;">${r.dg || '-'}</span>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${estadoBadge}</td>
+                <td style="padding: 6px 8px; color: #334155; min-width: 130px; font-size: 0.78rem;">${r.direccion || '-'}</td>
+                <td style="padding: 6px 8px; color: #475569; min-width: 110px; font-size: 0.78rem;">${r.inmueble || '-'}</td>
+                <td style="padding: 6px 8px; font-family: monospace; color: #0f172a; font-weight: 600; white-space: nowrap; font-size: 0.78rem;">${r.smp || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.78rem;">${r.tipo_tramite || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #475569;">
+                    <span style="background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-size: 0.72rem;">${r.dg || '-'}</span>
                 </td>
-                <td style="padding: 10px 10px; color: #334155; font-weight: 600;">${r.gerencia_analista || '-'}</td>
-                <td style="padding: 10px 10px; text-align: center; color: #64748b; white-space: nowrap; font-size: 0.78rem;">${r.fecha || '-'}</td>
-                <td style="padding: 10px 10px; color: #475569; max-width: 240px; font-size: 0.78rem; line-height: 1.3;" title="${(r.observaciones_internas || '').replace(/"/g, '&quot;')}">
+                <td style="padding: 6px 8px; color: #334155; font-weight: 600; font-size: 0.78rem;">${r.gerencia_analista || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #64748b; white-space: nowrap; font-size: 0.75rem;">${r.fecha || '-'}</td>
+                <td style="padding: 6px 8px; color: #475569; max-width: 200px; font-size: 0.75rem; line-height: 1.25;" title="${(r.observaciones_internas || '').replace(/"/g, '&quot;')}">
                     ${r.observaciones_internas || '-'}
                 </td>
-                <td style="padding: 10px 10px; color: #475569; max-width: 240px; font-size: 0.78rem; line-height: 1.3;" title="${(r.observaciones_dgroc_dgiur || '').replace(/"/g, '&quot;')}">
+                <td style="padding: 6px 8px; color: #475569; max-width: 200px; font-size: 0.75rem; line-height: 1.25;" title="${(r.observaciones_dgroc_dgiur || '').replace(/"/g, '&quot;')}">
                     ${r.observaciones_dgroc_dgiur || '-'}
                 </td>
-                <td style="padding: 10px 10px; text-align: center; white-space: nowrap;">${reunionBadge}</td>
-                <td style="padding: 10px 10px; text-align: center; font-weight: 700; color: #1e293b;">${r.responsable || '-'}</td>
-                <td style="padding: 10px 10px; text-align: center; white-space: nowrap;">${nicoBadge}</td>
-                <td style="padding: 10px 10px; text-align: center; white-space: nowrap;">
-                    <div style="display: flex; gap: 6px; justify-content: center;">
-                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
-                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.8rem;"></i>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${reunionBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b; font-size: 0.78rem;">${r.responsable || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${nicoBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
                         </button>
-                        <button type="button" onclick="deleteDGEUIExpediente(${r.id})" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #dc2626;" title="Eliminar registro">
-                            <i class="fa-solid fa-trash" style="font-size: 0.8rem;"></i>
+                        <button type="button" onclick="deleteDGEUIExpediente(${r.id})" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #dc2626;" title="Eliminar registro">
+                            <i class="fa-solid fa-trash" style="font-size: 0.75rem;"></i>
                         </button>
                     </div>
                 </td>
