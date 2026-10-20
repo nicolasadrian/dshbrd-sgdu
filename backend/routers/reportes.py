@@ -482,13 +482,14 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                     names_map[u] = n
 
             # 1. Producción mensual por analista y mes (ING y EGR desde Marzo 2026 en adelante)
+            # Regla de ingreso: solo se contabiliza como ING si el remitente/contraparte NO pertenece al área
             prod_mes_sql = f"""
                 SELECT 
                     mes_label,
                     anio,
                     mes,
                     analista,
-                    COUNT(DISTINCT CASE WHEN tipo_evento = 'ING' THEN id_expediente END) AS cant_ingresos,
+                    COUNT(DISTINCT CASE WHEN tipo_evento = 'ING' AND NOT (contraparte = ANY(:a_area)) THEN id_expediente END) AS cant_ingresos,
                     COUNT(DISTINCT CASE WHEN tipo_evento = 'EGR' THEN id_expediente END) AS cant_egresos,
                     COUNT(DISTINCT id_expediente) AS exp_intervenidos,
                     COUNT(*) AS total_pases
@@ -497,7 +498,7 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                 GROUP BY mes_label, anio, mes, analista
                 ORDER BY mes_label DESC, analista ASC
             """
-            rows_prod = [dict(r._mapping) for r in conn.execute(text(prod_mes_sql)).fetchall()]
+            rows_prod = [dict(r._mapping) for r in conn.execute(text(prod_mes_sql), {"a_area": analysts}).fetchall()]
 
             # 1.b Stock mensual histórico (Stock Propio y Subsanación al cierre de cada mes)
             monthly_stock_sql = f"""
@@ -566,7 +567,7 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                     descripcion_trata,
                     analista,
                     mes_label,
-                    COUNT(DISTINCT CASE WHEN tipo_evento = 'ING' THEN id_expediente END) AS cant_ingresos,
+                    COUNT(DISTINCT CASE WHEN tipo_evento = 'ING' AND NOT (contraparte = ANY(:a_area)) THEN id_expediente END) AS cant_ingresos,
                     COUNT(DISTINCT CASE WHEN tipo_evento = 'EGR' THEN id_expediente END) AS cant_egresos,
                     COUNT(DISTINCT id_expediente) AS exp_intervenidos
                 FROM {matview_name}
@@ -574,7 +575,7 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                 GROUP BY trata, descripcion_trata, analista, mes_label
                 ORDER BY exp_intervenidos DESC
             """
-            rows_tratas = [dict(r._mapping) for r in conn.execute(text(tratas_sql)).fetchall()]
+            rows_tratas = [dict(r._mapping) for r in conn.execute(text(tratas_sql), {"a_area": analysts}).fetchall()]
             for r in rows_tratas:
                 r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
 
@@ -643,9 +644,10 @@ def _get_gerencia_analisis_produccion_data(gerencia_name: str, matview_name: str
                     mes
                 FROM {matview_name}
                 WHERE mes_label >= '2026-03'
+                  AND (tipo_evento != 'ING' OR NOT (contraparte = ANY(:a_area)))
                 ORDER BY id_expediente, analista, mes_label, tipo_evento, fecha_evento DESC
             """
-            rows_exp = [dict(r._mapping) for r in conn.execute(text(exp_sql)).fetchall()]
+            rows_exp = [dict(r._mapping) for r in conn.execute(text(exp_sql), {"a_area": analysts}).fetchall()]
             for r in rows_exp:
                 r["analista_nombre"] = names_map.get(r["analista"], r["analista"])
 
