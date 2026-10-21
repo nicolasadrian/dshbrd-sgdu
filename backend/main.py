@@ -453,6 +453,30 @@ try:
                 WHERE permissions IS NOT NULL
                   AND NOT (permissions ? 'planificacion_nov_2026')
             """))
+            # Migración: agregar permiso dgeui a roles y usuarios que no lo tienen aún
+            conn.execute(text("""
+                UPDATE auth_roles
+                SET permissions = permissions || '{"dgeui": true}'::jsonb
+                WHERE NOT (permissions ? 'dgeui') AND role_name IN ('administrador', 'admin', 'seguimiento')
+            """))
+            conn.execute(text("""
+                UPDATE auth_roles
+                SET permissions = permissions || '{"dgeui": false}'::jsonb
+                WHERE NOT (permissions ? 'dgeui')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users
+                SET permissions = permissions || '{"dgeui": true}'::jsonb
+                WHERE permissions IS NOT NULL
+                  AND NOT (permissions ? 'dgeui')
+                  AND role IN ('administrador', 'admin', 'seguimiento')
+            """))
+            conn.execute(text("""
+                UPDATE auth_users
+                SET permissions = permissions || '{"dgeui": false}'::jsonb
+                WHERE permissions IS NOT NULL
+                  AND NOT (permissions ? 'dgeui')
+            """))
 
         # Vista materializada mvw_universo_tratas: se dropea y recrea en cada startup
         # para garantizar que siempre usa la definición actualizada.

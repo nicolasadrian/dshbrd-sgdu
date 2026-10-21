@@ -106,17 +106,21 @@ function initAuth() {
         // 1. Toggles for Seguimiento dropdown and its contents
         const hasDgrocSeg = perms.dgroc || perms.seguimiento_catastro || perms.seguimiento_instalaciones || perms.seguimiento_conforme || perms.seguimiento_contable || perms.seguimiento_etapa_proyecto || perms.seguimiento_aviso_obra;
         const hasDgiurSeg = perms.dgiur || perms.seguimiento_morfologia || perms.seguimiento_aph || perms.seguimiento_usos || perms.publico_privado || perms.copua || perms.privada;
+        const hasDgeuiSeg = perms.dgeui;
         const hasFamily = perms.family || perms.familia_tramites;
-        const hasSeguimientoAccess = hasDgrocSeg || hasDgiurSeg || hasFamily || perms.seguimiento;
+        const hasSeguimientoAccess = hasDgrocSeg || hasDgiurSeg || hasDgeuiSeg || hasFamily || perms.seguimiento || isAdmin;
 
         const navSeguimiento = document.getElementById('nav-dropdown-seguimiento');
         if (navSeguimiento) navSeguimiento.style.display = hasSeguimientoAccess ? 'inline-block' : 'none';
 
         const subSegDgroc = document.getElementById('menu-sub-seguimiento-dgroc');
-        if (subSegDgroc) subSegDgroc.style.display = hasDgrocSeg ? 'block' : 'none';
+        if (subSegDgroc) subSegDgroc.style.display = (hasDgrocSeg || isAdmin) ? 'block' : 'none';
 
         const subSegDgiur = document.getElementById('menu-sub-seguimiento-dgiur');
-        if (subSegDgiur) subSegDgiur.style.display = hasDgiurSeg ? 'block' : 'none';
+        if (subSegDgiur) subSegDgiur.style.display = (hasDgiurSeg || isAdmin) ? 'block' : 'none';
+
+        const subSegDgeui = document.getElementById('menu-sub-seguimiento-dgeui');
+        if (subSegDgeui) subSegDgeui.style.display = (hasDgeuiSeg || isAdmin) ? 'block' : 'none';
 
         // Granular links inside Seguimiento DGROC
         const setDisplay = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? 'block' : 'none'; };
@@ -175,11 +179,12 @@ function initAuth() {
         const hasProductividadAccess = hasProdDgroc || hasProdDgiur || perms.productividad_analistas || perms.productividad_otros;
 
         const hasRrhhAccess = perms.reportes_rrhh || perms.carga_reportes_rrhh || Object.keys(perms).some(k => k.startsWith('rrhh_') && perms[k]);
-        const hasReportesAccess = perms.seguimiento || perms.cierre || perms.sla || perms.subsanaciones || hasProductividadAccess || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
+        const hasReportesAccess = perms.seguimiento || perms.seguimiento_mh || perms.seguimiento_mh_asignar || perms.cierre || perms.sla || perms.subsanaciones || hasProductividadAccess || perms.universo_tratas || perms.planificacion_nov_2026 || hasRrhhAccess;
         const reportesDropdown = document.getElementById('nav-dropdown-reportes');
         if (reportesDropdown) reportesDropdown.style.display = hasReportesAccess ? 'inline-block' : 'none';
 
         setDisplay('link-rep-metas', perms.seguimiento || isAdmin);
+        setDisplay('link-rep-seguimiento-mh', perms.seguimiento_mh || perms.seguimiento_mh_asignar || isAdmin);
         setDisplay('cierre-link', perms.cierre || isAdmin);
         setDisplay('sla-link', perms.sla || isAdmin);
         setDisplay('link-rep-subsanaciones', perms.subsanaciones || isAdmin);
@@ -459,6 +464,8 @@ async function showView(viewId, updateHash = true) {
             hasPermission = !!(perms.dgroc || Object.values(dgrocMap).some(k => perms[k]) || isAdmin);
         } else if (viewId === 'dgiur') {
             hasPermission = !!(perms.dgiur || Object.values(dgiurMap).some(k => perms[k]) || isAdmin);
+        } else if (viewId === 'dgeui') {
+            hasPermission = !!(perms.dgeui || perms.seguimiento || isAdmin);
         } else if (dgrocMap[viewId]) {
             const specificKey = dgrocMap[viewId];
             hasPermission = !!(perms[specificKey] || perms.dgroc || perms[viewId] || isAdmin);
@@ -527,8 +534,8 @@ async function showView(viewId, updateHash = true) {
             showView('landing');
             return;
         }
-        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado, COPUA o Privada
-        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado, COPUA, Privada o DGEUI
+        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada' || viewId === 'dgeui') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
             showView('landing');
             return;
         }
@@ -616,6 +623,12 @@ async function showView(viewId, updateHash = true) {
 
     if (viewId === 'seguimiento') {
         loadSeguimientoData();
+    }
+
+    if (viewId === 'seguimiento_mh') {
+        if (typeof window.loadSeguimientoMHView === 'function') {
+            window.loadSeguimientoMHView();
+        }
     }
 
     if (viewId === 'sla') {
@@ -3923,6 +3936,9 @@ const PERMISSION_KEYS = {
     privada: "Seguimiento: Privada",
     family: "Familia de Trámites",
 
+    // Seguimiento DGEUI
+    dgeui: "Seguimiento DGEUI (Expedientes Estratégicos)",
+
     // Buzones DGROC
     buzon_dgroc: "Buzones DGROC (Todas las gerencias)",
     buzon_catastro: "Buzón: Catastro",
@@ -4042,6 +4058,9 @@ const PERMISSION_GROUPS = {
         privada: { label: "Privada", desc: "Monitoreo y productividad de la Gerencia Privada." },
         family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites relacionados." }
     },
+    "Seguimiento DGEUI": {
+        dgeui: { label: "DGEUI (Completa)", desc: "Monitoreo y seguimiento de expedientes estratégicos DGEUI." }
+    },
     "Buzones DGROC": {
         buzon_dgroc: { label: "Buzones DGROC (Todos)", desc: "Acceso a todas las bandejas de buzones de DGROC." },
         buzon_catastro: { label: "Buzón Catastro", desc: "Bandeja de stock y analistas de Catastro." },
@@ -4078,6 +4097,8 @@ const PERMISSION_GROUPS = {
     },
     "Reportes & Gestión": {
         seguimiento: { label: "Reporte Metas", desc: "Informe consolidado de cumplimiento de metas." },
+        seguimiento_mh: { label: "Seguimiento MH (Lectura)", desc: "Visualizar panel de avance y métricas de Seguimiento MH (MDUG0131B)." },
+        seguimiento_mh_asignar: { label: "Seguimiento MH (Asignar Expedientes)", desc: "Permiso para asignar y reasignar expedientes en Seguimiento MH." },
         cierre: { label: "Cierre de Mes", desc: "Visualizar el reporte consolidado de cierre de mes." },
         sla: { label: "Tiempos de tramitación (SLA)", desc: "Análisis de tiempos de respuesta por gerencia." },
         subsanaciones: { label: "Subsanaciones", desc: "Ver expedientes en proceso de subsanación TAD." },
@@ -5753,14 +5774,20 @@ async function loadSeguimientoData() {
     const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
 
     try {
-        // Cargar en paralelo todos los consolidados
+        // Cargar en paralelo todos los consolidados más la meta de Público Privado
         const promises = gerencias.map(g =>
             def_fetch(`${API_BASE}/reporte/${g}/consolidado`)
                 .then(r => r && r.ok ? r.json() : [])
                 .catch(() => [])
         );
 
+        // Fetch de Público Privado
+        const pppPromise = def_fetch(`${API_BASE}/reporte/publico_privado/analisis_produccion`)
+            .then(r => r && r.ok ? r.json() : null)
+            .catch(() => null);
+
         const results = await Promise.all(promises);
+        const pppData = await pppPromise;
 
         seguimientoTratasData = [];
         const now = new Date();
@@ -5810,6 +5837,31 @@ async function loadSeguimientoData() {
                     targetEgr: targetEgr,
                     progressPct: progressPct
                 });
+            });
+        }
+
+        // Agregar la meta consolidada de Público Privado (DGIUR)
+        if (pppData) {
+            const pppProdList = pppData.produccion_mensual || [];
+            const pppAnalistas = new Set((pppData.analistas || []).map(a => a.usuario));
+            const availableMonths = [...new Set(pppProdList.map(r => r.mes_label))].sort().reverse();
+            const currMonthLabel = availableMonths.includes(currentMonthStr) ? currentMonthStr : (availableMonths[0] || currentMonthStr);
+
+            const pppActualEgr = pppProdList
+                .filter(r => r.mes_label === currMonthLabel && (pppAnalistas.size === 0 || pppAnalistas.has(r.analista)))
+                .reduce((sum, r) => sum + (Number(r.cant_egresos) || 0), 0);
+
+            const pppMetaTarget = (pppData.meta_actual && pppData.meta_actual.meta_egresos) ? Number(pppData.meta_actual.meta_egresos) : 77;
+            const pppProgressPct = pppMetaTarget > 0 ? Math.round((pppActualEgr / pppMetaTarget) * 100) : (pppActualEgr > 0 ? 100 : 0);
+
+            seguimientoTratasData.push({
+                trataCode: 'PPP',
+                trataName: 'PÚBLICO PRIVADO (TOTAL GERENCIA)',
+                gerencia: 'publico_privado',
+                actualEgr: pppActualEgr,
+                targetEgr: pppMetaTarget,
+                progressPct: pppProgressPct,
+                customUrl: '#/dgiur/publico_privado'
             });
         }
 
@@ -5943,10 +5995,10 @@ function filterAndRenderSeguimiento() {
             perfClass = 'perf-low';
         }
 
-        const gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : t.gerencia.toUpperCase());
+        let gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : (t.gerencia === 'publico_privado' ? 'PÚBLICO PRIVADO' : t.gerencia.toUpperCase()));
 
         html += `
-            <article class="trata-track-card" onclick="showTrataFromSeguimiento('${t.gerencia}', '${t.trataCode}', '${t.trataName.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+            <article class="trata-track-card" onclick="showTrataFromSeguimiento('${t.gerencia}', '${t.trataCode}', '${t.trataName.replace(/'/g, "\\'")}', '${t.customUrl || ''}')" style="cursor: pointer;">
                 <div class="trata-track-header">
                     <div class="trata-track-title-block">
                         <h3 class="trata-track-name">${t.trataName.toUpperCase()}</h3>
@@ -5988,7 +6040,15 @@ function filterAndRenderSeguimiento() {
     gsap.from(".trata-track-card", { opacity: 0, scale: 0.95, duration: 0.4, stagger: 0.03, ease: "power2.out" });
 }
 
-function showTrataFromSeguimiento(gerencia, trataCode, trataName) {
+function showTrataFromSeguimiento(gerencia, trataCode, trataName, customUrl) {
+    if (customUrl) {
+        window.location.hash = customUrl;
+        return;
+    }
+    if (gerencia === 'publico_privado') {
+        window.location.hash = '#/dgiur/publico_privado';
+        return;
+    }
     window.open(`#/${gerencia}/${trataCode}`, '_blank');
 }
 
@@ -16913,82 +16973,7 @@ function filterPDIValidationsByCategory() {
     });
 }
 
-function togglePDIValidationGroup(idx) {
-    const body = document.getElementById(`pdi-val-body-${idx}`);
-    const chevron = document.getElementById(`pdi-val-chevron-${idx}`);
-    if (!body) return;
-    const isHidden = body.style.display === 'none';
-    body.style.display = isHidden ? 'block' : 'none';
-    if (chevron) {
-        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
-    }
-}
 
-function toggleAllPDIValidationGroups(expand) {
-    const bodies = document.querySelectorAll('.pdi-val-group-body');
-    const chevrons = document.querySelectorAll('.pdi-val-group-chevron');
-    bodies.forEach(b => b.style.display = expand ? 'block' : 'none');
-    chevrons.forEach(c => c.style.transform = expand ? 'rotate(180deg)' : 'rotate(0deg)');
-}
-
-function renderValidationRecordsList(records, keyField) {
-    if (!records || records.length === 0) {
-        return `
-            <div style="text-align: center; padding: 1.25rem 0.5rem; color: #166534; font-size: 0.82rem; background: #f0fdf4; border-radius: 6px; border: 1px dashed #bbf7d0; font-family: 'Outfit', sans-serif;">
-                <i class="fa-solid fa-circle-check" style="font-size: 1.1rem; margin-bottom: 4px; display: block;"></i>
-                Sin diferencias (100% Ok).
-            </div>`;
-    }
-
-    let rowsHtml = '';
-    records.forEach((r, i) => {
-        const keyVal = r[keyField] || r.smp || r.sm || '-';
-        const seccion = r.seccion || '-';
-        const manzana = r.manzana || '-';
-        
-        let extra = '';
-        if (r.superpuesto) extra = `Superpuesto con: <b>${r.superpuesto}</b>`;
-        else if (r.motivo) extra = `Motivo: ${r.motivo}`;
-        else if (r.smp_concatenado) extra = `Concat: <b>${r.smp_concatenado}</b>`;
-        else if (r.detalle_valores) extra = `Valores: ${r.detalle_valores}`;
-        else if (r.cantidad) extra = `Cantidad: <b>${r.cantidad}</b>`;
-        else if (r.cantidad_valores) extra = `Cant. valores: <b>${r.cantidad_valores}</b>`;
-        else if (r.parcela) extra = `Parc: ${r.parcela}`;
-        else if (r.mz_tipo) extra = `Tipo: ${r.mz_tipo}`;
-        else if (r.detalle) extra = `${r.detalle}`;
-
-        rowsHtml += `
-            <tr style="border-bottom: 1px solid #f1f5f9; font-family: 'Outfit', sans-serif;">
-                <td style="padding: 6px 10px; font-weight: 700; color: #0f172a; font-size: 0.85rem; font-family: 'Outfit', sans-serif; white-space: nowrap;">
-                    <span style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 2px 6px; border-radius: 4px; color: #0284c7; font-weight: 700; font-family: 'Outfit', sans-serif; white-space: nowrap;">
-                        ${keyVal}
-                    </span>
-                </td>
-                <td style="padding: 6px 10px; font-size: 0.8rem; color: #475569; font-family: 'Outfit', sans-serif; white-space: nowrap;">
-                    Sec: <b>${seccion}</b> | Mza: <b>${manzana}</b>
-                </td>
-                <td style="padding: 6px 10px; font-size: 0.78rem; color: #64748b; text-align: right; font-family: 'Outfit', sans-serif; white-space: nowrap;">
-                    ${extra}
-                </td>
-            </tr>`;
-    });
-
-    return `
-        <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; font-family: 'Outfit', sans-serif;">
-                <thead style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0;">
-                    <tr>
-                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">${keyField.toUpperCase()}</th>
-                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; white-space: nowrap;">Ubicación</th>
-                        <th style="padding: 6px 10px; color: #64748b; font-size: 0.75rem; text-transform: uppercase; text-align: right; white-space: nowrap;">Detalle</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rowsHtml}
-                </tbody>
-            </table>
-        </div>`;
-}
 
 function togglePDIValidationGroup(idx) {
     const body = document.getElementById(`pdi-val-body-${idx}`);
@@ -17986,32 +17971,132 @@ function renderLFIMisTrazados() {
     }).join('');
 }
 
+function populateLFIRevisionFiltros(revRows) {
+    // 1. Selector de Barrios
+    const barrioSelect = document.getElementById('c3d-lfi-revision-barrio-select');
+    if (barrioSelect) {
+        const currentBarrio = barrioSelect.value;
+        const barriosSet = new Set();
+        revRows.forEach(row => {
+            const b = (row.barrio || '').trim();
+            if (b) barriosSet.add(b);
+        });
+        const sortedBarrios = Array.from(barriosSet).sort((a, b) => a.localeCompare(b));
+        let barrioOpts = '<option value="">Todos los barrios</option>';
+        sortedBarrios.forEach(b => {
+            const isSel = (b.toUpperCase() === currentBarrio.toUpperCase()) ? 'selected' : '';
+            barrioOpts += `<option value="${b}" ${isSel}>${b}</option>`;
+        });
+        barrioSelect.innerHTML = barrioOpts;
+    }
+
+    // 2. Selector de Analistas
+    const analistaSelect = document.getElementById('c3d-lfi-revision-analista-select');
+    if (analistaSelect) {
+        const currentVal = analistaSelect.value;
+        const analistasSet = new Set();
+        revRows.forEach(row => {
+            const a = (row.analista_asignado || '').trim();
+            if (a) analistasSet.add(a);
+        });
+        const sorted = Array.from(analistasSet).sort((a, b) => a.localeCompare(b));
+        let optsHtml = '<option value="">Todos los analistas</option>';
+        sorted.forEach(a => {
+            const isSel = (a.toLowerCase() === currentVal.toLowerCase()) ? 'selected' : '';
+            optsHtml += `<option value="${a}" ${isSel}>${a}</option>`;
+        });
+        analistaSelect.innerHTML = optsHtml;
+    }
+}
+
+function filterLFIRevision() {
+    renderLFIRevision();
+}
+window.filterLFIRevision = filterLFIRevision;
+
 function renderLFIRevision() {
     const tbody = document.getElementById('c3d-lfi-revision-table-body');
     if (!tbody) return;
     
-    const revRows = c3dTronerasRawData.filter(row => {
+    const allRevRows = c3dTronerasRawData.filter(row => {
         const estado = (row.estado || '').toLowerCase();
         return estado === 'para revisión' || estado === 'para revision';
     });
+
+    // Poblar los dropdowns de filtros si existen
+    populateLFIRevisionFiltros(allRevRows);
+
+    const searchInput = document.getElementById('c3d-lfi-revision-search');
+    const barrioSelect = document.getElementById('c3d-lfi-revision-barrio-select');
+    const analistaSelect = document.getElementById('c3d-lfi-revision-analista-select');
+    const q = searchInput ? searchInput.value.toUpperCase().trim() : '';
+    const selBarrio = barrioSelect ? barrioSelect.value.toUpperCase().trim() : '';
+    const selAnalista = analistaSelect ? analistaSelect.value.toLowerCase().trim() : '';
+
+    const filteredRows = allRevRows.filter(row => {
+        // Filtro por barrio
+        if (selBarrio) {
+            const b = (row.barrio || '').toUpperCase().trim();
+            if (b !== selBarrio) return false;
+        }
+
+        // Filtro por analista
+        if (selAnalista) {
+            const a = (row.analista_asignado || '').toLowerCase().trim();
+            if (a !== selAnalista) return false;
+        }
+
+        // Filtro por texto de búsqueda (barrio, sección, manzana)
+        if (q) {
+            const bName = (row.barrio || '').toUpperCase();
+            if (bName.includes(q)) return true;
+
+            const secP = (row.seccion || '').toUpperCase();
+            const mzaP = (row.manzana || '').toUpperCase();
+            const secU = (row.seccion_unpad || secP.replace(/^0+/, '')).toUpperCase();
+            const mzaU = (row.manzana_unpad || mzaP.replace(/^0+/, '')).toUpperCase();
+
+            const combo1 = `${secP}-${mzaP}`;
+            const combo2 = `${secU}-${mzaU}`;
+            const combo3 = `${secP} ${mzaP}`;
+            const combo4 = `${secU} ${mzaU}`;
+            const combo5 = `${secP}/${mzaP}`;
+
+            if (secP.includes(q) || mzaP.includes(q) || secU.includes(q) || mzaU.includes(q)) return true;
+            if (combo1.includes(q) || combo2.includes(q) || combo3.includes(q) || combo4.includes(q) || combo5.includes(q)) return true;
+
+            return false;
+        }
+
+        return true;
+    });
+
+    // Actualizar contador
+    const counterEl = document.getElementById('c3d-lfi-revision-counter');
+    if (counterEl) {
+        counterEl.innerText = `Mostrando: ${filteredRows.length} de ${allRevRows.length}`;
+    }
     
-    if (revRows.length === 0) {
+    if (filteredRows.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" style="text-align: center; padding: 2rem; color: #64748b; font-family: 'Outfit', sans-serif;">
-                    <i class="fa-solid fa-check-double" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
-                    <p style="margin: 0; font-size: 0.9rem;">No hay trazados pendientes de revisión en este momento.</p>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: #64748b; font-family: 'Outfit', sans-serif;">
+                    <i class="fa-solid fa-search" style="font-size: 2rem; color: #cbd5e1; margin-bottom: 0.5rem;"></i>
+                    <p style="margin: 0; font-size: 0.9rem;">${allRevRows.length === 0 ? 'No hay trazados pendientes de revisión en este momento.' : 'No se encontraron manzanas con los filtros aplicados.'}</p>
                 </td>
             </tr>
         `;
         return;
     }
     
-    tbody.innerHTML = revRows.map(row => {
+    tbody.innerHTML = filteredRows.map(row => {
         return `
             <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit', sans-serif;">
                 <td style="padding: 12px 16px; font-weight: 700; font-family: 'Outfit', sans-serif; font-size: 0.95rem; color: var(--primary-dark);">
                     ${row.seccion} - ${row.manzana}
+                </td>
+                <td style="padding: 12px 16px; color: #475569; font-weight: 500; font-size: 0.88rem;">
+                    ${row.barrio || '-'}
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     <span style="background: #eff6ff; color: #1e40af; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-block; min-width: 28px; text-align: center;">
@@ -18024,10 +18109,16 @@ function renderLFIRevision() {
                     </span>
                 </td>
                 <td style="padding: 12px 16px; font-weight: 600; color: #475569;">
-                    ${row.analista_asignado || 'Sin asignar'}
+                    <span style="display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-user-circle" style="color: #94a3b8;"></i>
+                        ${row.analista_asignado || 'Sin asignar'}
+                    </span>
                 </td>
                 <td style="padding: 12px 16px; text-align: center;">
                     <div style="display: flex; gap: 6px; justify-content: center; align-items: center;">
+                        <button onclick="downloadManzanaDXF('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 10px; font-size: 0.78rem; border-radius: 6px; border: none; background: #0284c7; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;" title="Descargar DXF">
+                            <i class="fa-solid fa-download"></i> DXF
+                        </button>
                         <button onclick="openLFIFicha('${row.seccion}', '${row.manzana}')" class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 6px; border: none; background: #d97706; color: white; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
                             <i class="fa-solid fa-clipboard-check"></i> Revisar Ficha
                         </button>
@@ -20199,6 +20290,10 @@ function changeAtipicasPage(direction) {
 }
 
 window.loadCiudad3DTroneras = loadCiudad3DTroneras;
+window.calculateLFIStats = calculateLFIStats;
+window.renderLFIMisTrazados = renderLFIMisTrazados;
+window.renderLFIRevision = renderLFIRevision;
+window.filterLFIRevision = filterLFIRevision;
 window.filterCiudad3DTroneras = filterCiudad3DTroneras;
 window.expandBarrioTroneras = expandBarrioTroneras;
 window.downloadManzanaDXF = downloadManzanaDXF;
@@ -24505,6 +24600,55 @@ function renderGProdKPIs(data, prefix) {
     const uniqueTratas = new Set(tratasList.map(t => t.trata).filter(Boolean));
     const kpiTratas = document.getElementById(`${prefix}-kpi-tratas-count`);
     if (kpiTratas) kpiTratas.innerText = uniqueTratas.size.toLocaleString('es-AR');
+
+    // Meta Mensual y avance (Público Privado)
+    if (prefix === 'ppp') {
+        // Obtener el mes más reciente de producción disponible o el mes calendario
+        const availableMonths = [...new Set(prodList.map(r => r.mes_label))].sort().reverse();
+        const calMonthLabel = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+        const currMonthLabel = availableMonths.includes(calMonthLabel) ? calMonthLabel : (availableMonths[0] || calMonthLabel);
+
+        // Egresos del mes en curso (solo de los analistas de la gerencia mostrados en pantalla)
+        const gerenciaAnalistasUsers = new Set((data.analistas || []).map(a => a.usuario));
+        const currentMonthEgresos = prodList
+            .filter(r => r.mes_label === currMonthLabel && (gerenciaAnalistasUsers.size === 0 || gerenciaAnalistasUsers.has(r.analista)))
+            .reduce((sum, r) => sum + (Number(r.cant_egresos) || 0), 0);
+
+        const metaInfo = data.meta_actual || { meta_egresos: 77, dias_laborables_mes: 22 };
+        const metaTarget = metaInfo.meta_egresos || 77;
+
+        const elActual = document.getElementById('ppp-kpi-meta-actual');
+        const elTarget = document.getElementById('ppp-kpi-meta-target');
+        const elPct = document.getElementById('ppp-kpi-meta-pct');
+        const elBar = document.getElementById('ppp-kpi-meta-bar');
+        const elMesPct = document.getElementById('ppp-kpi-meta-mes-pct');
+        const elRitmo = document.getElementById('ppp-kpi-meta-ritmo');
+
+        if (elActual) elActual.innerText = currentMonthEgresos.toLocaleString('es-AR');
+        if (elTarget) elTarget.innerText = `/ ${metaTarget.toLocaleString('es-AR')}`;
+
+        const pctMeta = Math.min(Math.round((currentMonthEgresos / metaTarget) * 100), 200);
+        if (elPct) {
+            elPct.innerText = `${pctMeta}%`;
+            if (pctMeta >= 100) {
+                elPct.style.color = '#15803d';
+                elPct.style.background = '#dcfce7';
+            } else if (pctMeta >= 70) {
+                elPct.style.color = '#0284c7';
+                elPct.style.background = '#e0f2fe';
+            } else {
+                elPct.style.color = '#b45309';
+                elPct.style.background = '#fef3c7';
+            }
+        }
+        if (elBar) elBar.style.width = `${Math.min(pctMeta, 100)}%`;
+
+        // Porcentaje del mes avanzado en días
+        const totalDiasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const diaActual = now.getDate();
+        const pctMesTranscurrido = Math.round((diaActual / totalDiasMes) * 100);
+        if (elMesPct) elMesPct.innerText = `Mes transcurrido: ${pctMesTranscurrido}% (día ${diaActual}/${totalDiasMes})`;
+    }
 }
 
 function renderPPPKPIs(data) {
@@ -24755,11 +24899,22 @@ function renderGProdMatrixTable(data, prefix) {
     const monthsSet = new Set(prodList.map(r => r.mes_label));
     const sortedMonths = Array.from(monthsSet).sort();
 
+    const stockSummary = data.stock_summary || {};
+
     let html = `
         <table style="width: 100%; border-collapse: collapse; text-align: left; font-family: 'Outfit'; font-size: 0.88rem;">
             <thead>
                 <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
-                    <th style="padding: 12px 14px; font-weight: 600; min-width: 200px;">Analista / Buzón</th>
+                    <th style="padding: 12px 14px; font-weight: 600; min-width: 190px;">Analista / Buzón</th>
+                    <th style="padding: 10px 8px; font-weight: 700; text-align: center; min-width: 175px; background: #f1f5f9; border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1;">
+                        <div style="font-size: 0.88rem; color: #0f172a; margin-bottom: 4px; font-weight: 800;">Consolidado Actual</div>
+                        <div style="display: flex; justify-content: center; gap: 6px; font-size: 0.70rem;">
+                            <span style="color: #0284c7; font-weight: 700;" title="Total Ingresos Acumulados">ING</span>
+                            <span style="color: #10b981; font-weight: 700;" title="Total Egresos Acumulados">EGR</span>
+                            <span style="color: #b45309; font-weight: 700;" title="Stock Propio Actual">STK</span>
+                            <span style="color: #db2777; font-weight: 700;" title="En Subsanación Actual">SUB</span>
+                        </div>
+                    </th>
     `;
 
     sortedMonths.forEach(m => {
@@ -24767,40 +24922,55 @@ function renderGProdMatrixTable(data, prefix) {
         const mIdx = parseInt(parts[1], 10) - 1;
         const mName = (MESES[mIdx] || '').substring(0, 3);
         html += `
-            <th style="padding: 10px 8px; font-weight: 600; text-align: center; min-width: 120px; border-left: 1px solid #e2e8f0;">
-                <div style="font-size: 0.88rem; color: #1e293b; margin-bottom: 4px;">${mName} ${parts[0]}</div>
-                <div style="display: flex; justify-content: center; gap: 8px; font-size: 0.72rem;">
-                    <span style="color: #0284c7; font-weight: 700;">ING</span>
-                    <span style="color: #10b981; font-weight: 700;">EGR</span>
+            <th style="padding: 10px 8px; font-weight: 600; text-align: center; min-width: 165px; border-left: 1px solid #e2e8f0;">
+                <div style="font-size: 0.88rem; color: #1e293b; margin-bottom: 4px; font-weight: 700;">${mName} ${parts[0]}</div>
+                <div style="display: flex; justify-content: center; gap: 6px; font-size: 0.70rem;">
+                    <span style="color: #0284c7; font-weight: 700;" title="Ingresos">ING</span>
+                    <span style="color: #10b981; font-weight: 700;" title="Egresos">EGR</span>
+                    <span style="color: #b45309; font-weight: 700;" title="Stock Propio">STK</span>
+                    <span style="color: #db2777; font-weight: 700;" title="En Subsanación">SUB</span>
                 </div>
             </th>
         `;
     });
 
     html += `
-                    <th style="padding: 12px 14px; font-weight: 700; text-align: center; color: var(--primary-dark); background: #f1f5f9; min-width: 130px; border-left: 1px solid #e2e8f0;">
-                        <div>Total Período</div>
-                        <div style="display: flex; justify-content: center; gap: 12px; font-size: 0.72rem; margin-top: 4px;">
-                            <span style="color: #0284c7; font-weight: 700;">ING</span>
-                            <span style="color: #10b981; font-weight: 700;">EGR</span>
-                        </div>
-                    </th>
                 </tr>
             </thead>
             <tbody>
     `;
 
-    // Totales por columna
+    // Totales acumulados para el consolidado
+    let grandConsolidatedIng = 0;
+    let grandConsolidatedEgr = 0;
+    let grandConsolidatedStk = 0;
+    let grandConsolidatedSubs = 0;
+
+    // Totales por columna mensual
     const colTotalsIng = {};
     const colTotalsEgr = {};
-    sortedMonths.forEach(m => { colTotalsIng[m] = 0; colTotalsEgr[m] = 0; });
-    let grandTotalIng = 0;
-    let grandTotalEgr = 0;
+    const colTotalsStock = {};
+    const colTotalsSubs = {};
+    sortedMonths.forEach(m => { 
+        colTotalsIng[m] = 0; 
+        colTotalsEgr[m] = 0; 
+        colTotalsStock[m] = 0;
+        colTotalsSubs[m] = 0;
+    });
 
     analistas.forEach((a, idx) => {
         const rowBg = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
-        let rowTotalIng = 0;
-        let rowTotalEgr = 0;
+        const userRows = prodList.filter(r => r.analista === a.usuario);
+        const totalIngUser = userRows.reduce((sum, r) => sum + (Number(r.cant_ingresos) || 0), 0);
+        const totalEgrUser = userRows.reduce((sum, r) => sum + (Number(r.cant_egresos) || 0), 0);
+        const currentStkUser = stockSummary[a.usuario] || { stock_propio: 0, stock_subs: 0, stock_total: 0 };
+        const stkPropioActual = Number(currentStkUser.stock_propio) || 0;
+        const stkSubsActual = Number(currentStkUser.stock_subs) || 0;
+
+        grandConsolidatedIng += totalIngUser;
+        grandConsolidatedEgr += totalEgrUser;
+        grandConsolidatedStk += stkPropioActual;
+        grandConsolidatedSubs += stkSubsActual;
 
         html += `
             <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
@@ -24809,76 +24979,91 @@ function renderGProdMatrixTable(data, prefix) {
                     ${a.nombre || a.usuario}
                     <span style="display: block; font-size: 0.75rem; color: #94a3b8; font-weight: 400;">${a.usuario}</span>
                 </td>
+                <td style="padding: 10px 6px; text-align: center; background: rgba(241, 245, 249, 0.45); border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: center; gap: 5px; align-items: center;">
+                        <span style="background: #e0f2fe; color: #0284c7; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="Total histórico ingresos: ${totalIngUser}">${totalIngUser}</span>
+                        <span style="background: #dcfce7; color: #10b981; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="Total histórico egresos: ${totalEgrUser}">${totalEgrUser}</span>
+                        <span style="background: #fef3c7; color: #b45309; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="Stock propio actual en bandeja: ${stkPropioActual}">${stkPropioActual}</span>
+                        <span style="background: #fce7f3; color: #db2777; font-weight: 800; padding: 2px 5px; border-radius: 4px; font-size: 0.8rem;" title="En subsanación actual: ${stkSubsActual}">${stkSubsActual}</span>
+                    </div>
+                </td>
         `;
 
         sortedMonths.forEach(m => {
             const found = prodList.find(r => r.analista === a.usuario && r.mes_label === m);
-            const ingCount = found ? (found.cant_ingresos || 0) : 0;
-            const egrCount = found ? (found.cant_egresos || 0) : 0;
+            const ingCount = found ? (Number(found.cant_ingresos) || 0) : 0;
+            const egrCount = found ? (Number(found.cant_egresos) || 0) : 0;
+            const stockCount = found ? (Number(found.stock_propio) || 0) : 0;
+            const subsCount = found ? (Number(found.stock_subs) || 0) : 0;
 
-            rowTotalIng += ingCount;
-            rowTotalEgr += egrCount;
             colTotalsIng[m] = (colTotalsIng[m] || 0) + ingCount;
             colTotalsEgr[m] = (colTotalsEgr[m] || 0) + egrCount;
+            colTotalsStock[m] = (colTotalsStock[m] || 0) + stockCount;
+            colTotalsSubs[m] = (colTotalsSubs[m] || 0) + subsCount;
 
             const ingBadge = ingCount > 0
-                ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'ING', '${prefix}')" title="Ver ${ingCount} ingresos">${ingCount}</span>`
-                : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+                ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 5px; border-radius: 4px; cursor: pointer; font-size: 0.78rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'ING', '${prefix}')" title="Ver ${ingCount} ingresos">${ingCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.78rem;">0</span>`;
 
             const egrBadge = egrCount > 0
-                ? `<span style="background: #dcfce7; color: #10b981; font-weight: 700; padding: 2px 7px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'EGR', '${prefix}')" title="Ver ${egrCount} egresos">${egrCount}</span>`
-                : `<span style="color: #cbd5e1; font-size: 0.8rem;">0</span>`;
+                ? `<span style="background: #dcfce7; color: #10b981; font-weight: 700; padding: 2px 5px; border-radius: 4px; cursor: pointer; font-size: 0.78rem;" onclick="filterGProdByAnalystAndMonth('${a.usuario}', '${m}', 'EGR', '${prefix}')" title="Ver ${egrCount} egresos">${egrCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.78rem;">0</span>`;
+
+            const stockBadge = stockCount > 0
+                ? `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 2px 5px; border-radius: 4px; font-size: 0.78rem;" title="${stockCount} en stock propio">${stockCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.78rem;">0</span>`;
+
+            const subsBadge = subsCount > 0
+                ? `<span style="background: #fce7f3; color: #db2777; font-weight: 700; padding: 2px 5px; border-radius: 4px; font-size: 0.78rem;" title="${subsCount} en subsanación">${subsCount}</span>`
+                : `<span style="color: #cbd5e1; font-size: 0.78rem;">0</span>`;
 
             html += `
-                <td style="padding: 10px 8px; text-align: center; border-left: 1px solid #f1f5f9;">
-                    <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
+                <td style="padding: 10px 6px; text-align: center; border-left: 1px solid #f1f5f9;">
+                    <div style="display: flex; justify-content: center; gap: 5px; align-items: center;">
                         ${ingBadge}
                         ${egrBadge}
+                        ${stockBadge}
+                        ${subsBadge}
                     </div>
                 </td>
             `;
         });
 
-        grandTotalIng += rowTotalIng;
-        grandTotalEgr += rowTotalEgr;
-
-        html += `
-                <td style="padding: 10px 14px; text-align: center; font-weight: 700; background: #f8fafc; border-left: 1px solid #e2e8f0;">
-                    <div style="display: flex; justify-content: center; gap: 12px; align-items: center;">
-                        <span style="color: #0284c7;">${rowTotalIng.toLocaleString('es-AR')}</span>
-                        <span style="color: #10b981;">${rowTotalEgr.toLocaleString('es-AR')}</span>
-                    </div>
-                </td>
-            </tr>
-        `;
+        html += `</tr>`;
     });
 
     // Fila de Totales Generales
     html += `
             <tr style="background: #f1f5f9; border-top: 2px solid #cbd5e1; font-weight: 700; color: #0f172a;">
                 <td style="padding: 12px 14px;">Total Gerencia</td>
+                <td style="padding: 12px 6px; text-align: center; background: #e2e8f0; border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1;">
+                    <div style="display: flex; justify-content: center; gap: 5px; align-items: center; font-size: 0.78rem;">
+                        <span style="color: #0284c7; font-weight: 800;" title="Total General Ingresos">${grandConsolidatedIng.toLocaleString('es-AR')}</span>
+                        <span style="color: #10b981; font-weight: 800;" title="Total General Egresos">${grandConsolidatedEgr.toLocaleString('es-AR')}</span>
+                        <span style="color: #b45309; font-weight: 800;" title="Total General Stock Propio Actual">${grandConsolidatedStk.toLocaleString('es-AR')}</span>
+                        <span style="color: #db2777; font-weight: 800;" title="Total General en Subsanación Actual">${grandConsolidatedSubs.toLocaleString('es-AR')}</span>
+                    </div>
+                </td>
     `;
 
     sortedMonths.forEach(m => {
         const totIng = colTotalsIng[m] || 0;
         const totEgr = colTotalsEgr[m] || 0;
+        const totStock = colTotalsStock[m] || 0;
+        const totSubs = colTotalsSubs[m] || 0;
         html += `
-            <td style="padding: 12px 8px; text-align: center; border-left: 1px solid #e2e8f0;">
-                <div style="display: flex; justify-content: center; gap: 8px; align-items: center;">
-                    <span style="color: #0284c7; font-weight: 800;">${totIng.toLocaleString('es-AR')}</span>
-                    <span style="color: #10b981; font-weight: 800;">${totEgr.toLocaleString('es-AR')}</span>
+            <td style="padding: 12px 6px; text-align: center; border-left: 1px solid #e2e8f0;">
+                <div style="display: flex; justify-content: center; gap: 5px; align-items: center; font-size: 0.78rem;">
+                    <span style="color: #0284c7; font-weight: 800;" title="Total Ingresos">${totIng.toLocaleString('es-AR')}</span>
+                    <span style="color: #10b981; font-weight: 800;" title="Total Egresos">${totEgr.toLocaleString('es-AR')}</span>
+                    <span style="color: #b45309; font-weight: 800;" title="Total Stock Propio">${totStock.toLocaleString('es-AR')}</span>
+                    <span style="color: #db2777; font-weight: 800;" title="Total en Subsanación">${totSubs.toLocaleString('es-AR')}</span>
                 </div>
             </td>
         `;
     });
 
     html += `
-                <td style="padding: 12px 14px; text-align: center; font-size: 0.95rem; background: #e2e8f0; border-left: 1px solid #cbd5e1;">
-                    <div style="display: flex; justify-content: center; gap: 12px; align-items: center;">
-                        <span style="color: #0284c7; font-weight: 800;">${grandTotalIng.toLocaleString('es-AR')}</span>
-                        <span style="color: #10b981; font-weight: 800;">${grandTotalEgr.toLocaleString('es-AR')}</span>
-                    </div>
-                </td>
             </tr>
         </tbody>
     </table>
@@ -25095,6 +25280,7 @@ function renderGProdStockTable(stockItems, prefix) {
             <thead>
                 <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: #475569;">
                     <th style="padding: 10px 12px; font-weight: 600;">Expediente</th>
+                    <th style="padding: 10px 12px; font-weight: 600; text-align: center;">Estado Stock</th>
                     <th style="padding: 10px 12px; font-weight: 600;">Trata</th>
                     <th style="padding: 10px 12px; font-weight: 600;">Analista / Buzón Actual</th>
                     <th style="padding: 10px 12px; font-weight: 600;">Fecha Último Pase</th>
@@ -25110,11 +25296,18 @@ function renderGProdStockTable(stockItems, prefix) {
         const badgeColor = dias > 30 ? '#ef4444' : dias > 15 ? '#f59e0b' : '#10b981';
         const badgeBg = dias > 30 ? '#fef2f2' : dias > 15 ? '#fffbeb' : '#f0fdf4';
 
+        const subsBadge = item.tiene_subsanacion
+            ? `<span style="background: #fce7f3; color: #db2777; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> Subsanación TAD</span>`
+            : `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-folder-open"></i> Propio</span>`;
+
         html += `
             <tr style="background: ${rowBg}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='${rowBg}'">
                 <td style="padding: 10px 12px; font-weight: 700; color: #0076bb; white-space: nowrap;">
                     <i class="fa-solid fa-folder" style="color: #64748b; margin-right: 6px; font-size: 0.8rem;"></i>
                     ${item.expediente || 'Sin número'}
+                </td>
+                <td style="padding: 10px 12px; text-align: center; white-space: nowrap;">
+                    ${subsBadge}
                 </td>
                 <td style="padding: 10px 12px;">
                     <span style="font-weight: 600; color: #1e293b; display: block;">${item.trata}</span>
@@ -25196,3 +25389,1228 @@ window.filterGProdByAnalystAndMonth = filterGProdByAnalystAndMonth;
 window.filterByAnalystAndMonth = filterByAnalystAndMonth;
 window.exportGProdToExcel = exportGProdToExcel;
 window.exportPPPToExcel = exportPPPToExcel;
+
+// ==============================================================================
+// DGEUI - GESTIÓN Y SEGUIMIENTO DE EXPEDIENTES
+// ==============================================================================
+
+let dgeuiData = [];
+let dgeuiEjesList = [];
+
+async function loadDGEUIView() {
+    const tbody = document.getElementById('dgeui-tbody');
+    const emptyState = document.getElementById('dgeui-empty-state');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 2.5rem; color: #64748b;"><i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i> Cargando expedientes DGEUI...</td></tr>';
+    }
+
+    try {
+        const [resExp, resEjes] = await Promise.all([
+            def_fetch(`${API_BASE}/dgeui/expedientes`),
+            def_fetch(`${API_BASE}/dgeui/ejes`)
+        ]);
+
+        if (resExp && resExp.ok) {
+            dgeuiData = await resExp.json();
+        } else {
+            dgeuiData = [];
+        }
+
+        if (resEjes && resEjes.ok) {
+            dgeuiEjesList = await resEjes.json();
+        } else {
+            dgeuiEjesList = ["AUSA", "Concesiones", "IRSA"];
+        }
+
+        populateDGEUIEjesDropdown();
+        updateDGEUIKPIs();
+        switchDGEUITab(activeDGEUITab || 'en-curso');
+    } catch (err) {
+        console.error("Error al cargar vista DGEUI:", err);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="17" style="text-align: center; padding: 2rem; color: #ef4444; font-weight: 600;">Error al cargar registros: ${err.message}</td></tr>`;
+        }
+    }
+}
+
+function populateDGEUIEjesDropdown() {
+    const filterSelect = document.getElementById('dgeui-filter-eje');
+    const modalSelect = document.getElementById('dgeui-select-eje');
+    
+    // Obtener lista consolidada de ejes
+    const ejesFromData = dgeuiData.map(d => (d.eje || '').trim()).filter(Boolean);
+    const allEjes = Array.from(new Set([...dgeuiEjesList, ...ejesFromData])).sort();
+
+    if (filterSelect) {
+        const currentVal = filterSelect.value || 'ALL';
+        let filterHtml = '<option value="ALL">Todos los Ejes</option>';
+        allEjes.forEach(e => {
+            filterHtml += `<option value="${e}">${e}</option>`;
+        });
+        filterSelect.innerHTML = filterHtml;
+        filterSelect.value = currentVal;
+    }
+
+    if (modalSelect) {
+        let modalHtml = '<option value="">-- Seleccionar Eje --</option>';
+        allEjes.forEach(e => {
+            modalHtml += `<option value="${e}">${e}</option>`;
+        });
+        modalSelect.innerHTML = modalHtml;
+    }
+}
+
+let activeDGEUITab = 'en-curso';
+
+function switchDGEUITab(tabName) {
+    activeDGEUITab = tabName;
+    const views = {
+        'en-curso': document.getElementById('dgeui-view-en-curso'),
+        'finalizados': document.getElementById('dgeui-view-finalizados'),
+        'listado': document.getElementById('dgeui-view-listado')
+    };
+    const btns = {
+        'en-curso': document.getElementById('dgeui-tab-btn-en-curso'),
+        'finalizados': document.getElementById('dgeui-tab-btn-finalizados'),
+        'listado': document.getElementById('dgeui-tab-btn-listado')
+    };
+
+    Object.keys(views).forEach(key => {
+        if (views[key]) {
+            views[key].style.display = key === tabName ? 'flex' : 'none';
+        }
+        if (btns[key]) {
+            if (key === tabName) {
+                btns[key].classList.add('active');
+                btns[key].style.background = '#235c45';
+                btns[key].style.color = '#ffffff';
+                const badge = btns[key].querySelector('span[id^="dgeui-tab-badge"]');
+                if (badge) {
+                    badge.style.background = 'rgba(255,255,255,0.25)';
+                    badge.style.color = '#ffffff';
+                }
+            } else {
+                btns[key].classList.remove('active');
+                btns[key].style.background = '#f1f5f9';
+                btns[key].style.color = '#475569';
+                const badge = btns[key].querySelector('span[id^="dgeui-tab-badge"]');
+                if (badge) {
+                    badge.style.background = '#e2e8f0';
+                    badge.style.color = '#475569';
+                }
+            }
+        }
+    });
+
+    if (tabName === 'en-curso') {
+        renderDGEUIEnCursoTable();
+    } else if (tabName === 'finalizados') {
+        renderDGEUIFinalizadosTable();
+    } else if (tabName === 'listado') {
+        filterAndRenderDGEUI();
+    }
+}
+
+function updateDGEUIKPIs() {
+    const elTotal = document.getElementById('dgeui-kpi-total');
+    const elAlta = document.getElementById('dgeui-kpi-alta');
+    const elEnCurso = document.getElementById('dgeui-kpi-en-curso');
+    const elReunion = document.getElementById('dgeui-kpi-reunion');
+
+    const totalCount = dgeuiData.length;
+    const enCursoCount = dgeuiData.filter(d => (d.estado || '') === 'En curso').length;
+    const finalizadosCount = dgeuiData.filter(d => (d.estado || '') === 'Finalizado').length;
+
+    if (elTotal) elTotal.innerText = totalCount.toLocaleString('es-AR');
+    if (elAlta) elAlta.innerText = dgeuiData.filter(d => (d.prioridad || '').includes('Alta')).length.toLocaleString('es-AR');
+    if (elEnCurso) elEnCurso.innerText = enCursoCount.toLocaleString('es-AR');
+    if (elReunion) elReunion.innerText = dgeuiData.filter(d => (d.proxima_reunion || '').toUpperCase() === 'SI').length.toLocaleString('es-AR');
+
+    // Actualizar badges de las pestañas
+    const badgeEnCurso = document.getElementById('dgeui-tab-badge-en-curso');
+    const badgeFinalizados = document.getElementById('dgeui-tab-badge-finalizados');
+    const badgeListado = document.getElementById('dgeui-tab-badge-listado');
+
+    if (badgeEnCurso) badgeEnCurso.innerText = enCursoCount.toLocaleString('es-AR');
+    if (badgeFinalizados) badgeFinalizados.innerText = finalizadosCount.toLocaleString('es-AR');
+    if (badgeListado) badgeListado.innerText = totalCount.toLocaleString('es-AR');
+}
+
+function renderDGEUIEnCursoTable() {
+    const tbody = document.getElementById('dgeui-en-curso-tbody');
+    const labelCount = document.getElementById('dgeui-en-curso-count-label');
+    if (!tbody) return;
+
+    const searchVal = (document.getElementById('dgeui-en-curso-search')?.value || '').trim().toLowerCase();
+    const filterSubs = document.getElementById('dgeui-en-curso-filter-subs')?.value || 'ALL';
+    const orderVal = document.getElementById('dgeui-en-curso-order')?.value || 'demora_desc';
+
+    // Filtrar solo expedientes "En curso"
+    let list = dgeuiData.filter(d => (d.estado || '') === 'En curso');
+
+    // Filtro por subsanación
+    if (filterSubs === 'SUBS') {
+        list = list.filter(d => Boolean(d.en_subsanacion));
+    } else if (filterSubs === 'TRAMITE') {
+        list = list.filter(d => !d.en_subsanacion);
+    }
+
+    // Filtro por texto
+    if (searchVal) {
+        list = list.filter(d => {
+            const txt = [
+                d.nro_expediente, d.eje, d.prioridad, d.direccion, d.inmueble,
+                d.tipo_tramite, d.responsable, d.poseedor_sade, d.gerencia_analista
+            ].join(' ').toLowerCase();
+            return txt.includes(searchVal);
+        });
+    }
+
+    // Ordenamiento por defecto: mayor demora a menor demora (desde el más demorado al más reciente)
+    list.sort((a, b) => {
+        const da = a.dias_desde_caratulacion != null ? a.dias_desde_caratulacion : -1;
+        const db = b.dias_desde_caratulacion != null ? b.dias_desde_caratulacion : -1;
+        const dga = a.dias_en_direccion != null ? a.dias_en_direccion : -1;
+        const dgb = b.dias_en_direccion != null ? b.dias_en_direccion : -1;
+        const pa = a.dias_con_poseedor != null ? a.dias_con_poseedor : -1;
+        const pb = b.dias_con_poseedor != null ? b.dias_con_poseedor : -1;
+
+        if (orderVal === 'demora_desc') {
+            return db - da;
+        } else if (orderVal === 'direccion_desc') {
+            return dgb - dga;
+        } else if (orderVal === 'demora_asc') {
+            return da - db;
+        } else if (orderVal === 'poseedor_desc') {
+            return pb - pa;
+        }
+        return db - da;
+    });
+
+    if (labelCount) labelCount.innerText = `${list.length} expedientes en curso`;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 3rem; color: #94a3b8; font-size: 0.88rem;"><i class="fa-regular fa-folder-open" style="font-size: 1.5rem; margin-bottom: 8px; display: block;"></i>No hay expedientes en curso que coincidan con los criterios.</td></tr>`;
+        return;
+    }
+
+    let html = '';
+    list.forEach((r, idx) => {
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+
+        // Badge Prioridad
+        let prioBadge = `<span style="color: #64748b; font-size: 0.74rem;">${r.prioridad || 'Sin prioridad'}</span>`;
+        if ((r.prioridad || '').includes('Alta')) {
+            prioBadge = `<span style="background: #fee2e2; color: #dc2626; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Media')) {
+            prioBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Baja')) {
+            prioBadge = `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        }
+
+        // Badge Tiempo Total de Demora (Caratulación)
+        let diasTotalesBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">Sin dato SADE</span>';
+        if (r.dias_desde_caratulacion != null) {
+            const dias = r.dias_desde_caratulacion;
+            let bgPill = '#f1f5f9';
+            let colorPill = '#475569';
+            if (dias > 180) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (dias > 60) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            } else {
+                bgPill = '#dcfce7';
+                colorPill = '#15803d';
+            }
+            diasTotalesBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-regular fa-clock" style="font-size: 0.7rem;"></i> ${dias} días</span>`;
+        }
+
+        // Badge Tiempo en Dirección (Carga en DG hasta hoy)
+        let diasDireccionBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">-</span>';
+        if (r.dias_en_direccion != null) {
+            const diasDir = r.dias_en_direccion;
+            let bgPill = '#ecfeff';
+            let colorPill = '#0e7490';
+            if (diasDir > 120) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (diasDir > 45) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            }
+            diasDireccionBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-hourglass-half" style="font-size: 0.7rem;"></i> ${diasDir} días</span>`;
+        }
+
+        // Poseedor Actual
+        const poseedor = r.poseedor_sade || r.gerencia_analista || '<span style="color: #94a3b8;">Sin poseedor</span>';
+
+        // Badge Días con Analista
+        let diasPoseedorBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">-</span>';
+        if (r.dias_con_poseedor != null) {
+            const diasPos = r.dias_con_poseedor;
+            let colorPos = '#0284c7';
+            let bgPos = '#e0f2fe';
+            if (diasPos > 30) {
+                colorPos = '#dc2626';
+                bgPos = '#fee2e2';
+            } else if (diasPos > 15) {
+                colorPos = '#b45309';
+                bgPos = '#fef3c7';
+            }
+            diasPoseedorBadge = `<span style="background: ${bgPos}; color: ${colorPos}; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.73rem;">${diasPos} días</span>`;
+        }
+
+        // Badge Subsanación TAD
+        const subsanacionBadge = r.en_subsanacion
+            ? `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> En Subsanación</span>`
+            : `<span style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; font-weight: 600; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> Tramitación Activa</span>`;
+
+        html += `
+            <tr style="background: ${bgRow}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='${bgRow}'">
+                <td style="padding: 6px 8px; text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 700;">${idx + 1}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0369a1; white-space: nowrap;">
+                    <span style="cursor: pointer; text-decoration: underline; text-decoration-color: #bae6fd; text-underline-offset: 3px;" onclick="openExpedienteModalFromDGEUI(${r.id})" title="Ver ficha y detalles de este expediente">${r.nro_expediente}</span>
+                </td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; white-space: nowrap;">
+                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 4px; font-size: 0.7rem;"></i>${r.eje || '-'}
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${prioBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasTotalesBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 0.75rem; white-space: nowrap;">${r.fecha_caratulacion || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasDireccionBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #0e7490; font-weight: 600; font-size: 0.75rem; white-space: nowrap;">${r.fecha_carga_planilla || '-'}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #1e293b; white-space: nowrap; font-size: 0.78rem;">${poseedor}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasPoseedorBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${subsanacionBadge}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem; max-width: 140px; white-space: normal; line-height: 1.25;">${r.direccion || r.inmueble || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem;">${r.tipo_tramite || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b; font-size: 0.78rem;">${r.responsable || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function renderDGEUIFinalizadosTable() {
+    const tbody = document.getElementById('dgeui-finalizados-tbody');
+    const labelCount = document.getElementById('dgeui-finalizados-count-label');
+    if (!tbody) return;
+
+    const searchVal = (document.getElementById('dgeui-finalizados-search')?.value || '').trim().toLowerCase();
+    const orderVal = document.getElementById('dgeui-finalizados-order')?.value || 'demora_desc';
+
+    // Filtrar solo expedientes "Finalizado"
+    let list = dgeuiData.filter(d => (d.estado || '') === 'Finalizado');
+
+    // Filtro por texto
+    if (searchVal) {
+        list = list.filter(d => {
+            const txt = [
+                d.nro_expediente, d.eje, d.prioridad, d.direccion, d.inmueble,
+                d.tipo_tramite, d.responsable, d.poseedor_sade, d.gerencia_analista
+            ].join(' ').toLowerCase();
+            return txt.includes(searchVal);
+        });
+    }
+
+    // Ordenamiento
+    list.sort((a, b) => {
+        const da = a.dias_demora_finalizado != null ? a.dias_demora_finalizado : -1;
+        const db = b.dias_demora_finalizado != null ? b.dias_demora_finalizado : -1;
+        const dga = a.dias_en_direccion != null ? a.dias_en_direccion : -1;
+        const dgb = b.dias_en_direccion != null ? b.dias_en_direccion : -1;
+
+        if (orderVal === 'demora_desc') {
+            return db - da;
+        } else if (orderVal === 'direccion_desc') {
+            return dgb - dga;
+        } else if (orderVal === 'demora_asc') {
+            return da - db;
+        } else if (orderVal === 'recientes') {
+            const fa = a.fecha || a.fecha_actualizacion || '';
+            const fb = b.fecha || b.fecha_actualizacion || '';
+            return fb.localeCompare(fa);
+        }
+        return db - da;
+    });
+
+    if (labelCount) labelCount.innerText = `${list.length} expedientes resueltos`;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 3rem; color: #94a3b8; font-size: 0.88rem;"><i class="fa-regular fa-folder-open" style="font-size: 1.5rem; margin-bottom: 8px; display: block;"></i>No hay expedientes finalizados que coincidan con los criterios.</td></tr>`;
+        return;
+    }
+
+    let html = '';
+    list.forEach((r, idx) => {
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+
+        // Badge Prioridad
+        let prioBadge = `<span style="color: #64748b; font-size: 0.74rem;">${r.prioridad || 'Sin prioridad'}</span>`;
+        if ((r.prioridad || '').includes('Alta')) {
+            prioBadge = `<span style="background: #fee2e2; color: #dc2626; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Media')) {
+            prioBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Baja')) {
+            prioBadge = `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        }
+
+        // Badge Tiempo de Demora de Resolución (Desde Caratulación hasta Egreso)
+        let diasDemoraBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">Sin cálculo</span>';
+        if (r.dias_demora_finalizado != null) {
+            const dias = r.dias_demora_finalizado;
+            let bgPill = '#dcfce7';
+            let colorPill = '#15803d';
+            if (dias > 180) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (dias > 60) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            }
+            diasDemoraBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-check" style="font-size: 0.7rem;"></i> ${dias} días</span>`;
+        }
+
+        // Badge Tiempo en Dirección (Desde fecha de carga en planilla DG hasta fecha de egreso/resolución)
+        let diasDireccionBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">-</span>';
+        if (r.dias_en_direccion != null) {
+            const diasDir = r.dias_en_direccion;
+            let bgPill = '#ecfeff';
+            let colorPill = '#0e7490';
+            if (diasDir > 120) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (diasDir > 45) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            }
+            diasDireccionBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-hourglass-half" style="font-size: 0.7rem;"></i> ${diasDir} días</span>`;
+        }
+
+        // Fecha de resolución (priorizar fecha_egreso_gedo oficial, luego fecha DGEUI)
+        const fechaRes = r.fecha_egreso_gedo || r.fecha || '-';
+
+        // Badge Documento de Egreso GEDO
+        let docEgresoBadge = '<span style="color: #94a3b8; font-size: 0.74rem;">-</span>';
+        if (r.doc_egreso) {
+            docEgresoBadge = `<span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;" title="Documento oficial de egreso: ${r.doc_egreso}">
+                <i class="fa-solid fa-file-circle-check" style="color: #16a34a;"></i> ${r.acronimo_egreso || 'GEDO'} (${r.doc_egreso.split('-')[2] || r.doc_egreso})
+            </span>`;
+        }
+
+        html += `
+            <tr style="background: ${bgRow}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='${bgRow}'">
+                <td style="padding: 6px 8px; text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 700;">${idx + 1}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0369a1; white-space: nowrap;">
+                    <span style="cursor: pointer; text-decoration: underline; text-decoration-color: #bae6fd; text-underline-offset: 3px;" onclick="openExpedienteModalFromDGEUI(${r.id})" title="Ver ficha y detalles de este expediente">${r.nro_expediente}</span>
+                </td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; white-space: nowrap;">
+                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 4px; font-size: 0.7rem;"></i>${r.eje || '-'}
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${prioBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasDemoraBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 0.75rem; white-space: nowrap;">${r.fecha_caratulacion || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasDireccionBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #0e7490; font-weight: 600; font-size: 0.75rem; white-space: nowrap;">${r.fecha_carga_planilla || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #166534; font-weight: 700; font-size: 0.75rem; white-space: nowrap;">${fechaRes}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${docEgresoBadge}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem; white-space: nowrap;">${r.poseedor_sade || r.estado_sade || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem; max-width: 140px; white-space: normal; line-height: 1.25;">${r.direccion || r.inmueble || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem;">${r.tipo_tramite || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b; font-size: 0.78rem;">${r.responsable || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function filterAndRenderDGEUI() {
+    const searchVal = (document.getElementById('dgeui-search')?.value || '').trim().toLowerCase();
+    const ejeFilter = document.getElementById('dgeui-filter-eje')?.value || 'ALL';
+    const prioFilter = document.getElementById('dgeui-filter-prioridad')?.value || 'ALL';
+    const estadoFilter = document.getElementById('dgeui-filter-estado')?.value || 'ALL';
+    const dgFilter = document.getElementById('dgeui-filter-dg')?.value || 'ALL';
+    const respFilter = document.getElementById('dgeui-filter-responsable')?.value || 'ALL';
+    const reunionFilter = document.getElementById('dgeui-filter-reunion')?.value || 'ALL';
+    const nicoFilter = document.getElementById('dgeui-filter-nico')?.value || 'ALL';
+
+    const filtered = dgeuiData.filter(item => {
+        if (ejeFilter !== 'ALL' && item.eje !== ejeFilter) return false;
+        if (prioFilter !== 'ALL' && item.prioridad !== prioFilter) return false;
+        if (estadoFilter !== 'ALL' && item.estado !== estadoFilter) return false;
+        if (dgFilter !== 'ALL' && item.dg !== dgFilter) return false;
+        if (respFilter !== 'ALL' && item.responsable !== respFilter) return false;
+        if (reunionFilter !== 'ALL' && (item.proxima_reunion || '').toUpperCase() !== reunionFilter.toUpperCase()) return false;
+        if (nicoFilter !== 'ALL' && (item.nico || '').toLowerCase() !== nicoFilter.toLowerCase()) return false;
+
+        if (searchVal) {
+            const rowText = [
+                item.nro_expediente, item.eje, item.prioridad, item.estado, item.direccion,
+                item.inmueble, item.smp, item.tipo_tramite, item.dg, item.gerencia_analista,
+                item.observaciones_internas, item.observaciones_dgroc_dgiur, item.responsable,
+                item.poseedor_sade
+            ].join(' ').toLowerCase();
+            if (!rowText.includes(searchVal)) return false;
+        }
+
+        return true;
+    });
+
+    renderDGEUITable(filtered);
+}
+
+function renderDGEUITable(records) {
+    const tbody = document.getElementById('dgeui-tbody');
+    const countBadge = document.getElementById('dgeui-count-badge');
+    const emptyState = document.getElementById('dgeui-empty-state');
+    if (!tbody) return;
+
+    if (countBadge) countBadge.innerText = records.length.toLocaleString('es-AR');
+
+    if (records.length === 0) {
+        tbody.innerHTML = '';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    let html = '';
+    records.forEach((r, idx) => {
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+
+        // Badge Prioridad
+        let prioBadge = `<span style="color: #64748b; font-size: 0.76rem;">${r.prioridad || 'Sin prioridad'}</span>`;
+        if ((r.prioridad || '').includes('Alta')) {
+            prioBadge = `<span style="background: #fee2e2; color: #dc2626; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Media')) {
+            prioBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Baja')) {
+            prioBadge = `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">${r.prioridad}</span>`;
+        }
+
+        // Badge Estado
+        let estadoBadge = `<span style="background: #f1f5f9; color: #475569; font-weight: 600; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">${r.estado || 'Sin Inicio'}</span>`;
+        if (r.estado === 'En curso') {
+            estadoBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">En curso</span>`;
+        } else if (r.estado === 'Finalizado') {
+            estadoBadge = `<span style="background: #dcfce7; color: #15803d; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">Finalizado</span>`;
+        } else if (r.estado === 'Frenado' || r.estado === 'Demorado') {
+            estadoBadge = `<span style="background: #fee2e2; color: #dc2626; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">${r.estado}</span>`;
+        } else if (r.estado === 'Pendiente' || r.estado === 'Externo') {
+            estadoBadge = `<span style="background: #ede9fe; color: #7c3aed; font-weight: 700; padding: 3px 8px; border-radius: 6px; font-size: 0.74rem;">${r.estado}</span>`;
+        }
+
+        // Badge Próxima Reunión
+        const reunionBadge = (r.proxima_reunion || '').toUpperCase() === 'SI'
+            ? `<span style="background: #dcfce7; color: #16a34a; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 0.74rem;">SI</span>`
+            : `<span style="color: #94a3b8; font-size: 0.74rem;">NO</span>`;
+
+        // Badge Nico
+        const nicoBadge = (r.nico || '').toLowerCase() === 'si'
+            ? `<span style="background: #e0f2fe; color: #0284c7; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 0.74rem;">Si</span>`
+            : `<span style="color: #94a3b8; font-size: 0.74rem;">No</span>`;
+
+        html += `
+            <tr style="background: ${bgRow}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='${bgRow}'">
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; white-space: nowrap;">
+                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 4px; font-size: 0.7rem;"></i>${r.eje || '-'}
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${prioBadge}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0369a1; white-space: nowrap;">
+                    <span style="cursor: pointer; text-decoration: underline; text-decoration-color: #bae6fd; text-underline-offset: 3px;" onclick="openExpedienteModalFromDGEUI(${r.id})" title="Ver ficha y detalles de este expediente">${r.nro_expediente}</span>
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${estadoBadge}</td>
+                <td style="padding: 6px 8px; color: #334155; min-width: 110px; max-width: 130px; font-size: 0.78rem; white-space: normal; word-break: break-word; line-height: 1.25;">${r.direccion || '-'}</td>
+                <td style="padding: 6px 8px; color: #475569; min-width: 110px; font-size: 0.78rem;">${r.inmueble || '-'}</td>
+                <td style="padding: 6px 8px; color: #0f172a; font-weight: 600; white-space: nowrap; font-size: 0.78rem;">${r.smp || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.78rem;">${r.tipo_tramite || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #475569;">
+                    <span style="background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-size: 0.72rem;">${r.dg || '-'}</span>
+                </td>
+                <td style="padding: 6px 8px; color: #334155; font-weight: 600; font-size: 0.78rem;">${r.gerencia_analista || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #64748b; white-space: nowrap; font-size: 0.75rem;">${r.fecha || '-'}</td>
+                <td style="padding: 6px 8px; color: #475569; max-width: 200px; font-size: 0.75rem; line-height: 1.25;" title="${(r.observaciones_internas || '').replace(/"/g, '&quot;')}">
+                    ${r.observaciones_internas || '-'}
+                </td>
+                <td style="padding: 6px 8px; color: #475569; max-width: 200px; font-size: 0.75rem; line-height: 1.25;" title="${(r.observaciones_dgroc_dgiur || '').replace(/"/g, '&quot;')}">
+                    ${r.observaciones_dgroc_dgiur || '-'}
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${reunionBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b; font-size: 0.78rem;">${r.responsable || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${nicoBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
+                        </button>
+                        <button type="button" onclick="deleteDGEUIExpediente(${r.id})" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #dc2626;" title="Eliminar registro">
+                            <i class="fa-solid fa-trash" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function openDGEUINewModal() {
+    const form = document.getElementById('dgeui-form');
+    if (form) form.reset();
+    document.getElementById('dgeui-edit-id').value = '';
+    document.getElementById('dgeui-modal-title').innerText = 'Cargar Expediente DGEUI';
+    
+    // Resetear checks
+    const checkNota = document.getElementById('dgeui-check-es-nota');
+    const checkSinExp = document.getElementById('dgeui-check-sin-exp');
+    if (checkNota) checkNota.checked = false;
+    if (checkSinExp) checkSinExp.checked = false;
+    const labelExp = document.getElementById('dgeui-label-expediente');
+    if (labelExp) labelExp.innerText = 'Nro de Expediente *';
+
+    // Habilitar edición del número de expediente
+    const expInput = document.getElementById('dgeui-input-expediente');
+    if (expInput) {
+        expInput.value = '';
+        expInput.placeholder = 'Ej: EX-2026-12345678- -GCABA-DGROC';
+        expInput.readOnly = false;
+        expInput.required = true;
+    }
+    document.getElementById('btn-validate-exp').style.display = 'inline-flex';
+
+    // Ocultar input nuevo eje y restablecer toggle
+    document.getElementById('dgeui-input-eje-nuevo').style.display = 'none';
+    document.getElementById('dgeui-select-eje').style.display = 'block';
+    document.getElementById('btn-toggle-nuevo-eje').innerHTML = '<i class="fa-solid fa-plus"></i> Nuevo';
+
+    // Ocultar mensaje de validación
+    const msgEl = document.getElementById('dgeui-exp-validation-msg');
+    if (msgEl) msgEl.style.display = 'none';
+
+    // Fecha actual por defecto
+    const fechaInput = document.getElementById('dgeui-input-fecha');
+    if (fechaInput) fechaInput.value = new Date().toISOString().substring(0, 10);
+
+    populateDGEUIEjesDropdown();
+
+    const overlay = document.getElementById('dgeui-modal-overlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function openDGEUIEditModal(id) {
+    const item = dgeuiData.find(d => d.id === id);
+    if (!item) return;
+
+    document.getElementById('dgeui-edit-id').value = item.id;
+    document.getElementById('dgeui-modal-title').innerText = 'Editar Expediente DGEUI';
+
+    const checkNota = document.getElementById('dgeui-check-es-nota');
+    const checkSinExp = document.getElementById('dgeui-check-sin-exp');
+    if (checkNota) checkNota.checked = Boolean(item.es_nota);
+    if (checkSinExp) checkSinExp.checked = Boolean(item.sin_expediente);
+
+    const expInput = document.getElementById('dgeui-input-expediente');
+    const labelExp = document.getElementById('dgeui-label-expediente');
+    const btnVal = document.getElementById('btn-validate-exp');
+    const msgEl = document.getElementById('dgeui-exp-validation-msg');
+
+    if (expInput) {
+        expInput.value = item.nro_expediente;
+        expInput.readOnly = Boolean(item.sin_expediente);
+    }
+    if (labelExp) {
+        labelExp.innerText = item.es_nota ? 'Nro de Nota *' : (item.sin_expediente ? 'Estado de Expediente' : 'Nro de Expediente *');
+    }
+    if (btnVal) {
+        btnVal.style.display = (item.es_nota || item.sin_expediente) ? 'none' : 'inline-flex';
+    }
+    if (msgEl) {
+        msgEl.style.display = 'none';
+    }
+
+    populateDGEUIEjesDropdown();
+
+    const selectEje = document.getElementById('dgeui-select-eje');
+    const inputEjeNuevo = document.getElementById('dgeui-input-eje-nuevo');
+    if (selectEje && item.eje) {
+        if ([...selectEje.options].some(o => o.value === item.eje)) {
+            selectEje.value = item.eje;
+            selectEje.style.display = 'block';
+            inputEjeNuevo.style.display = 'none';
+        } else {
+            selectEje.style.display = 'none';
+            inputEjeNuevo.style.display = 'block';
+            inputEjeNuevo.value = item.eje;
+            document.getElementById('btn-toggle-nuevo-eje').innerHTML = '<i class="fa-solid fa-list"></i> Seleccionar';
+        }
+    }
+
+    document.getElementById('dgeui-select-prioridad').value = item.prioridad || 'Sin prioridad';
+    document.getElementById('dgeui-select-estado').value = item.estado || 'Sin Inicio';
+    document.getElementById('dgeui-input-direccion').value = item.direccion || '';
+    document.getElementById('dgeui-input-inmueble').value = item.inmueble || '';
+    document.getElementById('dgeui-input-smp').value = item.smp || '';
+    document.getElementById('dgeui-select-tipo-tramite').value = item.tipo_tramite || 'Registro de plano';
+    document.getElementById('dgeui-select-dg').value = item.dg || 'DGEUI';
+    document.getElementById('dgeui-input-gerencia-analista').value = item.gerencia_analista || '';
+    document.getElementById('dgeui-input-fecha').value = item.fecha || '';
+    document.getElementById('dgeui-input-obs-internas').value = item.observaciones_internas || '';
+    document.getElementById('dgeui-input-obs-dgroc-dgiur').value = item.observaciones_dgroc_dgiur || '';
+    document.getElementById('dgeui-select-proxima-reunion').value = (item.proxima_reunion || 'NO').toUpperCase();
+    document.getElementById('dgeui-select-responsable').value = item.responsable || 'Rodrigo';
+    document.getElementById('dgeui-select-nico').value = item.nico || 'No';
+
+    const overlay = document.getElementById('dgeui-modal-overlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function closeDGEUIModal() {
+    const overlay = document.getElementById('dgeui-modal-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function onDGEUICheckEsNotaChange() {
+    const checkNota = document.getElementById('dgeui-check-es-nota');
+    const checkSinExp = document.getElementById('dgeui-check-sin-exp');
+    const expInput = document.getElementById('dgeui-input-expediente');
+    const btnVal = document.getElementById('btn-validate-exp');
+    const msgEl = document.getElementById('dgeui-exp-validation-msg');
+    const labelExp = document.getElementById('dgeui-label-expediente');
+
+    if (checkNota && checkNota.checked) {
+        if (checkSinExp) checkSinExp.checked = false;
+        if (labelExp) labelExp.innerText = 'Nro de Nota *';
+        if (expInput) {
+            expInput.placeholder = 'Ej: NO-2025-51417558-GCABA-DGCOYP';
+            expInput.readOnly = false;
+            expInput.required = true;
+        }
+        if (btnVal) btnVal.style.display = 'none';
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.style.color = '#0284c7';
+            msgEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> Modo Nota: se guardará directamente sin requerir validación.';
+        }
+    } else {
+        if (labelExp) labelExp.innerText = 'Nro de Expediente *';
+        if (expInput) expInput.placeholder = 'Ej: EX-2026-12345678- -GCABA-DGROC';
+        if (btnVal) btnVal.style.display = 'inline-flex';
+        if (msgEl) msgEl.style.display = 'none';
+    }
+}
+
+function onDGEUICheckSinExpChange() {
+    const checkNota = document.getElementById('dgeui-check-es-nota');
+    const checkSinExp = document.getElementById('dgeui-check-sin-exp');
+    const expInput = document.getElementById('dgeui-input-expediente');
+    const btnVal = document.getElementById('btn-validate-exp');
+    const msgEl = document.getElementById('dgeui-exp-validation-msg');
+    const labelExp = document.getElementById('dgeui-label-expediente');
+
+    if (checkSinExp && checkSinExp.checked) {
+        if (checkNota) checkNota.checked = false;
+        if (labelExp) labelExp.innerText = 'Estado Expediente';
+        if (expInput) {
+            expInput.value = 'Sin Expediente Iniciado';
+            expInput.readOnly = true;
+            expInput.required = false;
+        }
+        if (btnVal) btnVal.style.display = 'none';
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.style.color = '#b45309';
+            msgEl.innerHTML = '<i class="fa-solid fa-clock"></i> Pendiente de inicio: se registrará como "Sin Expediente Iniciado".';
+        }
+    } else {
+        if (labelExp) labelExp.innerText = 'Nro de Expediente *';
+        if (expInput) {
+            expInput.value = '';
+            expInput.placeholder = 'Ej: EX-2026-12345678- -GCABA-DGROC';
+            expInput.readOnly = false;
+            expInput.required = true;
+        }
+        if (btnVal) btnVal.style.display = 'inline-flex';
+        if (msgEl) msgEl.style.display = 'none';
+    }
+}
+
+function toggleDGEUINuevoEje() {
+    const selectEje = document.getElementById('dgeui-select-eje');
+    const inputEjeNuevo = document.getElementById('dgeui-input-eje-nuevo');
+    const btn = document.getElementById('btn-toggle-nuevo-eje');
+
+    if (inputEjeNuevo.style.display === 'none') {
+        inputEjeNuevo.style.display = 'block';
+        selectEje.style.display = 'none';
+        btn.innerHTML = '<i class="fa-solid fa-list"></i> Seleccionar';
+        inputEjeNuevo.focus();
+    } else {
+        inputEjeNuevo.style.display = 'none';
+        selectEje.style.display = 'block';
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i> Nuevo';
+    }
+}
+
+function onDGEUIEjeSelectChange() {
+    const select = document.getElementById('dgeui-select-eje');
+    if (select && select.value === '__NUEVO__') {
+        toggleDGEUINuevoEje();
+    }
+}
+
+async function validateDGEUIExpedienteInput() {
+    const checkNota = document.getElementById('dgeui-check-es-nota')?.checked;
+    const checkSinExp = document.getElementById('dgeui-check-sin-exp')?.checked;
+    if (checkNota || checkSinExp) return true;
+
+    const input = document.getElementById('dgeui-input-expediente');
+    const msgEl = document.getElementById('dgeui-exp-validation-msg');
+    const val = (input?.value || '').trim();
+
+    if (!val) {
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            msgEl.style.color = '#dc2626';
+            msgEl.innerText = 'Por favor ingrese un número de expediente.';
+        }
+        return false;
+    }
+
+    if (msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#0284c7';
+        msgEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando en base de datos...';
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/dgeui/validar_expediente/${encodeURIComponent(val)}`);
+        if (!res || !res.ok) throw new Error("Error de conexión al validar");
+        const data = await res.json();
+
+        if (data.valido) {
+            msgEl.style.color = '#15803d';
+            // Actualizar el input con el formato canónico oficial de la base de datos
+            if (input && data.nro_expediente) {
+                input.value = data.nro_expediente;
+            }
+            const normText = data.normalizado ? ' <span style="color:#0284c7;font-weight:700;">(Normalizado automáticamente)</span>' : '';
+            msgEl.innerHTML = `<i class="fa-solid fa-circle-check"></i> Expediente encontrado:${normText}<br><b>${data.nro_expediente}</b> (${data.descripcion_trata || data.trata})`;
+            
+            // Autocompletar sugerencias si están vacías
+            const dirInput = document.getElementById('dgeui-input-direccion');
+            if (dirInput && !dirInput.value && data.direccion_sugerida) {
+                dirInput.value = data.direccion_sugerida;
+            }
+
+            const gerAnalistaInput = document.getElementById('dgeui-input-gerencia-analista');
+            if (gerAnalistaInput && !gerAnalistaInput.value && data.poseedor_actual) {
+                gerAnalistaInput.value = data.poseedor_actual;
+            }
+
+            return true;
+        } else {
+            msgEl.style.color = '#dc2626';
+            msgEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.mensaje}`;
+            return false;
+        }
+    } catch (e) {
+        if (msgEl) {
+            msgEl.style.color = '#dc2626';
+            msgEl.innerText = `Error al validar: ${e.message}`;
+        }
+        return false;
+    }
+}
+
+async function saveDGEUIExpediente(e) {
+    e.preventDefault();
+    const editId = document.getElementById('dgeui-edit-id').value;
+    const isNota = document.getElementById('dgeui-check-es-nota')?.checked || false;
+    const isSinExp = document.getElementById('dgeui-check-sin-exp')?.checked || false;
+    let nroExp = document.getElementById('dgeui-input-expediente').value.trim().toUpperCase();
+
+    if (isSinExp) {
+        nroExp = 'Sin Expediente Iniciado';
+    } else if (isNota) {
+        if (!nroExp) {
+            alert('Por favor ingrese el número de Nota.');
+            return;
+        }
+    }
+
+    // Determinar eje seleccionado o nuevo
+    const inputEjeNuevo = document.getElementById('dgeui-input-eje-nuevo');
+    const selectEje = document.getElementById('dgeui-select-eje');
+    let ejeVal = inputEjeNuevo.style.display !== 'none' ? inputEjeNuevo.value.trim() : selectEje.value.trim();
+
+    if (!ejeVal) {
+        alert("Por favor seleccione o ingrese un Eje.");
+        return;
+    }
+
+    const payload = {
+        nro_expediente: nroExp,
+        es_nota: isNota,
+        sin_expediente: isSinExp,
+        eje: ejeVal,
+        prioridad: document.getElementById('dgeui-select-prioridad').value,
+        estado: document.getElementById('dgeui-select-estado').value,
+        direccion: document.getElementById('dgeui-input-direccion').value.trim(),
+        inmueble: document.getElementById('dgeui-input-inmueble').value.trim(),
+        smp: document.getElementById('dgeui-input-smp').value.trim(),
+        tipo_tramite: document.getElementById('dgeui-select-tipo-tramite').value,
+        dg: document.getElementById('dgeui-select-dg').value,
+        gerencia_analista: document.getElementById('dgeui-input-gerencia-analista').value.trim(),
+        fecha: document.getElementById('dgeui-input-fecha').value,
+        observaciones_internas: document.getElementById('dgeui-input-obs-internas').value.trim(),
+        observaciones_dgroc_dgiur: document.getElementById('dgeui-input-obs-dgroc-dgiur').value.trim(),
+        proxima_reunion: document.getElementById('dgeui-select-proxima-reunion').value,
+        responsable: document.getElementById('dgeui-select-responsable').value,
+        nico: document.getElementById('dgeui-select-nico').value
+    };
+
+    const saveBtn = document.getElementById('btn-save-dgeui');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+    }
+
+    try {
+        let res;
+        if (editId) {
+            res = await def_fetch(`${API_BASE}/dgeui/expedientes/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            res = await def_fetch(`${API_BASE}/dgeui/expedientes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+
+        if (!res || !res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || "Error al procesar la solicitud en el servidor.");
+        }
+
+        closeDGEUIModal();
+        await loadDGEUIView();
+    } catch (err) {
+        console.error("Error al guardar expediente DGEUI:", err);
+        alert(`No se pudo guardar el expediente: ${err.message}`);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i> Guardar';
+        }
+    }
+}
+
+async function deleteDGEUIExpediente(id) {
+    const item = dgeuiData.find(d => d.id === id);
+    const expName = item ? item.nro_expediente : `ID ${id}`;
+    if (!confirm(`¿Está seguro de eliminar el expediente ${expName} del seguimiento DGEUI?`)) {
+        return;
+    }
+
+    try {
+        const res = await def_fetch(`${API_BASE}/dgeui/expedientes/${id}`, { method: 'DELETE' });
+        if (!res || !res.ok) {
+            throw new Error("No se pudo eliminar el registro.");
+        }
+        await loadDGEUIView();
+    } catch (e) {
+        console.error("Error al eliminar DGEUI:", e);
+        alert(`Error al eliminar: ${e.message}`);
+    }
+}
+
+async function openExpedienteModalFromDGEUI(itemId) {
+    const item = dgeuiData.find(d => d.id === itemId);
+    if (!item) return;
+
+    const overlay = document.getElementById('dgeui-detalle-modal');
+    const titleEl = document.getElementById('dgeui-detalle-title');
+    const badgeEje = document.getElementById('dgeui-detalle-badge-eje');
+    const bodyEl = document.getElementById('dgeui-detalle-body');
+    const btnEdit = document.getElementById('dgeui-detalle-btn-edit');
+
+    if (!overlay || !bodyEl) return;
+
+    titleEl.innerText = item.nro_expediente;
+    badgeEje.innerText = item.eje || 'Sin Eje';
+
+    if (btnEdit) {
+        btnEdit.onclick = () => {
+            closeDGEUIDetalleModal();
+            openDGEUIEditModal(item.id);
+        };
+    }
+
+    // Badge Prioridad
+    let prioClass = 'background: #f1f5f9; color: #64748b;';
+    if ((item.prioridad || '').includes('1') || (item.prioridad || '').includes('Alta')) prioClass = 'background: #fee2e2; color: #dc2626; border: 1px solid #fecaca;';
+    else if ((item.prioridad || '').includes('2') || (item.prioridad || '').includes('Media')) prioClass = 'background: #fef3c7; color: #d97706; border: 1px solid #fde68a;';
+    else if ((item.prioridad || '').includes('3') || (item.prioridad || '').includes('Baja')) prioClass = 'background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;';
+
+    // Badge Estado
+    let estClass = 'background: #f1f5f9; color: #475569;';
+    if (item.estado === 'Finalizado') estClass = 'background: #dcfce7; color: #15803d; font-weight: 700;';
+    else if (item.estado === 'En curso') estClass = 'background: #dbeafe; color: #1d4ed8; font-weight: 700;';
+    else if (item.estado === 'Pendiente') estClass = 'background: #fef3c7; color: #b45309; font-weight: 700;';
+    else if (item.estado === 'Guarda') estClass = 'background: #e2e8f0; color: #475569; font-weight: 700;';
+    else if (item.estado === 'Demorado' || item.estado === 'Frenado') estClass = 'background: #fee2e2; color: #b91c1c; font-weight: 700;';
+    else if (item.estado === 'Externo') estClass = 'background: #f3e8ff; color: #7e22ce; font-weight: 700;';
+
+    // Render Inicial con la ficha del registro cargado
+    bodyEl.innerHTML = `
+        <!-- Card 1: Datos Registrados en DGEUI -->
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">
+                <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-table-list" style="color: #235c45;"></i> Ficha de Seguimiento DGEUI
+                </h4>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <span style="padding: 4px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 700; ${prioClass}">
+                        ${item.prioridad || 'Sin prioridad'}
+                    </span>
+                    <span style="padding: 4px 10px; border-radius: 12px; font-size: 0.78rem; ${estClass}">
+                        ${item.estado || 'Sin Inicio'}
+                    </span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; font-size: 0.88rem;">
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Dirección</span>
+                    <div style="font-weight: 600; color: #0f172a; margin-top: 2px;">${item.direccion || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Inmueble / Predio</span>
+                    <div style="font-weight: 600; color: #0f172a; margin-top: 2px;">${item.inmueble || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">SMP</span>
+                    <div style="font-family: monospace; font-weight: 700; color: #0f172a; margin-top: 2px;">${item.smp || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Tipo de Trámite</span>
+                    <div style="font-weight: 600; color: #334155; margin-top: 2px;">${item.tipo_tramite || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">DG Asignada</span>
+                    <div style="font-weight: 700; color: #235c45; margin-top: 2px;">${item.dg || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Gerencia / Analista</span>
+                    <div style="font-weight: 600; color: #334155; margin-top: 2px;">${item.gerencia_analista || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Responsable DGEUI</span>
+                    <div style="font-weight: 700; color: #0284c7; margin-top: 2px;">${item.responsable || '-'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Próxima Reunión</span>
+                    <div style="font-weight: 700; color: #334155; margin-top: 2px;">${item.proxima_reunion || 'NO'}</div>
+                </div>
+                <div>
+                    <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Revisión Nico</span>
+                    <div style="font-weight: 700; color: #334155; margin-top: 2px;">${item.nico || 'No'}</div>
+                </div>
+            </div>
+
+            <!-- Observaciones -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 14px;">
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <span style="color: #475569; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">
+                        <i class="fa-solid fa-lock" style="font-size: 0.75rem; margin-right: 4px;"></i> Observaciones Internas
+                    </span>
+                    <div style="font-size: 0.88rem; color: #334155; white-space: pre-wrap; line-height: 1.4;">${item.observaciones_internas || 'Sin observaciones internas.'}</div>
+                </div>
+                <div style="background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <span style="color: #475569; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">
+                        <i class="fa-solid fa-arrows-split-up-and-left" style="font-size: 0.75rem; margin-right: 4px;"></i> Observaciones DGROC / DGIUR
+                    </span>
+                    <div style="font-size: 0.88rem; color: #334155; white-space: pre-wrap; line-height: 1.4;">${item.observaciones_dgroc_dgiur || 'Sin observaciones remitidas.'}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Información Técnica en Vivo SADE -->
+        <div id="dgeui-sade-card-container">
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: center; color: #64748b;">
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.5rem; color: #235c45; margin-bottom: 8px;"></i>
+                <p style="margin: 0; font-size: 0.88rem;">Consultando datos del sistema SADE...</p>
+            </div>
+        </div>
+    `;
+
+    overlay.style.display = 'flex';
+
+    // Cargar información de SADE si no es Nota ni Sin Expediente
+    const sadeCardContainer = document.getElementById('dgeui-sade-card-container');
+    if (item.sin_expediente) {
+        if (sadeCardContainer) {
+            sadeCardContainer.innerHTML = `
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 20px; text-align: center; color: #64748b;">
+                    <i class="fa-regular fa-clock" style="font-size: 1.8rem; margin-bottom: 8px; color: #94a3b8;"></i>
+                    <h5 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: #475569;">Trámite aún sin expediente iniciado</h5>
+                    <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #94a3b8;">Cuando se radique en SADE, modifique la ficha e ingrese el número correspondiente.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    if (item.es_nota) {
+        if (sadeCardContainer) {
+            sadeCardContainer.innerHTML = `
+                <div style="background: #f0fdf4; border: 1px dashed #86efac; border-radius: 12px; padding: 20px; text-align: center; color: #166534;">
+                    <i class="fa-regular fa-envelope-open" style="font-size: 1.8rem; margin-bottom: 8px; color: #22c55e;"></i>
+                    <h5 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Documento de tipo Nota (${item.nro_expediente})</h5>
+                    <p style="margin: 4px 0 0 0; font-size: 0.82rem; color: #15803d;">Este registro se encuentra vinculado como actuación formal de comunicación.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+
+    // Consulta de información viva SADE
+    try {
+        const valRes = await def_fetch(`${API_BASE}/dgeui/validar_expediente/${encodeURIComponent(item.nro_expediente)}`);
+        if (valRes && valRes.ok) {
+            const valData = await valRes.json();
+            if (valData.valido || valData.existe) {
+                sadeCardContainer.innerHTML = `
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                        <h4 style="margin: 0 0 14px 0; font-size: 1.05rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;">
+                            <i class="fa-solid fa-database" style="color: #0284c7;"></i> Información Oficial SADE
+                        </h4>
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; font-size: 0.88rem;">
+                            <div>
+                                <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Número Canónico SADE</span>
+                                <div style="font-weight: 700; color: #0284c7; margin-top: 2px;">${valData.nro_expediente || valData.expediente || item.nro_expediente}</div>
+                            </div>
+                            <div>
+                                <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Código de Trata</span>
+                                <div style="font-weight: 600; color: #0f172a; margin-top: 2px;">${valData.trata || '-'}</div>
+                            </div>
+                            <div>
+                                <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Poseedor Actual</span>
+                                <div style="font-weight: 700; color: #15803d; margin-top: 2px;">${valData.poseedor_actual || 'Sin destinatario actual'}</div>
+                            </div>
+                            <div style="grid-column: span 3;">
+                                <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Descripción de Trata</span>
+                                <div style="font-weight: 600; color: #334155; margin-top: 2px;">${valData.descripcion_trata || '-'}</div>
+                            </div>
+                            <div style="grid-column: span 3;">
+                                <span style="color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">Carátula / Descripción Original</span>
+                                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 12px; border-radius: 8px; color: #334155; font-size: 0.85rem; margin-top: 4px; line-height: 1.4;">
+                                    ${valData.caratula || valData.descripcion || 'Sin carátula cargada en SADE.'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+        }
+
+        sadeCardContainer.innerHTML = `
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px 18px; color: #92400e; font-size: 0.88rem; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem; color: #d97706;"></i>
+                <span>El expediente no se encuentra indexado en la réplica de tratas activas de SADE o fue caratulado recientemente.</span>
+            </div>
+        `;
+    } catch (e) {
+        console.error("Error cargando datos SADE:", e);
+        sadeCardContainer.innerHTML = `
+            <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; color: #64748b; font-size: 0.85rem;">
+                No fue posible contactar el servicio de SADE en este momento.
+            </div>
+        `;
+    }
+}
+
+function closeDGEUIDetalleModal() {
+    const overlay = document.getElementById('dgeui-detalle-modal');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function exportDGEUIExcel() {
+    if (!dgeuiData || dgeuiData.length === 0) {
+        alert("No hay datos para exportar.");
+        return;
+    }
+
+    try {
+        const rows = dgeuiData.map(r => ({
+            "Eje": r.eje || '',
+            "Prioridad": r.prioridad || '',
+            "Nro de expte": r.nro_expediente || '',
+            "Estado": r.estado || '',
+            "Dirección": r.direccion || '',
+            "Inmueble": r.inmueble || '',
+            "SMP": r.smp || '',
+            "Tipo de trámite": r.tipo_tramite || '',
+            "DG": r.dg || '',
+            "Gerencia/Analista": r.gerencia_analista || '',
+            "Fecha": r.fecha || '',
+            "Observaciones internas": r.observaciones_internas || '',
+            "Observaciones DGROC DGIUR": r.observaciones_dgroc_dgiur || '',
+            "Próxima Reunion": r.proxima_reunion || '',
+            "Responsable": r.responsable || '',
+            "Nico": r.nico || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "DGEUI");
+        XLSX.writeFile(wb, `Seguimiento_DGEUI_${new Date().toISOString().substring(0, 10)}.xlsx`);
+    } catch (e) {
+        console.error("Error exportando DGEUI a Excel:", e);
+        alert("Ocurrió un error al exportar el archivo Excel.");
+    }
+}
+
+// Exponer funciones DGEUI en window
+window.loadDGEUIView = loadDGEUIView;
+window.switchDGEUITab = switchDGEUITab;
+window.renderDGEUIEnCursoTable = renderDGEUIEnCursoTable;
+window.renderDGEUIFinalizadosTable = renderDGEUIFinalizadosTable;
+window.filterAndRenderDGEUI = filterAndRenderDGEUI;
+window.openDGEUINewModal = openDGEUINewModal;
+window.openDGEUIEditModal = openDGEUIEditModal;
+window.closeDGEUIModal = closeDGEUIModal;
+window.toggleDGEUINuevoEje = toggleDGEUINuevoEje;
+window.validateDGEUIExpedienteInput = validateDGEUIExpedienteInput;
+window.onDGEUICheckEsNotaChange = onDGEUICheckEsNotaChange;
+window.onDGEUICheckSinExpChange = onDGEUICheckSinExpChange;
+window.saveDGEUIExpediente = saveDGEUIExpediente;
+window.deleteDGEUIExpediente = deleteDGEUIExpediente;
+window.openExpedienteModalFromDGEUI = openExpedienteModalFromDGEUI;
+window.closeDGEUIDetalleModal = closeDGEUIDetalleModal;
+window.exportDGEUIExcel = exportDGEUIExcel;

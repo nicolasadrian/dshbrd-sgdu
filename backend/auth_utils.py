@@ -97,6 +97,8 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
             "dgroc", "seguimiento_catastro", "seguimiento_instalaciones", "seguimiento_conforme", "seguimiento_contable", "seguimiento_etapa_proyecto", "seguimiento_aviso_obra",
             # Seguimiento DGIUR
             "dgiur", "seguimiento_morfologia", "seguimiento_aph", "seguimiento_usos", "publico_privado", "copua", "privada", "family",
+            # Seguimiento DGEUI
+            "dgeui",
             # Buzones DGROC
             "buzon_dgroc", "buzon_catastro", "buzon_instalaciones", "buzon_conforme", "buzon_contable", "buzon_etapa_proyecto", "buzon_aviso_obra",
             # Buzones DGIUR

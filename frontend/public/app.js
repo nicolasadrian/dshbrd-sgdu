@@ -106,17 +106,21 @@ function initAuth() {
         // 1. Toggles for Seguimiento dropdown and its contents
         const hasDgrocSeg = perms.dgroc || perms.seguimiento_catastro || perms.seguimiento_instalaciones || perms.seguimiento_conforme || perms.seguimiento_contable || perms.seguimiento_etapa_proyecto || perms.seguimiento_aviso_obra;
         const hasDgiurSeg = perms.dgiur || perms.seguimiento_morfologia || perms.seguimiento_aph || perms.seguimiento_usos || perms.publico_privado || perms.copua || perms.privada;
+        const hasDgeuiSeg = perms.dgeui;
         const hasFamily = perms.family || perms.familia_tramites;
-        const hasSeguimientoAccess = hasDgrocSeg || hasDgiurSeg || hasFamily || perms.seguimiento;
+        const hasSeguimientoAccess = hasDgrocSeg || hasDgiurSeg || hasDgeuiSeg || hasFamily || perms.seguimiento || isAdmin;
 
         const navSeguimiento = document.getElementById('nav-dropdown-seguimiento');
         if (navSeguimiento) navSeguimiento.style.display = hasSeguimientoAccess ? 'inline-block' : 'none';
 
         const subSegDgroc = document.getElementById('menu-sub-seguimiento-dgroc');
-        if (subSegDgroc) subSegDgroc.style.display = hasDgrocSeg ? 'block' : 'none';
+        if (subSegDgroc) subSegDgroc.style.display = (hasDgrocSeg || isAdmin) ? 'block' : 'none';
 
         const subSegDgiur = document.getElementById('menu-sub-seguimiento-dgiur');
-        if (subSegDgiur) subSegDgiur.style.display = hasDgiurSeg ? 'block' : 'none';
+        if (subSegDgiur) subSegDgiur.style.display = (hasDgiurSeg || isAdmin) ? 'block' : 'none';
+
+        const subSegDgeui = document.getElementById('menu-sub-seguimiento-dgeui');
+        if (subSegDgeui) subSegDgeui.style.display = (hasDgeuiSeg || isAdmin) ? 'block' : 'none';
 
         // Granular links inside Seguimiento DGROC
         const setDisplay = (id, show) => { const el = document.getElementById(id); if (el) el.style.display = show ? 'block' : 'none'; };
@@ -460,6 +464,8 @@ async function showView(viewId, updateHash = true) {
             hasPermission = !!(perms.dgroc || Object.values(dgrocMap).some(k => perms[k]) || isAdmin);
         } else if (viewId === 'dgiur') {
             hasPermission = !!(perms.dgiur || Object.values(dgiurMap).some(k => perms[k]) || isAdmin);
+        } else if (viewId === 'dgeui') {
+            hasPermission = !!(perms.dgeui || perms.seguimiento || isAdmin);
         } else if (dgrocMap[viewId]) {
             const specificKey = dgrocMap[viewId];
             hasPermission = !!(perms[specificKey] || perms.dgroc || perms[viewId] || isAdmin);
@@ -528,8 +534,8 @@ async function showView(viewId, updateHash = true) {
             showView('landing');
             return;
         }
-        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado, COPUA o Privada
-        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
+        // Seguridad fallback: Solo admin o seguimiento pueden ver la vista de seguimiento, SLA, Cierre, Productividad, Público Privado, COPUA, Privada o DGEUI
+        if ((viewId === 'seguimiento' || viewId === 'sla' || viewId === 'cierre' || viewId === 'productividad_analistas' || viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada' || viewId === 'dgeui') && (role !== 'administrador' && role !== 'admin' && role !== 'seguimiento')) {
             showView('landing');
             return;
         }
@@ -3930,6 +3936,9 @@ const PERMISSION_KEYS = {
     privada: "Seguimiento: Privada",
     family: "Familia de Trámites",
 
+    // Seguimiento DGEUI
+    dgeui: "Seguimiento DGEUI (Expedientes Estratégicos)",
+
     // Buzones DGROC
     buzon_dgroc: "Buzones DGROC (Todas las gerencias)",
     buzon_catastro: "Buzón: Catastro",
@@ -4048,6 +4057,9 @@ const PERMISSION_GROUPS = {
         copua: { label: "COPUA", desc: "Monitoreo y productividad de la Comisión COPUA." },
         privada: { label: "Privada", desc: "Monitoreo y productividad de la Gerencia Privada." },
         family: { label: "Familia de Trámites", desc: "Agrupación y trazabilidad de trámites relacionados." }
+    },
+    "Seguimiento DGEUI": {
+        dgeui: { label: "DGEUI (Completa)", desc: "Monitoreo y seguimiento de expedientes estratégicos DGEUI." }
     },
     "Buzones DGROC": {
         buzon_dgroc: { label: "Buzones DGROC (Todos)", desc: "Acceso a todas las bandejas de buzones de DGROC." },
