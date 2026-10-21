@@ -25411,8 +25411,8 @@ async function loadDGEUIView() {
         }
 
         populateDGEUIEjesDropdown();
-        filterAndRenderDGEUI();
         updateDGEUIKPIs();
+        switchDGEUITab(activeDGEUITab || 'en-curso');
     } catch (err) {
         console.error("Error al cargar vista DGEUI:", err);
         if (tbody) {
@@ -25448,16 +25448,386 @@ function populateDGEUIEjesDropdown() {
     }
 }
 
+let activeDGEUITab = 'en-curso';
+
+function switchDGEUITab(tabName) {
+    activeDGEUITab = tabName;
+    const views = {
+        'en-curso': document.getElementById('dgeui-view-en-curso'),
+        'finalizados': document.getElementById('dgeui-view-finalizados'),
+        'listado': document.getElementById('dgeui-view-listado')
+    };
+    const btns = {
+        'en-curso': document.getElementById('dgeui-tab-btn-en-curso'),
+        'finalizados': document.getElementById('dgeui-tab-btn-finalizados'),
+        'listado': document.getElementById('dgeui-tab-btn-listado')
+    };
+
+    Object.keys(views).forEach(key => {
+        if (views[key]) {
+            views[key].style.display = key === tabName ? 'flex' : 'none';
+        }
+        if (btns[key]) {
+            if (key === tabName) {
+                btns[key].classList.add('active');
+                btns[key].style.background = '#235c45';
+                btns[key].style.color = '#ffffff';
+                const badge = btns[key].querySelector('span[id^="dgeui-tab-badge"]');
+                if (badge) {
+                    badge.style.background = 'rgba(255,255,255,0.25)';
+                    badge.style.color = '#ffffff';
+                }
+            } else {
+                btns[key].classList.remove('active');
+                btns[key].style.background = '#f1f5f9';
+                btns[key].style.color = '#475569';
+                const badge = btns[key].querySelector('span[id^="dgeui-tab-badge"]');
+                if (badge) {
+                    badge.style.background = '#e2e8f0';
+                    badge.style.color = '#475569';
+                }
+            }
+        }
+    });
+
+    if (tabName === 'en-curso') {
+        renderDGEUIEnCursoTable();
+    } else if (tabName === 'finalizados') {
+        renderDGEUIFinalizadosTable();
+    } else if (tabName === 'listado') {
+        filterAndRenderDGEUI();
+    }
+}
+
 function updateDGEUIKPIs() {
     const elTotal = document.getElementById('dgeui-kpi-total');
     const elAlta = document.getElementById('dgeui-kpi-alta');
     const elEnCurso = document.getElementById('dgeui-kpi-en-curso');
     const elReunion = document.getElementById('dgeui-kpi-reunion');
 
-    if (elTotal) elTotal.innerText = dgeuiData.length.toLocaleString('es-AR');
+    const totalCount = dgeuiData.length;
+    const enCursoCount = dgeuiData.filter(d => (d.estado || '') === 'En curso').length;
+    const finalizadosCount = dgeuiData.filter(d => (d.estado || '') === 'Finalizado').length;
+
+    if (elTotal) elTotal.innerText = totalCount.toLocaleString('es-AR');
     if (elAlta) elAlta.innerText = dgeuiData.filter(d => (d.prioridad || '').includes('Alta')).length.toLocaleString('es-AR');
-    if (elEnCurso) elEnCurso.innerText = dgeuiData.filter(d => (d.estado || '') === 'En curso').length.toLocaleString('es-AR');
+    if (elEnCurso) elEnCurso.innerText = enCursoCount.toLocaleString('es-AR');
     if (elReunion) elReunion.innerText = dgeuiData.filter(d => (d.proxima_reunion || '').toUpperCase() === 'SI').length.toLocaleString('es-AR');
+
+    // Actualizar badges de las pestañas
+    const badgeEnCurso = document.getElementById('dgeui-tab-badge-en-curso');
+    const badgeFinalizados = document.getElementById('dgeui-tab-badge-finalizados');
+    const badgeListado = document.getElementById('dgeui-tab-badge-listado');
+
+    if (badgeEnCurso) badgeEnCurso.innerText = enCursoCount.toLocaleString('es-AR');
+    if (badgeFinalizados) badgeFinalizados.innerText = finalizadosCount.toLocaleString('es-AR');
+    if (badgeListado) badgeListado.innerText = totalCount.toLocaleString('es-AR');
+}
+
+function renderDGEUIEnCursoTable() {
+    const tbody = document.getElementById('dgeui-en-curso-tbody');
+    const labelCount = document.getElementById('dgeui-en-curso-count-label');
+    if (!tbody) return;
+
+    const searchVal = (document.getElementById('dgeui-en-curso-search')?.value || '').trim().toLowerCase();
+    const filterSubs = document.getElementById('dgeui-en-curso-filter-subs')?.value || 'ALL';
+    const orderVal = document.getElementById('dgeui-en-curso-order')?.value || 'demora_desc';
+
+    // Filtrar solo expedientes "En curso"
+    let list = dgeuiData.filter(d => (d.estado || '') === 'En curso');
+
+    // Filtro por subsanación
+    if (filterSubs === 'SUBS') {
+        list = list.filter(d => Boolean(d.en_subsanacion));
+    } else if (filterSubs === 'TRAMITE') {
+        list = list.filter(d => !d.en_subsanacion);
+    }
+
+    // Filtro por texto
+    if (searchVal) {
+        list = list.filter(d => {
+            const txt = [
+                d.nro_expediente, d.eje, d.prioridad, d.direccion, d.inmueble,
+                d.tipo_tramite, d.responsable, d.poseedor_sade, d.gerencia_analista
+            ].join(' ').toLowerCase();
+            return txt.includes(searchVal);
+        });
+    }
+
+    // Ordenamiento por defecto: mayor demora a menor demora (desde el más demorado al más reciente)
+    list.sort((a, b) => {
+        const da = a.dias_desde_caratulacion != null ? a.dias_desde_caratulacion : -1;
+        const db = b.dias_desde_caratulacion != null ? b.dias_desde_caratulacion : -1;
+        const dga = a.dias_en_direccion != null ? a.dias_en_direccion : -1;
+        const dgb = b.dias_en_direccion != null ? b.dias_en_direccion : -1;
+        const pa = a.dias_con_poseedor != null ? a.dias_con_poseedor : -1;
+        const pb = b.dias_con_poseedor != null ? b.dias_con_poseedor : -1;
+
+        if (orderVal === 'demora_desc') {
+            return db - da;
+        } else if (orderVal === 'direccion_desc') {
+            return dgb - dga;
+        } else if (orderVal === 'demora_asc') {
+            return da - db;
+        } else if (orderVal === 'poseedor_desc') {
+            return pb - pa;
+        }
+        return db - da;
+    });
+
+    if (labelCount) labelCount.innerText = `${list.length} expedientes en curso`;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 3rem; color: #94a3b8; font-size: 0.88rem;"><i class="fa-regular fa-folder-open" style="font-size: 1.5rem; margin-bottom: 8px; display: block;"></i>No hay expedientes en curso que coincidan con los criterios.</td></tr>`;
+        return;
+    }
+
+    let html = '';
+    list.forEach((r, idx) => {
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+
+        // Badge Prioridad
+        let prioBadge = `<span style="color: #64748b; font-size: 0.74rem;">${r.prioridad || 'Sin prioridad'}</span>`;
+        if ((r.prioridad || '').includes('Alta')) {
+            prioBadge = `<span style="background: #fee2e2; color: #dc2626; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Media')) {
+            prioBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Baja')) {
+            prioBadge = `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        }
+
+        // Badge Tiempo Total de Demora (Caratulación)
+        let diasTotalesBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">Sin dato SADE</span>';
+        if (r.dias_desde_caratulacion != null) {
+            const dias = r.dias_desde_caratulacion;
+            let bgPill = '#f1f5f9';
+            let colorPill = '#475569';
+            if (dias > 180) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (dias > 60) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            } else {
+                bgPill = '#dcfce7';
+                colorPill = '#15803d';
+            }
+            diasTotalesBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-regular fa-clock" style="font-size: 0.7rem;"></i> ${dias} días</span>`;
+        }
+
+        // Badge Tiempo en Dirección (Carga en DG hasta hoy)
+        let diasDireccionBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">-</span>';
+        if (r.dias_en_direccion != null) {
+            const diasDir = r.dias_en_direccion;
+            let bgPill = '#ecfeff';
+            let colorPill = '#0e7490';
+            if (diasDir > 120) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (diasDir > 45) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            }
+            diasDireccionBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-hourglass-half" style="font-size: 0.7rem;"></i> ${diasDir} días</span>`;
+        }
+
+        // Poseedor Actual
+        const poseedor = r.poseedor_sade || r.gerencia_analista || '<span style="color: #94a3b8;">Sin poseedor</span>';
+
+        // Badge Días con Analista
+        let diasPoseedorBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">-</span>';
+        if (r.dias_con_poseedor != null) {
+            const diasPos = r.dias_con_poseedor;
+            let colorPos = '#0284c7';
+            let bgPos = '#e0f2fe';
+            if (diasPos > 30) {
+                colorPos = '#dc2626';
+                bgPos = '#fee2e2';
+            } else if (diasPos > 15) {
+                colorPos = '#b45309';
+                bgPos = '#fef3c7';
+            }
+            diasPoseedorBadge = `<span style="background: ${bgPos}; color: ${colorPos}; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 0.73rem;">${diasPos} días</span>`;
+        }
+
+        // Badge Subsanación TAD
+        const subsanacionBadge = r.en_subsanacion
+            ? `<span style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-triangle-exclamation"></i> En Subsanación</span>`
+            : `<span style="background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; font-weight: 600; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-circle-check"></i> Tramitación Activa</span>`;
+
+        html += `
+            <tr style="background: ${bgRow}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='${bgRow}'">
+                <td style="padding: 6px 8px; text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 700;">${idx + 1}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0369a1; white-space: nowrap;">
+                    <span style="cursor: pointer; text-decoration: underline; text-decoration-color: #bae6fd; text-underline-offset: 3px;" onclick="openExpedienteModalFromDGEUI(${r.id})" title="Ver ficha y detalles de este expediente">${r.nro_expediente}</span>
+                </td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; white-space: nowrap;">
+                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 4px; font-size: 0.7rem;"></i>${r.eje || '-'}
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${prioBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasTotalesBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 0.75rem; white-space: nowrap;">${r.fecha_caratulacion || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasDireccionBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #0e7490; font-weight: 600; font-size: 0.75rem; white-space: nowrap;">${r.fecha_carga_planilla || '-'}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #1e293b; white-space: nowrap; font-size: 0.78rem;">${poseedor}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasPoseedorBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${subsanacionBadge}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem; max-width: 140px; white-space: normal; line-height: 1.25;">${r.direccion || r.inmueble || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem;">${r.tipo_tramite || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b; font-size: 0.78rem;">${r.responsable || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
+}
+
+function renderDGEUIFinalizadosTable() {
+    const tbody = document.getElementById('dgeui-finalizados-tbody');
+    const labelCount = document.getElementById('dgeui-finalizados-count-label');
+    if (!tbody) return;
+
+    const searchVal = (document.getElementById('dgeui-finalizados-search')?.value || '').trim().toLowerCase();
+    const orderVal = document.getElementById('dgeui-finalizados-order')?.value || 'demora_desc';
+
+    // Filtrar solo expedientes "Finalizado"
+    let list = dgeuiData.filter(d => (d.estado || '') === 'Finalizado');
+
+    // Filtro por texto
+    if (searchVal) {
+        list = list.filter(d => {
+            const txt = [
+                d.nro_expediente, d.eje, d.prioridad, d.direccion, d.inmueble,
+                d.tipo_tramite, d.responsable, d.poseedor_sade, d.gerencia_analista
+            ].join(' ').toLowerCase();
+            return txt.includes(searchVal);
+        });
+    }
+
+    // Ordenamiento
+    list.sort((a, b) => {
+        const da = a.dias_demora_finalizado != null ? a.dias_demora_finalizado : -1;
+        const db = b.dias_demora_finalizado != null ? b.dias_demora_finalizado : -1;
+        const dga = a.dias_en_direccion != null ? a.dias_en_direccion : -1;
+        const dgb = b.dias_en_direccion != null ? b.dias_en_direccion : -1;
+
+        if (orderVal === 'demora_desc') {
+            return db - da;
+        } else if (orderVal === 'direccion_desc') {
+            return dgb - dga;
+        } else if (orderVal === 'demora_asc') {
+            return da - db;
+        } else if (orderVal === 'recientes') {
+            const fa = a.fecha || a.fecha_actualizacion || '';
+            const fb = b.fecha || b.fecha_actualizacion || '';
+            return fb.localeCompare(fa);
+        }
+        return db - da;
+    });
+
+    if (labelCount) labelCount.innerText = `${list.length} expedientes resueltos`;
+
+    if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 3rem; color: #94a3b8; font-size: 0.88rem;"><i class="fa-regular fa-folder-open" style="font-size: 1.5rem; margin-bottom: 8px; display: block;"></i>No hay expedientes finalizados que coincidan con los criterios.</td></tr>`;
+        return;
+    }
+
+    let html = '';
+    list.forEach((r, idx) => {
+        const bgRow = idx % 2 === 0 ? '#ffffff' : '#fafbfc';
+
+        // Badge Prioridad
+        let prioBadge = `<span style="color: #64748b; font-size: 0.74rem;">${r.prioridad || 'Sin prioridad'}</span>`;
+        if ((r.prioridad || '').includes('Alta')) {
+            prioBadge = `<span style="background: #fee2e2; color: #dc2626; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Media')) {
+            prioBadge = `<span style="background: #fef3c7; color: #b45309; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        } else if ((r.prioridad || '').includes('Baja')) {
+            prioBadge = `<span style="background: #e0f2fe; color: #0284c7; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem;">${r.prioridad}</span>`;
+        }
+
+        // Badge Tiempo de Demora de Resolución (Desde Caratulación hasta Egreso)
+        let diasDemoraBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">Sin cálculo</span>';
+        if (r.dias_demora_finalizado != null) {
+            const dias = r.dias_demora_finalizado;
+            let bgPill = '#dcfce7';
+            let colorPill = '#15803d';
+            if (dias > 180) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (dias > 60) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            }
+            diasDemoraBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-check" style="font-size: 0.7rem;"></i> ${dias} días</span>`;
+        }
+
+        // Badge Tiempo en Dirección (Desde fecha de carga en planilla DG hasta fecha de egreso/resolución)
+        let diasDireccionBadge = '<span style="color: #94a3b8; font-size: 0.75rem;">-</span>';
+        if (r.dias_en_direccion != null) {
+            const diasDir = r.dias_en_direccion;
+            let bgPill = '#ecfeff';
+            let colorPill = '#0e7490';
+            if (diasDir > 120) {
+                bgPill = '#fee2e2';
+                colorPill = '#b91c1c';
+            } else if (diasDir > 45) {
+                bgPill = '#fef3c7';
+                colorPill = '#b45309';
+            }
+            diasDireccionBadge = `<span style="background: ${bgPill}; color: ${colorPill}; font-weight: 800; padding: 3px 9px; border-radius: 8px; font-size: 0.76rem; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-hourglass-half" style="font-size: 0.7rem;"></i> ${diasDir} días</span>`;
+        }
+
+        // Fecha de resolución (priorizar fecha_egreso_gedo oficial, luego fecha DGEUI)
+        const fechaRes = r.fecha_egreso_gedo || r.fecha || '-';
+
+        // Badge Documento de Egreso GEDO
+        let docEgresoBadge = '<span style="color: #94a3b8; font-size: 0.74rem;">-</span>';
+        if (r.doc_egreso) {
+            docEgresoBadge = `<span style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-weight: 700; padding: 2px 7px; border-radius: 6px; font-size: 0.72rem; display: inline-flex; align-items: center; gap: 4px;" title="Documento oficial de egreso: ${r.doc_egreso}">
+                <i class="fa-solid fa-file-circle-check" style="color: #16a34a;"></i> ${r.acronimo_egreso || 'GEDO'} (${r.doc_egreso.split('-')[2] || r.doc_egreso})
+            </span>`;
+        }
+
+        html += `
+            <tr style="background: ${bgRow}; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='${bgRow}'">
+                <td style="padding: 6px 8px; text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 700;">${idx + 1}</td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0369a1; white-space: nowrap;">
+                    <span style="cursor: pointer; text-decoration: underline; text-decoration-color: #bae6fd; text-underline-offset: 3px;" onclick="openExpedienteModalFromDGEUI(${r.id})" title="Ver ficha y detalles de este expediente">${r.nro_expediente}</span>
+                </td>
+                <td style="padding: 6px 8px; font-weight: 700; color: #0f172a; white-space: nowrap;">
+                    <i class="fa-solid fa-tag" style="color: #235c45; margin-right: 4px; font-size: 0.7rem;"></i>${r.eje || '-'}
+                </td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${prioBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasDemoraBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #475569; font-size: 0.75rem; white-space: nowrap;">${r.fecha_caratulacion || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${diasDireccionBadge}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #0e7490; font-weight: 600; font-size: 0.75rem; white-space: nowrap;">${r.fecha_carga_planilla || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; color: #166534; font-weight: 700; font-size: 0.75rem; white-space: nowrap;">${fechaRes}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">${docEgresoBadge}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem; white-space: nowrap;">${r.poseedor_sade || r.estado_sade || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem; max-width: 140px; white-space: normal; line-height: 1.25;">${r.direccion || r.inmueble || '-'}</td>
+                <td style="padding: 6px 8px; color: #334155; font-size: 0.76rem;">${r.tipo_tramite || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; font-weight: 700; color: #1e293b; font-size: 0.78rem;">${r.responsable || '-'}</td>
+                <td style="padding: 6px 8px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" onclick="openDGEUIEditModal(${r.id})" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 5px; width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7;" title="Editar expediente">
+                            <i class="fa-solid fa-pen-to-square" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.innerHTML = html;
 }
 
 function filterAndRenderDGEUI() {
@@ -25483,7 +25853,8 @@ function filterAndRenderDGEUI() {
             const rowText = [
                 item.nro_expediente, item.eje, item.prioridad, item.estado, item.direccion,
                 item.inmueble, item.smp, item.tipo_tramite, item.dg, item.gerencia_analista,
-                item.observaciones_internas, item.observaciones_dgroc_dgiur, item.responsable
+                item.observaciones_internas, item.observaciones_dgroc_dgiur, item.responsable,
+                item.poseedor_sade
             ].join(' ').toLowerCase();
             if (!rowText.includes(searchVal)) return false;
         }
@@ -26215,6 +26586,9 @@ function exportDGEUIExcel() {
 
 // Exponer funciones DGEUI en window
 window.loadDGEUIView = loadDGEUIView;
+window.switchDGEUITab = switchDGEUITab;
+window.renderDGEUIEnCursoTable = renderDGEUIEnCursoTable;
+window.renderDGEUIFinalizadosTable = renderDGEUIFinalizadosTable;
 window.filterAndRenderDGEUI = filterAndRenderDGEUI;
 window.openDGEUINewModal = openDGEUINewModal;
 window.openDGEUIEditModal = openDGEUIEditModal;

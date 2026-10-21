@@ -1,4 +1,4 @@
-<div style="margin-bottom: -4.5rem; display: flex; flex-direction: column; height: calc(100vh - 75px); overflow: hidden;">
+<div id="dgeui-wrapper" style="display: flex; flex-direction: column; height: calc(100vh - 75px - 5.5rem); overflow: hidden;">
     <!-- Breadcrumbs Compacto -->
     <div class="breadcrumbs" style="margin-bottom: 0.35rem; font-size: 0.78rem;">
         <span onclick="showView('landing')">Inicio</span> / Seguimiento / DGEUI
@@ -7,7 +7,7 @@
     <!-- Header Compacto de Sección -->
     <div style="margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; flex-shrink: 0;">
         <div>
-            <h1 class="landing-title" style="margin-bottom: 0.1rem; font-size: 1.25rem; font-weight: 800; line-height: 1.1;">Dirección General de Estrategia Urbana e Innovación</h1>
+            <h1 class="landing-title" style="margin-bottom: 0.1rem; font-size: 1.5rem; font-weight: 800; line-height: 1.1;">Dirección General de Estrategia Urbana e Innovación</h1>
             <p style="color: #64748b; font-size: 0.78rem; margin: 0;">
                 Planilla de control, estados y coordinación de expedientes estratégicos DGEUI.
             </p>
@@ -28,229 +28,346 @@
         </div>
     </div>
 
-    <!-- Layout Principal: Columna Izquierda (Filtros y Métricas) + Columna Derecha (Tabla con Scroll Horizontal) -->
-    <div style="display: flex; gap: 0.75rem; align-items: stretch; flex: 1; min-height: 0; overflow: hidden; margin-bottom: 0.25rem;">
-    
-    <!-- COLUMNA IZQUIERDA: Buscador, Filtros y Métricas Compactas -->
-    <aside style="width: 290px; min-width: 280px; max-width: 300px; display: flex; flex-direction: column; gap: 0.75rem; overflow-y: auto; padding-right: 4px;" class="custom-scrollbar">
-        
-        <!-- Tarjetas de Métricas Compactas (2x2) -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-            <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.55rem 0.65rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-                <div style="width: 28px; height: 28px; border-radius: 6px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;">
-                    <i class="fa-solid fa-folder-tree"></i>
-                </div>
-                <div style="min-width: 0;">
-                    <div id="dgeui-kpi-total" style="font-size: 1.15rem; font-weight: 800; color: #1e293b; line-height: 1;">0</div>
-                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Total</div>
-                </div>
+    <!-- KPI Strip Horizontal -->
+    <div id="dgeui-kpi-strip" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.65rem; flex-shrink: 0; margin-bottom: 0.5rem;">
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid fa-folder-tree"></i>
             </div>
-
-            <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.55rem 0.65rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-                <div style="width: 28px; height: 28px; border-radius: 6px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;">
-                    <i class="fa-solid fa-fire-flame-curved"></i>
-                </div>
-                <div style="min-width: 0;">
-                    <div id="dgeui-kpi-alta" style="font-size: 1.15rem; font-weight: 800; color: #dc2626; line-height: 1;">0</div>
-                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Alta Prio</div>
-                </div>
-            </div>
-
-            <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.55rem 0.65rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-                <div style="width: 28px; height: 28px; border-radius: 6px; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;">
-                    <i class="fa-solid fa-spinner"></i>
-                </div>
-                <div style="min-width: 0;">
-                    <div id="dgeui-kpi-en-curso" style="font-size: 1.15rem; font-weight: 800; color: #b45309; line-height: 1;">0</div>
-                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">En Curso</div>
-                </div>
-            </div>
-
-            <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.55rem 0.65rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-                <div style="width: 28px; height: 28px; border-radius: 6px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0;">
-                    <i class="fa-solid fa-calendar-check"></i>
-                </div>
-                <div style="min-width: 0;">
-                    <div id="dgeui-kpi-reunion" style="font-size: 1.15rem; font-weight: 800; color: #7c3aed; line-height: 1;">0</div>
-                    <div style="font-size: 0.65rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Reunión</div>
-                </div>
+            <div>
+                <div id="dgeui-kpi-total" style="font-size: 1.6rem; font-weight: 800; color: #1e293b; line-height: 1;">0</div>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Total</div>
             </div>
         </div>
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid fa-fire-flame-curved"></i>
+            </div>
+            <div>
+                <div id="dgeui-kpi-alta" style="font-size: 1.6rem; font-weight: 800; color: #dc2626; line-height: 1;">0</div>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Alta Prio</div>
+            </div>
+        </div>
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid fa-spinner"></i>
+            </div>
+            <div>
+                <div id="dgeui-kpi-en-curso" style="font-size: 1.6rem; font-weight: 800; color: #b45309; line-height: 1;">0</div>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">En Curso</div>
+            </div>
+        </div>
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid fa-calendar-check"></i>
+            </div>
+            <div>
+                <div id="dgeui-kpi-reunion" style="font-size: 1.6rem; font-weight: 800; color: #7c3aed; line-height: 1;">0</div>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Reunión</div>
+            </div>
+        </div>
+    </div>
 
-        <!-- Panel de Filtros Vertical -->
-        <div style="background: white; padding: 0.85rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 0.6rem;">
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.4rem;">
-                <span style="font-size: 0.78rem; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-filter" style="color: #235c45;"></i> Filtros
+    <!-- Pestañas de Navegación DGEUI (Sin scroll de ventana) -->
+    <div style="display: flex; gap: 8px; margin-bottom: 0.5rem; flex-shrink: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px;">
+        <button id="dgeui-tab-btn-en-curso" type="button" onclick="switchDGEUITab('en-curso')"
+            class="dgeui-nav-tab active"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 8px 8px 0 0; border: none; font-family: 'Outfit', sans-serif; font-size: 0.84rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #235c45; color: white;">
+            <i class="fa-solid fa-hourglass-half"></i>
+            <span>Expedientes en Curso</span>
+            <span id="dgeui-tab-badge-en-curso" style="background: rgba(255,255,255,0.25); color: white; padding: 1px 7px; border-radius: 10px; font-size: 0.72rem;">0</span>
+        </button>
+        <button id="dgeui-tab-btn-finalizados" type="button" onclick="switchDGEUITab('finalizados')"
+            class="dgeui-nav-tab"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 8px 8px 0 0; border: none; font-family: 'Outfit', sans-serif; font-size: 0.84rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #f1f5f9; color: #475569;">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Finalizados</span>
+            <span id="dgeui-tab-badge-finalizados" style="background: #e2e8f0; color: #475569; padding: 1px 7px; border-radius: 10px; font-size: 0.72rem;">0</span>
+        </button>
+        <button id="dgeui-tab-btn-listado" type="button" onclick="switchDGEUITab('listado')"
+            class="dgeui-nav-tab"
+            style="display: inline-flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 8px 8px 0 0; border: none; font-family: 'Outfit', sans-serif; font-size: 0.84rem; font-weight: 700; cursor: pointer; transition: all 0.2s; background: #f1f5f9; color: #475569;">
+            <i class="fa-solid fa-table-list"></i>
+            <span>Listado de Expedientes</span>
+            <span id="dgeui-tab-badge-listado" style="background: #e2e8f0; color: #475569; padding: 1px 7px; border-radius: 10px; font-size: 0.72rem;">0</span>
+        </button>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- PESTAÑA 1: EXPEDIENTES EN CURSO (Tiempos, Ordenado por Demora) -->
+    <!-- ============================================================== -->
+    <div id="dgeui-view-en-curso" class="dgeui-tab-view" style="display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+        <!-- Banner Informativo y Controles de la Pestaña -->
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.5rem 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.8rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-arrow-down-wide-short" style="color: #b45309;"></i> Tiempos de Tramitación
                 </span>
-                <span id="dgeui-count-badge" style="font-size: 0.75rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 1px 6px; border-radius: 4px;">0</span>
+                <span style="font-size: 0.74rem; color: #64748b;">
+                    Ordenado automáticamente desde el más demorado al más reciente.
+                </span>
             </div>
-
-            <!-- Buscador Global -->
-            <div>
-                <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Buscador</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.75rem;"></i>
-                    <input type="text" id="dgeui-search" class="form-input"
-                        placeholder="Buscar expte, dirección, smp..."
-                        oninput="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 6px 8px 6px 28px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.8rem;">
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <div style="position: relative; min-width: 170px;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.72rem;"></i>
+                    <input type="text" id="dgeui-en-curso-search" oninput="renderDGEUIEnCursoTable()" placeholder="Buscar en curso..."
+                        style="width: 100%; padding: 4px 8px 4px 24px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem;">
                 </div>
-            </div>
-
-            <!-- Filtro Eje -->
-            <div>
-                <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Eje</label>
-                <select id="dgeui-filter-eje" onchange="filterAndRenderDGEUI()"
-                    style="width: 100%; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.8rem; background: white;">
-                    <option value="ALL">Todos los Ejes</option>
+                <select id="dgeui-en-curso-filter-subs" onchange="renderDGEUIEnCursoTable()"
+                    style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
+                    <option value="ALL">Todas las situaciones</option>
+                    <option value="SUBS">En Subsanación TAD</option>
+                    <option value="TRAMITE">En Tramitación Activa</option>
+                </select>
+                <select id="dgeui-en-curso-order" onchange="renderDGEUIEnCursoTable()"
+                    style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
+                    <option value="demora_desc">Mayor demora total (Caratulación)</option>
+                    <option value="direccion_desc">Mayor tiempo en la Dirección (DG)</option>
+                    <option value="poseedor_desc">Mayor tiempo con analista</option>
+                    <option value="demora_asc">Menor demora total</option>
                 </select>
             </div>
+        </div>
 
-            <!-- Grid 2 Columnas para Prioridad y Estado -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                <div>
-                    <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Prioridad</label>
-                    <select id="dgeui-filter-prioridad" onchange="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
-                        <option value="ALL">Todas</option>
-                        <option value="1- Alta">1- Alta</option>
-                        <option value="2- Media">2- Media</option>
-                        <option value="3 - Baja">3 - Baja</option>
-                        <option value="Sin prioridad">Sin prioridad</option>
-                    </select>
+        <!-- Tabla En Curso -->
+        <section class="matrix-table-container"
+            style="flex: 1; min-width: 0; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.85rem; border-bottom: 1px solid #f1f5f9; background: #ffffff; flex-shrink: 0;">
+                <div style="font-size: 0.78rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-clock" style="color: #b45309;"></i> Expedientes Activos y Demoras en SADE
                 </div>
-
-                <div>
-                    <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Estado</label>
-                    <select id="dgeui-filter-estado" onchange="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
-                        <option value="ALL">Todos</option>
-                        <option value="Externo">Externo</option>
-                        <option value="En curso">En curso</option>
-                        <option value="Finalizado">Finalizado</option>
-                        <option value="Pendiente">Pendiente</option>
-                        <option value="Guarda">Guarda</option>
-                        <option value="Frenado">Frenado</option>
-                        <option value="Demorado">Demorado</option>
-                        <option value="Sin Inicio">Sin Inicio</option>
-                    </select>
+                <div id="dgeui-en-curso-count-label" style="font-size: 0.74rem; font-weight: 700; color: #0284c7;">
+                    0 expedientes
                 </div>
             </div>
+            <div style="overflow: auto; flex: 1; min-height: 0; width: 100%; position: relative;" class="custom-scrollbar">
+                <table class="dgeui-table" style="width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Outfit', sans-serif; font-size: 0.78rem; text-align: left;">
+                    <thead>
+                        <tr style="background: #235c45; color: #ffffff; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 45px; text-align: center;">#</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 160px;">Nro de Expediente</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px;">Eje</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 80px; text-align: center;">Prioridad</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 110px; text-align: center; background: #1b4936;">Tiempo Total (Caratulación)</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 95px; text-align: center;">Fecha Caratulado</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 115px; text-align: center; background: #155e75;">Tiempo en Dirección</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 95px; text-align: center;">Fecha Carga DG</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 130px;">Poseedor Actual (SADE)</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 105px; text-align: center; background: #1b4936;">Tiempo con Analista</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 110px; text-align: center;">Subsanación TAD</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 120px;">Dirección / Inmueble</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 110px;">Tipo de Trámite</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Responsable</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; min-width: 60px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dgeui-en-curso-tbody">
+                        <!-- Inyectado dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
 
-            <!-- Grid 2 Columnas para DG y Responsable -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                <div>
-                    <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">DG</label>
-                    <select id="dgeui-filter-dg" onchange="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
-                        <option value="ALL">Todas</option>
-                        <option value="DGROC">DGROC</option>
-                        <option value="DGIUR">DGIUR</option>
-                        <option value="DGEUI">DGEUI</option>
-                    </select>
+    <!-- ============================================================== -->
+    <!-- PESTAÑA 2: EXPEDIENTES FINALIZADOS (Análisis de Demora Total)   -->
+    <!-- ============================================================== -->
+    <div id="dgeui-view-finalizados" class="dgeui-tab-view" style="display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+        <!-- Banner Informativo y Controles de la Pestaña -->
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.5rem 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 0.8rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-chart-pie" style="color: #16a34a;"></i> Análisis de Tiempo de Resolución
+                </span>
+                <span style="font-size: 0.74rem; color: #64748b;">
+                    Expedientes concluidos con análisis de días totales demandados hasta su resolución.
+                </span>
+            </div>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                <div style="position: relative; min-width: 170px;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.72rem;"></i>
+                    <input type="text" id="dgeui-finalizados-search" oninput="renderDGEUIFinalizadosTable()" placeholder="Buscar finalizados..."
+                        style="width: 100%; padding: 4px 8px 4px 24px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem;">
                 </div>
+                <select id="dgeui-finalizados-order" onchange="renderDGEUIFinalizadosTable()"
+                    style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
+                    <option value="demora_desc">Mayor demora total de resolución</option>
+                    <option value="direccion_desc">Mayor tiempo en la Dirección (DG)</option>
+                    <option value="demora_asc">Menor demora total</option>
+                    <option value="recientes">Fecha de resolución más reciente</option>
+                </select>
+            </div>
+        </div>
 
-                <div>
-                    <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Responsable</label>
-                    <select id="dgeui-filter-responsable" onchange="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
-                        <option value="ALL">Todos</option>
-                        <option value="Rodrigo">Rodrigo</option>
-                        <option value="Salvador">Salvador</option>
-                        <option value="Tomas">Tomas</option>
-                        <option value="Santiago">Santiago</option>
-                        <option value="Franco">Franco</option>
-                    </select>
+        <!-- Tabla Finalizados -->
+        <section class="matrix-table-container"
+            style="flex: 1; min-width: 0; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0.85rem; border-bottom: 1px solid #f1f5f9; background: #ffffff; flex-shrink: 0;">
+                <div style="font-size: 0.78rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-circle-check" style="color: #16a34a;"></i> Registro de Trámites Concluidos y Duración
+                </div>
+                <div id="dgeui-finalizados-count-label" style="font-size: 0.74rem; font-weight: 700; color: #16a34a;">
+                    0 expedientes
                 </div>
             </div>
-
-            <!-- Grid 2 Columnas para Próxima Reunión y Nico -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                <div>
-                    <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Próx. Reunión</label>
-                    <select id="dgeui-filter-reunion" onchange="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
-                        <option value="ALL">Todos</option>
-                        <option value="SI">SI</option>
-                        <option value="NO">NO</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label style="font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 3px; display: block;">Nico</label>
-                    <select id="dgeui-filter-nico" onchange="filterAndRenderDGEUI()"
-                        style="width: 100%; padding: 5px 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
-                        <option value="ALL">Todos</option>
-                        <option value="Si">Si</option>
-                        <option value="No">No</option>
-                    </select>
-                </div>
+            <div style="overflow: auto; flex: 1; min-height: 0; width: 100%; position: relative;" class="custom-scrollbar">
+                <table class="dgeui-table" style="width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Outfit', sans-serif; font-size: 0.78rem; text-align: left;">
+                    <thead>
+                        <tr style="background: #235c45; color: #ffffff; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 45px; text-align: center;">#</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 160px;">Nro de Expediente</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px;">Eje</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 80px; text-align: center;">Prioridad</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 115px; text-align: center; background: #1b4936;">Demora Total de Resolución</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 95px; text-align: center;">Fecha Caratulado</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 115px; text-align: center; background: #155e75;">Tiempo en Dirección</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 95px; text-align: center;">Fecha Carga DG</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 95px; text-align: center;">Fecha Resolución</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 150px;">Documento Egreso (GEDO)</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 125px;">Último Destino (SADE)</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 120px;">Dirección / Inmueble</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 110px;">Tipo de Trámite</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Responsable</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; min-width: 60px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dgeui-finalizados-tbody">
+                        <!-- Inyectado dinámicamente -->
+                    </tbody>
+                </table>
             </div>
+        </section>
+    </div>
 
-            <!-- Botón Limpiar Filtros -->
+    <!-- ============================================================== -->
+    <!-- PESTAÑA 3: LISTADO COMPLETO DE EXPEDIENTES (Planilla Maestra)  -->
+    <!-- ============================================================== -->
+    <div id="dgeui-view-listado" class="dgeui-tab-view" style="display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;">
+        <!-- Filter Bar Horizontal -->
+        <div style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.55rem 0.85rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; flex-shrink: 0; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+            <span style="font-size: 0.75rem; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 5px; white-space: nowrap; margin-right: 4px;">
+                <i class="fa-solid fa-filter" style="color: #235c45;"></i> Filtros
+            </span>
+            <span id="dgeui-count-badge" style="font-size: 0.75rem; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 1px 6px; border-radius: 4px; margin-right: 4px;">0</span>
+            <div style="position: relative; flex: 1; min-width: 160px; max-width: 220px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.72rem;"></i>
+                <input type="text" id="dgeui-search" class="form-input"
+                    placeholder="Buscar expte, dirección, smp..."
+                    oninput="filterAndRenderDGEUI()"
+                    style="width: 100%; padding: 5px 8px 5px 26px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem;">
+            </div>
+            <select id="dgeui-filter-eje" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white; min-width: 110px;">
+                <option value="ALL">Todos los Ejes</option>
+            </select>
+            <select id="dgeui-filter-prioridad" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
+                <option value="ALL">Prioridad</option>
+                <option value="1- Alta">1- Alta</option>
+                <option value="2- Media">2- Media</option>
+                <option value="3 - Baja">3 - Baja</option>
+                <option value="Sin prioridad">Sin prioridad</option>
+            </select>
+            <select id="dgeui-filter-estado" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
+                <option value="ALL">Estado</option>
+                <option value="Externo">Externo</option>
+                <option value="En curso">En curso</option>
+                <option value="Finalizado">Finalizado</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Guarda">Guarda</option>
+                <option value="Frenado">Frenado</option>
+                <option value="Demorado">Demorado</option>
+                <option value="Sin Inicio">Sin Inicio</option>
+            </select>
+            <select id="dgeui-filter-dg" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
+                <option value="ALL">DG</option>
+                <option value="DGROC">DGROC</option>
+                <option value="DGIUR">DGIUR</option>
+                <option value="DGEUI">DGEUI</option>
+            </select>
+            <select id="dgeui-filter-responsable" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
+                <option value="ALL">Responsable</option>
+                <option value="Rodrigo">Rodrigo</option>
+                <option value="Salvador">Salvador</option>
+                <option value="Tomas">Tomas</option>
+                <option value="Santiago">Santiago</option>
+                <option value="Franco">Franco</option>
+            </select>
+            <select id="dgeui-filter-reunion" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
+                <option value="ALL">Reunión</option>
+                <option value="SI">SI</option>
+                <option value="NO">NO</option>
+            </select>
+            <select id="dgeui-filter-nico" onchange="filterAndRenderDGEUI()"
+                style="padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.78rem; background: white;">
+                <option value="ALL">Nico</option>
+                <option value="Si">Si</option>
+                <option value="No">No</option>
+            </select>
             <button type="button" onclick="document.getElementById('dgeui-search').value=''; document.querySelectorAll('#dgeui-filter-eje, #dgeui-filter-prioridad, #dgeui-filter-estado, #dgeui-filter-dg, #dgeui-filter-responsable, #dgeui-filter-reunion, #dgeui-filter-nico').forEach(s => s.value='ALL'); filterAndRenderDGEUI();"
-                style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 5px 8px; font-family: 'Outfit'; font-size: 0.75rem; color: #64748b; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px;">
-                <i class="fa-solid fa-rotate-left"></i> Limpiar Filtros
+                style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 8px; font-family: 'Outfit'; font-size: 0.75rem; color: #64748b; cursor: pointer; display: flex; align-items: center; gap: 5px; white-space: nowrap; margin-left: auto;">
+                <i class="fa-solid fa-rotate-left"></i> Limpiar
             </button>
         </div>
-    </aside>
 
-    <!-- COLUMNA DERECHA: Tabla con Contenedor de Altura Exacta y Scroll Horizontal Siempre Visible -->
-    <section id="dgeui-container" class="matrix-table-container"
-        style="flex: 1; min-width: 0; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; margin-top: 0; min-height: 0;">
-        
-        <!-- Barra de Estado Superior de la Tabla -->
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.85rem; border-bottom: 1px solid #f1f5f9; background: #ffffff; flex-shrink: 0;">
-            <div style="font-size: 0.78rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
-                <i class="fa-solid fa-table" style="color: #235c45;"></i> Planilla Maestra DGEUI
+        <!-- Tabla Full Width -->
+        <section id="dgeui-container" class="matrix-table-container"
+            style="flex: 1; min-width: 0; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: var(--card-shadow); display: flex; flex-direction: column; overflow: hidden; margin-top: 0; min-height: 0;">
+            
+            <!-- Barra de Estado Superior de la Tabla -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.85rem; border-bottom: 1px solid #f1f5f9; background: #ffffff; flex-shrink: 0;">
+                <div style="font-size: 0.78rem; font-weight: 700; color: #334155; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-table" style="color: #235c45;"></i> Planilla Maestra DGEUI
+                </div>
+                <div style="font-size: 0.72rem; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
+                    <i class="fa-solid fa-arrows-left-right" style="color: #64748b;"></i> Desplaza horizontalmente para ver todas las columnas
+                </div>
             </div>
-            <div style="font-size: 0.72rem; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
-                <i class="fa-solid fa-arrows-left-right" style="color: #64748b;"></i> Desplaza horizontalmente para ver todas las columnas
-            </div>
-        </div>
 
-        <!-- Contenedor Scrollable: tiene scroll horizontal y vertical interno sin scroll de la ventana principal -->
-        <div style="overflow: auto; flex: 1; min-height: 0; width: 100%; position: relative;" class="custom-scrollbar">
-            <table class="dgeui-table" style="width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Outfit', sans-serif; font-size: 0.78rem; text-align: left;">
-                <thead>
-                    <tr style="background: #235c45; color: #ffffff; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px;">Eje</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Prioridad</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 155px;">Nro de expte</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Estado</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 110px;">Dirección</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 120px;">Inmueble</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px;">SMP</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 130px;">Tipo de trámite</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 65px; text-align: center;">DG</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 120px;">Gerencia/Analista</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 80px; text-align: center;">Fecha</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 160px;">Observaciones internas</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 160px;">Observaciones DGROC DGIUR</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px; text-align: center;">Próx. Reunión</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Responsable</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 55px; text-align: center;">Nico</th>
-                        <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; min-width: 65px; text-align: center;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="dgeui-tbody">
-                    <!-- Filas inyectadas dinámicamente vía app.js -->
-                </tbody>
-            </table>
+            <!-- Contenedor Scrollable -->
+            <div style="overflow: auto; flex: 1; min-height: 0; width: 100%; position: relative;" class="custom-scrollbar">
+                <table class="dgeui-table" style="width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'Outfit', sans-serif; font-size: 0.78rem; text-align: left;">
+                    <thead>
+                        <tr style="background: #235c45; color: #ffffff; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px;">Eje</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Prioridad</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 155px;">Nro de expte</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Estado</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 110px;">Dirección</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 120px;">Inmueble</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px;">SMP</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 130px;">Tipo de trámite</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 65px; text-align: center;">DG</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 120px;">Gerencia/Analista</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 80px; text-align: center;">Fecha</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 160px;">Observaciones internas</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 160px;">Observaciones DGROC DGIUR</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 90px; text-align: center;">Próx. Reunión</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 85px; text-align: center;">Responsable</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; border-right: 1px solid #2f7358; min-width: 55px; text-align: center;">Nico</th>
+                            <th style="padding: 7px 8px; font-weight: 700; white-space: nowrap; min-width: 65px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dgeui-tbody">
+                        <!-- Filas inyectadas dinámicamente vía app.js -->
+                    </tbody>
+                </table>
 
-            <div id="dgeui-empty-state" style="display: none; text-align: center; padding: 3.5rem 2rem;">
-                <div style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #94a3b8;"><i class="fa-regular fa-folder-open"></i></div>
-                <h3 style="color: #64748b; margin: 0; font-family: 'Outfit'; font-size: 1.1rem;">No hay expedientes registrados en DGEUI</h3>
-                <p style="color: #94a3b8; margin: 0.35rem 0 1rem 0; font-family: 'Outfit'; font-size: 0.85rem;">Comienza cargando un nuevo expediente mediante el botón superior.</p>
-                <button type="button" onclick="openDGEUINewModal()" style="display: inline-flex; align-items: center; gap: 8px; background: #0284c7; color: #ffffff !important; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Outfit'; font-weight: 700; font-size: 0.84rem; cursor: pointer;">
-                    <i class="fa-solid fa-plus" style="margin-right: 4px; color: #ffffff;"></i> Cargar Primer Expediente
-                </button>
+                <div id="dgeui-empty-state" style="display: none; text-align: center; padding: 3.5rem 2rem;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.75rem; color: #94a3b8;"><i class="fa-regular fa-folder-open"></i></div>
+                    <h3 style="color: #64748b; margin: 0; font-family: 'Outfit'; font-size: 1.1rem;">No hay expedientes registrados en DGEUI</h3>
+                    <p style="color: #94a3b8; margin: 0.35rem 0 1rem 0; font-family: 'Outfit'; font-size: 0.85rem;">Comienza cargando un nuevo expediente mediante el botón superior.</p>
+                    <button type="button" onclick="openDGEUINewModal()" style="display: inline-flex; align-items: center; gap: 8px; background: #0284c7; color: #ffffff !important; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Outfit'; font-weight: 700; font-size: 0.84rem; cursor: pointer;">
+                        <i class="fa-solid fa-plus" style="margin-right: 4px; color: #ffffff;"></i> Cargar Primer Expediente
+                    </button>
+                </div>
             </div>
-        </div>
-    </section>
-</div>
+        </section>
+    </div>
 </div>
 
 <!-- Modal para Crear / Editar Expediente DGEUI -->
@@ -477,13 +594,72 @@
                     Cancelar
                 </button>
                 <button type="submit" id="btn-save-dgeui" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 24px; font-family: 'Outfit'; font-weight: 700; font-size: 0.92rem; background: #235c45; color: #ffffff !important; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s; box-shadow: 0 2px 6px rgba(35,92,69,0.25);"
-                    onmouseover="this.style.background='#1b4936'" onmouseout="this.style.background='#235c45'">
+                    >
                     <i class="fa-solid fa-floppy-disk" style="color: #ffffff;"></i> Guardar
                 </button>
             </div>
         </form>
     </div>
 </div>
+
+<style>
+@media (max-width: 768px) {
+    #dgeui-wrapper {
+        height: auto;
+        overflow: visible;
+    }
+    #dgeui-kpi-strip {
+        grid-template-columns: 1fr 1fr !important;
+    }
+    #dgeui-container {
+        flex: none !important;
+        min-height: 55vh;
+    }
+}
+
+/* Action button hover + press */
+#btn-dgeui-new,
+#btn-export-dgeui,
+#btn-save-dgeui {
+    transition: background 180ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1) !important;
+}
+#btn-dgeui-new:hover    { background: #0369a1 !important; }
+#btn-export-dgeui:hover { background: #15803d !important; }
+#btn-save-dgeui:hover   { background: #1b4936 !important; }
+#btn-dgeui-new:active,
+#btn-export-dgeui:active,
+#btn-save-dgeui:active  { transform: scale(0.97); }
+
+/* Navigation Tabs */
+.dgeui-nav-tab {
+    transition: all 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.dgeui-nav-tab:hover:not(.active) {
+    background: #e2e8f0 !important;
+    color: #1e293b !important;
+}
+.dgeui-nav-tab.active {
+    box-shadow: 0 -2px 6px rgba(35, 92, 69, 0.15);
+}
+
+/* Filter focus ring */
+#dgeui-cols aside select:focus,
+#dgeui-cols aside input:focus {
+    outline: none;
+    border-color: #0076bb !important;
+    box-shadow: 0 0 0 3px rgba(0, 118, 187, 0.12);
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+/* Table row hover */
+.dgeui-table tbody tr {
+    transition: background 120ms ease;
+}
+.dgeui-table tbody tr:hover td {
+    background-color: rgba(0, 118, 187, 0.04) !important;
+    cursor: pointer;
+}
+</style>
 
 <!-- Modal Detalle Completo de Ficha DGEUI -->
 <div id="dgeui-detalle-modal" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 10000; align-items: center; justify-content: center; padding: 2.5rem 1.5rem;">

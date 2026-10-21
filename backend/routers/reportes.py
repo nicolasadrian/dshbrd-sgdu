@@ -7119,47 +7119,112 @@ def get_dgeui_expedientes(
     try:
         with engine.connect() as conn:
             query = """
-                SELECT id, id_expediente, nro_expediente, es_nota, sin_expediente, eje, prioridad, estado,
-                       direccion, inmueble, smp, tipo_tramite, dg, gerencia_analista,
-                       to_char(fecha, 'YYYY-MM-DD') AS fecha,
-                       observaciones_internas, observaciones_dgroc_dgiur,
-                       proxima_reunion, responsable, nico, creado_por,
-                       to_char(fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
-                       to_char(fecha_actualizacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_actualizacion
-                FROM public.dgeui_expedientes
+                WITH target_exps AS (
+                    SELECT d.id_expediente, e.trata
+                    FROM public.dgeui_expedientes d
+                    JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = d.id_expediente
+                    WHERE d.id_expediente IS NOT NULL
+                ),
+                cfg_rules AS (
+                    SELECT UNNEST(tratas_incluidas) AS trata, 
+                           UNNEST(acronimos_egreso) AS acronimo_egreso,
+                           firmantes_egreso
+                    FROM cfg_gestion_metas
+                    WHERE acronimos_egreso IS NOT NULL AND array_length(acronimos_egreso, 1) > 0
+                ),
+                egresos_gedo AS (
+                    SELECT g.id_expediente, 
+                           MIN(g.fecha_asociacion) as fecha_egreso_gedo,
+                           (ARRAY_AGG(g.documento ORDER BY g.fecha_asociacion))[1] as doc_egreso,
+                           (ARRAY_AGG(g.acronimo ORDER BY g.fecha_asociacion))[1] as acronimo_egreso
+                    FROM mvw_datos_gedo_secgdu g
+                    JOIN target_exps te ON te.id_expediente = g.id_expediente
+                    JOIN cfg_rules r ON r.trata = te.trata AND r.acronimo_egreso = g.acronimo
+                    WHERE (r.firmantes_egreso IS NULL OR g.usuario_creador = ANY(r.firmantes_egreso))
+                    GROUP BY g.id_expediente
+                )
+                SELECT d.id, d.id_expediente, d.nro_expediente, d.es_nota, d.sin_expediente, d.eje, d.prioridad, d.estado,
+                       d.direccion, d.inmueble, d.smp, d.tipo_tramite, d.dg, d.gerencia_analista,
+                       to_char(d.fecha, 'YYYY-MM-DD') AS fecha,
+                       d.observaciones_internas, d.observaciones_dgroc_dgiur,
+                       d.proxima_reunion, d.responsable, d.nico, d.creado_por,
+                       to_char(d.fecha_creacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_creacion,
+                       to_char(d.fecha_actualizacion, 'YYYY-MM-DD HH24:MI:SS') AS fecha_actualizacion,
+                       to_char(e.fecha_creacion, 'YYYY-MM-DD') AS fecha_caratulacion,
+                       e.trata, e.descripcion_trata,
+                       up.destinatario_actual AS poseedor_sade,
+                       to_char(up.fecha_ultimo_pase, 'YYYY-MM-DD HH24:MI:SS') AS fecha_ultimo_pase,
+                       up.estado_en_pase AS estado_sade,
+                       to_char(eg.fecha_egreso_gedo, 'YYYY-MM-DD') AS fecha_egreso_gedo,
+                       eg.doc_egreso,
+                       to_char(COALESCE(d.fecha, d.fecha_creacion::date), 'YYYY-MM-DD') AS fecha_carga_planilla,
+                       CASE
+                           WHEN d.estado = 'Finalizado' THEN 
+                               GREATEST(0, (COALESCE(eg.fecha_egreso_gedo::date, up.fecha_ultimo_pase::date, d.fecha, CURRENT_DATE) - COALESCE(d.fecha, d.fecha_creacion::date)))
+                           ELSE
+                               GREATEST(0, (CURRENT_DATE - COALESCE(d.fecha, d.fecha_creacion::date)))
+                       END AS dias_en_direccion,
+                       CASE 
+                           WHEN e.fecha_creacion IS NOT NULL THEN (CURRENT_DATE - e.fecha_creacion::date)
+                           ELSE NULL
+                       END AS dias_desde_caratulacion,
+                       CASE
+                           WHEN up.fecha_ultimo_pase IS NOT NULL THEN (CURRENT_DATE - up.fecha_ultimo_pase::date)
+                           ELSE NULL
+                       END AS dias_con_poseedor,
+                       CASE
+                           WHEN eg.fecha_egreso_gedo IS NOT NULL AND e.fecha_creacion IS NOT NULL 
+                               THEN (eg.fecha_egreso_gedo::date - e.fecha_creacion::date)
+                           WHEN up.fecha_ultimo_pase IS NOT NULL AND e.fecha_creacion IS NOT NULL 
+                               THEN (up.fecha_ultimo_pase::date - e.fecha_creacion::date)
+                           WHEN d.fecha IS NOT NULL AND e.fecha_creacion IS NOT NULL 
+                               THEN (d.fecha - e.fecha_creacion::date)
+                           ELSE NULL
+                       END AS dias_demora_finalizado,
+                       EXISTS (
+                           SELECT 1 FROM mvw_ee_actividades_secgdu a
+                           WHERE a.id_expediente = d.id_expediente
+                             AND a.estado = 'PENDIENTE'
+                             AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                       ) AS en_subsanacion
+                FROM public.dgeui_expedientes d
+                LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = d.id_expediente
+                LEFT JOIN mv_ultimo_pase up ON up.id_expediente = d.id_expediente
+                LEFT JOIN egresos_gedo eg ON eg.id_expediente = d.id_expediente
                 WHERE 1=1
             """
             params = {}
             if search:
                 query += """ AND (
-                    nro_expediente ILIKE :s OR eje ILIKE :s OR direccion ILIKE :s 
-                    OR inmueble ILIKE :s OR smp ILIKE :s OR gerencia_analista ILIKE :s
-                    OR observaciones_internas ILIKE :s OR observaciones_dgroc_dgiur ILIKE :s
+                    d.nro_expediente ILIKE :s OR d.eje ILIKE :s OR d.direccion ILIKE :s 
+                    OR d.inmueble ILIKE :s OR d.smp ILIKE :s OR d.gerencia_analista ILIKE :s
+                    OR d.observaciones_internas ILIKE :s OR d.observaciones_dgroc_dgiur ILIKE :s
+                    OR up.destinatario_actual ILIKE :s
                 )"""
                 params["s"] = f"%{search.strip()}%"
             if eje and eje != 'ALL':
-                query += " AND eje = :eje"
+                query += " AND d.eje = :eje"
                 params["eje"] = eje
             if prioridad and prioridad != 'ALL':
-                query += " AND prioridad = :prioridad"
+                query += " AND d.prioridad = :prioridad"
                 params["prioridad"] = prioridad
             if estado and estado != 'ALL':
-                query += " AND estado = :estado"
+                query += " AND d.estado = :estado"
                 params["estado"] = estado
             if dg and dg != 'ALL':
-                query += " AND dg = :dg"
+                query += " AND d.dg = :dg"
                 params["dg"] = dg
             if responsable and responsable != 'ALL':
-                query += " AND responsable = :responsable"
+                query += " AND d.responsable = :responsable"
                 params["responsable"] = responsable
             if proxima_reunion and proxima_reunion != 'ALL':
-                query += " AND proxima_reunion = :proxima_reunion"
+                query += " AND d.proxima_reunion = :proxima_reunion"
                 params["proxima_reunion"] = proxima_reunion
             if nico and nico != 'ALL':
-                query += " AND nico = :nico"
+                query += " AND d.nico = :nico"
                 params["nico"] = nico
 
-            query += " ORDER BY id DESC"
+            query += " ORDER BY d.id DESC"
             rows = conn.execute(text(query), params).mappings().fetchall()
             return [dict(r) for r in rows]
     except Exception as e:

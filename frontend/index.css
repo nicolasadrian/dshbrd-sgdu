@@ -2376,6 +2376,7 @@ body::after, body::before, html::after, html::before {
     transition: color 0.2s ease, opacity 0.2s ease;
     box-shadow: none;
     position: relative;
+    white-space: nowrap;
 }
 
 .btn-header-nav::after {
@@ -2419,6 +2420,7 @@ body::after, body::before, html::after, html::before {
     gap: 6px;
     padding: 10px 0;
     transition: var(--transition);
+    white-space: nowrap;
 }
 
 .dropdown-trigger .chevron {
@@ -4347,6 +4349,24 @@ span.perf-low {
 @media (max-width: 900px) {
     .mh-teams-grid {
         grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 768px) {
+    header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem 4%;
+    }
+    #main-nav {
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        gap: 1rem;
+        padding-bottom: 2px;
+        -webkit-overflow-scrolling: touch;
     }
 }
 

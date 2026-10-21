@@ -4,7 +4,7 @@
     <span>Público Privado</span>
 </div>
 
-<div class="ppp-header-container" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+<div class="ppp-header-container" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
     <div>
         <h1 class="landing-title" style="margin: 0; display: flex; align-items: center; gap: 0.6rem;">
             <i class="fa-solid fa-user-check" style="color: var(--primary); font-size: 1.6rem;"></i>
@@ -25,79 +25,77 @@
 </div>
 
 <!-- KPI Cards Superiores -->
-<div class="ppp-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-    <div class="ppp-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Producción Total (Marzo-Hoy)</span>
-            <div style="width: 32px; height: 32px; border-radius: 8px; background: #eff6ff; color: #0076bb; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
-                <i class="fa-solid fa-calendar-check"></i>
-            </div>
+<div class="ppp-kpi-grid" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.65rem; margin-bottom: 0.75rem;">
+    <div class="ppp-kpi-card" style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: #eff6ff; color: #0076bb; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+            <i class="fa-solid fa-calendar-check"></i>
         </div>
-        <div id="ppp-kpi-prod-anio" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
-        <span style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Expedientes tramitados desde Marzo 2026</span>
+        <div style="min-width: 0;">
+            <div id="ppp-kpi-prod-anio" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1;">--</div>
+            <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Producción Total</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Desde Marzo 2026</div>
+        </div>
     </div>
 
-    <div class="ppp-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Último Mes Cerrado</span>
-            <div style="width: 32px; height: 32px; border-radius: 8px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
-                <i class="fa-solid fa-chart-line"></i>
-            </div>
+    <div class="ppp-kpi-card" style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: #ecfdf5; color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+            <i class="fa-solid fa-chart-line"></i>
         </div>
-        <div id="ppp-kpi-prod-mes" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
-        <span id="ppp-kpi-prod-mes-sub" style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Expedientes resueltos</span>
+        <div style="min-width: 0;">
+            <div id="ppp-kpi-prod-mes" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1;">--</div>
+            <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Último Mes</div>
+            <div id="ppp-kpi-prod-mes-sub" style="font-size: 0.72rem; color: #64748b; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Expedientes resueltos</div>
+        </div>
     </div>
 
-    <div class="ppp-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Stock Actual en Poder</span>
-            <div style="width: 32px; height: 32px; border-radius: 8px; background: #fffbeb; color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
-                <i class="fa-solid fa-folder-open"></i>
-            </div>
+    <div class="ppp-kpi-card" style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: #fffbeb; color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+            <i class="fa-solid fa-folder-open"></i>
         </div>
-        <div id="ppp-kpi-stock-actual" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
-        <span style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Expedientes pendientes en buzón</span>
+        <div style="min-width: 0;">
+            <div id="ppp-kpi-stock-actual" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1;">--</div>
+            <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Stock Actual</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Pendientes en buzón</div>
+        </div>
     </div>
 
-    <div class="ppp-kpi-card" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Tratas Atendidas</span>
-            <div style="width: 32px; height: 32px; border-radius: 8px; background: #f5f3ff; color: #8b5cf6; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
-                <i class="fa-solid fa-diagram-project"></i>
-            </div>
+    <div class="ppp-kpi-card" style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="width: 36px; height: 36px; border-radius: 8px; background: #fef3c7; color: #b45309; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+            <i class="fa-solid fa-diagram-project"></i>
         </div>
-        <div id="ppp-kpi-tratas-count" style="font-size: 1.8rem; font-weight: 700; color: #0f172a;">--</div>
-        <span style="color: #94a3b8; font-size: 0.78rem; margin-top: 0.25rem;">Tipos de trámite intervenidos</span>
+        <div style="min-width: 0;">
+            <div id="ppp-kpi-tratas-count" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1;">--</div>
+            <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Tratas Atendidas</div>
+            <div style="font-size: 0.72rem; color: #64748b; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Tipos de trámite</div>
+        </div>
     </div>
 
-    <!-- Nueva Tarjeta: Meta Mensual de Productividad -->
-    <div class="ppp-kpi-card" id="ppp-card-meta-container" style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03); display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid var(--primary);">
-        <div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                <span style="color: #64748b; font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Meta del Mes (Egresos)</span>
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 0.95rem;">
-                    <i class="fa-solid fa-bullseye"></i>
+    <!-- Meta Mensual -->
+    <div class="ppp-kpi-card" id="ppp-card-meta-container" style="background: white; border-radius: 10px; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.4rem;">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                <i class="fa-solid fa-bullseye"></i>
+            </div>
+            <div style="min-width: 0; flex: 1;">
+                <div style="display: flex; align-items: baseline; gap: 0.4rem;">
+                    <span id="ppp-kpi-meta-actual" style="font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1;">--</span>
+                    <span id="ppp-kpi-meta-target" style="font-size: 0.9rem; font-weight: 600; color: #64748b;">/ --</span>
+                    <span id="ppp-kpi-meta-pct" style="margin-left: auto; font-size: 0.75rem; font-weight: 700; color: #0076bb; background: #e0f2fe; padding: 1px 6px; border-radius: 4px;">0%</span>
                 </div>
-            </div>
-            <div style="display: flex; align-items: baseline; gap: 0.5rem;">
-                <span id="ppp-kpi-meta-actual" style="font-size: 1.8rem; font-weight: 800; color: #0f172a;">--</span>
-                <span id="ppp-kpi-meta-target" style="font-size: 1.05rem; font-weight: 600; color: #64748b;">/ --</span>
-                <span id="ppp-kpi-meta-pct" style="margin-left: auto; font-size: 0.9rem; font-weight: 700; color: #0284c7; background: #f0f9ff; padding: 2px 8px; border-radius: 6px;">0%</span>
+                <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase; margin-top: 2px;">Meta del Mes</div>
             </div>
         </div>
-        <div style="margin-top: 0.6rem;">
-            <div style="width: 100%; background: #f1f5f9; height: 8px; border-radius: 4px; overflow: hidden; position: relative;">
-                <div id="ppp-kpi-meta-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #10b981); border-radius: 4px; transition: width 0.6s ease;"></div>
-            </div>
-            <div style="margin-top: 0.4rem; font-size: 0.76rem; color: #64748b; text-align: right;">
-                <span id="ppp-kpi-meta-mes-pct">Mes transcurrido: --%</span>
-            </div>
+        <div style="width: 100%; background: #f1f5f9; height: 5px; border-radius: 3px; overflow: hidden;">
+            <div id="ppp-kpi-meta-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #0284c7, #10b981); border-radius: 3px; transition: width 0.6s ease;"></div>
+        </div>
+        <div style="margin-top: 3px; font-size: 0.72rem; color: #64748b; text-align: right;">
+            <span id="ppp-kpi-meta-mes-pct">Mes transcurrido: --%</span>
         </div>
     </div>
 </div>
 
 <!-- Gráficos de Producción -->
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem;" class="ppp-charts-grid">
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;" class="ppp-charts-grid">
     <!-- Evolución Mensual por Analista -->
     <div style="background: #ffffff; border-radius: 12px; padding: 1.25rem; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -212,3 +210,19 @@
         </div>
     </div>
 </div>
+
+<style>
+@media (max-width: 900px) {
+    .ppp-kpi-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+}
+@media (max-width: 600px) {
+    .ppp-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .ppp-charts-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
