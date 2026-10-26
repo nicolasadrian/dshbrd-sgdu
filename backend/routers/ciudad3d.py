@@ -3698,8 +3698,23 @@ def download_lfi_pdf(
             
             fname = wf_row[4] or wf_row[3]
             if fname:
-                file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi", fname))
+                cand_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads", "trazados_lfi", fname))
+                if os.path.exists(cand_path):
+                    file_path = cand_path
                 
+    # Si no hay archivo borrador/final subido para la manzana, generamos on-demand el DXF base con todas las capas (incluyendo restricciones)
+    temp_generated_dxf = None
+    if not file_path:
+        try:
+            from backend.routers.exportar_dwg import exportar_single_manzana_dxf
+        except ImportError:
+            from routers.exportar_dwg import exportar_single_manzana_dxf
+        try:
+            temp_generated_dxf = exportar_single_manzana_dxf(geo_engine, s_clean, m_clean)
+            file_path = temp_generated_dxf
+        except Exception as e_gen:
+            logger.warning(f"No se pudo generar DXF automático para PDF ({e_gen}). Usará renderizado vectorial directo.")
+
     with geo_engine.connect() as geo_conn:
         bm_row = geo_conn.execute(text("""
             SELECT barrio, comuna FROM public.cur_parcelas_ok
@@ -3711,16 +3726,23 @@ def download_lfi_pdf(
             comuna = str(bm_row[1]) if bm_row[1] else ""
 
     from pdf_generator import generate_lfi_a3_pdf
-    pdf_bytes = generate_lfi_a3_pdf(
-        seccion=s_clean,
-        manzana=m_clean,
-        barrio=barrio,
-        comuna=comuna,
-        disposicion=disposicion,
-        estado=estado,
-        analista=analista,
-        file_path=file_path
-    )
+    try:
+        pdf_bytes = generate_lfi_a3_pdf(
+            seccion=s_clean,
+            manzana=m_clean,
+            barrio=barrio,
+            comuna=comuna,
+            disposicion=disposicion,
+            estado=estado,
+            analista=analista,
+            file_path=file_path
+        )
+    finally:
+        if temp_generated_dxf and os.path.exists(temp_generated_dxf):
+            try:
+                os.remove(temp_generated_dxf)
+            except Exception:
+                pass
     
     filename = f"Ficha_A3_LFI_{s_clean}_{m_clean}.pdf"
     return Response(

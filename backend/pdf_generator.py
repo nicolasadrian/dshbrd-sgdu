@@ -178,13 +178,24 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                             pass
 
                     # Capa Banda Mínima
-                    elif any(k in layer_name for k in ['banda', 'bm', 'afec']):
+                    elif any(k in layer_name for k in ['banda', 'bm']):
                         if entity.dxf.hasattr('linetype'):
                             entity.dxf.linetype = 'DASHED'
                         if entity.dxf.hasattr('color'):
                             entity.dxf.color = 8  # Gris CAD
                         try:
                             entity.rgb = (100, 100, 100)
+                        except Exception:
+                            pass
+
+                    # Capas de Restricciones Urbanas (Apertura de calle, Ensanche, Línea de Afectación, Rectificación, Particularizada, Retiro): Dash en gris
+                    elif any(k in layer_name for k in ['afectaci', 'afec', 'ensanche', 'apertura', 'rectificaci', 'particularizada', 'retiro', 'restricci']):
+                        if entity.dxf.hasattr('linetype'):
+                            entity.dxf.linetype = 'DASHED'
+                        if entity.dxf.hasattr('color'):
+                            entity.dxf.color = 8  # Gris CAD
+                        try:
+                            entity.rgb = (120, 120, 120)  # Gris medio #787878
                         except Exception:
                             pass
 
@@ -376,6 +387,14 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                                     obj.set_linestyle('--')
                                 except Exception:
                                     pass
+                        # RESTRICCIONES URBANAS (Gris RGB 120, 120, 120 / DASHED --): GROSOR 0.35 pt
+                        elif rgb == (120, 120, 120):
+                            obj.set_linewidth(0.35)
+                            if hasattr(obj, 'set_linestyle'):
+                                try:
+                                    obj.set_linestyle('--')
+                                except Exception:
+                                    pass
                         # ETIQUETAS DE PARCELAS (RGB 85, 85, 85): HALO BLANCO POR DETRÁS (STROKE BEHIND FILL) Y LETRA GRIS IMPECABLE
                         elif rgb == (85, 85, 85):
                             if hasattr(obj, 'set_facecolor'):
@@ -471,16 +490,23 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
 
     # 2. Render vectorial estructurado en ALTA RESOLUCIÓN (300 DPI) desde PostGIS (geo_engine)
     try:
-        from database import get_geo_mdr_engine
+        try:
+            from backend.database import get_geo_mdr_engine
+            geo_engine = get_geo_mdr_engine()
+        except ImportError:
+            try:
+                from database import get_geo_mdr_engine
+                geo_engine = get_geo_mdr_engine()
+            except ImportError:
+                from backend.database import geo_engine
         from sqlalchemy import text
         
-        geo_engine = get_geo_mdr_engine()
         with geo_engine.connect() as conn:
             s_clean = seccion.strip().zfill(3)
             m_clean = manzana.strip()
             
-            # A. Manzana (Contorno principal)
-            q_mza = "SELECT ST_AsGeoJSON(geom) FROM public.manzanas WHERE (TRIM(seccion) = :s OR LPAD(TRIM(seccion), 3, '0') = :s) AND TRIM(manzana) = :m LIMIT 1"
+            # A. Manzana (Contorno principal en EPSG:22186)
+            q_mza = "SELECT ST_AsGeoJSON(ST_Transform(ST_SetSRID(geom, CASE WHEN ST_SRID(geom)=0 THEN 3857 ELSE ST_SRID(geom) END), 22186)) FROM public.manzanas WHERE (TRIM(seccion) = :s OR LPAD(TRIM(seccion), 3, '0') = :s) AND TRIM(manzana) = :m LIMIT 1"
             mza_json = conn.execute(text(q_mza), {"s": s_clean, "m": m_clean}).scalar()
             
             # B. Parcelas de la manzana con número y centroide
@@ -511,6 +537,32 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                 WHERE (TRIM(p.seccion) = :s OR LPAD(TRIM(p.seccion), 3, '0') = :s) AND TRIM(p.manzana) = :m AND bm.geom IS NOT NULL
             """
             bm_rows = [r[0] for r in conn.execute(text(q_bm), {"s": s_clean, "m": m_clean}).fetchall() if r[0]]
+
+            # G. Restricciones Urbanas (LÍNEA CORTADA GRIS)
+            restr_rows = []
+            if mza_json:
+                q_restr = """
+                    WITH mza AS (
+                        SELECT ST_Transform(ST_SetSRID(geom, CASE WHEN ST_SRID(geom)=0 THEN 3857 ELSE ST_SRID(geom) END), 22186) AS geom_22186,
+                               ST_SetSRID(geom, CASE WHEN ST_SRID(geom)=0 THEN 3857 ELSE ST_SRID(geom) END) AS geom_3857
+                        FROM public.manzanas
+                        WHERE (TRIM(seccion) = :s OR LPAD(TRIM(seccion), 3, '0') = :s) AND TRIM(manzana) = :m
+                        LIMIT 1
+                    )
+                    SELECT ST_AsGeoJSON(ST_Transform(r.geom, 22186))
+                    FROM public.cur_restricciones r, mza
+                    WHERE r.geom && ST_Buffer(mza.geom_3857, 1.0)
+                      AND ST_DWithin(mza.geom_22186, ST_Transform(r.geom, 22186), 0.5)
+                      AND r.tipo IN (
+                          'Apertura de calle', 'Ensanche', 'Línea de Afectación',
+                          'Línea de Rectificación', 'Línea Particularizada', 'Retiro obligatorio.'
+                      )
+                      AND r.geom IS NOT NULL
+                """
+                try:
+                    restr_rows = [r[0] for r in conn.execute(text(q_restr), {"s": s_clean, "m": m_clean}).fetchall() if r[0]]
+                except Exception as e_res:
+                    logger.warning(f"No se pudieron consultar restricciones: {e_res}")
             
             calles_rows = []
             if mza_json:
@@ -584,6 +636,12 @@ def render_dxf_or_geometry_to_image(seccion, manzana, file_path=None):
                 bm_geom = shape(json.loads(bm_j))
                 for x, y in extract_lines_from_geom(bm_geom):
                     ax.plot(x, y, color='#808080', linestyle='--', linewidth=1.6, dashes=(3.0, 2.0), zorder=12)
+
+            # 6b. DIBUJAR RESTRICCIONES URBANAS COMO LÍNEA CORTADA GRIS (#787878)
+            for r_j in restr_rows:
+                r_geom = shape(json.loads(r_j))
+                for x, y in extract_lines_from_geom(r_geom):
+                    ax.plot(x, y, color='#787878', linestyle='--', linewidth=1.8, dashes=(4.0, 2.5), zorder=13)
 
             # 7. DIBUJAR ETIQUETAS DE NOMBRES DE CALLES EN COLOR NEGRO ABSOLUTO (#000000)
             if calles_rows:
@@ -749,12 +807,13 @@ def generate_lfi_a3_pdf(seccion, manzana, barrio="", comuna="", disposicion="", 
     c.setStrokeColor(colors.HexColor("#000000"))
     c.line(x_split + 12.0, y_r3_bottom - 27.0, x_max - 12.0, y_r3_bottom - 27.0)
     
-    y_ref = y_r3_bottom - 45.0
+    y_ref = y_r3_bottom - 42.0
     ref_items = [
         ("line", "#3579b1", [], 2.0, "Línea de Frente Interno"),
         ("line", "#3579b1", [], 2.0, "Extensión Irregular"),
         ("line", "#ffd306", [], 2.0, "Línea de Basamento"),
         ("line", "#8a2be2", [3, 2], 2.0, "Banda Mínima Afec."),
+        ("line", "#787878", [3, 2], 2.0, "Restricciones Urbanas"),
         ("rect", "#808080", [], 0, "Tejido Consolidado"),
         ("line", "#606060", [], 1.0, "Límite Parcelario")
     ]
@@ -777,7 +836,7 @@ def generate_lfi_a3_pdf(seccion, manzana, barrio="", comuna="", disposicion="", 
         c.setFont("Helvetica", 8.0)
         c.setFillColor(colors.HexColor("#1e293b"))
         c.drawString(x_split + 52.0, y_ref, label)
-        y_ref -= 16.0
+        y_ref -= 15.0
         
     c.showPage()
     c.save()
