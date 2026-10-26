@@ -230,6 +230,34 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
     except Exception as e:
         gdf_tejido_irreg = gpd.GeoDataFrame()
 
+    # 11. Cargar Restricciones Urbanas (cur_restricciones) de la sección
+    # Las geometrías están en EPSG:3857 y se transforman a EPSG:22186 para coincidir con el DXF
+    if not gdf_manzanas.empty:
+        query_restricciones = f"""
+            WITH sec_envelope AS (
+                SELECT ST_Transform(ST_MakeEnvelope({sec_xmin - 100}, {sec_ymin - 100}, {sec_xmax + 100}, {sec_ymax + 100}, 22186), 3857) AS env_3857
+            )
+            SELECT r.tipo, ST_Transform(r.geom, 22186) AS geom
+            FROM public.cur_restricciones r, sec_envelope e
+            WHERE r.geom && e.env_3857
+              AND r.tipo IN (
+                  'Apertura de calle',
+                  'Ensanche',
+                  'Línea de Afectación',
+                  'Línea de Rectificación',
+                  'Línea Particularizada',
+                  'Retiro obligatorio.'
+              )
+              AND r.geom IS NOT NULL
+        """
+        try:
+            gdf_restricciones = gpd.read_postgis(query_restricciones, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception as e:
+            print(f"Error al cargar restricciones de sección {seccion_val}: {e}")
+            gdf_restricciones = gpd.GeoDataFrame()
+    else:
+        gdf_restricciones = gpd.GeoDataFrame()
+
     # Configurar directorio de la sección
     seccion_dir = os.path.join(dxf_base_dir, sec_folder)
     os.makedirs(seccion_dir, exist_ok=True)
@@ -373,6 +401,19 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                 if not m_tpi.empty:
                     m_layers['mdr_tejidoparairregular'] = m_tpi
                     
+        # 11. Restricciones Urbanas (cur_restricciones) que caen espacialmente en la manzana
+        if not gdf_restricciones.empty and not group_manzana.empty:
+            mza_geom_22186 = group_manzana.geometry.iloc[0]
+            # Filtro espacial: líneas que intersectan o están dentro de un buffer de 0.5m de la manzana
+            restr_mza = gdf_restricciones[gdf_restricciones.geometry.apply(lambda g: g is not None and not g.is_empty and g.distance(mza_geom_22186) <= 0.5)].copy()
+            if not restr_mza.empty:
+                for tipo_val, group_tipo in restr_mza.groupby('tipo'):
+                    tipo_name = str(tipo_val).strip()
+                    if tipo_name and not group_tipo.empty:
+                        gt_clean = group_tipo.copy()
+                        gt_clean['geometry'] = gt_clean.geometry.apply(polygon_to_boundary)
+                        m_layers[tipo_name] = gt_clean
+
         # Combinar capas de la manzana
         gdfs_to_combine = []
         for layer_name, gdf in m_layers.items():
@@ -400,6 +441,18 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                 gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
             elif layer_name == 'Irregular':
                 gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
+            elif layer_name == 'Apertura de calle':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#ff8000)'
+            elif layer_name == 'Ensanche':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#00ffff)'
+            elif layer_name == 'Línea de Afectación':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#ff00ff)'
+            elif layer_name == 'Línea de Rectificación':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#00ff00)'
+            elif layer_name == 'Línea Particularizada':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#800080)'
+            elif layer_name == 'Retiro obligatorio.':
+                gdf_clean['OGR_STYLE'] = 'PEN(c:#804000)'
             else:
                 gdf_clean['OGR_STYLE'] = 'PEN(c:#000000)'
                 
@@ -442,19 +495,38 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                             'banda_minima': (1, (228, 26, 28)), # ACI 1 (Rojo), RGB #e41a1c
                             'tejido': (8, (128, 128, 128)),     # ACI 8 (Gris Oscuro), RGB #808080
                             'mdr_tejidoconsolidado': (9, (192, 192, 192)), # ACI 9 (Gris Claro), RGB #c0c0c0
+                            'mdr_tejidoparairregular': (8, (128, 128, 128)), # ACI 8 (Gris), RGB #808080
                             'manzanas': (250, (64, 64, 64)),    # ACI 250 (Gris Muy Oscuro), RGB #404040
                             'parcelas': (252, (96, 96, 96)),    # ACI 252 (Gris Carbón), RGB #606060
                             'Tronera SI': (141, (53, 121, 177)), # ACI 141 (Azul LFI), RGB #3579b1
-                            'Irregular': (1, (228, 26, 28))     # ACI 1 (Rojo), RGB #e41a1c
+                            'Irregular': (1, (228, 26, 28)),    # ACI 1 (Rojo), RGB #e41a1c
+                            'Apertura de calle': (30, (255, 128, 0)),        # ACI 30 (Naranja), RGB #ff8000
+                            'Ensanche': (4, (0, 255, 255)),                  # ACI 4 (Cian), RGB #00ffff
+                            'Línea de Afectación': (6, (255, 0, 255)),       # ACI 6 (Magenta), RGB #ff00ff
+                            'Línea de Rectificación': (3, (0, 255, 0)),      # ACI 3 (Verde), RGB #00ff00
+                            'Línea Particularizada': (210, (128, 0, 128)),   # ACI 210 (Púrpura/Violeta), RGB #800080
+                            'Retiro obligatorio.': (42, (128, 64, 0))        # ACI 42 (Marrón/Ocre), RGB #804000
                         }
                         
                         # 1. Configurar propiedades de capa (color y transparencia)
-                        for l_name, (aci, rgb) in layer_colors.items():
-                            if l_name in doc.layers:
-                                layer = doc.layers.get(l_name)
+                        for layer in doc.layers:
+                            l_dxf_name = layer.dxf.name
+                            matched_props = None
+                            if l_dxf_name in layer_colors:
+                                matched_props = layer_colors[l_dxf_name]
+                            else:
+                                for ref_name, props in layer_colors.items():
+                                    try:
+                                        if l_dxf_name.encode('latin1').decode('utf-8') == ref_name:
+                                            matched_props = props
+                                            break
+                                    except Exception:
+                                        pass
+                            if matched_props:
+                                aci, rgb = matched_props
                                 layer.color = aci
                                 layer.rgb = rgb
-                                if l_name == 'mdr_tejidoconsolidado':
+                                if l_dxf_name in ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular'):
                                     layer.transparency = 0.5
                                     
                         # Asegurar la creación por defecto de la capa "Cotas" (vacía, sin objetos)
@@ -463,17 +535,26 @@ def exportar_seccion(engine, seccion_val, dxf_base_dir):
                             l_cotas.color = 250
                             l_cotas.rgb = (60, 60, 60)
                                     
-                        # Configurar tipo de línea DASHED en la capa banda_minima
+                        # Configurar tipo de línea DASHED en la capa banda_minima y Retiro obligatorio.
                         if 'banda_minima' in doc.layers:
                             layer_bm = doc.layers.get('banda_minima')
                             layer_bm.linetype = 'DASHED'
                             layer_bm.color = 1
                             
+                        if 'Retiro obligatorio.' in doc.layers:
+                            layer_ro = doc.layers.get('Retiro obligatorio.')
+                            layer_ro.linetype = 'DASHED'
+                            layer_ro.color = 42
+
                         for entity in msp:
                             if entity.dxf.layer == 'banda_minima':
                                 entity.dxf.linetype = 'DASHED'
                                 entity.dxf.ltscale = 1.5
                                 entity.dxf.color = 1
+                            elif entity.dxf.layer == 'Retiro obligatorio.':
+                                entity.dxf.linetype = 'DASHED'
+                                entity.dxf.ltscale = 2.0
+                                entity.dxf.color = 42
 
                         # 2. Convertir las polilíneas de las capas de tejido a HATCH
                         hatch_layers = ('mdr_tejidoconsolidado',)
@@ -737,6 +818,41 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     except Exception:
         gdf_tejido_irreg = gpd.GeoDataFrame()
 
+    # 11. Restricciones Urbanas (cur_restricciones) que caen espacialmente en la manzana
+    # Se utiliza ST_DWithin con 0.5m en EPSG:22186 aprovechando el índice GIST de geom en 3857
+    if not gdf_manzanas.empty:
+        query_restricciones = f"""
+            WITH mza AS (
+                SELECT ST_Transform(ST_SetSRID(geom, CASE WHEN ST_SRID(geom)=0 THEN 3857 ELSE ST_SRID(geom) END), 22186) AS geom_22186,
+                       ST_SetSRID(geom, CASE WHEN ST_SRID(geom)=0 THEN 3857 ELSE ST_SRID(geom) END) AS geom_3857
+                FROM public.manzanas
+                WHERE (TRIM(seccion) = '{sec_escaped}' OR LPAD(TRIM(seccion), 3, '0') = '{sec_lpad}' OR TRIM(seccion) = '{sec_unpad}')
+                  AND (TRIM(manzana) = '{m_escaped}' OR LPAD(TRIM(manzana), 3, '0') = '{m_lpad}' OR TRIM(manzana) = '{m_unpad}')
+                  AND geom IS NOT NULL
+                LIMIT 1
+            )
+            SELECT r.tipo, ST_Transform(r.geom, 22186) AS geom
+            FROM public.cur_restricciones r, mza
+            WHERE r.geom && ST_Buffer(mza.geom_3857, 1.0)
+              AND ST_DWithin(mza.geom_22186, ST_Transform(r.geom, 22186), 0.5)
+              AND r.tipo IN (
+                  'Apertura de calle',
+                  'Ensanche',
+                  'Línea de Afectación',
+                  'Línea de Rectificación',
+                  'Línea Particularizada',
+                  'Retiro obligatorio.'
+              )
+              AND r.geom IS NOT NULL
+        """
+        try:
+            gdf_restricciones = gpd.read_postgis(query_restricciones, con=engine, geom_col="geom", crs="EPSG:22186")
+        except Exception as e_r:
+            print(f"Error cargando restricciones de manzana {sec_str}-{m_str}: {e_r}")
+            gdf_restricciones = gpd.GeoDataFrame()
+    else:
+        gdf_restricciones = gpd.GeoDataFrame()
+
     m_layers = {}
 
     # Manzanas
@@ -824,6 +940,15 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
     if not gdf_consolidado.empty:
         m_layers['mdr_tejidoconsolidado'] = gdf_consolidado
 
+    # Separar restricciones por capa según campo 'tipo'
+    if not gdf_restricciones.empty:
+        for tipo_val, group_tipo in gdf_restricciones.groupby('tipo'):
+            tipo_name = str(tipo_val).strip()
+            if tipo_name and not group_tipo.empty:
+                gt_clean = group_tipo.copy()
+                gt_clean['geometry'] = gt_clean.geometry.apply(polygon_to_boundary)
+                m_layers[tipo_name] = gt_clean
+
     gdfs_to_combine = []
     for layer_name, gdf in m_layers.items():
         gdf_clean = gpd.GeoDataFrame({'geometry': gdf.geometry}, crs="EPSG:22186")
@@ -837,6 +962,12 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
         elif layer_name == 'parcelas': gdf_clean['OGR_STYLE'] = 'PEN(c:#606060)'
         elif layer_name == 'Tronera SI': gdf_clean['OGR_STYLE'] = 'PEN(c:#3579b1)'
         elif layer_name == 'Irregular': gdf_clean['OGR_STYLE'] = 'PEN(c:#e41a1c)'
+        elif layer_name == 'Apertura de calle': gdf_clean['OGR_STYLE'] = 'PEN(c:#ff8000)'
+        elif layer_name == 'Ensanche': gdf_clean['OGR_STYLE'] = 'PEN(c:#00ffff)'
+        elif layer_name == 'Línea de Afectación': gdf_clean['OGR_STYLE'] = 'PEN(c:#ff00ff)'
+        elif layer_name == 'Línea de Rectificación': gdf_clean['OGR_STYLE'] = 'PEN(c:#00ff00)'
+        elif layer_name == 'Línea Particularizada': gdf_clean['OGR_STYLE'] = 'PEN(c:#800080)'
+        elif layer_name == 'Retiro obligatorio.': gdf_clean['OGR_STYLE'] = 'PEN(c:#804000)'
         else: gdf_clean['OGR_STYLE'] = 'PEN(c:#000000)'
         gdfs_to_combine.append(gdf_clean)
 
@@ -873,25 +1004,53 @@ def exportar_single_manzana_dxf(engine, seccion_val, manzana_val, output_path=No
             'manzanas': (250, (64, 64, 64)),
             'parcelas': (252, (96, 96, 96)),
             'Tronera SI': (141, (53, 121, 177)),
-            'Irregular': (1, (228, 26, 28))
+            'Irregular': (1, (228, 26, 28)),
+            'Apertura de calle': (30, (255, 128, 0)),
+            'Ensanche': (4, (0, 255, 255)),
+            'Línea de Afectación': (6, (255, 0, 255)),
+            'Línea de Rectificación': (3, (0, 255, 0)),
+            'Línea Particularizada': (210, (128, 0, 128)),
+            'Retiro obligatorio.': (42, (128, 64, 0))
         }
-        for l_name, (aci, rgb) in layer_colors.items():
-            if l_name in doc.layers:
-                layer = doc.layers.get(l_name)
+        for layer in doc.layers:
+            l_dxf_name = layer.dxf.name
+            matched_props = None
+            if l_dxf_name in layer_colors:
+                matched_props = layer_colors[l_dxf_name]
+            else:
+                for ref_name, props in layer_colors.items():
+                    try:
+                        if l_dxf_name.encode('latin1').decode('utf-8') == ref_name:
+                            matched_props = props
+                            break
+                    except Exception:
+                        pass
+            if matched_props:
+                aci, rgb = matched_props
                 layer.color = aci
                 layer.rgb = rgb
-                if l_name in ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular'):
+                if l_dxf_name in ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular'):
                     layer.transparency = 0.40
 
         if 'banda_minima' in doc.layers:
             layer_bm = doc.layers.get('banda_minima')
             layer_bm.linetype = 'DASHED'
             layer_bm.color = 1
+
+        if 'Retiro obligatorio.' in doc.layers:
+            layer_ro = doc.layers.get('Retiro obligatorio.')
+            layer_ro.linetype = 'DASHED'
+            layer_ro.color = 42
+
         for entity in msp:
             if entity.dxf.layer == 'banda_minima':
                 entity.dxf.linetype = 'DASHED'
                 entity.dxf.ltscale = 5.0
                 entity.dxf.color = 1
+            elif entity.dxf.layer == 'Retiro obligatorio.':
+                entity.dxf.linetype = 'DASHED'
+                entity.dxf.ltscale = 2.0
+                entity.dxf.color = 42
 
         hatch_layers = ('mdr_tejidoconsolidado', 'mdr_tejidoparairregular')
         for l_name in hatch_layers:
