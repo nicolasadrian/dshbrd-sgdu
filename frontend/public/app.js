@@ -25693,6 +25693,32 @@ function populateDGEUIEjesDropdown() {
         });
         modalSelect.innerHTML = modalHtml;
     }
+
+    populateDGEUIResponsablesDropdown();
+}
+
+function populateDGEUIResponsablesDropdown() {
+    const respsFromData = dgeuiData.map(d => (d.responsable || '').trim()).filter(Boolean);
+    const allResps = Array.from(new Set(['Franco', 'Rodrigo', 'Salvador', 'Santiago', 'Tomas', ...respsFromData])).sort();
+
+    const selects = [
+        { id: 'dgeui-filter-responsable', defaultText: 'Responsable' },
+        { id: 'dgeui-en-curso-filter-responsable', defaultText: 'Todos los Responsables' },
+        { id: 'dgeui-finalizados-filter-responsable', defaultText: 'Todos los Responsables' }
+    ];
+
+    selects.forEach(({ id, defaultText }) => {
+        const el = document.getElementById(id);
+        if (el) {
+            const currentVal = el.value || 'ALL';
+            let optionsHtml = `<option value="ALL">${defaultText}</option>`;
+            allResps.forEach(r => {
+                optionsHtml += `<option value="${r}">${r}</option>`;
+            });
+            el.innerHTML = optionsHtml;
+            el.value = currentVal;
+        }
+    });
 }
 
 let activeDGEUITab = 'en-curso';
@@ -25778,10 +25804,16 @@ function renderDGEUIEnCursoTable() {
 
     const searchVal = (document.getElementById('dgeui-en-curso-search')?.value || '').trim().toLowerCase();
     const filterSubs = document.getElementById('dgeui-en-curso-filter-subs')?.value || 'ALL';
+    const filterResp = document.getElementById('dgeui-en-curso-filter-responsable')?.value || 'ALL';
     const orderVal = document.getElementById('dgeui-en-curso-order')?.value || 'demora_desc';
 
     // Filtrar solo expedientes "En curso"
     let list = dgeuiData.filter(d => (d.estado || '') === 'En curso');
+
+    // Filtro por responsable
+    if (filterResp !== 'ALL') {
+        list = list.filter(d => (d.responsable || '').toLowerCase() === filterResp.toLowerCase());
+    }
 
     // Filtro por subsanación
     if (filterSubs === 'SUBS') {
@@ -25942,10 +25974,16 @@ function renderDGEUIFinalizadosTable() {
     if (!tbody) return;
 
     const searchVal = (document.getElementById('dgeui-finalizados-search')?.value || '').trim().toLowerCase();
+    const filterResp = document.getElementById('dgeui-finalizados-filter-responsable')?.value || 'ALL';
     const orderVal = document.getElementById('dgeui-finalizados-order')?.value || 'demora_desc';
 
     // Filtrar solo expedientes "Finalizado"
     let list = dgeuiData.filter(d => (d.estado || '') === 'Finalizado');
+
+    // Filtro por responsable
+    if (filterResp !== 'ALL') {
+        list = list.filter(d => (d.responsable || '').toLowerCase() === filterResp.toLowerCase());
+    }
 
     // Filtro por texto
     if (searchVal) {

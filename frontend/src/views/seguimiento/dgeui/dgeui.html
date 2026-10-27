@@ -119,6 +119,15 @@
                     <option value="SUBS">En Subsanación TAD</option>
                     <option value="TRAMITE">En Tramitación Activa</option>
                 </select>
+                <select id="dgeui-en-curso-filter-responsable" onchange="renderDGEUIEnCursoTable()"
+                    style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
+                    <option value="ALL">Todos los Responsables</option>
+                    <option value="Franco">Franco</option>
+                    <option value="Rodrigo">Rodrigo</option>
+                    <option value="Salvador">Salvador</option>
+                    <option value="Santiago">Santiago</option>
+                    <option value="Tomas">Tomas</option>
+                </select>
                 <select id="dgeui-en-curso-order" onchange="renderDGEUIEnCursoTable()"
                     style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
                     <option value="demora_desc">Mayor demora total (Caratulación)</option>
@@ -189,6 +198,15 @@
                     <input type="text" id="dgeui-finalizados-search" oninput="renderDGEUIFinalizadosTable()" placeholder="Buscar finalizados..."
                         style="width: 100%; padding: 4px 8px 4px 24px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem;">
                 </div>
+                <select id="dgeui-finalizados-filter-responsable" onchange="renderDGEUIFinalizadosTable()"
+                    style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
+                    <option value="ALL">Todos los Responsables</option>
+                    <option value="Franco">Franco</option>
+                    <option value="Rodrigo">Rodrigo</option>
+                    <option value="Salvador">Salvador</option>
+                    <option value="Santiago">Santiago</option>
+                    <option value="Tomas">Tomas</option>
+                </select>
                 <select id="dgeui-finalizados-order" onchange="renderDGEUIFinalizadosTable()"
                     style="padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit'; font-size: 0.76rem; background: white;">
                     <option value="demora_desc">Mayor demora total de resolución</option>
