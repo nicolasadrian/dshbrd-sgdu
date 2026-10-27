@@ -1,0 +1,169 @@
+<div class="breadcrumbs">
+    <span onclick="showView('landing')">Inicio</span> / <span onclick="window.location.hash='#/backlog'" style="cursor: pointer;">Backlog</span> / Configuración de SLA
+</div>
+
+<div class="admin-page-container" style="margin-top: 1rem;">
+    <!-- Vista 1: Navegación Jerárquica de SLA por Dirección / Gerencia / Trata -->
+    <div id="sla-list-container">
+
+        <!-- Nivel 1: Direcciones -->
+        <div id="sla-nav-direcciones">
+            <button type="button" onclick="window.location.hash='#/backlog'"
+                style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                <i class="fa-solid fa-arrow-left"></i> Volver al Backlog
+            </button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div>
+                    <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                        Configuración de SLA por Dirección</h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona una dirección para gestionar los tiempos SLA de sus áreas y trámites.</p>
+                </div>
+            </div>
+            <div id="sla-direcciones-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                <!-- Dinámico -->
+            </div>
+        </div>
+
+        <!-- Nivel 2: Gerencias / Áreas -->
+        <div id="sla-nav-gerencias" style="display: none;">
+            <button type="button" onclick="goBackToSLADirecciones()"
+                style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                <i class="fa-solid fa-arrow-left"></i> Volver a Direcciones
+            </button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <div>
+                    <h3 id="sla-gerencias-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                        Áreas de la Dirección</h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Selecciona un área o gerencia para ver y editar los tiempos de SLA de sus trámites.</p>
+                </div>
+            </div>
+            <div id="sla-gerencias-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem;">
+                <!-- Dinámico -->
+            </div>
+        </div>
+
+        <!-- Nivel 3: Listado de Tratas / SLA -->
+        <div id="sla-nav-tratas" style="display: none;">
+            <button type="button" onclick="goBackToSLAGerencias()"
+                style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; margin-bottom: 1.5rem; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border-radius: 6px; font-family: 'Outfit'; font-weight: 600;">
+                <i class="fa-solid fa-arrow-left"></i> Volver a Áreas
+            </button>
+            <div class="admin-card" style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 15px;">
+                    <div>
+                        <h3 id="sla-tratas-title" style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.3rem;">
+                            SLA de Trámites</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #64748b;">Configura la cantidad de días permitidos para cada trámite y consulta su historial de auditoría.</p>
+                    </div>
+                    <div style="position: relative; width: 280px;">
+                        <input type="text" id="search-sla-input" placeholder="Buscar trámite o código..." oninput="filterAdminSLATable()"
+                            style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: 'Outfit';">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="report-table" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #cbd5e1; background: #f8fafc; text-align: left;">
+                                <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Trata (Código)</th>
+                                <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Descripción del Trámite</th>
+                                <th style="padding: 12px 10px; font-weight: 700; color: #475569; text-align: center;">SLA Vigente (Días)</th>
+                                <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Último Detalle / Motivo</th>
+                                <th style="padding: 12px 10px; font-weight: 700; color: #475569;">Actualización</th>
+                                <th style="padding: 12px 10px; font-weight: 700; color: #475569; text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sla-table-body">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal para Configurar / Actualizar SLA -->
+<div id="modal-set-sla" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: white; border-radius: 16px; width: 100%; max-width: 520px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid #cbd5e1;">
+        <div style="padding: 20px 24px; background: #0f172a; color: white; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(56, 189, 248, 0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                    <i class="fa-solid fa-stopwatch"></i>
+                </div>
+                <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.2rem;">Cargar / Modificar SLA</h3>
+            </div>
+            <button type="button" onclick="closeSLAModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="form-save-sla" onsubmit="handleSaveSLA(event)" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <input type="hidden" id="sla-form-direccion">
+            <input type="hidden" id="sla-form-gerencia">
+            <input type="hidden" id="sla-form-trata">
+
+            <div style="background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Trámite a configurar</div>
+                <div id="sla-form-trata-label" style="font-size: 1.05rem; font-weight: 700; color: #1e293b; margin-top: 2px;"></div>
+                <div id="sla-form-trata-desc" style="font-size: 0.85rem; color: #64748b; margin-top: 2px;"></div>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.88rem; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                    Cantidad de Días (SLA) <span style="color: #ef4444;">*</span>
+                </label>
+                <input type="number" id="sla-form-dias" min="1" required placeholder="Ej: 15"
+                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 1rem;">
+                <span style="font-size: 0.78rem; color: #64748b; margin-top: 4px; display: block;">Define el límite objetivo en días hábiles/corridos para la resolución.</span>
+            </div>
+
+            <div>
+                <label style="display: block; font-size: 0.88rem; font-weight: 700; color: #334155; margin-bottom: 6px;">
+                    Detalle / Justificación <span style="color: #ef4444;">*</span> <span style="font-size: 0.75rem; color: #ef4444; font-weight: normal;">(Obligatorio)</span>
+                </label>
+                <textarea id="sla-form-detalle" rows="3" required placeholder="Indica el motivo o detalle de este valor para el historial (ej: Actualización según disposición 2026/04)..."
+                    style="width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Outfit'; font-size: 0.9rem; resize: vertical;"></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button type="button" onclick="closeSLAModal()"
+                    style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; cursor: pointer; color: #64748b;">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-submit-sla" class="btn-primary"
+                    style="background: #0284c7; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-family: 'Outfit'; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-check"></i> Guardar SLA
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal para Ver Historial de SLA -->
+<div id="modal-historial-sla" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: white; border-radius: 16px; width: 100%; max-width: 650px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid #cbd5e1;">
+        <div style="padding: 20px 24px; background: #0f172a; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(245, 158, 11, 0.2); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-family: 'Outfit'; font-weight: 700; font-size: 1.2rem;">Historial de Cambios de SLA</h3>
+                    <p id="historial-sla-subtitle" style="margin: 2px 0 0 0; font-size: 0.8rem; color: #94a3b8;"></p>
+                </div>
+            </div>
+            <button type="button" onclick="closeHistorialSLAModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="historial-sla-content" style="padding: 20px; overflow-y: auto; flex-grow: 1;">
+            <!-- Dinámico -->
+        </div>
+        <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; flex-shrink: 0;">
+            <button type="button" onclick="closeHistorialSLAModal()"
+                style="padding: 8px 16px; border: 1px solid #cbd5e1; background: white; border-radius: 8px; font-family: 'Outfit'; font-weight: 600; cursor: pointer; color: #64748b;">
+                Cerrar
+            </button>
+        </div>
+    </div>
+</div>

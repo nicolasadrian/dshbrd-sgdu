@@ -15,7 +15,7 @@ from database import engine
 from schemas import (
     Token, User, PasswordChange, UserUpdate, RoleCreate, RoleUpdate,
     MetaUpdateRequest, MetaCreateRequest, UserCreate, FamiliaUpdate, FamiliaCreate,
-    BuzonAccesoUpdate, AddAnalystRequest
+    BuzonAccesoUpdate, AddAnalystRequest, SLASetRequest
 )
 from auth_utils import (
     verify_password, get_password_hash, create_access_token,
@@ -1210,4 +1210,133 @@ async def delete_meta(meta_id: int, current_user: User = Depends(get_current_use
             return {"status": "ok", "message": "Configuración de meta eliminada"}
     except Exception as e:
         logger.error(f"Error deleting meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoints de SLA de Trámites (Backlog SLA) ---
+
+@router.get("/api/admin/sla")
+async def list_sla_configs(current_user: User = Depends(get_current_user)):
+    user_perms = current_user.permissions or {}
+    if current_user.role.lower() not in ['admin', 'administrador'] and not user_perms.get('admin'):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        with engine.connect() as conn:
+            # Traer todas las tratas activas de cfg_gestion_metas junto con su SLA configurado
+            query = text("""
+                SELECT 
+                    COALESCE(cfg.direccion, 'DGROC') as direccion,
+                    LOWER(cfg.gerencia) as gerencia,
+                    cfg.trata_reporte,
+                    cfg.descripcion_trata,
+                    sla.id as sla_id,
+                    sla.dias_sla,
+                    sla.detalle as ultimo_detalle,
+                    sla.actualizado_por,
+                    sla.updated_at
+                FROM cfg_gestion_metas cfg
+                LEFT JOIN cfg_sla_tratas sla 
+                    ON LOWER(TRIM(sla.gerencia)) = LOWER(TRIM(cfg.gerencia)) 
+                   AND UPPER(TRIM(sla.trata_reporte)) = UPPER(TRIM(cfg.trata_reporte))
+                WHERE cfg.activo IS TRUE
+                ORDER BY COALESCE(cfg.direccion, 'DGROC'), cfg.gerencia, cfg.trata_reporte
+            """)
+            rows = conn.execute(query).fetchall()
+            result = []
+            for r in rows:
+                m = dict(r._mapping)
+                if m.get("updated_at"):
+                    m["updated_at"] = m["updated_at"].strftime("%Y-%m-%d %H:%M:%S")
+                result.append(m)
+            return result
+    except Exception as e:
+        logger.error(f"Error listing SLA configs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/api/admin/sla")
+async def save_sla_config(data: SLASetRequest, current_user: User = Depends(get_current_user)):
+    user_perms = current_user.permissions or {}
+    if current_user.role.lower() not in ['admin', 'administrador'] and not user_perms.get('admin'):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    
+    clean_gerencia = data.gerencia.strip().lower()
+    clean_trata = data.trata_reporte.strip().upper()
+    clean_detalle = (data.detalle or "").strip()
+    
+    if not clean_detalle:
+        raise HTTPException(status_code=400, detail="El campo 'detalle' es obligatorio para registrar el motivo o justificación del SLA.")
+    if data.dias_sla <= 0:
+        raise HTTPException(status_code=400, detail="La cantidad de días debe ser un número entero mayor a 0.")
+    
+    username = current_user.username or "sistema"
+
+    try:
+        with engine.begin() as conn:
+            # 1. Upsert en cfg_sla_tratas
+            upsert_query = text("""
+                INSERT INTO cfg_sla_tratas (direccion, gerencia, trata_reporte, dias_sla, detalle, actualizado_por, updated_at)
+                VALUES (:dir, :ger, :tra, :dias, :det, :usr, CURRENT_TIMESTAMP)
+                ON CONFLICT (gerencia, trata_reporte) 
+                DO UPDATE SET 
+                    direccion = EXCLUDED.direccion,
+                    dias_sla = EXCLUDED.dias_sla,
+                    detalle = EXCLUDED.detalle,
+                    actualizado_por = EXCLUDED.actualizado_por,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING id;
+            """)
+            sla_id = conn.execute(upsert_query, {
+                "dir": (data.direccion or "DGROC").strip().upper(),
+                "ger": clean_gerencia,
+                "tra": clean_trata,
+                "dias": data.dias_sla,
+                "det": clean_detalle,
+                "usr": username
+            }).scalar()
+
+            # 2. Registrar en cfg_sla_historial
+            hist_query = text("""
+                INSERT INTO cfg_sla_historial (sla_id, gerencia, trata_reporte, dias_sla, detalle, usuario, created_at)
+                VALUES (:sla_id, :ger, :tra, :dias, :det, :usr, CURRENT_TIMESTAMP);
+            """)
+            conn.execute(hist_query, {
+                "sla_id": sla_id,
+                "ger": clean_gerencia,
+                "tra": clean_trata,
+                "dias": data.dias_sla,
+                "det": clean_detalle,
+                "usr": username
+            })
+
+            return {"status": "ok", "message": "SLA guardado y registrado en el historial correctamente.", "sla_id": sla_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving SLA config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/admin/sla/historial")
+async def get_sla_history(gerencia: str = Query(...), trata_reporte: str = Query(...), current_user: User = Depends(get_current_user)):
+    user_perms = current_user.permissions or {}
+    if current_user.role.lower() not in ['admin', 'administrador'] and not user_perms.get('admin'):
+        raise HTTPException(status_code=403, detail="No tienes permisos para esta acción")
+    try:
+        clean_gerencia = gerencia.strip().lower()
+        clean_trata = trata_reporte.strip().upper()
+        with engine.connect() as conn:
+            query = text("""
+                SELECT id, dias_sla, detalle, usuario, created_at
+                FROM cfg_sla_historial
+                WHERE LOWER(TRIM(gerencia)) = :g AND UPPER(TRIM(trata_reporte)) = :t
+                ORDER BY created_at DESC
+            """)
+            rows = conn.execute(query, {"g": clean_gerencia, "t": clean_trata}).fetchall()
+            res = []
+            for r in rows:
+                item = dict(r._mapping)
+                if item.get("created_at"):
+                    item["created_at"] = item["created_at"].strftime("%d/%m/%Y %H:%M:%S")
+                res.append(item)
+            return res
+    except Exception as e:
+        logger.error(f"Error getting SLA history: {e}")
         raise HTTPException(status_code=500, detail=str(e))

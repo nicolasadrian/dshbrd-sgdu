@@ -117,6 +117,7 @@ const VIEW_ROUTES = {
     'backlog_buzones': () => import('./views/usuario/backlog/admin_buzones.html?raw'),
     'backlog_familias': () => import('./views/usuario/backlog/admin_familias.html?raw'),
     'backlog_analistas': () => import('./views/usuario/backlog/admin_analistas.html?raw'),
+    'backlog_sla': () => import('./views/usuario/backlog/admin_sla.html?raw'),
     'mis_datos': () => import('./views/usuario/mis_datos/mis_datos.html?raw')
 };
 
@@ -251,6 +252,8 @@ function triggerViewInit(viewId) {
         window.loadAdminFamilias();
     } else if (viewId === 'backlog_analistas' && typeof window.loadAdminAnalistas === 'function') {
         window.loadAdminAnalistas();
+    } else if (viewId === 'backlog_sla' && typeof window.loadAdminSLA === 'function') {
+        window.loadAdminSLA();
     } else if (viewId === 'backlog_universo_tratas' && typeof window.loadBacklogUniversoTratas === 'function') {
         window.loadBacklogUniversoTratas();
     } else if ((viewId === 'familia_tramites' || viewId === 'family') && typeof window.backToFamilySelector === 'function') {

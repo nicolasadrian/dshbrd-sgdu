@@ -1094,6 +1094,7 @@ async function handleRouting() {
                 'buzones': 'backlog_buzones',
                 'familias': 'backlog_familias',
                 'analistas': 'backlog_analistas',
+                'sla': 'backlog_sla',
                 'universo_tratas': 'backlog_universo_tratas',
                 'universo': 'backlog_universo_tratas'
             };
@@ -1590,6 +1591,7 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
                 trataCode, 
                 gerencia,
                 tiempo_resolucion: stockData.tiempo_resolucion || 0,
+                origen_tiempo_resolucion: stockData.origen_tiempo_resolucion || 'Estimado',
                 stock_count: stockData.stock_count || 0,
                 flujo_count: stockData.flujo_count || 0,
                 stock_propio_count: stockData.stock_propio_count || 0,
@@ -1597,11 +1599,29 @@ async function showTrataDetail(gerencia, trataCode, trataName, updateHash = true
             };
 
             // Animar las 3 tarjetas dependientes del análisis de stock:
-            // 1. Tiempo de Tramitación (en días)
+            // 1. Tiempo de Tramitación (en días) y aclaración de origen (SLA / Estimado)
             const elTiempo = document.getElementById('header-stock-tiempo');
             if (elTiempo) {
                 const tResVal = stockData.tiempo_resolucion !== undefined ? Math.ceil(Number(stockData.tiempo_resolucion)) : 0;
                 elTiempo.innerText = `${tResVal} d`;
+            }
+
+            const elBadgeTiempo = document.getElementById('header-stock-tiempo-badge');
+            const elTagTiempo = document.getElementById('header-stock-tiempo-tag');
+            const origenVal = stockData.origen_tiempo_resolucion || 'Estimado';
+            if (elBadgeTiempo) {
+                elBadgeTiempo.innerText = origenVal;
+                if (origenVal === 'SLA') {
+                    elBadgeTiempo.style.background = '#e0f2fe';
+                    elBadgeTiempo.style.color = '#0284c7';
+                    elBadgeTiempo.style.borderColor = '#bae6fd';
+                    if (elTagTiempo) elTagTiempo.title = `Tiempo de resolución establecido por SLA configurado (${stockData.tiempo_resolucion} días)`;
+                } else {
+                    elBadgeTiempo.style.background = '#fef3c7';
+                    elBadgeTiempo.style.color = '#b45309';
+                    elBadgeTiempo.style.borderColor = '#fde68a';
+                    if (elTagTiempo) elTagTiempo.title = `Tiempo de resolución calculado según promedio histórico (${stockData.tiempo_resolucion} días)`;
+                }
             }
 
             // 2. Stock (expedientes con tiempo en gerencia > tiempo resolución)
@@ -5488,6 +5508,410 @@ window.selectDireccion = selectDireccion;
 window.selectGerencia = selectGerencia;
 window.goBackToDirecciones = goBackToDirecciones;
 window.goBackToGerencias = goBackToGerencias;
+
+// ==========================================
+// --- GESTIÓN DE SLA DE TRÁMITES (BACKLOG) ---
+// ==========================================
+let allAdminSLA = [];
+let currentSLADireccion = null;
+let currentSLAGerencia = null;
+
+async function loadAdminSLA() {
+    const dirGrid = document.getElementById('sla-direcciones-grid');
+    if (!dirGrid) return;
+
+    dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Cargando configuraciones de SLA...</p></div>';
+
+    // Reset navegación
+    const navDir = document.getElementById('sla-nav-direcciones');
+    const navGer = document.getElementById('sla-nav-gerencias');
+    const navTra = document.getElementById('sla-nav-tratas');
+    if (navDir) navDir.style.display = 'block';
+    if (navGer) navGer.style.display = 'none';
+    if (navTra) navTra.style.display = 'none';
+
+    currentSLADireccion = null;
+    currentSLAGerencia = null;
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/sla`);
+        if (!resp || !resp.ok) {
+            dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #ef4444; padding: 1.5rem;">Error al cargar SLA desde el servidor</div>';
+            return;
+        }
+
+        allAdminSLA = await resp.json();
+        renderSLADireccionesCards();
+    } catch (e) {
+        console.error("Error cargando SLA:", e);
+        dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #ef4444; padding: 1.5rem;">Error de conexión con el servidor</div>';
+    }
+}
+
+function renderSLADireccionesCards() {
+    const dirGrid = document.getElementById('sla-direcciones-grid');
+    if (!dirGrid) return;
+
+    const groups = {};
+    allAdminSLA.forEach(item => {
+        const dir = (item.direccion || 'DGROC').toUpperCase();
+        if (!groups[dir]) groups[dir] = new Set();
+        groups[dir].add((item.gerencia || '').toLowerCase());
+    });
+
+    const dirs = Object.keys(groups).sort();
+    if (dirs.length === 0) {
+        dirGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 1.5rem;">No hay direcciones configuradas.</div>';
+        return;
+    }
+
+    let html = '';
+    dirs.forEach(dir => {
+        const count = groups[dir].size;
+        const iconColor = dir === 'DGROC' ? '#0284c7' : (dir === 'DGIUR' ? '#a855f7' : '#16a34a');
+        const bgLight = dir === 'DGROC' ? '#e0f2fe' : (dir === 'DGIUR' ? '#f3e8ff' : '#f0fdf4');
+
+        html += `
+            <div class="analyst-card-premium" onclick="selectSLADireccion('${dir}')"
+                style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                <div style="width: 50px; height: 50px; border-radius: 12px; background: ${bgLight}; color: ${iconColor}; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                    <i class="fa-solid fa-sitemap"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem;">
+                        Dirección: ${dir}
+                    </h3>
+                    <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem;">
+                        Gestiona el SLA de <strong style="color: var(--primary-dark);">${count}</strong> ${count === 1 ? 'Área / Gerencia' : 'Áreas / Gerencias'}.
+                    </p>
+                </div>
+                <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                    Ver Áreas <i class="fa-solid fa-arrow-right"></i>
+                </div>
+            </div>
+        `;
+    });
+    dirGrid.innerHTML = html;
+}
+
+function selectSLADireccion(dirName) {
+    currentSLADireccion = dirName;
+    currentSLAGerencia = null;
+
+    const inDir = allAdminSLA.filter(item => (item.direccion || 'DGROC').toUpperCase() === dirName.toUpperCase());
+    const groups = {};
+    inDir.forEach(item => {
+        const ger = (item.gerencia || '').toLowerCase();
+        if (!groups[ger]) groups[ger] = 0;
+        groups[ger]++;
+    });
+
+    const gerGrid = document.getElementById('sla-gerencias-grid');
+    if (gerGrid) {
+        const gers = Object.keys(groups).sort();
+        if (gers.length === 0) {
+            gerGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #64748b; padding: 1.5rem;">No hay áreas configuradas en esta dirección.</div>';
+        } else {
+            let html = '';
+            gers.forEach(ger => {
+                const count = groups[ger];
+                html += `
+                    <div class="analyst-card-premium" onclick="selectSLAGerencia('${ger}')"
+                        style="cursor: pointer; padding: 25px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #cbd5e1; border-radius: 16px; transition: all 0.2s; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+                        <div style="width: 50px; height: 50px; border-radius: 12px; background: #f0fdf4; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                            <i class="fa-solid fa-folder-tree"></i>
+                        </div>
+                        <div>
+                            <h3 style="margin: 0; color: var(--primary-dark); font-family: 'Outfit'; font-weight: 700; font-size: 1.25rem; text-transform: uppercase;">
+                                ${ger}
+                            </h3>
+                            <p style="margin: 8px 0 0 0; color: #64748b; font-size: 0.9rem;">
+                                Contiene <strong style="color: var(--primary-dark);">${count}</strong> ${count === 1 ? 'Trámite / Trata' : 'Trámites / Tratas'}.
+                            </p>
+                        </div>
+                        <div style="margin-top: auto; display: flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; font-size: 0.9rem;">
+                            Configurar SLA de Trámites <i class="fa-solid fa-arrow-right"></i>
+                        </div>
+                    </div>
+                `;
+            });
+            gerGrid.innerHTML = html;
+        }
+    }
+
+    const titleEl = document.getElementById('sla-gerencias-title');
+    if (titleEl) titleEl.innerText = `Áreas de la Dirección: ${dirName}`;
+
+    document.getElementById('sla-nav-direcciones').style.display = 'none';
+    document.getElementById('sla-nav-gerencias').style.display = 'block';
+    document.getElementById('sla-nav-tratas').style.display = 'none';
+}
+
+function selectSLAGerencia(gerenciaName) {
+    currentSLAGerencia = gerenciaName;
+
+    const filtered = allAdminSLA.filter(item => 
+        (item.direccion || 'DGROC').toUpperCase() === (currentSLADireccion || 'DGROC').toUpperCase() &&
+        (item.gerencia || '').toLowerCase() === gerenciaName.toLowerCase()
+    );
+
+    renderAdminSLATable(filtered);
+
+    const titleEl = document.getElementById('sla-tratas-title');
+    if (titleEl) titleEl.innerText = `SLA de Trámites: ${gerenciaName.toUpperCase()} (${currentSLADireccion})`;
+
+    document.getElementById('sla-nav-direcciones').style.display = 'none';
+    document.getElementById('sla-nav-gerencias').style.display = 'none';
+    document.getElementById('sla-nav-tratas').style.display = 'block';
+}
+
+function goBackToSLADirecciones() {
+    document.getElementById('sla-nav-direcciones').style.display = 'block';
+    document.getElementById('sla-nav-gerencias').style.display = 'none';
+    document.getElementById('sla-nav-tratas').style.display = 'none';
+    currentSLADireccion = null;
+    currentSLAGerencia = null;
+}
+
+function goBackToSLAGerencias() {
+    if (currentSLADireccion) {
+        selectSLADireccion(currentSLADireccion);
+    } else {
+        goBackToSLADirecciones();
+    }
+}
+
+function renderAdminSLATable(items) {
+    const tableBody = document.getElementById('sla-table-body');
+    if (!tableBody) return;
+
+    if (!items || items.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #64748b;">No se encontraron trámites para esta gerencia.</td></tr>`;
+        return;
+    }
+
+    let html = '';
+    items.forEach(row => {
+        const dias = row.dias_sla ? `<span style="display: inline-block; padding: 4px 12px; background: #e0f2fe; color: #0369a1; border-radius: 12px; font-weight: 700; font-size: 0.95rem;"><i class="fa-solid fa-clock" style="margin-right: 4px;"></i>${row.dias_sla} días</span>` : `<span style="color: #94a3b8; font-style: italic; font-size: 0.85rem;">No configurado</span>`;
+        const detalle = row.ultimo_detalle ? `<span title="${row.ultimo_detalle}" style="color: #334155; font-size: 0.85rem; max-width: 250px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${row.ultimo_detalle}</span>` : `<span style="color: #cbd5e1;">-</span>`;
+        const updated = row.updated_at ? `<span style="font-size: 0.8rem; color: #64748b;">${row.updated_at.split(' ')[0]}<br><small style="color: #94a3b8;">por ${row.actualizado_por || 'admin'}</small></span>` : `<span style="color: #cbd5e1;">-</span>`;
+
+        // JSON escapado para abrir modal
+        const rowJson = JSON.stringify(row).replace(/"/g, '&quot;');
+
+        html += `
+            <tr style="border-bottom: 1px solid #e2e8f0; font-family: 'Outfit'; font-size: 0.95rem; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                <td style="padding: 12px 10px; font-weight: 700; color: var(--primary); font-family: 'Outfit'; font-size: 0.95rem;">
+                    ${row.trata_reporte}
+                </td>
+                <td style="padding: 12px 10px; color: #475569; font-family: 'Outfit';">
+                    ${row.descripcion_trata || '<span style="color:#94a3b8; font-style:italic;">Sin descripción</span>'}
+                </td>
+                <td style="padding: 12px 10px; text-align: center;">
+                    ${dias}
+                </td>
+                <td style="padding: 12px 10px;">
+                    ${detalle}
+                </td>
+                <td style="padding: 12px 10px;">
+                    ${updated}
+                </td>
+                <td style="padding: 12px 10px; text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" onclick="openSetSLAModal(${rowJson})"
+                            style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s;">
+                            <i class="fa-solid fa-pen-to-square"></i> Cargar SLA
+                        </button>
+                        <button type="button" onclick="openHistorialSLAModal('${row.gerencia}', '${row.trata_reporte}')"
+                            style="background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 6px; font-family: 'Outfit'; font-weight: 600; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.15s;" title="Ver historial de valores">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Historial
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    tableBody.innerHTML = html;
+}
+
+function filterAdminSLATable() {
+    const input = document.getElementById('search-sla-input');
+    const term = (input ? input.value : '').toLowerCase().trim();
+
+    const filtered = allAdminSLA.filter(item => {
+        if ((item.direccion || 'DGROC').toUpperCase() !== (currentSLADireccion || 'DGROC').toUpperCase()) return false;
+        if ((item.gerencia || '').toLowerCase() !== (currentSLAGerencia || '').toLowerCase()) return false;
+        if (!term) return true;
+
+        const codeMatch = (item.trata_reporte || '').toLowerCase().includes(term);
+        const descMatch = (item.descripcion_trata || '').toLowerCase().includes(term);
+        return codeMatch || descMatch;
+    });
+
+    renderAdminSLATable(filtered);
+}
+
+function openSetSLAModal(item) {
+    document.getElementById('sla-form-direccion').value = item.direccion || currentSLADireccion || 'DGROC';
+    document.getElementById('sla-form-gerencia').value = item.gerencia || currentSLAGerencia;
+    document.getElementById('sla-form-trata').value = item.trata_reporte;
+
+    document.getElementById('sla-form-trata-label').innerText = `${item.trata_reporte} (${(item.gerencia || '').toUpperCase()})`;
+    document.getElementById('sla-form-trata-desc').innerText = item.descripcion_trata || 'Sin descripción';
+
+    document.getElementById('sla-form-dias').value = item.dias_sla || '';
+    document.getElementById('sla-form-detalle').value = '';
+
+    const modal = document.getElementById('modal-set-sla');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeSLAModal() {
+    const modal = document.getElementById('modal-set-sla');
+    if (modal) modal.style.display = 'none';
+}
+
+async function handleSaveSLA(event) {
+    event.preventDefault();
+    const direccion = document.getElementById('sla-form-direccion').value;
+    const gerencia = document.getElementById('sla-form-gerencia').value;
+    const trata_reporte = document.getElementById('sla-form-trata').value;
+    const dias_sla = parseInt(document.getElementById('sla-form-dias').value, 10);
+    const detalle = document.getElementById('sla-form-detalle').value.trim();
+
+    if (!detalle) {
+        alert("El campo Detalle / Justificación es obligatorio.");
+        return;
+    }
+    if (!dias_sla || dias_sla <= 0) {
+        alert("Ingrese una cantidad válida de días mayor a 0.");
+        return;
+    }
+
+    const btn = document.getElementById('btn-submit-sla');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loader" style="width:14px; height:14px; border-width:2px;"></span> Guardando...';
+    }
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/sla`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                direccion,
+                gerencia,
+                trata_reporte,
+                dias_sla,
+                detalle
+            })
+        });
+
+        if (resp && resp.ok) {
+            closeSLAModal();
+            alert("SLA configurado e historial registrado correctamente.");
+            // Recargar datos y mantener vista en la gerencia actual
+            const reloadResp = await def_fetch(`${API_BASE}/admin/sla`);
+            if (reloadResp && reloadResp.ok) {
+                allAdminSLA = await reloadResp.json();
+                if (currentSLAGerencia) {
+                    selectSLAGerencia(currentSLAGerencia);
+                }
+            }
+        } else {
+            const err = await resp.json();
+            alert("Error: " + (err.detail || "No se pudo guardar el SLA"));
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error de conexión al guardar el SLA");
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Guardar SLA';
+        }
+    }
+}
+
+async function openHistorialSLAModal(gerencia, trata_reporte) {
+    const modal = document.getElementById('modal-historial-sla');
+    const container = document.getElementById('historial-sla-content');
+    const subtitle = document.getElementById('historial-sla-subtitle');
+
+    if (subtitle) subtitle.innerText = `Trámite: ${trata_reporte.toUpperCase()} • Gerencia: ${gerencia.toUpperCase()}`;
+    if (container) container.innerHTML = '<div style="text-align: center; padding: 2rem;"><span class="loader"></span><p style="margin-top: 0.5rem; color: #64748b;">Cargando historial...</p></div>';
+    if (modal) modal.style.display = 'flex';
+
+    try {
+        const resp = await def_fetch(`${API_BASE}/admin/sla/historial?gerencia=${encodeURIComponent(gerencia)}&trata_reporte=${encodeURIComponent(trata_reporte)}`);
+        if (!resp || !resp.ok) {
+            container.innerHTML = '<div style="text-align: center; color: #ef4444; padding: 1.5rem;">Error al cargar el historial</div>';
+            return;
+        }
+
+        const history = await resp.json();
+        if (!history || history.length === 0) {
+            container.innerHTML = `
+                <div style="text-align: center; padding: 2.5rem; color: #64748b;">
+                    <i class="fa-solid fa-clock-rotate-left" style="font-size: 2.5rem; color: #cbd5e1; margin-bottom: 1rem;"></i>
+                    <p style="margin: 0; font-weight: 600;">No hay registros históricos para esta trata.</p>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: #94a3b8;">Carga el primer SLA para comenzar la trazabilidad.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+        history.forEach((h, idx) => {
+            const isLatest = idx === 0;
+            html += `
+                <div style="padding: 14px 18px; border-radius: 12px; border: 1px solid ${isLatest ? '#bae6fd' : '#e2e8f0'}; background: ${isLatest ? '#f0f9ff' : '#ffffff'}; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="padding: 3px 10px; background: ${isLatest ? '#0284c7' : '#475569'}; color: white; border-radius: 8px; font-weight: 700; font-size: 0.85rem;">
+                                ${h.dias_sla} días
+                            </span>
+                            ${isLatest ? '<span style="font-size: 0.75rem; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-weight: 700;">VIGENTE</span>' : ''}
+                        </div>
+                        <div style="font-size: 0.8rem; color: #64748b;">
+                            <i class="fa-regular fa-calendar" style="margin-right: 4px;"></i>${h.created_at}
+                        </div>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #1e293b; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #f1f5f9; margin-bottom: 6px; font-style: italic;">
+                        "${h.detalle}"
+                    </div>
+                    <div style="font-size: 0.78rem; color: #64748b; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-regular fa-user"></i> Registrado por: <strong style="color: #334155;">${h.usuario}</strong>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = '<div style="text-align: center; color: #ef4444; padding: 1.5rem;">Error de conexión con el servidor</div>';
+    }
+}
+
+function closeHistorialSLAModal() {
+    const modal = document.getElementById('modal-historial-sla');
+    if (modal) modal.style.display = 'none';
+}
+
+window.loadAdminSLA = loadAdminSLA;
+window.selectSLADireccion = selectSLADireccion;
+window.selectSLAGerencia = selectSLAGerencia;
+window.goBackToSLADirecciones = goBackToSLADirecciones;
+window.goBackToSLAGerencias = goBackToSLAGerencias;
+window.renderAdminSLATable = renderAdminSLATable;
+window.filterAdminSLATable = filterAdminSLATable;
+window.openSetSLAModal = openSetSLAModal;
+window.closeSLAModal = closeSLAModal;
+window.handleSaveSLA = handleSaveSLA;
+window.openHistorialSLAModal = openHistorialSLAModal;
+window.closeHistorialSLAModal = closeHistorialSLAModal;
 
 // --- METAS & PROYECCIONES ---
 async function loadMetasData() {
@@ -23543,419 +23967,230 @@ window.exportUniversoBuzonDetailCSV = exportUniversoBuzonDetailCSV;
 // ──────────────────────────────────────────────────────────────
 
 let _planifData = null;
-let _planifDebounceTimer = null;
-let _planifGerenciaChartInstance = null;
 
 async function loadPlanificacionNov2026Data() {
-    const targetYearSelect = document.getElementById('planif-filter-year');
-    const targetYear = targetYearSelect ? parseInt(targetYearSelect.value || '2026', 10) : 2026;
+    const valStock = document.getElementById('planif-tot-stock');
+    const valFlujo = document.getElementById('planif-tot-flujo');
+    const valSubs = document.getElementById('planif-tot-subs');
+    const valTratas = document.getElementById('planif-tot-tratas');
+    const valExpSub = document.getElementById('planif-tot-expedientes-sub');
+    const tbody = document.getElementById('planif-table-body');
 
-    // Update target year labels in UI
-    document.querySelectorAll('.planif-target-year-lbl').forEach(el => {
-        el.innerText = targetYear;
-    });
-
-    const valStockEa = document.getElementById('planif-val-stock-ea');
-    const valSubsEa = document.getElementById('planif-val-subs-ea');
-    const valStockPr = document.getElementById('planif-val-stock-pr');
-    const valSubsPr = document.getElementById('planif-val-subs-pr');
-    const valStockTotal = document.getElementById('planif-val-stock-total');
-    const valSubsTotal = document.getElementById('planif-val-subs-total');
-    const valIngEa = document.getElementById('planif-val-ing-ea');
-    const valIngTotal = document.getElementById('planif-val-ing-total');
-    const gerenciasGrid = document.getElementById('planif-gerencias-grid');
-
-    if (valStockEa) valStockEa.innerText = '...';
-    if (valSubsEa) valSubsEa.innerText = '...';
-    if (valStockPr) valStockPr.innerText = '...';
-    if (valSubsPr) valSubsPr.innerText = '...';
-    if (valStockTotal) valStockTotal.innerText = '...';
-    if (valSubsTotal) valSubsTotal.innerText = '...';
-    if (valIngEa) valIngEa.innerText = '...';
-    if (valIngTotal) valIngTotal.innerText = '...';
-    if (gerenciasGrid) gerenciasGrid.innerHTML = `<div style="padding: 2rem; color: #94a3b8; text-align: center; grid-column: 1 / -1;"><span class="loader"></span><p style="margin-top: 8px;">Cargando métricas de planificación...</p></div>`;
+    if (valStock) valStock.innerText = '...';
+    if (valFlujo) valFlujo.innerText = '...';
+    if (valSubs) valSubs.innerText = '...';
+    if (valTratas) valTratas.innerText = '...';
+    if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px; font-weight: 600;">Cargando métricas de tratas...</p></td></tr>`;
+    }
 
     try {
-        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026?target_year=${targetYear}`);
+        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026`);
         if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
         _planifData = await res.json();
 
-        const kpis = _planifData.kpis || {};
+        const tot = _planifData.totales || {};
+        if (valStock) valStock.innerText = (tot.stock || 0).toLocaleString('es-AR');
+        if (valFlujo) valFlujo.innerText = (tot.flujo || 0).toLocaleString('es-AR');
+        if (valSubs) valSubs.innerText = (tot.subsanaciones || 0).toLocaleString('es-AR');
+        if (valTratas) valTratas.innerText = (tot.total_tratas || 0).toLocaleString('es-AR');
+        if (valExpSub) {
+            valExpSub.innerText = `${(tot.total_expedientes || 0).toLocaleString('es-AR')} expedientes activos totales`;
+        }
 
-        // 1. Render Hero KPI Cards
-        if (valStockEa) valStockEa.innerText = (kpis.stock_este_ano || 0).toLocaleString('es-AR');
-        if (valSubsEa) valSubsEa.innerText = (kpis.subs_este_ano || 0).toLocaleString('es-AR');
-        if (valStockPr) valStockPr.innerText = (kpis.stock_previo || 0).toLocaleString('es-AR');
-        if (valSubsPr) valSubsPr.innerText = (kpis.subs_previo || 0).toLocaleString('es-AR');
-        if (valStockTotal) valStockTotal.innerText = (kpis.stock_total || 0).toLocaleString('es-AR');
-        if (valSubsTotal) valSubsTotal.innerText = (kpis.subs_total || 0).toLocaleString('es-AR');
-        if (valIngEa) valIngEa.innerText = (kpis.ingresos_este_ano || 0).toLocaleString('es-AR');
-        if (valIngTotal) valIngTotal.innerText = (kpis.ingresos_total || 0).toLocaleString('es-AR');
-
-        // Subtitles with percentages
-        const stockPct = kpis.stock_total > 0 ? ((kpis.stock_este_ano / kpis.stock_total) * 100).toFixed(1) : '0';
-        const subsPct = kpis.subs_total > 0 ? ((kpis.subs_este_ano / kpis.subs_total) * 100).toFixed(1) : '0';
-        const stockPrPct = kpis.stock_total > 0 ? ((kpis.stock_previo / kpis.stock_total) * 100).toFixed(1) : '0';
-        const subsPrPct = kpis.subs_total > 0 ? ((kpis.subs_previo / kpis.subs_total) * 100).toFixed(1) : '0';
-
-        const subStockEa = document.getElementById('planif-sub-stock-ea');
-        if (subStockEa) subStockEa.innerText = `${stockPct}% del stock total`;
-        const subSubsEa = document.getElementById('planif-sub-subs-ea');
-        if (subSubsEa) subSubsEa.innerText = `${subsPct}% de subsanaciones totales`;
-        const subStockPr = document.getElementById('planif-sub-stock-pr');
-        if (subStockPr) subStockPr.innerText = `${stockPrPct}% acumulado previo`;
-        const subSubsPr = document.getElementById('planif-sub-subs-pr');
-        if (subSubsPr) subSubsPr.innerText = `${subsPrPct}% acumulado previo`;
-
-        // 2. Render Gerencias Cards Grid
-        renderPlanificacionGerenciasGrid(_planifData.por_gerencia || []);
-
-        // 3. Render Tratas Summary Table
-        applyPlanificacionNov2026Filters();
-
+        filterPlanificacionTratasTable();
     } catch (e) {
-        console.error("Error al cargar Planificación Noviembre 2026:", e);
-        if (gerenciasGrid) gerenciasGrid.innerHTML = `<div style="padding: 2rem; color: #ef4444; text-align: center; grid-column: 1 / -1;"><p>No se pudieron cargar los datos del reporte: ${e.message}</p></div>`;
+        console.error('Error al cargar Planificación Noviembre 2026:', e);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 2.5rem; color: #ef4444; font-weight: 600;">No se pudieron cargar los datos: ${e.message}</td></tr>`;
+        }
     }
 }
 
-function renderPlanificacionGerenciasGrid(gerencias) {
-    const grid = document.getElementById('planif-gerencias-grid');
-    if (!grid) return;
+function filterPlanificacionTratasTable() {
+    if (!_planifData || !_planifData.tratas) return;
 
-    if (!gerencias || gerencias.length === 0) {
-        grid.innerHTML = `<div style="padding: 2rem; color: #94a3b8; text-align: center; grid-column: 1 / -1;">No hay gerencias configuradas.</div>`;
-        return;
-    }
-
-    grid.innerHTML = gerencias.map(g => {
-        const safeGerencia = g.gerencia;
-        const safeNombre = (g.nombre_gerencia || g.gerencia.toUpperCase()).replace(/'/g, "\\'");
-        
-        return `
-            <div class="analyst-card-premium" onclick="openPlanifGerenciaChartModal('${safeGerencia}', '${safeNombre}')"
-                style="background: white; border: 1px solid #e2e8f0; border-radius: 14px; padding: 1.1rem; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.03); cursor: pointer; transition: all 0.2s;"
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 16px -2px rgba(0,0,0,0.08)'; this.style.borderColor='var(--primary)'"
-                onmouseout="this.style.transform='none'; this.style.boxShadow='0 2px 6px rgba(0,0,0,0.03)'; this.style.borderColor='#e2e8f0'">
-                
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h4 style="margin: 0; font-family: 'Outfit'; font-size: 1rem; font-weight: 700; color: #1e293b;">${g.nombre_gerencia || g.gerencia.toUpperCase()}</h4>
-                    <span style="font-size: 0.72rem; font-weight: 700; background: #e0f2fe; color: #0284c7; padding: 3px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;">
-                        <i class="fa-solid fa-chart-line"></i> ${g.gerencia.toUpperCase()}
-                    </span>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem; margin-top: 4px;">
-                    <!-- Stock -->
-                    <div style="background: #f0f9ff; border: 1px solid #e0f2fe; padding: 8px; border-radius: 8px;">
-                        <div style="font-size: 0.7rem; color: #0369a1; font-weight: 700; text-transform: uppercase;">Stock Este Año</div>
-                        <div style="font-size: 1.25rem; font-weight: 800; color: #0c4a6e; font-family: 'Outfit';">${(g.stock_este_ano || 0).toLocaleString('es-AR')}</div>
-                        <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">Previo: <strong>${(g.stock_previo || 0).toLocaleString('es-AR')}</strong></div>
-                    </div>
-
-                    <!-- Subsanaciones -->
-                    <div style="background: #fff7ed; border: 1px solid #ffedd5; padding: 8px; border-radius: 8px;">
-                        <div style="font-size: 0.7rem; color: #c2410c; font-weight: 700; text-transform: uppercase;">Subs. Este Año</div>
-                        <div style="font-size: 1.25rem; font-weight: 800; color: #7c2d12; font-family: 'Outfit';">${(g.subs_este_ano || 0).toLocaleString('es-AR')}</div>
-                        <div style="font-size: 0.68rem; color: #64748b; margin-top: 2px;">Previo: <strong>${(g.subs_previo || 0).toLocaleString('es-AR')}</strong></div>
-                    </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 4px;">
-                    <span>Total Stock: <strong>${(g.stock_total || 0).toLocaleString('es-AR')}</strong></span>
-                    <span style="color: var(--primary); font-weight: 700;">Ver Gráfico <i class="fa-solid fa-arrow-right"></i></span>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
-
-function applyPlanificacionNov2026Filters() {
-    if (!_planifData) return;
-
-    const gerenciaFilter = document.getElementById('planif-filter-gerencia')?.value || 'ALL';
+    const dirFilter = document.getElementById('planif-filter-direccion')?.value || 'ALL';
+    const gerFilter = document.getElementById('planif-filter-gerencia')?.value || 'ALL';
+    const origenFilter = document.getElementById('planif-filter-origen')?.value || 'ALL';
     const searchVal = (document.getElementById('planif-search-input')?.value || '').trim().toLowerCase();
 
-    // Filter tratas summary table
-    let tratas = _planifData.por_trata || [];
-    if (gerenciaFilter !== 'ALL') {
-        tratas = tratas.filter(t => (t.gerencia || '').toLowerCase() === gerenciaFilter.toLowerCase());
+    let list = _planifData.tratas;
+
+    if (dirFilter !== 'ALL') {
+        list = list.filter(t => (t.direccion || '').toUpperCase() === dirFilter.toUpperCase());
     }
+
+    if (gerFilter !== 'ALL') {
+        list = list.filter(t => (t.gerencia || '').toLowerCase() === gerFilter.toLowerCase());
+    }
+
+    if (origenFilter !== 'ALL') {
+        list = list.filter(t => (t.origen_tiempo || '') === origenFilter);
+    }
+
     if (searchVal) {
-        tratas = tratas.filter(t =>
-            (t.trata || '').toLowerCase().includes(searchVal) ||
-            (t.descripcion_trata || '').toLowerCase().includes(searchVal)
+        list = list.filter(t =>
+            (t.trata_reporte || '').toLowerCase().includes(searchVal) ||
+            (t.descripcion_trata || '').toLowerCase().includes(searchVal) ||
+            (t.gerencia || '').toLowerCase().includes(searchVal) ||
+            (t.direccion || '').toLowerCase().includes(searchVal)
         );
     }
 
-    renderPlanificacionTratasTable(tratas);
+    renderPlanificacionTratasTable(list);
 }
 
 function renderPlanificacionTratasTable(tratas) {
-    const tbody = document.getElementById('planif-tratas-tbody');
-    const badge = document.getElementById('planif-trata-count-badge');
+    const tbody = document.getElementById('planif-table-body');
+    const tfoot = document.getElementById('planif-table-footer');
+    const countBadge = document.getElementById('planif-table-visible-count');
     if (!tbody) return;
 
-    if (badge) badge.innerText = `${tratas.length} tratas`;
+    if (countBadge) countBadge.innerText = tratas.length;
 
     if (!tratas || tratas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="padding: 2rem; text-align: center; color: #94a3b8;">No hay tratas que coincidan con el filtro.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="padding: 2.5rem; text-align: center; color: #94a3b8; font-weight: 600;">No se encontraron tratas con los filtros seleccionados.</td></tr>`;
+        if (tfoot) tfoot.innerHTML = '';
         return;
     }
 
     const GERENCIA_LABELS = {
         'catastro': 'Catastro',
         'instalaciones': 'Instalaciones',
-        'regularizacion': 'Conforme a Obra / Regularización',
+        'regularizacion': 'Conforme a Obra / Reg.',
         'contable': 'Contable / Derechos',
         'etapa_proyecto': 'Etapa Proyecto',
         'morfologia': 'Morfología Urbana',
-        'aph': 'Áreas de Protección Histórica (APH)',
+        'aph': 'Áreas Prot. Histórica (APH)',
         'usos': 'Consulta de Usos',
         'aviso_obra': 'Avisos de Obra'
     };
 
+    let sumStock = 0;
+    let sumFlujo = 0;
+    let sumSubs = 0;
+    let sumTotal = 0;
+
     tbody.innerHTML = tratas.map(t => {
+        sumStock += (t.stock || 0);
+        sumFlujo += (t.flujo || 0);
+        sumSubs += (t.subsanaciones || 0);
+        sumTotal += (t.total_tramites || 0);
+
         const gKey = (t.gerencia || '').toLowerCase();
         const gName = GERENCIA_LABELS[gKey] || (t.gerencia || '-').toUpperCase();
+        const isSLA = (t.origen_tiempo === 'SLA');
+        const plazoBadge = isSLA
+            ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;"><i class="fa-solid fa-award" style="font-size: 0.7rem;"></i> ${t.tiempo_resolucion} d SLA</span>`
+            : `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 0.76rem; font-weight: 700; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;"><i class="fa-solid fa-calculator" style="font-size: 0.7rem;"></i> ${t.tiempo_resolucion} d Est.</span>`;
+
+        const dirBadge = (t.direccion === 'DGIUR')
+            ? `<span style="font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe;">DGIUR</span>`
+            : `<span style="font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">DGROC</span>`;
+
+        const descSafe = (t.descripcion_trata || '').replace(/'/g, "\'");
 
         return `
-            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                <td style="padding: 10px 14px; font-weight: 700; color: var(--primary-dark); font-family: 'Outfit';">${t.trata}</td>
-                <td style="padding: 10px 14px;">
-                    <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; white-space: nowrap;">
-                        ${gName}
+            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s; cursor: pointer;"
+                onclick="showTrataDetail('${t.gerencia}', '${t.trata_reporte}', '${descSafe}')"
+                onmouseover="this.style.background='#f8fafc'" 
+                onmouseout="this.style.background='transparent'">
+                <td style="padding: 11px 14px; vertical-align: middle;">${dirBadge}</td>
+                <td style="padding: 11px 14px; vertical-align: middle;">
+                    <span style="font-size: 0.78rem; font-weight: 600; color: #334155;">${gName}</span>
+                </td>
+                <td style="padding: 11px 14px; vertical-align: middle;">
+                    <span style="font-family: 'Outfit'; font-weight: 700; color: var(--primary); font-size: 0.88rem;">
+                        ${t.trata_reporte}
                     </span>
                 </td>
-                <td style="padding: 10px 14px; color: #475569;">${t.descripcion_trata || '-'}</td>
-                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #0369a1; background: #f0f9ff;">${(t.stock_este_ano || 0).toLocaleString('es-AR')}</td>
-                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.stock_previo || 0).toLocaleString('es-AR')}</td>
-                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #c2410c; background: #fff7ed;">${(t.subs_este_ano || 0).toLocaleString('es-AR')}</td>
-                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.subs_previo || 0).toLocaleString('es-AR')}</td>
-                <td style="padding: 10px 14px; text-align: center; font-weight: 700; color: #15803d; background: #f0fdf4;">${(t.ingresos_este_ano || 0).toLocaleString('es-AR')}</td>
-                <td style="padding: 10px 14px; text-align: center; color: #64748b;">${(t.ingresos_previo || 0).toLocaleString('es-AR')}</td>
+                <td style="padding: 11px 14px; color: #475569; font-size: 0.85rem; max-width: 320px; vertical-align: middle;">
+                    <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.descripcion_trata || ''}">
+                        ${t.descripcion_trata || '-'}
+                    </div>
+                </td>
+                <td style="padding: 11px 14px; text-align: center; vertical-align: middle;">${plazoBadge}</td>
+                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #b91c1c; font-size: 0.95rem; vertical-align: middle;">
+                    ${(t.stock || 0).toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #15803d; font-size: 0.95rem; vertical-align: middle;">
+                    ${(t.flujo || 0).toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #c2410c; font-size: 0.95rem; vertical-align: middle;">
+                    ${(t.subsanaciones || 0).toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #0f172a; font-size: 0.98rem; vertical-align: middle;">
+                    ${(t.total_tramites || 0).toLocaleString('es-AR')}
+                </td>
             </tr>
         `;
     }).join('');
-}
 
-function debouncePlanifSearch() {
-    if (_planifDebounceTimer) clearTimeout(_planifDebounceTimer);
-    _planifDebounceTimer = setTimeout(() => {
-        applyPlanificacionNov2026Filters();
-    }, 350);
-}
-
-// ──────────────────────────────────────────────────────────────
-// MODAL POPUP DE GRÁFICO HISTÓRICO CON HITO MARZO 2026
-// ──────────────────────────────────────────────────────────────
-
-async function openPlanifGerenciaChartModal(gerencia, nombreGerencia) {
-    const modal = document.getElementById('planif-chart-modal');
-    const modalTitle = document.getElementById('planif-modal-title');
-    const seriesTbody = document.getElementById('planif-modal-series-tbody');
-
-    if (!modal) return;
-    modal.style.display = 'flex';
-    if (modalTitle) modalTitle.innerText = `${nombreGerencia} - Evolución de Stock y Subsanaciones`;
-    if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="3" style="padding: 2rem; text-align: center; color: #94a3b8;"><span class="loader"></span><p style="margin-top: 8px;">Cargando histórico...</p></div></td></tr>`;
-
-    try {
-        const res = await def_fetch(`${API_BASE}/reporte/planificacion-nov-2026/historico/${gerencia}`);
-        if (!res || !res.ok) throw new Error(`Error ${res ? res.status : 'de red'}`);
-        const data = await res.json();
-
-        const series = data.series || [];
-
-        // Render Chart with dashed line on Marzo 2026
-        renderPlanifGerenciaChart(series, nombreGerencia);
-
-        // Render Series Table
-        if (seriesTbody) {
-            seriesTbody.innerHTML = series.map(s => {
-                const isMarzo = (s.mes_label === '2026-03');
-                const rowStyle = isMarzo 
-                    ? `background: #f0f9ff; font-weight: 700; border-left: 3px solid #0284c7;`
-                    : `border-bottom: 1px solid #f1f5f9;`;
-
-                return `
-                    <tr style="${rowStyle}">
-                        <td style="padding: 8px 12px; font-weight: 600;">${s.mes_label}</td>
-                        <td style="padding: 8px 12px; text-align: center; color: #0284c7; font-weight: 700;">${s.stock.toLocaleString('es-AR')}</td>
-                        <td style="padding: 8px 12px; text-align: center; color: #ea580c; font-weight: 700;">${s.subsanaciones.toLocaleString('es-AR')}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-    } catch (e) {
-        console.error("Error cargando histórico de gerencia:", e);
-        if (seriesTbody) seriesTbody.innerHTML = `<tr><td colspan="3" style="padding: 2rem; text-align: center; color: #ef4444;">Error al cargar datos históricos: ${e.message}</td></tr>`;
+    if (tfoot) {
+        tfoot.innerHTML = `
+            <tr style="background: #f8fafc; border-top: 2px solid #cbd5e1;">
+                <td colspan="5" style="padding: 12px 14px; font-weight: 800; color: #1e293b; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.5px;">
+                    Subtotal Filtrado (${tratas.length} tratas)
+                </td>
+                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #b91c1c; font-size: 1.05rem;">
+                    ${sumStock.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #15803d; font-size: 1.05rem;">
+                    ${sumFlujo.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #c2410c; font-size: 1.05rem;">
+                    ${sumSubs.toLocaleString('es-AR')}
+                </td>
+                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #0f172a; font-size: 1.08rem;">
+                    ${sumTotal.toLocaleString('es-AR')}
+                </td>
+            </tr>
+        `;
     }
 }
 
-function renderPlanifGerenciaChart(series, nombreGerencia) {
-    const canvas = document.getElementById('planifGerenciaChart');
-    if (!canvas) return;
-
-    if (_planifGerenciaChartInstance) {
-        _planifGerenciaChartInstance.destroy();
-        _planifGerenciaChartInstance = null;
-    }
-
-    const ctx = canvas.getContext('2d');
-    const labels = series.map(s => s.mes_label);
-    const stockData = series.map(s => s.stock);
-    const subsData = series.map(s => s.subsanaciones);
-
-    // Inline plugin for vertical dashed line at Marzo 2026 (2026-03)
-    const marzoLinePlugin = {
-        id: 'marzoLinePlugin',
-        afterDraw: (chart) => {
-            const index = chart.data.labels.indexOf('2026-03');
-            if (index !== -1) {
-                const meta = chart.getDatasetMeta(0);
-                if (meta && meta.data[index]) {
-                    const x = meta.data[index].x;
-                    const topY = chart.scales.y.top;
-                    const bottomY = chart.scales.y.bottom;
-                    const chartCtx = chart.ctx;
-
-                    chartCtx.save();
-                    chartCtx.beginPath();
-                    chartCtx.setLineDash([5, 5]);
-                    chartCtx.strokeStyle = '#64748b';
-                    chartCtx.lineWidth = 1.5;
-                    chartCtx.moveTo(x, topY + 16);
-                    chartCtx.lineTo(x, bottomY);
-                    chartCtx.stroke();
-
-                    // Text label at top of dashed line
-                    chartCtx.fillStyle = '#475569';
-                    chartCtx.font = '600 11px Outfit, sans-serif';
-                    chartCtx.textAlign = 'center';
-                    chartCtx.fillText('Marzo 2026', x, topY + 8);
-                    chartCtx.restore();
-                }
-            }
-        }
-    };
-
-    _planifGerenciaChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Stock Propio',
-                    data: stockData,
-                    borderColor: '#0284c7',
-                    backgroundColor: 'rgba(2, 132, 199, 0.08)',
-                    fill: true,
-                    tension: 0.3,
-                    pointBackgroundColor: '#0284c7',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 7
-                },
-                {
-                    label: 'Subsanaciones Abiertas',
-                    data: subsData,
-                    borderColor: '#ea580c',
-                    backgroundColor: 'rgba(234, 88, 12, 0.08)',
-                    fill: true,
-                    tension: 0.3,
-                    pointBackgroundColor: '#ea580c',
-                    pointBorderColor: '#ffffff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 7
-                }
-            ]
-        },
-        plugins: [marzoLinePlugin],
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: {
-                        font: { family: 'Outfit', size: 12, weight: 'bold' },
-                        usePointStyle: true
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: {
-                        font: { family: 'Outfit', size: 11 },
-                        color: function(context) {
-                            return context.tick && context.tick.label === '2026-03' ? '#0284c7' : '#64748b';
-                        }
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    grid: { color: '#f1f5f9' },
-                    ticks: { font: { family: 'Outfit', size: 11 } }
-                }
-            }
-        }
-    });
-}
-
-function closePlanifChartModal() {
-    const modal = document.getElementById('planif-chart-modal');
-    if (modal) modal.style.display = 'none';
-
-    if (_planifGerenciaChartInstance) {
-        _planifGerenciaChartInstance.destroy();
-        _planifGerenciaChartInstance = null;
-    }
-}
-
-function exportPlanificacionNov2026Data() {
-    if (!_planifData || !_planifData.por_trata) {
-        alert("No hay datos para exportar. Por favor actualice el reporte.");
+function exportPlanificacionNov2026Excel() {
+    if (!_planifData || !_planifData.tratas || _planifData.tratas.length === 0) {
+        alert('No hay datos disponibles para exportar.');
         return;
     }
 
-    let csvContent = "\uFEFF"; // BOM UTF-8
-    csvContent += "TRATA;DESCRIPCION;GERENCIA;STOCK ESTE AÑO;STOCK PREVIO;SUBSANACIONES ESTE AÑO;SUBSANACIONES PREVIAS;INGRESOS ESTE AÑO;INGRESOS PREVIOS\n";
+    let csv = '\uFEFF';
+    csv += 'DIRECCION;GERENCIA;TRATA;DESCRIPCION;PLAZO_OBJETIVO_DIAS;TIPO_PLAZO;STOCK;FLUJO;SUBSANACIONES;TOTAL_ACTIVOS\n';
 
-    _planifData.por_trata.forEach(t => {
+    _planifData.tratas.forEach(t => {
         const row = [
-            `"${t.trata || ''}"`,
-            `"${(t.descripcion_trata || '').replace(/"/g, '""')}"`,
+            `"${t.direccion || ''}"`,
             `"${t.gerencia || ''}"`,
-            t.stock_este_ano || 0,
-            t.stock_previo || 0,
-            t.subs_este_ano || 0,
-            t.subs_previo || 0,
-            t.ingresos_este_ano || 0,
-            t.ingresos_previo || 0
+            `"${t.trata_reporte || ''}"`,
+            `"${(t.descripcion_trata || '').replace(/"/g, '""')}"`,
+            t.tiempo_resolucion || 0,
+            `"${t.origen_tiempo || ''}"`,
+            t.stock || 0,
+            t.flujo || 0,
+            t.subsanaciones || 0,
+            t.total_tramites || 0
         ];
-        csvContent += row.join(";") + "\n";
+        csv += row.join(';') + '\n';
     });
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const link = document.getElementById('planif-download-anchor') || document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Planificacion_Noviembre_2026_Reporte.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Planificacion_Nov_2026_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
-// ──────────────────────────────────────────────────────────────
+window.loadPlanificacionNov2026Data = loadPlanificacionNov2026Data;
+window.filterPlanificacionTratasTable = filterPlanificacionTratasTable;
+window.exportPlanificacionNov2026Excel = exportPlanificacionNov2026Excel;
+
+
 // PLANIFICACIÓN NOVIEMBRE 2026 - PESTAÑAS Y TIEMPOS DE TRAMITACIÓN
 // ──────────────────────────────────────────────────────────────
 

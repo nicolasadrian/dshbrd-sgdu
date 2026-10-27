@@ -61,8 +61,14 @@ class MetaCreateRequest(BaseModel):
     activo: bool = True
     firmantes_egreso: Optional[List[str]] = []
     buzones_ingreso_intervenciones: Optional[List[str]] = []
-    descripciones_validas: Optional[List[str]] = []
     descripcion_trata: Optional[str] = ""
+
+class SLASetRequest(BaseModel):
+    direccion: Optional[str] = "DGROC"
+    gerencia: str
+    trata_reporte: str
+    dias_sla: int
+    detalle: str
 
 class UserCreate(BaseModel):
     username: str

@@ -13,8 +13,11 @@
                         <p id="trata_detail_subtitle" class="trata-subtitle">MDUG0000X</p>
                     </div>
                     <div class="header-stock-indicators">
-                        <div class="header-stock-tag tiempo-tag" title="Tiempo promedio en gerencia de expedientes ingresados este año">
-                            <span class="stock-label">Tiempo Tramitación</span>
+                        <div class="header-stock-tag tiempo-tag" id="header-stock-tiempo-tag" title="Tiempo de resolución (SLA configurado o Estimado)">
+                            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; margin-bottom: 0.2rem;">
+                                <span class="stock-label" style="margin-bottom: 0;">Tiempo Tramitación</span>
+                                <span id="header-stock-tiempo-badge" style="font-size: 0.65rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd;">SLA</span>
+                            </div>
                             <span id="header-stock-tiempo" class="stock-value">--</span>
                         </div>
                         <div class="header-stock-tag stock-tag" title="Expedientes en sector con días en gerencia mayores al tiempo de resolución">
