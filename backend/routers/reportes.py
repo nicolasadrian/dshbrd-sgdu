@@ -7030,11 +7030,20 @@ def get_dgeui_expedientes(
                                THEN (d.fecha - e.fecha_creacion::date)
                            ELSE NULL
                        END AS dias_demora_finalizado,
-                       EXISTS (
-                           SELECT 1 FROM mvw_ee_actividades_secgdu a
-                           WHERE a.id_expediente = d.id_expediente
-                             AND a.estado = 'PENDIENTE'
-                             AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                       (
+                           COALESCE(up.estado_en_pase, '') != 'Guarda Temporal'
+                           AND EXISTS (
+                               SELECT 1 FROM mvw_ee_actividades_secgdu a
+                               WHERE a.id_expediente = d.id_expediente
+                                 AND a.estado = 'PENDIENTE'
+                                 AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                                 AND NOT EXISTS (
+                                     SELECT 1 FROM mvw_ee_actividades_secgdu r
+                                     WHERE r.id_expediente = a.id_expediente
+                                       AND r.nombre_tipo_actividad = 'SUBSANACION'
+                                       AND r.fecha_alta > a.fecha_alta
+                                 )
+                           )
                        ) AS en_subsanacion
                 FROM public.dgeui_expedientes d
                 LEFT JOIN mvw_expedientes_tratas_secgdu e ON e.id_expediente = d.id_expediente
