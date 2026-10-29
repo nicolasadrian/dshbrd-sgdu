@@ -5760,8 +5760,15 @@ async def get_planificacion_nov_2026(
                 except Exception:
                     sp_rows = []
                 try:
-                    sb_rows = conn.execute(text(f"SELECT UPPER(TRIM(trata)) as trata, count(*) FROM mv_{g}_subsanaciones GROUP BY UPPER(TRIM(trata))")).fetchall()
-                    sb_map = {r[0]: r[1] for r in sb_rows}
+                    sb_rows = conn.execute(text(f"""
+                        SELECT UPPER(TRIM(trata)) as trata,
+                               count(*) as total,
+                               count(*) FILTER (WHERE dias_subsanacion_abierta > 45) as mas_45,
+                               count(*) FILTER (WHERE dias_subsanacion_abierta <= 45) as hasta_45
+                        FROM mv_{g}_subsanaciones 
+                        GROUP BY UPPER(TRIM(trata))
+                    """)).fetchall()
+                    sb_map = {r[0]: {'total': r[1], 'mas_45': r[2] or 0, 'hasta_45': r[3] or 0} for r in sb_rows}
                 except Exception:
                     sb_map = {}
                 try:
@@ -5769,15 +5776,27 @@ async def get_planificacion_nov_2026(
                 except Exception:
                     int_rows = []
                 try:
-                    int_subs = conn.execute(text(f"SELECT count(*) FROM mv_{g}_intervenciones_subs")).scalar() or 0
+                    int_subs_row = conn.execute(text(f"""
+                        SELECT count(*) as total,
+                               count(*) FILTER (WHERE dias_subsanacion_abierta > 45) as mas_45,
+                               count(*) FILTER (WHERE dias_subsanacion_abierta <= 45) as hasta_45
+                        FROM mv_{g}_intervenciones_subs
+                    """)).first()
+                    int_subs = int_subs_row[0] if int_subs_row else 0
+                    int_subs_mas_45 = (int_subs_row[1] or 0) if int_subs_row else 0
+                    int_subs_hasta_45 = (int_subs_row[2] or 0) if int_subs_row else 0
                 except Exception:
                     int_subs = 0
+                    int_subs_mas_45 = 0
+                    int_subs_hasta_45 = 0
 
                 gerencia_data[g] = {
                     'sp_rows': sp_rows,
                     'sb_map': sb_map,
                     'int_rows': int_rows,
-                    'int_subs': int_subs
+                    'int_subs': int_subs,
+                    'int_subs_mas_45': int_subs_mas_45,
+                    'int_subs_hasta_45': int_subs_hasta_45
                 }
 
             # 5. Consolidación por Trata
@@ -5785,6 +5804,8 @@ async def get_planificacion_nov_2026(
             tot_stock = 0
             tot_flujo = 0
             tot_subs = 0
+            tot_subs_mas_45 = 0
+            tot_subs_hasta_45 = 0
             tot_tratas = len(tratas_cfg)
 
             gerencias_summary = {}
@@ -5801,21 +5822,28 @@ async def get_planificacion_nov_2026(
                 if t_res is None:
                     t_res = est_map.get((g, trata_code), 30)
 
-                g_info = gerencia_data.get(g, {'sp_rows': [], 'sb_map': {}, 'int_rows': [], 'int_subs': 0})
+                g_info = gerencia_data.get(g, {'sp_rows': [], 'sb_map': {}, 'int_rows': [], 'int_subs': 0, 'int_subs_mas_45': 0, 'int_subs_hasta_45': 0})
 
                 if trata_code == 'INTERVENCIONES':
                     stk = sum(1 for r in g_info['int_rows'] if (r[0] or 0) > t_res)
                     flj = sum(1 for r in g_info['int_rows'] if (r[0] or 0) <= t_res)
                     sub = g_info['int_subs']
+                    sub_mas_45 = g_info['int_subs_mas_45']
+                    sub_hasta_45 = g_info['int_subs_hasta_45']
                 else:
                     matched_sp = [r for r in g_info['sp_rows'] if r[0] == trata_code or r[0] in tratas_inc]
                     stk = sum(1 for r in matched_sp if (r[1] or 0) > t_res)
                     flj = sum(1 for r in matched_sp if (r[1] or 0) <= t_res)
-                    sub = sum(g_info['sb_map'].get(code, 0) for code in set([trata_code] + tratas_inc))
+                    all_codes = set([trata_code] + tratas_inc)
+                    sub = sum(g_info['sb_map'].get(code, {}).get('total', 0) for code in all_codes)
+                    sub_mas_45 = sum(g_info['sb_map'].get(code, {}).get('mas_45', 0) for code in all_codes)
+                    sub_hasta_45 = sum(g_info['sb_map'].get(code, {}).get('hasta_45', 0) for code in all_codes)
 
                 tot_stock += stk
                 tot_flujo += flj
                 tot_subs += sub
+                tot_subs_mas_45 += sub_mas_45
+                tot_subs_hasta_45 += sub_hasta_45
 
                 if g not in gerencias_summary:
                     gerencias_summary[g] = {
@@ -5824,12 +5852,16 @@ async def get_planificacion_nov_2026(
                         'total_tratas': 0,
                         'stock': 0,
                         'flujo': 0,
-                        'subsanaciones': 0
+                        'subsanaciones': 0,
+                        'subsanaciones_mas_45': 0,
+                        'subsanaciones_hasta_45': 0
                     }
                 gerencias_summary[g]['total_tratas'] += 1
                 gerencias_summary[g]['stock'] += stk
                 gerencias_summary[g]['flujo'] += flj
                 gerencias_summary[g]['subsanaciones'] += sub
+                gerencias_summary[g]['subsanaciones_mas_45'] += sub_mas_45
+                gerencias_summary[g]['subsanaciones_hasta_45'] += sub_hasta_45
 
                 tratas_result.append({
                     'id': t['id'],
@@ -5842,6 +5874,8 @@ async def get_planificacion_nov_2026(
                     'stock': stk,
                     'flujo': flj,
                     'subsanaciones': sub,
+                    'subsanaciones_mas_45': sub_mas_45,
+                    'subsanaciones_hasta_45': sub_hasta_45,
                     'total_tramites': stk + flj + sub
                 })
 
@@ -5852,6 +5886,8 @@ async def get_planificacion_nov_2026(
                     "stock": tot_stock,
                     "flujo": tot_flujo,
                     "subsanaciones": tot_subs,
+                    "subsanaciones_mas_45": tot_subs_mas_45,
+                    "subsanaciones_hasta_45": tot_subs_hasta_45,
                     "total_expedientes": tot_stock + tot_flujo + tot_subs,
                     "total_tratas": tot_tratas
                 },
@@ -6007,6 +6043,331 @@ async def get_planificacion_nov_2026_expedientes(
             }
     except Exception as e:
         logger.error(f"Error en planificacion-nov-2026/expedientes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/reporte/planificacion-nov-2026/export-tarjeta")
+async def export_planificacion_nov_2026_tarjeta(
+    tipo: str,  # 'STOCK', 'FLUJO', 'SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45', 'TRATAS'
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Descarga en formato CSV (compatible Excel con BOM) el universo de datos exacto correspondiente
+    a cada tarjeta KPI de Planificación Noviembre 2026.
+    """
+    import io
+    import csv
+    from datetime import datetime
+    from fastapi.responses import Response
+
+    tipo_upper = (tipo or '').strip().upper()
+    valid_tipos = ['STOCK', 'FLUJO', 'SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45', 'TRATAS']
+    if tipo_upper not in valid_tipos:
+        raise HTTPException(status_code=400, detail=f"Tipo no válido. Debe ser uno de {valid_tipos}")
+
+    try:
+        with engine.connect() as conn:
+            # 1. Tratas activas configuradas
+            tratas_cfg = conn.execute(text("""
+                SELECT id, COALESCE(direccion, 'DGROC') as direccion, LOWER(gerencia) as gerencia, 
+                       UPPER(trata_reporte) as trata_reporte, descripcion_trata, tratas_incluidas 
+                FROM cfg_gestion_metas 
+                WHERE activo IS TRUE 
+                ORDER BY direccion, gerencia, trata_reporte
+            """)).mappings().fetchall()
+
+            if tipo_upper == 'TRATAS':
+                # Exportar resumen de todas las tratas monitoreadas
+                # Reutilizamos el endpoint general
+                data_planif = await get_planificacion_nov_2026(current_user=current_user)
+                tratas = data_planif.get('tratas', [])
+
+                output = io.StringIO()
+                output.write('\ufeff')
+                writer = csv.writer(output, delimiter=';')
+                writer.writerow([
+                    'DIRECCION', 'GERENCIA', 'TRATA', 'DESCRIPCION_TRATA',
+                    'PLAZO_OBJETIVO_DIAS', 'TIPO_PLAZO', 'STOCK_EN_SECTOR',
+                    'FLUJO_EN_PLAZO', 'SUBSANACIONES_TOTAL', 'SUBS_MAS_45_DIAS',
+                    'SUBS_HASTA_45_DIAS', 'TOTAL_ACTIVOS'
+                ])
+                for t in tratas:
+                    writer.writerow([
+                        t.get('direccion', ''),
+                        t.get('gerencia', ''),
+                        t.get('trata_reporte', ''),
+                        t.get('descripcion_trata', ''),
+                        t.get('tiempo_resolucion', 0),
+                        t.get('origen_tiempo', ''),
+                        t.get('stock', 0),
+                        t.get('flujo', 0),
+                        t.get('subsanaciones', 0),
+                        t.get('subsanaciones_mas_45', 0),
+                        t.get('subsanaciones_hasta_45', 0),
+                        t.get('total_tramites', 0)
+                    ])
+
+                filename = f"Planificacion_Tratas_Monitoreadas_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+                return Response(
+                    content=output.getvalue().encode('utf-8-sig'),
+                    media_type='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+                )
+
+            # Mapas de SLA y Tiempos Estimados
+            sla_rows = conn.execute(text("""
+                SELECT LOWER(TRIM(gerencia)), UPPER(TRIM(trata_reporte)), dias_sla 
+                FROM cfg_sla_tratas
+            """)).fetchall()
+            sla_map = {(r[0], r[1]): int(r[2]) for r in sla_rows if r[2] is not None}
+
+            est_rows = conn.execute(text("""
+                SELECT LOWER(TRIM(gerencia)), UPPER(TRIM(trata)), dias_propio_sector_este_ano, dias_propio_sector 
+                FROM planificacion_tiempos_tramitacion_resumen
+            """)).fetchall()
+            est_map = {}
+            for r in est_rows:
+                val = r[2] if r[2] is not None and float(r[2]) > 0 else r[3]
+                if val is not None and float(val) > 0:
+                    est_map[(r[0], r[1])] = round(float(val))
+
+            # Para cada trata y expediente, buscar su plazo objetivo
+            def get_plazo_objetivo(g, code):
+                if (g, code) in sla_map:
+                    return sla_map[(g, code)], 'SLA'
+                for t_cfg in tratas_cfg:
+                    if t_cfg['gerencia'] == g and (t_cfg['trata_reporte'] == code or code in [str(x).strip().upper() for x in (t_cfg['tratas_incluidas'] or [])]):
+                        rep = t_cfg['trata_reporte']
+                        if (g, rep) in sla_map:
+                            return sla_map[(g, rep)], 'SLA'
+                        if (g, rep) in est_map:
+                            return est_map[(g, rep)], 'Estimado'
+                if (g, code) in est_map:
+                    return est_map[(g, code)], 'Estimado'
+                return 30, 'Estimado (Default)'
+
+            def get_trata_info(g, code):
+                for t_cfg in tratas_cfg:
+                    if t_cfg['gerencia'] == g and (t_cfg['trata_reporte'] == code or code in [str(x).strip().upper() for x in (t_cfg['tratas_incluidas'] or [])]):
+                        return t_cfg['direccion'], t_cfg['trata_reporte'], t_cfg['descripcion_trata']
+                return 'DGROC', code, code
+
+            gerencias = list(set(r['gerencia'] for r in tratas_cfg))
+            expedientes_rows = []
+
+            # A. Exportar SUBSANACIONES (TOTAL, MAS_45 o HASTA_45)
+            if tipo_upper in ['SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45']:
+                for g in gerencias:
+                    # 1. Propias
+                    try:
+                        q_subs = conn.execute(text(f"""
+                            SELECT id_expediente, expediente, UPPER(TRIM(trata)) as trata,
+                                   descripcion_trata, analista, dias_en_poder_actual,
+                                   dias_subsanacion_abierta, fecha_apertura_subsanacion,
+                                   fecha_primer_ingreso_gerencia, dias_en_gerencia
+                            FROM mv_{g}_subsanaciones
+                        """)).fetchall()
+                        for row in q_subs:
+                            dias_sub = int(row[6] or 0)
+                            if tipo_upper == 'SUBS_MAS_45' and dias_sub <= 45:
+                                continue
+                            if tipo_upper == 'SUBS_HASTA_45' and dias_sub > 45:
+                                continue
+
+                            dir_name, rep_trata, desc_trata = get_trata_info(g, row[2])
+                            expedientes_rows.append({
+                                'direccion': dir_name,
+                                'gerencia': g.upper(),
+                                'expediente': row[1],
+                                'id_expediente': row[0],
+                                'trata': row[2],
+                                'trata_reporte': rep_trata,
+                                'descripcion_trata': row[3] or desc_trata,
+                                'analista': row[4] or '-',
+                                'dias_subsanacion_abierta': dias_sub,
+                                'rango_subsanacion': '> 45 días' if dias_sub > 45 else '<= 45 días',
+                                'fecha_apertura_subsanacion': str(row[7])[:19] if row[7] else '',
+                                'dias_en_poder': int(row[5] or 0),
+                                'dias_en_gerencia': int(row[9] or 0),
+                                'tipo_tramite': 'PROPIA'
+                            })
+                    except Exception:
+                        pass
+
+                    # 2. Intervenciones subs
+                    try:
+                        q_int_subs = conn.execute(text(f"""
+                            SELECT id_expediente, expediente, UPPER(TRIM(trata)) as trata,
+                                   descripcion_trata, analista, dias_en_poder_actual,
+                                   dias_subsanacion_abierta, fecha_apertura_subsanacion,
+                                   fecha_primer_ingreso_gerencia
+                            FROM mv_{g}_intervenciones_subs
+                        """)).fetchall()
+                        for row in q_int_subs:
+                            dias_sub = int(row[6] or 0)
+                            if tipo_upper == 'SUBS_MAS_45' and dias_sub <= 45:
+                                continue
+                            if tipo_upper == 'SUBS_HASTA_45' and dias_sub > 45:
+                                continue
+
+                            expedientes_rows.append({
+                                'direccion': 'DGROC' if g in ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra'] else 'DGIUR',
+                                'gerencia': g.upper(),
+                                'expediente': row[1],
+                                'id_expediente': row[0],
+                                'trata': row[2],
+                                'trata_reporte': 'INTERVENCIONES',
+                                'descripcion_trata': row[3] or 'Intervenciones',
+                                'analista': row[4] or '-',
+                                'dias_subsanacion_abierta': dias_sub,
+                                'rango_subsanacion': '> 45 días' if dias_sub > 45 else '<= 45 días',
+                                'fecha_apertura_subsanacion': str(row[7])[:19] if row[7] else '',
+                                'dias_en_poder': int(row[5] or 0),
+                                'dias_en_gerencia': '-',
+                                'tipo_tramite': 'INTERVENCION'
+                            })
+                    except Exception:
+                        pass
+
+                # Generar CSV de subsanaciones
+                output = io.StringIO()
+                output.write('\ufeff')
+                writer = csv.writer(output, delimiter=';')
+                writer.writerow([
+                    'DIRECCION', 'GERENCIA', 'EXPEDIENTE', 'ID_EXPEDIENTE',
+                    'TRATA', 'TRATA_REPORTE', 'DESCRIPCION_TRATA', 'ANALISTA',
+                    'DIAS_SUBSANACION_ABIERTA', 'RANGO_SUBSANACION',
+                    'FECHA_APERTURA_SUBSANACION', 'DIAS_EN_PODER_ANALISTA',
+                    'DIAS_EN_GERENCIA', 'TIPO_TRAMITE'
+                ])
+                for exp in expedientes_rows:
+                    writer.writerow([
+                        exp['direccion'], exp['gerencia'], exp['expediente'], exp['id_expediente'],
+                        exp['trata'], exp['trata_reporte'], exp['descripcion_trata'], exp['analista'],
+                        exp['dias_subsanacion_abierta'], exp['rango_subsanacion'],
+                        exp['fecha_apertura_subsanacion'], exp['dias_en_poder'],
+                        exp['dias_en_gerencia'], exp['tipo_tramite']
+                    ])
+
+                lbl = 'Subsanaciones_Total' if tipo_upper == 'SUBSANACIONES' else ('Subsanaciones_Mas_45_Dias' if tipo_upper == 'SUBS_MAS_45' else 'Subsanaciones_Hasta_45_Dias')
+                filename = f"Planificacion_{lbl}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+                return Response(
+                    content=output.getvalue().encode('utf-8-sig'),
+                    media_type='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+                )
+
+            # B. Exportar STOCK (en exceso de plazo) o FLUJO (en plazo)
+            elif tipo_upper in ['STOCK', 'FLUJO']:
+                for g in gerencias:
+                    # 1. Propias
+                    try:
+                        q_sp = conn.execute(text(f"""
+                            SELECT id_expediente, expediente, UPPER(TRIM(trata)) as trata,
+                                   descripcion_trata, analista, dias_en_poder_actual,
+                                   dias_en_gerencia, fecha_primer_ingreso_gerencia
+                            FROM mv_{g}_stock_propio
+                        """)).fetchall()
+                        for row in q_sp:
+                            dias_ger = int(row[6] or 0)
+                            plazo_obj, tipo_plazo = get_plazo_objetivo(g, row[2])
+                            es_stock = (dias_ger > plazo_obj)
+
+                            if tipo_upper == 'STOCK' and not es_stock:
+                                continue
+                            if tipo_upper == 'FLUJO' and es_stock:
+                                continue
+
+                            dir_name, rep_trata, desc_trata = get_trata_info(g, row[2])
+                            expedientes_rows.append({
+                                'direccion': dir_name,
+                                'gerencia': g.upper(),
+                                'expediente': row[1],
+                                'id_expediente': row[0],
+                                'trata': row[2],
+                                'trata_reporte': rep_trata,
+                                'descripcion_trata': row[3] or desc_trata,
+                                'analista': row[4] or '-',
+                                'dias_en_gerencia': dias_ger,
+                                'plazo_objetivo': plazo_obj,
+                                'tipo_plazo': tipo_plazo,
+                                'estado_plazo': 'FUERA DE PLAZO (STOCK)' if es_stock else 'EN PLAZO (FLUJO)',
+                                'dias_en_poder': int(row[5] or 0),
+                                'fecha_ingreso_gerencia': str(row[7])[:19] if row[7] else '',
+                                'tipo_tramite': 'PROPIA'
+                            })
+                    except Exception:
+                        pass
+
+                    # 2. Intervenciones stock
+                    try:
+                        q_int = conn.execute(text(f"""
+                            SELECT id_expediente, expediente, UPPER(TRIM(trata)) as trata,
+                                   descripcion_trata, analista, dias_en_poder_actual,
+                                   CURRENT_DATE - fecha_primer_ingreso_gerencia::date as dias_en_gerencia,
+                                   fecha_primer_ingreso_gerencia
+                            FROM mv_{g}_intervenciones_stock
+                        """)).fetchall()
+                        for row in q_int:
+                            dias_ger = int(row[6] or 0)
+                            plazo_obj, tipo_plazo = get_plazo_objetivo(g, 'INTERVENCIONES')
+                            es_stock = (dias_ger > plazo_obj)
+
+                            if tipo_upper == 'STOCK' and not es_stock:
+                                continue
+                            if tipo_upper == 'FLUJO' and es_stock:
+                                continue
+
+                            expedientes_rows.append({
+                                'direccion': 'DGROC' if g in ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra'] else 'DGIUR',
+                                'gerencia': g.upper(),
+                                'expediente': row[1],
+                                'id_expediente': row[0],
+                                'trata': row[2],
+                                'trata_reporte': 'INTERVENCIONES',
+                                'descripcion_trata': row[3] or 'Intervenciones',
+                                'analista': row[4] or '-',
+                                'dias_en_gerencia': dias_ger,
+                                'plazo_objetivo': plazo_obj,
+                                'tipo_plazo': tipo_plazo,
+                                'estado_plazo': 'FUERA DE PLAZO (STOCK)' if es_stock else 'EN PLAZO (FLUJO)',
+                                'dias_en_poder': int(row[5] or 0),
+                                'fecha_ingreso_gerencia': str(row[7])[:19] if row[7] else '',
+                                'tipo_tramite': 'INTERVENCION'
+                            })
+                    except Exception:
+                        pass
+
+                # Generar CSV de Stock o Flujo
+                output = io.StringIO()
+                output.write('\ufeff')
+                writer = csv.writer(output, delimiter=';')
+                writer.writerow([
+                    'DIRECCION', 'GERENCIA', 'EXPEDIENTE', 'ID_EXPEDIENTE',
+                    'TRATA', 'TRATA_REPORTE', 'DESCRIPCION_TRATA', 'ANALISTA',
+                    'DIAS_EN_GERENCIA', 'PLAZO_OBJETIVO_DIAS', 'TIPO_PLAZO',
+                    'ESTADO_PLAZO', 'DIAS_EN_PODER_ANALISTA',
+                    'FECHA_INGRESO_GERENCIA', 'TIPO_TRAMITE'
+                ])
+                for exp in expedientes_rows:
+                    writer.writerow([
+                        exp['direccion'], exp['gerencia'], exp['expediente'], exp['id_expediente'],
+                        exp['trata'], exp['trata_reporte'], exp['descripcion_trata'], exp['analista'],
+                        exp['dias_en_gerencia'], exp['plazo_objetivo'], exp['tipo_plazo'],
+                        exp['estado_plazo'], exp['dias_en_poder'],
+                        exp['fecha_ingreso_gerencia'], exp['tipo_tramite']
+                    ])
+
+                lbl = 'Stock_En_Sector' if tipo_upper == 'STOCK' else 'Flujo_En_Plazo'
+                filename = f"Planificacion_{lbl}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+                return Response(
+                    content=output.getvalue().encode('utf-8-sig'),
+                    media_type='text/csv; charset=utf-8',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+                )
+
+    except Exception as e:
+        logger.error(f"Error exportando tarjeta {tipo}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

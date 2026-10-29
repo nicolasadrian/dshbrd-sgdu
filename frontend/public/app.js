@@ -23972,6 +23972,8 @@ async function loadPlanificacionNov2026Data() {
     const valStock = document.getElementById('planif-tot-stock');
     const valFlujo = document.getElementById('planif-tot-flujo');
     const valSubs = document.getElementById('planif-tot-subs');
+    const valSubsMas45 = document.getElementById('planif-tot-subs-mas-45');
+    const valSubsHasta45 = document.getElementById('planif-tot-subs-hasta-45');
     const valTratas = document.getElementById('planif-tot-tratas');
     const valExpSub = document.getElementById('planif-tot-expedientes-sub');
     const tbody = document.getElementById('planif-table-body');
@@ -23979,6 +23981,8 @@ async function loadPlanificacionNov2026Data() {
     if (valStock) valStock.innerText = '...';
     if (valFlujo) valFlujo.innerText = '...';
     if (valSubs) valSubs.innerText = '...';
+    if (valSubsMas45) valSubsMas45.innerText = '...';
+    if (valSubsHasta45) valSubsHasta45.innerText = '...';
     if (valTratas) valTratas.innerText = '...';
     if (tbody) {
         tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px; font-weight: 600;">Cargando métricas de tratas...</p></td></tr>`;
@@ -23993,6 +23997,8 @@ async function loadPlanificacionNov2026Data() {
         if (valStock) valStock.innerText = (tot.stock || 0).toLocaleString('es-AR');
         if (valFlujo) valFlujo.innerText = (tot.flujo || 0).toLocaleString('es-AR');
         if (valSubs) valSubs.innerText = (tot.subsanaciones || 0).toLocaleString('es-AR');
+        if (valSubsMas45) valSubsMas45.innerText = (tot.subsanaciones_mas_45 || 0).toLocaleString('es-AR');
+        if (valSubsHasta45) valSubsHasta45.innerText = (tot.subsanaciones_hasta_45 || 0).toLocaleString('es-AR');
         if (valTratas) valTratas.innerText = (tot.total_tratas || 0).toLocaleString('es-AR');
         if (valExpSub) {
             valExpSub.innerText = `${(tot.total_expedientes || 0).toLocaleString('es-AR')} expedientes activos totales`;
@@ -24117,8 +24123,11 @@ function renderPlanificacionTratasTable(tratas) {
                 <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #15803d; font-size: 0.95rem; vertical-align: middle;">
                     ${(t.flujo || 0).toLocaleString('es-AR')}
                 </td>
-                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #c2410c; font-size: 0.95rem; vertical-align: middle;">
-                    ${(t.subsanaciones || 0).toLocaleString('es-AR')}
+                <td style="padding: 11px 14px; text-align: right; vertical-align: middle;">
+                    <div style="font-weight: 800; color: #c2410c; font-size: 0.95rem;">
+                        ${(t.subsanaciones || 0).toLocaleString('es-AR')}
+                    </div>
+                    ${(t.subsanaciones_mas_45 > 0) ? `<div style="font-size: 0.72rem; color: #dc2626; font-weight: 700;" title="${t.subsanaciones_mas_45} subsanaciones llevan más de 45 días">&gt;45d: ${t.subsanaciones_mas_45.toLocaleString('es-AR')}</div>` : ''}
                 </td>
                 <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #0f172a; font-size: 0.98rem; vertical-align: middle;">
                     ${(t.total_tramites || 0).toLocaleString('es-AR')}
@@ -24157,7 +24166,7 @@ function exportPlanificacionNov2026Excel() {
     }
 
     let csv = '\uFEFF';
-    csv += 'DIRECCION;GERENCIA;TRATA;DESCRIPCION;PLAZO_OBJETIVO_DIAS;TIPO_PLAZO;STOCK;FLUJO;SUBSANACIONES;TOTAL_ACTIVOS\n';
+    csv += 'DIRECCION;GERENCIA;TRATA;DESCRIPCION;PLAZO_OBJETIVO_DIAS;TIPO_PLAZO;STOCK;FLUJO;SUBSANACIONES_TOTAL;SUBS_MAS_45D;SUBS_HASTA_45D;TOTAL_ACTIVOS\n';
 
     _planifData.tratas.forEach(t => {
         const row = [
@@ -24170,6 +24179,8 @@ function exportPlanificacionNov2026Excel() {
             t.stock || 0,
             t.flujo || 0,
             t.subsanaciones || 0,
+            t.subsanaciones_mas_45 || 0,
+            t.subsanaciones_hasta_45 || 0,
             t.total_tramites || 0
         ];
         csv += row.join(';') + '\n';
@@ -24186,9 +24197,55 @@ function exportPlanificacionNov2026Excel() {
     URL.revokeObjectURL(url);
 }
 
+async function downloadPlanifTarjetaExcel(tipo) {
+    const TITULOS = {
+        'STOCK': 'Stock en Sector (Fuera de Plazo)',
+        'FLUJO': 'Flujo en Plazo',
+        'SUBSANACIONES': 'Subsanaciones Abiertas Totales',
+        'SUBS_MAS_45': 'Subsanaciones Abiertas con más de 45 días',
+        'SUBS_HASTA_45': 'Subsanaciones Abiertas con 45 días o menos',
+        'TRATAS': 'Matriz de Tratas Monitoreadas'
+    };
+
+    try {
+        const url = `${API_BASE}/reporte/planificacion-nov-2026/export-tarjeta?tipo=${encodeURIComponent(tipo)}`;
+        const res = await def_fetch(url);
+        if (!res) {
+            throw new Error('Sesión expirada o error de red');
+        }
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.detail || `Error ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        const disposition = res.headers.get('content-disposition');
+        let filename = `Planificacion_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`;
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+            const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+            if (matches != null && matches[1]) {
+                filename = matches[1].replace(/['"]/g, '');
+            }
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+        console.error('Error al descargar tarjeta:', err);
+        alert(`No se pudo descargar el archivo de ${TITULOS[tipo] || tipo}: ${err.message}`);
+    }
+}
+
 window.loadPlanificacionNov2026Data = loadPlanificacionNov2026Data;
 window.filterPlanificacionTratasTable = filterPlanificacionTratasTable;
 window.exportPlanificacionNov2026Excel = exportPlanificacionNov2026Excel;
+window.downloadPlanifTarjetaExcel = downloadPlanifTarjetaExcel;
 
 
 // PLANIFICACIÓN NOVIEMBRE 2026 - PESTAÑAS Y TIEMPOS DE TRAMITACIÓN
