@@ -4372,11 +4372,13 @@ async def get_cierre_mes(mes: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}
                 metas_plan = {}
                 if mes >= '2026-05':
                     try:
+                        trans = conn.begin_nested()
                         meta_res = conn.execute(text(f"SELECT TRIM(trata) as trata, COALESCE(egresos_totales_plan, 0) FROM mv_plan_metas_{g_clean} WHERE mes_calendario = :target"), {"target": target_date_str}).fetchall()
                         for r in meta_res:
                             metas_plan[r[0].upper()] = float(r[1])
+                        trans.commit()
                     except Exception:
-                        conn.rollback()
+                        trans.rollback()
 
                 fallbacks = calculate_all_trata_expected_egresos_batch(conn, g_clean, trata_codes + ['INTERVENCIONES'])
                 for k, v in fallbacks.items():
