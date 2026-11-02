@@ -833,16 +833,8 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                         COALESCE(i.cant, 0) as "ING",
                         COALESCE(ef.cant, 0) as "EGR_EF",
                         COALESCE(ne.cant, 0) as "EGR_NE",
-                        CASE 
-                            WHEN p.mes_label = to_char(now(), 'YYYY-MM')
-                            THEN COALESCE(MAX(cs.cant), 0) 
-                            ELSE COALESCE(SUM(s.stock_propio), 0) 
-                        END as "STOCK_PROPIO",
-                        CASE 
-                            WHEN p.mes_label = to_char(now(), 'YYYY-MM')
-                            THEN COALESCE(MAX(csub.cant), 0) 
-                            ELSE COALESCE(SUM(s.stock_subs), 0) 
-                        END as "STOCK_SUBS"
+                        COALESCE(SUM(s.stock_propio), 0) as "STOCK_PROPIO",
+                        COALESCE(SUM(s.stock_subs), 0) as "STOCK_SUBS"
                     FROM periodos p
                     CROSS JOIN (
                         SELECT v.trata_code as trata,
@@ -860,8 +852,6 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                     LEFT JOIN egr_ef ef ON ef.mes_label = p.mes_label AND ef.trata = et.trata
                     LEFT JOIN egr_ne ne ON ne.mes_label = p.mes_label AND ne.trata = et.trata
                     LEFT JOIN stock_data s ON s.mes_label = p.mes_label AND s.trata = et.trata
-                    LEFT JOIN current_stock cs ON cs.trata = et.trata
-                    LEFT JOIN current_subs csub ON csub.trata = et.trata
                     GROUP BY p.mes_label, 1, 2, 3, 4, o.ord, i.cant, ef.cant, ne.cant
                     ORDER BY o.ord, anio DESC, mes DESC
                 """
@@ -2341,16 +2331,8 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                         COALESCE(i.cant, 0) as "ING",
                         COALESCE(ef.cant, 0) as "EGR_EF",
                         COALESCE(ne.cant, 0) as "EGR_NE",
-                        CASE 
-                            WHEN p.mes_label = to_char(now(), 'YYYY-MM')
-                            THEN COALESCE((SELECT SUM(cant) FROM current_stock), 0)
-                            ELSE COALESCE(s.stock_propio, 0)
-                        END as "STOCK_PROPIO",
-                        CASE 
-                            WHEN p.mes_label = to_char(now(), 'YYYY-MM')
-                            THEN COALESCE((SELECT SUM(cant) FROM current_subs), 0)
-                            ELSE COALESCE(s.stock_subs, 0)
-                        END as "STOCK_SUBS"
+                        COALESCE(s.stock_propio, 0) as "STOCK_PROPIO",
+                        COALESCE(s.stock_subs, 0) as "STOCK_SUBS"
                     FROM periodos p
                     LEFT JOIN ing i ON i.mes_label = p.mes_label
                     LEFT JOIN egr_ef ef ON ef.mes_label = p.mes_label
