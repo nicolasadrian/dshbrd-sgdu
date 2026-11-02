@@ -3227,12 +3227,11 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                         OR (:has_tratas = TRUE AND UPPER(TRIM(e.trata)) = ANY(:tratas))
                     )
                 ),
-                subs_pendientes AS (
-                    SELECT DISTINCT id_expediente, usuario_alta
-                    FROM mvw_ee_actividades_secgdu
-                    WHERE estado = 'PENDIENTE' 
-                      AND nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                      AND id_expediente IN (SELECT id_expediente FROM base_exp)
+                ult_actividad AS (
+                    SELECT DISTINCT ON (a.id_expediente) a.id_expediente, a.nombre_tipo_actividad, a.estado
+                    FROM mvw_ee_actividades_secgdu a
+                    WHERE a.id_expediente IN (SELECT id_expediente FROM base_exp)
+                    ORDER BY a.id_expediente, a.fecha_alta DESC
                 )
                 SELECT 
                     b.id_expediente, 
@@ -3244,7 +3243,7 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     b.caratula, 
                     b.fecha_creacion, 
                     b.analista, 
-                    COALESCE(du.apellido_nombre, b.analista) as analista_nombre,
+                    COALESCE(du.apellido_nombre, b.analista) as analista_nombre, 
                     b.fecha_ultimo_pase, 
                     b.usuario_remitente, 
                     b.dias_en_poder_actual, 
@@ -3252,13 +3251,11 @@ async def get_gerencia_buzones(gerencia: str, current_user: User = Depends(get_c
                     CASE 
                         WHEN UPPER(COALESCE(b.estado_expediente, '')) LIKE '%ARCHIVO%' THEN 'ARCHIVO'
                         WHEN UPPER(COALESCE(b.estado_expediente, '')) LIKE '%GUARDA%' THEN 'GUARDA_TEMPORAL'
-                        WHEN sp.id_expediente IS NOT NULL THEN 'SUBSANACION'
+                        WHEN ua.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD' AND ua.estado = 'PENDIENTE' THEN 'SUBSANACION'
                         ELSE 'STOCK PROPIO'
                     END AS estado_tablero
                 FROM base_exp b
-                LEFT JOIN subs_pendientes sp 
-                       ON sp.id_expediente = b.id_expediente 
-                      AND (sp.usuario_alta = b.analista OR b.analista LIKE 'B_%' OR b.analista LIKE 'BS_%')
+                LEFT JOIN ult_actividad ua ON ua.id_expediente = b.id_expediente
                 LEFT JOIN datos_usuario du ON b.analista = du.usuario
                 WHERE UPPER(COALESCE(b.estado_expediente, '')) NOT LIKE '%ARCHIVO%'
                   AND UPPER(COALESCE(b.estado_expediente, '')) NOT LIKE '%GUARDA%'
