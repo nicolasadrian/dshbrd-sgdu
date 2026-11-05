@@ -2293,6 +2293,8 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                 sql = f"""
                     WITH periodos AS (
                         SELECT DISTINCT mes_label FROM mv_{gerencia_clean}_stock_historico
+                        UNION
+                        SELECT to_char(CURRENT_DATE, 'YYYY-MM')
                         ORDER BY mes_label DESC LIMIT 12
                     ),
                     ing AS (
@@ -2339,13 +2341,23 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                         COALESCE(i.cant, 0) as "ING",
                         COALESCE(ef.cant, 0) as "EGR_EF",
                         COALESCE(ne.cant, 0) as "EGR_NE",
-                        COALESCE(s.stock_propio, 0) as "STOCK_PROPIO",
-                        COALESCE(s.stock_subs, 0) as "STOCK_SUBS"
+                        COALESCE(
+                            CASE WHEN p.mes_label = to_char(CURRENT_DATE, 'YYYY-MM') AND cs.cant IS NOT NULL 
+                                 THEN cs.cant 
+                                 ELSE s.stock_propio 
+                            END, 0) as "STOCK_PROPIO",
+                        COALESCE(
+                            CASE WHEN p.mes_label = to_char(CURRENT_DATE, 'YYYY-MM') AND csub.cant IS NOT NULL 
+                                 THEN csub.cant 
+                                 ELSE s.stock_subs 
+                            END, 0) as "STOCK_SUBS"
                     FROM periodos p
                     LEFT JOIN ing i ON i.mes_label = p.mes_label
                     LEFT JOIN egr_ef ef ON ef.mes_label = p.mes_label
                     LEFT JOIN egr_ne ne ON ne.mes_label = p.mes_label
                     LEFT JOIN stock_data s ON s.mes_label = p.mes_label
+                    LEFT JOIN (SELECT SUM(cant) as cant FROM current_stock) cs ON true
+                    LEFT JOIN (SELECT SUM(cant) as cant FROM current_subs) csub ON true
                     ORDER BY anio DESC, mes DESC
                 """
             elif trata == 'INTERVENCIONES':
@@ -2447,42 +2459,73 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 t_resolucion = 30
                 origen_tiempo = "Estimado"
 
-            # 2. Query de Stock Propio directo a la vista materializada de la gerencia
-            trata_stock_filter = "s.trata = :t"
+            # 2. Query de Stock directo a la vista materializada de la gerencia
             if trata == 'INTERVENCIONES':
-                trata_stock_filter = "s.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)"
-
-            sql_stock = f"""
-                SELECT 
-                    s.id_expediente, s.expediente, s.trata, s.descripcion_trata, s.descripcion, s.caratula, 
-                    s.estado_expediente, s.fecha_primer_ingreso_gerencia, s.analista, s.fecha_recepcion_analista,
-                    s.dias_en_poder_actual as dias, s.dias_en_gerencia,
-                    COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
-                    COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
-                    COALESCE(sub.dias_subs, 0) as dias_en_subsanacion,
-                    p.motivo as motivo_pase,
-                    p.fecha as fecha_ultimo_pase
-                FROM mv_{gerencia_clean}_stock_propio s
-                LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
-                LEFT JOIN LATERAL (
+                sql_stock = f"""
                     SELECT 
-                        COUNT(*) as cant_subs,
-                        ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs
-                    FROM mvw_ee_actividades_secgdu a
-                    WHERE a.id_expediente = s.id_expediente
-                      AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                ) sub ON true
-                LEFT JOIN LATERAL (
-                    SELECT motivo, fecha
-                    FROM mvw_ee_pases_secgdu pase
-                    WHERE pase.id_expediente = s.id_expediente
-                    ORDER BY pase.fecha DESC
-                    LIMIT 1
-                ) p ON true
-                WHERE {trata_stock_filter}
-                ORDER BY s.dias_en_gerencia DESC
-            """
-            result = conn.execute(text(sql_stock), {"g": gerencia_clean, "t": trata})
+                        s.id_expediente, s.expediente, s.trata, s.descripcion_trata, 
+                        NULL::text as descripcion, NULL::text as caratula, 
+                        'EN TRAMITE'::text as estado_expediente, s.fecha_primer_ingreso_gerencia, 
+                        s.analista, s.fecha_recepcion_analista,
+                        s.dias_en_poder_actual as dias, 
+                        COALESCE((CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date), s.dias_en_poder_actual, 0) as dias_en_gerencia,
+                        COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
+                        COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
+                        COALESCE(sub.dias_subs, 0) as dias_en_subsanacion,
+                        p.motivo as motivo_pase,
+                        p.fecha as fecha_ultimo_pase
+                    FROM mv_{gerencia_clean}_intervenciones_stock s
+                    LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
+                    LEFT JOIN LATERAL (
+                        SELECT 
+                            COUNT(*) as cant_subs,
+                            ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs
+                        FROM mvw_ee_actividades_secgdu a
+                        WHERE a.id_expediente = s.id_expediente
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ) sub ON true
+                    LEFT JOIN LATERAL (
+                        SELECT motivo, fecha
+                        FROM mvw_ee_pases_secgdu pase
+                        WHERE pase.id_expediente = s.id_expediente
+                        ORDER BY pase.fecha DESC
+                        LIMIT 1
+                    ) p ON true
+                    ORDER BY dias_en_gerencia DESC
+                """
+                result = conn.execute(text(sql_stock), {"g": gerencia_clean})
+            else:
+                sql_stock = f"""
+                    SELECT 
+                        s.id_expediente, s.expediente, s.trata, s.descripcion_trata, s.descripcion, s.caratula, 
+                        s.estado_expediente, s.fecha_primer_ingreso_gerencia, s.analista, s.fecha_recepcion_analista,
+                        s.dias_en_poder_actual as dias, s.dias_en_gerencia,
+                        COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
+                        COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
+                        COALESCE(sub.dias_subs, 0) as dias_en_subsanacion,
+                        p.motivo as motivo_pase,
+                        p.fecha as fecha_ultimo_pase
+                    FROM mv_{gerencia_clean}_stock_propio s
+                    LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
+                    LEFT JOIN LATERAL (
+                        SELECT 
+                            COUNT(*) as cant_subs,
+                            ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs
+                        FROM mvw_ee_actividades_secgdu a
+                        WHERE a.id_expediente = s.id_expediente
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ) sub ON true
+                    LEFT JOIN LATERAL (
+                        SELECT motivo, fecha
+                        FROM mvw_ee_pases_secgdu pase
+                        WHERE pase.id_expediente = s.id_expediente
+                        ORDER BY pase.fecha DESC
+                        LIMIT 1
+                    ) p ON true
+                    WHERE s.trata = :t
+                    ORDER BY s.dias_en_gerencia DESC
+                """
+                result = conn.execute(text(sql_stock), {"g": gerencia_clean, "t": trata})
             rows = [dict(r._mapping) for r in result.fetchall()]
 
             # Distribución por antigüedad / analistas y segmentación Stock / Flujo
@@ -2499,7 +2542,7 @@ async def get_tramite_stock_detail(gerencia: str, trata: str, current_user: User
                 analista_nombre = row.get('analista_nombre') or analista
                 dias = row.get('dias') or 0
                 dias_gerencia = row.get('dias_en_gerencia') or 0
-                f_pase = row.get('fecha_ultimo_pase')
+                f_pase = row.get('fecha_ultimo_pase') or row.get('fecha_recepcion_analista') or row.get('fecha_primer_ingreso_gerencia')
                 
                 # Clasificación según el tiempo de resolución
                 # Si dias_en_gerencia > tiempo de resolución => STOCK (excede tiempo esperado)
@@ -2601,17 +2644,34 @@ async def get_reporte_tramite_egresos_detail(
                 """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
 
-            # Query ultra-rápida desde la vista materializada mvw_egresos_resueltos_metricas
-            sql = """
-                SELECT id_expediente, expediente, trata, descripcion_trata,
-                       fecha_caratulacion, fecha_egreso, anio_caratula, anio_egreso,
-                       mes_egreso, mes_egreso_label, dias_totales, cant_subsanaciones,
-                       dias_subsanacion, dias_intervenciones, dias_area
-                FROM mvw_egresos_resueltos_metricas
-                WHERE gerencia = :gerencia AND trata = :trata
-                ORDER BY fecha_egreso DESC
-            """
-            result = conn.execute(text(sql), {"gerencia": gerencia_clean, "trata": trata})
+            # Query de egresos
+            if trata == 'INTERVENCIONES':
+                interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
+                sql = f"""
+                    SELECT id_expediente, expediente, trata, descripcion_trata,
+                           fecha_egreso, fecha_egreso as fecha_caratulacion,
+                           extract(year from fecha_egreso)::int as anio_caratula,
+                           extract(year from fecha_egreso)::int as anio_egreso,
+                           extract(month from fecha_egreso)::int as mes_egreso,
+                           to_char(fecha_egreso, 'YYYY-MM') as mes_egreso_label,
+                           COALESCE(dias_afuera, 0) as dias_totales, 0 as cant_subsanaciones,
+                           0 as dias_subsanacion, COALESCE(dias_afuera, 0) as dias_intervenciones, 0 as dias_area
+                    FROM {interv_egr_table}
+                    ORDER BY fecha_egreso DESC
+                    LIMIT 2000
+                """
+                result = conn.execute(text(sql))
+            else:
+                sql = """
+                    SELECT id_expediente, expediente, trata, descripcion_trata,
+                           fecha_caratulacion, fecha_egreso, anio_caratula, anio_egreso,
+                           mes_egreso, mes_egreso_label, dias_totales, cant_subsanaciones,
+                           dias_subsanacion, dias_intervenciones, dias_area
+                    FROM mvw_egresos_resueltos_metricas
+                    WHERE gerencia = :gerencia AND trata = :trata
+                    ORDER BY fecha_egreso DESC
+                """
+                result = conn.execute(text(sql), {"gerencia": gerencia_clean, "trata": trata})
             rows = [dict(r._mapping) for r in result.fetchall()]
 
             # Obtener métricas consolidadas desde planificacion_tiempos_tramitacion_resumen
@@ -2749,57 +2809,79 @@ async def get_reporte_tramite_subsanaciones_detail(
                 """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
 
-            trata_filter = "s.trata = :t"
             if trata == 'INTERVENCIONES':
-                trata_filter = "s.trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = :g)"
-
-            sql = f"""
-                SELECT 
-                    s.id_expediente, s.expediente, s.trata, s.descripcion_trata, s.descripcion, s.caratula,
-                    s.analista,
-                    COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
-                    s.fecha_primer_ingreso_gerencia, s.fecha_apertura_subsanacion, s.dias_subsanacion_abierta, s.dias_en_gerencia,
-                    COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
-                    COALESCE(sub.dias_subs_total, 0) as dias_subsanacion_total,
-                    COALESCE(interv.dias_intervenciones, 0) as dias_intervenciones
-                FROM mv_{gerencia_clean}_subsanaciones s
-                LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
-                LEFT JOIN LATERAL (
+                sql = f"""
                     SELECT 
-                        COUNT(*) as cant_subs,
-                        ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs_total
-                    FROM mvw_ee_actividades_secgdu a
-                    WHERE a.id_expediente = s.id_expediente
-                      AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
-                ) sub ON true
-                LEFT JOIN LATERAL (
-                    WITH cfg AS (
-                        SELECT analistas_oficiales, buzones_ingreso
-                        FROM cfg_gestion_metas
-                        WHERE gerencia = :g AND trata_reporte = 'INTERVENCIONES'
-                        LIMIT 1
-                    ),
-                    pases AS (
+                        s.id_expediente, s.expediente, s.trata, s.descripcion_trata, 
+                        NULL::text as descripcion, NULL::text as caratula,
+                        s.analista,
+                        COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
+                        s.fecha_primer_ingreso_gerencia, s.fecha_apertura_subsanacion, s.dias_subsanacion_abierta, 
+                        COALESCE((CURRENT_DATE - s.fecha_primer_ingreso_gerencia::date), s.dias_subsanacion_abierta, 0) as dias_en_gerencia,
+                        COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
+                        COALESCE(sub.dias_subs_total, 0) as dias_subsanacion_total,
+                        0 as dias_intervenciones
+                    FROM mv_{gerencia_clean}_intervenciones_subs s
+                    LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
+                    LEFT JOIN LATERAL (
                         SELECT 
-                            p.fecha AS f_ini,
-                            CASE 
-                                WHEN ((p.destinatario = ANY (cfg.analistas_oficiales)) OR (p.destinatario = ANY (cfg.buzones_ingreso))) THEN 'ADENTRO'
-                                ELSE 'AFUERA'
-                            END AS ubicacion,
-                            COALESCE(LEAD(p.fecha) OVER (ORDER BY p.fecha), CURRENT_TIMESTAMP) AS f_fin
-                        FROM mvw_ee_pases_secgdu p
-                        CROSS JOIN cfg
-                        WHERE p.id_expediente = s.id_expediente
-                          AND p.fecha >= s.fecha_primer_ingreso_gerencia
-                    )
+                            COUNT(*) as cant_subs,
+                            ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs_total
+                        FROM mvw_ee_actividades_secgdu a
+                        WHERE a.id_expediente = s.id_expediente
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ) sub ON true
+                    ORDER BY s.dias_subsanacion_abierta DESC
+                """
+                result = conn.execute(text(sql), {"g": gerencia_clean})
+            else:
+                sql = f"""
                     SELECT 
-                        COALESCE(ROUND(SUM(CASE WHEN ubicacion = 'AFUERA' THEN (EXTRACT(epoch FROM (f_fin - f_ini)) / 86400.0) ELSE 0.0 END)::numeric, 1), 0) AS dias_intervenciones
-                    FROM pases
-                ) interv ON true
-                WHERE {trata_filter}
-                ORDER BY s.dias_subsanacion_abierta DESC
-            """
-            result = conn.execute(text(sql), {"g": gerencia_clean, "t": trata})
+                        s.id_expediente, s.expediente, s.trata, s.descripcion_trata, s.descripcion, s.caratula,
+                        s.analista,
+                        COALESCE(NULLIF(TRIM(u.apellido_nombre), ''), NULLIF(TRIM(CONCAT(u.nombre, ' ', u.apellido)), ''), s.analista) as analista_nombre,
+                        s.fecha_primer_ingreso_gerencia, s.fecha_apertura_subsanacion, s.dias_subsanacion_abierta, s.dias_en_gerencia,
+                        COALESCE(sub.cant_subs, 0) as cant_subsanaciones,
+                        COALESCE(sub.dias_subs_total, 0) as dias_subsanacion_total,
+                        COALESCE(interv.dias_intervenciones, 0) as dias_intervenciones
+                    FROM mv_{gerencia_clean}_subsanaciones s
+                    LEFT JOIN datos_usuario u ON UPPER(TRIM(u.usuario)) = UPPER(TRIM(s.analista))
+                    LEFT JOIN LATERAL (
+                        SELECT 
+                            COUNT(*) as cant_subs,
+                            ROUND(SUM(EXTRACT(epoch FROM (COALESCE(fecha_cierre, CURRENT_TIMESTAMP) - fecha_alta)) / 86400.0)::numeric, 1) as dias_subs_total
+                        FROM mvw_ee_actividades_secgdu a
+                        WHERE a.id_expediente = s.id_expediente
+                          AND a.nombre_tipo_actividad = 'SOLICITUD_SUBSANACION_TAD'
+                    ) sub ON true
+                    LEFT JOIN LATERAL (
+                        WITH cfg AS (
+                            SELECT analistas_oficiales, buzones_ingreso
+                            FROM cfg_gestion_metas
+                            WHERE gerencia = :g AND trata_reporte = 'INTERVENCIONES'
+                            LIMIT 1
+                        ),
+                        pases AS (
+                            SELECT 
+                                p.fecha AS f_ini,
+                                CASE 
+                                    WHEN ((p.destinatario = ANY (cfg.analistas_oficiales)) OR (p.destinatario = ANY (cfg.buzones_ingreso))) THEN 'ADENTRO'
+                                    ELSE 'AFUERA'
+                                END AS ubicacion,
+                                COALESCE(LEAD(p.fecha) OVER (ORDER BY p.fecha), CURRENT_TIMESTAMP) AS f_fin
+                            FROM mvw_ee_pases_secgdu p
+                            CROSS JOIN cfg
+                            WHERE p.id_expediente = s.id_expediente
+                              AND p.fecha >= s.fecha_primer_ingreso_gerencia
+                        )
+                        SELECT 
+                            COALESCE(ROUND(SUM(CASE WHEN ubicacion = 'AFUERA' THEN (EXTRACT(epoch FROM (f_fin - f_ini)) / 86400.0) ELSE 0.0 END)::numeric, 1), 0) AS dias_intervenciones
+                        FROM pases
+                    ) interv ON true
+                    WHERE s.trata = :t
+                    ORDER BY s.dias_subsanacion_abierta DESC
+                """
+                result = conn.execute(text(sql), {"g": gerencia_clean, "t": trata})
             rows = [dict(r._mapping) for r in result.fetchall()]
 
             analyst_data = {}
