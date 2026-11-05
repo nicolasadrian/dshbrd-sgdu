@@ -51,7 +51,7 @@ TRAMITES_CONFIG = {
         "MDUG1501J": {"nombre": "Permiso de Ejecución de Obra Civil.", "acronimos": "'IFPDO'"},
         "MDUG3001A": {"nombre": "Registro de Plano de Obra Civil: Registro en Etapa Proyecto (CONTINUAN A PERMISOS)", "acronimos": "'IFPDO'"},
         "MDUG3402A": {"nombre": "Permiso Temprano de Ejecución de Obra Civil.", "acronimos": "'IFPEO', 'IFPDO'"},
-        "MDUG0102B": {"nombre": "Aviso de obra.", "acronimos": "'IFCAO', 'IFCFP', 'IFCAC'"},
+        "MDUG0102B": {"nombre": "Aviso de Obra", "acronimos": "'IFCAO', 'IFCFP', 'IFCAC'"},
         "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
     },
     "etapa_proyecto": {

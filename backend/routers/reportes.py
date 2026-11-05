@@ -901,6 +901,14 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
                 expected_targets["INTERVENCIONES"] = round(calculate_trata_expected_egresos(conn, gerencia_clean, 'INTERVENCIONES'))
 
             config_for_g = TRAMITES_CONFIG.get(gerencia_clean, {})
+            if "DETALLE TRATA" in df.columns:
+                def _resolve_detalle(row):
+                    cur = row.get("DETALLE TRATA")
+                    cod = row.get("COD TRATA")
+                    if not cur or cur == cod or str(cur).strip() == str(cod).strip():
+                        return config_for_g.get(cod, {}).get("nombre", cur)
+                    return cur
+                df["DETALLE TRATA"] = df.apply(_resolve_detalle, axis=1)
             df["acronimos"] = df["COD TRATA"].apply(lambda x: config_for_g.get(x, {}).get("acronimos", ""))
             df["meta_egr_prom"] = df["COD TRATA"].apply(lambda x: expected_targets.get(str(x).strip().upper(), 0))
             
