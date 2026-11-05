@@ -1,0 +1,469 @@
+<div class="breadcrumbs" style="font-family: 'Outfit', sans-serif;">
+    <span onclick="showView('landing')">Inicio</span> / 
+    <span onclick="showView('ciudad3d_home')" style="cursor: pointer; text-decoration: underline;">Ciudad 3D</span> / 
+    <b>Seguimiento Catastro - Ciudad 3D</b>
+</div>
+
+<!-- Header Principal -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; font-family: 'Outfit', sans-serif;">
+    <div>
+        <h1 style="margin: 0; font-family: 'Outfit', sans-serif; color: var(--primary-dark); font-weight: 800; font-size: 2.2rem; letter-spacing: -0.5px;">
+            Seguimiento Catastro - Ciudad 3D
+        </h1>
+        <p style="margin: 6px 0 0 0; color: #64748b; font-size: 1.05rem;">
+            Control, trazabilidad de parcelas/mensuras (Unificaciones, Divisiones, etc.) y estado de incorporación en Ciudad 3D.
+        </p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn-primary" onclick="openCatastroNuevoModal()"
+            style="display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
+            <i class="fa-solid fa-plus"></i> Nueva Parcela / Mensura
+        </button>
+        <button type="button" onclick="loadCatastroData(true)"
+            style="background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; padding: 10px 16px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 10px; font-weight: 600; transition: all 0.2s;">
+            <i class="fa-solid fa-rotate" id="catastro-refresh-icon"></i> Actualizar
+        </button>
+        <button onclick="showView('ciudad3d_home')"
+            style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 10px 16px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border-radius: 10px; font-weight: 600;">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Ciudad 3D
+        </button>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- DASHBOARD DE SEGUIMIENTO (KPIS) -->
+<!-- ========================================================================= -->
+<div style="margin-bottom: 2rem; font-family: 'Outfit', sans-serif;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
+        
+        <!-- Total Trámites -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('TODOS')"
+            style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Total Trámites</span>
+                    <h3 id="catastro-kpi-total" style="font-size: 2.2rem; font-weight: 800; color: #0f172a; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-folder-tree"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #64748b;">
+                Universo registrado en geo-mdr
+            </div>
+        </div>
+
+        <!-- Publicados -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('Publicado')"
+            style="background: white; border: 1px solid #bbf7d0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 0.5px;">Publicados</span>
+                    <h3 id="catastro-kpi-publicado" style="font-size: 2.2rem; font-weight: 800; color: #15803d; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #16a34a; font-weight: 600;" id="catastro-pct-publicado">
+                --% del total
+            </div>
+        </div>
+
+        <!-- En Innovación -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('Innovacion')"
+            style="background: white; border: 1px solid #fed7aa; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #ea580c; text-transform: uppercase; letter-spacing: 0.5px;">Innovación</span>
+                    <h3 id="catastro-kpi-innovacion" style="font-size: 2.2rem; font-weight: 800; color: #c2410c; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #ffedd5; color: #ea580c; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-lightbulb"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #ea580c; font-weight: 600;" id="catastro-pct-innovacion">
+                --% del total
+            </div>
+        </div>
+
+        <!-- Error / Revisión -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('Error/Revision')"
+            style="background: white; border: 1px solid #fecaca; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 0.5px;">Error / Revisión</span>
+                    <h3 id="catastro-kpi-revision" style="font-size: 2.2rem; font-weight: 800; color: #b91c1c; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #dc2626; font-weight: 600;" id="catastro-pct-revision">
+                --% del total
+            </div>
+        </div>
+
+        <!-- En Proceso -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('En Proceso')"
+            style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #0284c7; text-transform: uppercase; letter-spacing: 0.5px;">En Proceso</span>
+                    <h3 id="catastro-kpi-proceso" style="font-size: 2.2rem; font-weight: 800; color: #0369a1; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-spinner"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #64748b;" id="catastro-pct-proceso">
+                En curso
+            </div>
+        </div>
+
+        <!-- Entregado -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('Entregado')"
+            style="background: white; border: 1px solid #c7d2fe; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.5px;">Entregado</span>
+                    <h3 id="catastro-kpi-entregado" style="font-size: 2.2rem; font-weight: 800; color: #4338ca; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #e0e7ff; color: #4f46e5; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-truck-ramp-box"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #4f46e5; font-weight: 600;" id="catastro-pct-entregado">
+                --% del total
+            </div>
+        </div>
+
+        <!-- PDI -->
+        <div class="kpi-card" onclick="filterCatastroByEstado('PDI')"
+            style="background: white; border: 1px solid #ddd6fe; border-radius: 16px; padding: 1.25rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s;"
+            onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='none'">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <span style="font-size: 0.8rem; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.5px;">PDI</span>
+                    <h3 id="catastro-kpi-pdi" style="font-size: 2.2rem; font-weight: 800; color: #6d28d9; margin: 6px 0 0 0; line-height: 1;">---</h3>
+                </div>
+                <div style="width: 46px; height: 46px; border-radius: 12px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-layer-group"></i>
+                </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 0.82rem; color: #7c3aed; font-weight: 600;" id="catastro-pct-pdi">
+                --% del total
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- BARRA DE FILTROS Y BÚSQUEDA -->
+<!-- ========================================================================= -->
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.02); font-family: 'Outfit', sans-serif;">
+    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 1rem; align-items: center;">
+        
+        <!-- Búsqueda libre -->
+        <div style="position: relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+            <input type="text" id="catastro-search-input" placeholder="Buscar por Mensura, Expediente, SMP Origen o Surgente..."
+                onkeyup="if(event.key==='Enter') executeCatastroSearch()"
+                style="width: 100%; padding: 10px 14px 10px 40px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; font-size: 0.95rem; box-sizing: border-box;">
+        </div>
+
+        <!-- Filtro por Tipo -->
+        <div>
+            <select id="catastro-filter-tipo" onchange="executeCatastroSearch()"
+                style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; font-size: 0.95rem; background: white; cursor: pointer;">
+                <option value="TODOS">Todos los Tipos</option>
+                <option value="UNIFICACION">UNIFICACIÓN</option>
+                <option value="DIVISION">DIVISIÓN</option>
+                <option value="REDISTRIBUCION">REDISTRIBUCIÓN</option>
+                <option value="OT">OT</option>
+                <option value="OBJETO TERRITORIAL">OBJETO TERRITORIAL</option>
+            </select>
+        </div>
+
+        <!-- Filtro por Estado -->
+        <div>
+            <select id="catastro-filter-estado" onchange="executeCatastroSearch()"
+                style="width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; font-size: 0.95rem; background: white; cursor: pointer;">
+                <option value="TODOS">Todos los Estados</option>
+                <option value="Publicado">Publicado</option>
+                <option value="Innovacion">Innovación</option>
+                <option value="Entregado">Entregado</option>
+                <option value="PDI">PDI</option>
+                <option value="En Proceso">En Proceso</option>
+                <option value="Error/Revision">Error / Revisión</option>
+            </select>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div style="display: flex; gap: 8px;">
+            <button onclick="executeCatastroSearch()" class="btn-primary"
+                style="padding: 10px 18px; border-radius: 10px; font-weight: 600; cursor: pointer;">
+                Buscar
+            </button>
+            <button onclick="resetCatastroFilters()"
+                style="background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; padding: 10px 14px; border-radius: 10px; cursor: pointer;">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- TABLA PRINCIPAL DE PARCELAS / MENSURAS -->
+<!-- ========================================================================= -->
+<div style="background: white; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); font-family: 'Outfit', sans-serif;">
+    <div style="padding: 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-list-check" style="color: #2563eb;"></i> Listado de Parcelas y Mensuras
+            <span id="catastro-count-badge" style="font-size: 0.8rem; background: #eff6ff; color: #2563eb; padding: 2px 10px; border-radius: 20px; font-weight: 600;">-- trámites</span>
+        </h3>
+        <div style="font-size: 0.88rem; color: #64748b;" id="catastro-pagination-info">
+            Página 1 de 1
+        </div>
+    </div>
+
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+                <tr style="background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <th style="padding: 12px 16px;">Fecha</th>
+                    <th style="padding: 12px 16px;">Mensura</th>
+                    <th style="padding: 12px 16px;">Expediente</th>
+                    <th style="padding: 12px 16px;">Tipo</th>
+                    <th style="padding: 12px 16px;">SMP Origen</th>
+                    <th style="padding: 12px 16px;">SMP Surgente</th>
+                    <th style="padding: 12px 16px;">IF Registro</th>
+                    <th style="padding: 12px 16px; text-align: center;">Estado</th>
+                    <th style="padding: 12px 16px; text-align: center;">Check Ciudad 3D</th>
+                    <th style="padding: 12px 16px; text-align: center;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="catastro-table-body">
+                <tr>
+                    <td colspan="10" style="text-align: center; padding: 3rem; color: #64748b;">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.8rem; color: #2563eb; margin-bottom: 10px; display: block;"></i>
+                        Cargando trámites de catastro...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    <div style="padding: 1rem 1.25rem; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div style="color: #64748b; font-size: 0.88rem;">
+            Mostrando 50 registros por página
+        </div>
+        <div style="display: flex; gap: 6px;" id="catastro-pagination-controls">
+            <!-- Botones de página inyectados por JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CARGA Y EDICIÓN DE TRÁMITE / PARCELA -->
+<!-- ========================================================================= -->
+<div id="modal-catastro-form" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center; padding: 1.5rem; font-family: 'Outfit', sans-serif;">
+    <div style="background: white; border-radius: 20px; max-width: 780px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #e2e8f0;">
+        
+        <div style="padding: 1.5rem 1.75rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: white; z-index: 2;">
+            <div>
+                <h3 id="modal-catastro-title" style="margin: 0; font-size: 1.35rem; font-weight: 700; color: #0f172a;">
+                    Nueva Parcela / Mensura
+                </h3>
+                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">
+                    Registro y seguimiento catastral para Ciudad 3D
+                </p>
+            </div>
+            <button onclick="closeCatastroModal()" style="background: none; border: none; font-size: 1.25rem; color: #94a3b8; cursor: pointer; padding: 4px 8px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form id="form-catastro-item" onsubmit="saveCatastroForm(event)" style="padding: 1.75rem;">
+            <input type="hidden" id="catastro-form-id" value="">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem;">
+                
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Fecha de Ingreso <span style="color: #ef4444;">*</span>
+                    </label>
+                    <input type="date" id="form-c-fecha" required
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Tipo de Trámite <span style="color: #ef4444;">*</span>
+                    </label>
+                    <select id="form-c-tipo" required
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; background: white; box-sizing: border-box;">
+                        <option value="UNIFICACION">UNIFICACIÓN</option>
+                        <option value="DIVISION">DIVISIÓN</option>
+                        <option value="REDISTRIBUCION">REDISTRIBUCIÓN</option>
+                        <option value="OT">OT</option>
+                        <option value="OBJETO TERRITORIAL">OBJETO TERRITORIAL</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Mensura <span style="color: #ef4444;">*</span>
+                    </label>
+                    <input type="text" id="form-c-mensura" placeholder="Ej: M-0126-2026" required
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Expediente
+                    </label>
+                    <input type="text" id="form-c-expediente" placeholder="Ej: EX-2026-15554123- -GCABA-DGROC"
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div style="grid-column: span 2;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        SMP Origen (separar por comas si son varias)
+                    </label>
+                    <input type="text" id="form-c-smp-origen" placeholder="Ej: 035-001B-012a, 035-001B-012b"
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div style="grid-column: span 2;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        SMP Surgente
+                    </label>
+                    <input type="text" id="form-c-smp-surgente" placeholder="Ej: 035-001B-012c"
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        IF de Registro
+                    </label>
+                    <input type="text" id="form-c-if-registro" placeholder="Ej: IF-2026-47270006-GCABA-DGROC"
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Fecha de Registro
+                    </label>
+                    <input type="date" id="form-c-registro"
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        Estado <span style="color: #ef4444;">*</span>
+                    </label>
+                    <select id="form-c-ciudad3d" required
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; background: white; box-sizing: border-box; font-weight: 600;">
+                        <option value="Innovacion">Innovación</option>
+                        <option value="Publicado">Publicado</option>
+                        <option value="Entregado">Entregado</option>
+                        <option value="PDI">PDI</option>
+                        <option value="En Proceso">En Proceso</option>
+                        <option value="Error/Revision">Error / Revisión</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #334155; margin-bottom: 6px;">
+                        TAD / Identificador
+                    </label>
+                    <input type="text" id="form-c-tad" placeholder="Identificador TAD"
+                        style="width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: 'Outfit', sans-serif; box-sizing: border-box;">
+                </div>
+
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
+                <button type="button" onclick="closeCatastroModal()"
+                    style="padding: 10px 20px; border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; font-weight: 600; cursor: pointer;">
+                    Cancelar
+                </button>
+                <button type="submit" id="btn-save-catastro" class="btn-primary"
+                    style="padding: 10px 24px; border-radius: 10px; font-weight: 600; cursor: pointer;">
+                    Guardar Trámite
+                </button>
+            </div>
+        </form>
+
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: DETALLE DE SMP SURGENTE & LOGS DE VERIFICACIÓN -->
+<!-- ========================================================================= -->
+<div id="modal-catastro-detalle-smp" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 1050; align-items: center; justify-content: center; padding: 1.5rem; font-family: 'Outfit', sans-serif;">
+    <div style="background: white; border-radius: 20px; max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #e2e8f0;">
+        
+        <div style="padding: 1.5rem 1.75rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: white; z-index: 2;">
+            <div>
+                <h3 id="det-smp-titulo" style="margin: 0; font-size: 1.35rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-map-location-dot" style="color: #2563eb;"></i> Detalle de SMP Surgente
+                </h3>
+                <p id="det-smp-subtitulo" style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">
+                    Verificación en tiempo real contra API Ciudad 3D
+                </p>
+            </div>
+            <button onclick="closeCatastroDetalleModal()" style="background: none; border: none; font-size: 1.25rem; color: #94a3b8; cursor: pointer; padding: 4px 8px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div style="padding: 1.75rem;">
+            <!-- Info básica del trámite -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; font-size: 0.88rem;">
+                    <div><span style="color: #64748b; font-weight: 600;">Mensura:</span> <b id="det-smp-mensura" style="color: #0f172a;">-</b></div>
+                    <div><span style="color: #64748b; font-weight: 600;">Expediente:</span> <span id="det-smp-expediente" style="color: #0f172a;">-</span></div>
+                    <div><span style="color: #64748b; font-weight: 600;">Tipo de Trámite:</span> <span id="det-smp-tipo" style="color: #0f172a;">-</span></div>
+                    <div><span style="color: #64748b; font-weight: 600;">SMP Origen:</span> <span id="det-smp-origen" style="color: #0f172a;">-</span></div>
+                    <div style="grid-column: span 2;"><span style="color: #64748b; font-weight: 600;">SMP Surgente:</span> <b id="det-smp-surgente-val" style="color: #2563eb; font-size: 1rem;">-</b></div>
+                </div>
+            </div>
+
+            <!-- Panel de Estado y Botón de Rechequeo -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+                <div>
+                    <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b;">Estado de Verificación en API</h4>
+                    <span id="det-smp-fecha" style="font-size: 0.8rem; color: #64748b;">Última verificación: Nunca</span>
+                </div>
+                <button type="button" id="btn-recheck-c3d" onclick="recheckSmpCiudad3D()" class="btn-primary"
+                    style="display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 10px; font-weight: 600; cursor: pointer;">
+                    <i class="fa-solid fa-arrows-rotate" id="icon-recheck-c3d"></i> Rechequear Ahora
+                </button>
+            </div>
+
+            <!-- Lista de SMPs surgentes testeados -->
+            <div id="det-smp-lista-container" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Render dinámico de cada SMP y su respuesta -->
+            </div>
+        </div>
+
+        <div style="padding: 1rem 1.75rem; border-top: 1px solid #f1f5f9; display: flex; justify-content: flex-end;">
+            <button type="button" onclick="closeCatastroDetalleModal()"
+                style="padding: 9px 18px; border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; font-weight: 600; cursor: pointer;">
+                Cerrar
+            </button>
+        </div>
+
+    </div>
+</div>

@@ -167,7 +167,6 @@
                                 <a href="#" id="link-seg-conforme" onclick="event.preventDefault(); showView('conforme')">Conforme</a>
                                 <a href="#" id="link-seg-contable" onclick="event.preventDefault(); showView('contable')">Contable</a>
                                 <a href="#" id="link-seg-etapa_proyecto" onclick="event.preventDefault(); showView('etapa_proyecto')">Etapa Proyecto</a>
-                                <a href="#" id="link-seg-aviso_obra" onclick="event.preventDefault(); showView('aviso_obra')">Aviso de Obra</a>
                             </div>
                         </div>
 
@@ -217,7 +216,6 @@
                                 <a href="#/buzones/dgroc/conforme" id="link-buzon-conforme">Conforme</a>
                                 <a href="#/buzones/dgroc/contable" id="link-buzon-contable">Contable</a>
                                 <a href="#/buzones/dgroc/etapa_proyecto" id="link-buzon-etapa_proyecto">Etapa Proyecto</a>
-                                <a href="#/buzones/dgroc/aviso_obra" id="link-buzon-aviso_obra">Aviso de Obra</a>
                             </div>
                         </div>
 
@@ -277,7 +275,6 @@
                                         <a href="#/productividad_analistas/conforme" id="link-prod-conforme" onclick="event.preventDefault(); showView('productividad_analistas_conforme');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Conforme</a>
                                         <a href="#/productividad_analistas/contable" id="link-prod-contable" onclick="event.preventDefault(); showView('productividad_analistas_contable');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Contable</a>
                                         <a href="#/productividad_analistas/etapa_proyecto" id="link-prod-etapa_proyecto" onclick="event.preventDefault(); showView('productividad_analistas_etapa_proyecto');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Etapa Proyecto</a>
-                                        <a href="#/productividad_analistas/aviso_obra" id="link-prod-aviso_obra" onclick="event.preventDefault(); showView('productividad_analistas_aviso_obra');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Aviso de Obra</a>
                                     </div>
 
                                     <!-- Column DGIUR & Otros -->
@@ -327,7 +324,6 @@
                                         <a href="#/reportes_rrhh/conforme" id="link-rrhh-conforme" onclick="event.preventDefault(); showView('reportes_rrhh_conforme');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Conforme</a>
                                         <a href="#/reportes_rrhh/contable" id="link-rrhh-contable" onclick="event.preventDefault(); showView('reportes_rrhh_contable');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Contable</a>
                                         <a href="#/reportes_rrhh/etapa_proyecto" id="link-rrhh-etapa_proyecto" onclick="event.preventDefault(); showView('reportes_rrhh_etapa_proyecto');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Etapa Proyecto</a>
-                                        <a href="#/reportes_rrhh/aviso_obra" id="link-rrhh-aviso_obra" onclick="event.preventDefault(); showView('reportes_rrhh_aviso_obra');" style="padding: 6px 10px; border-radius: 6px; font-size: 0.84rem; display: block;">Aviso de Obra</a>
                                     </div>
 
                                     <!-- Column DGIUR & Otros -->
@@ -498,10 +494,6 @@
                 <article class="nav-card" id="card-etapa-proyecto" onclick="showView('etapa_proyecto')">
                     <h2>Etapa Proyecto</h2>
                     <p>Gerencia de Etapa Proyecto</p>
-                </article>
-                <article class="nav-card" id="card-aviso-obra" onclick="showView('aviso_obra')">
-                    <h2>Aviso de Obra</h2>
-                    <p>Avisos de inicio y modificaciones menores</p>
                 </article>
             </div>
         </section>
@@ -1178,20 +1170,6 @@
             <p>Monitoreo Consolidado de Trámites 2025-2026</p>
 
             <div id="consolidated-table-container-etapa_proyecto" class="table-container-dynamic">
-                <!-- Se llenará vía JS -->
-            </div>
-        </section>
-
-        <!-- Vista 8: Aviso de Obra -->
-        <section id="aviso_obra" class="view-container">
-            <div class="breadcrumbs">
-                <span onclick="showView('landing')">Inicio</span> /
-                <span onclick="showView('dgroc')">DGROC</span> / Aviso de Obra
-            </div>
-            <h1 class="landing-title">Aviso de Obra</h1>
-            <p>Monitoreo Consolidado de Trámites 2025-2026</p>
-
-            <div id="consolidated-table-container-aviso_obra" class="table-container-dynamic">
                 <!-- Se llenará vía JS -->
             </div>
         </section>
@@ -2113,7 +2091,6 @@
                             <option value="conforme">Conforme (DGROC)</option>
                             <option value="contable">Contable (DGROC)</option>
                             <option value="etapa_proyecto">Etapa Proyecto (DGROC)</option>
-                            <option value="aviso_obra">Aviso de Obra (DGROC)</option>
                             <option value="morfologia">Morfología Urbana (DGIUR)</option>
                             <option value="aph">Protección Histórica APH (DGIUR)</option>
                             <option value="usos">Usos del Suelo (DGIUR)</option>
@@ -2228,7 +2205,6 @@
                             <option value="REGULARIZACION">Regularización y Conforme (DGROC)</option>
                             <option value="CONTABLE">Contable (DGROC)</option>
                             <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
-                            <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
                             <option value="MORFOLOGIA">Morfología Urbana (DGIUR)</option>
                             <option value="APH">Protección Histórica APH (DGIUR)</option>
                             <option value="USOS">Usos del Suelo (DGIUR)</option>
@@ -2367,7 +2343,6 @@
                                 <option value="REGULARIZACION">Regularización y Conforme (DGROC)</option>
                                 <option value="CONTABLE">Contable (DGROC)</option>
                                 <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
-                                <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
                                 <option value="MORFOLOGIA">Morfología Urbana (DGIUR)</option>
                                 <option value="APH">Protección Histórica APH (DGIUR)</option>
                                 <option value="USOS">Usos del Suelo (DGIUR)</option>
@@ -2930,7 +2905,6 @@
                                 <option value="morfologia">Morfología Urbana</option>
                                 <option value="aph">Áreas de Protección Histórica (APH)</option>
                                 <option value="usos">Consulta de Usos</option>
-                                <option value="aviso_obra">Avisos de Obra</option>
                             </select>
                         </div>
 
@@ -3133,7 +3107,6 @@
                                 <option value="morfologia">Morfología Urbana</option>
                                 <option value="aph">Áreas de Protección Histórica (APH)</option>
                                 <option value="usos">Consulta de Usos</option>
-                                <option value="aviso_obra">Avisos de Obra</option>
                             </select>
                         </div>
 
@@ -3214,7 +3187,6 @@
                                 <option value="morfologia">Morfología Urbana</option>
                                 <option value="aph">Áreas de Protección Histórica (APH)</option>
                                 <option value="usos">Consulta de Usos</option>
-                                <option value="aviso_obra">Avisos de Obra</option>
                             </select>
                         </div>
 
@@ -4101,7 +4073,6 @@
                             <option value="CONFORME">Conforme (DGROC)</option>
                             <option value="CONTABLE">Contable (DGROC)</option>
                             <option value="ETAPA_PROYECTO">Etapa Proyecto (DGROC)</option>
-                            <option value="AVISO_OBRA">Aviso de Obra (DGROC)</option>
                             <option value="MORFOLOGIA">Morfología (DGIUR)</option>
                             <option value="APH">APH (DGIUR)</option>
                             <option value="USOS">Usos (DGIUR)</option>
@@ -4233,10 +4204,6 @@
                 <article class="nav-card" id="card-buzones-etapa-proyecto" onclick="window.location.hash='#/buzones/dgroc/etapa_proyecto'">
                     <h2>Etapa Proyecto</h2>
                     <p>Gerencia de Etapa Proyecto</p>
-                </article>
-                <article class="nav-card" id="card-buzones-aviso-obra" onclick="window.location.hash='#/buzones/dgroc/aviso_obra'">
-                    <h2>Aviso de Obra</h2>
-                    <p>Avisos de inicio y modificaciones menores</p>
                 </article>
             </div>
         </section>

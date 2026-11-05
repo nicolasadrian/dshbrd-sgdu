@@ -766,7 +766,7 @@ def get_reporte_consolidado_gerencia(gerencia: str, current_user: User = Depends
     
     try:
         with engine.connect() as conn:
-            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion']:
                 modular_months = []
                 m_y, m_m = now.year, now.month
                 for _ in range(5):
@@ -1307,7 +1307,7 @@ async def get_reporte_familia(
                 if not gerencia_clean:
                     continue
 
-                VALID_PLAN_VIEWS = {'usos', 'aph', 'aviso_obra', 'contable', 'etapa_proyecto', 'regularizacion', 'morfologia', 'instalaciones'}
+                VALID_PLAN_VIEWS = {'usos', 'aph', 'contable', 'etapa_proyecto', 'regularizacion', 'morfologia', 'instalaciones'}
                 meta_found = False
                 if gerencia_clean in VALID_PLAN_VIEWS:
                     try:
@@ -1458,7 +1458,7 @@ async def get_reporte_familias_overview(current_user: User = Depends(get_current
         "INTERVENCIONES_MORFOLOGIA": "morfologia"
     }
 
-    VALID_PLAN_VIEWS = {'usos', 'aph', 'aviso_obra', 'contable', 'etapa_proyecto', 'regularizacion', 'morfologia', 'instalaciones'}
+    VALID_PLAN_VIEWS = {'usos', 'aph', 'contable', 'etapa_proyecto', 'regularizacion', 'morfologia', 'instalaciones'}
     
     results = []
     
@@ -2276,7 +2276,7 @@ async def get_reporte_tramite_historico(gerencia: str, trata: str, current_user:
                 """), {"t": trata, "g": gerencia_clean}).fetchone()
                 nombre_trata = trata_info[0] if trata_info else trata
 
-            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion']:
                 trata_filter = f"trata = '{trata}'" if trata != 'INTERVENCIONES' else f"trata NOT IN (SELECT unnest(tratas_incluidas) FROM cfg_gestion_metas WHERE gerencia = '{gerencia_clean}')"
                 
                 interv_egr_table = f"mv_{gerencia_clean}_interv_egresos_eventos" if gerencia_clean != 'contable' else "mv_contable_intervenciones_egresadas"
@@ -3482,7 +3482,7 @@ async def get_intervenciones_detalle(gerencia: str, current_user: User = Depends
     
     try:
         with engine.connect() as conn:
-            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion', 'aviso_obra']:
+            if gerencia_clean in ['instalaciones', 'morfologia', 'contable', 'etapa_proyecto', 'catastro', 'aph', 'usos', 'regularizacion']:
                 sql = f"""
                     SELECT trata, descripcion_trata as detalle, dias_en_poder_actual as dias_stock
                     FROM mv_{gerencia_clean}_intervenciones_stock
@@ -6232,7 +6232,7 @@ async def export_planificacion_nov_2026_tarjeta(
                                 continue
 
                             expedientes_rows.append({
-                                'direccion': 'DGROC' if g in ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra'] else 'DGIUR',
+                                'direccion': 'DGROC' if g in ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto'] else 'DGIUR',
                                 'gerencia': g.upper(),
                                 'expediente': row[1],
                                 'id_expediente': row[0],
@@ -6358,7 +6358,7 @@ async def export_planificacion_nov_2026_tarjeta(
                                 continue
 
                             expedientes_rows.append({
-                                'direccion': 'DGROC' if g in ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra'] else 'DGIUR',
+                                'direccion': 'DGROC' if g in ['catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto'] else 'DGIUR',
                                 'gerencia': g.upper(),
                                 'expediente': row[1],
                                 'id_expediente': row[0],
@@ -6437,7 +6437,6 @@ async def get_planificacion_nov_2026_historico(
         "morfologia": "Morfología Urbana",
         "aph": "Áreas de Protección Histórica",
         "usos": "DGIUR - Usos",
-        "aviso_obra": "Avisos de Obra",
         "copua": "COPUA",
         "publico_privado": "Público Privado"
     }

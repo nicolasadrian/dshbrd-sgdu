@@ -104,7 +104,7 @@ function initAuth() {
         }
         
         // 1. Toggles for Seguimiento dropdown and its contents
-        const hasDgrocSeg = perms.dgroc || perms.seguimiento_catastro || perms.seguimiento_instalaciones || perms.seguimiento_conforme || perms.seguimiento_contable || perms.seguimiento_etapa_proyecto || perms.seguimiento_aviso_obra;
+        const hasDgrocSeg = perms.dgroc || perms.seguimiento_catastro || perms.seguimiento_instalaciones || perms.seguimiento_conforme || perms.seguimiento_contable || perms.seguimiento_etapa_proyecto;
         const hasDgiurSeg = perms.dgiur || perms.seguimiento_morfologia || perms.seguimiento_aph || perms.seguimiento_usos || perms.publico_privado || perms.copua || perms.privada;
         const hasDgeuiSeg = perms.dgeui;
         const hasFamily = perms.family || perms.familia_tramites;
@@ -129,7 +129,6 @@ function initAuth() {
         setDisplay('link-seg-conforme', perms.dgroc || perms.seguimiento_conforme);
         setDisplay('link-seg-contable', perms.dgroc || perms.seguimiento_contable);
         setDisplay('link-seg-etapa_proyecto', perms.dgroc || perms.seguimiento_etapa_proyecto);
-        setDisplay('link-seg-aviso_obra', perms.dgroc || perms.seguimiento_aviso_obra);
 
         // Granular links inside Seguimiento DGIUR
         setDisplay('link-seg-morfologia', perms.dgiur || perms.seguimiento_morfologia);
@@ -143,7 +142,7 @@ function initAuth() {
         if (linkFamily) linkFamily.style.display = hasFamily ? 'block' : 'none';
 
         // 2. Toggles for Buzones dropdown and its contents
-        const hasDgrocBuzon = perms.buzon_dgroc || perms.dgroc || perms.buzon_catastro || perms.buzon_instalaciones || perms.buzon_conforme || perms.buzon_contable || perms.buzon_etapa_proyecto || perms.buzon_aviso_obra;
+        const hasDgrocBuzon = perms.buzon_dgroc || perms.dgroc || perms.buzon_catastro || perms.buzon_instalaciones || perms.buzon_conforme || perms.buzon_contable || perms.buzon_etapa_proyecto;
         const hasDgiurBuzon = perms.buzon_dgiur || perms.dgiur || perms.buzon_morfologia || perms.buzon_aph || perms.buzon_usos || perms.buzon_publico_privado || perms.buzon_copua || perms.buzon_privada;
         const hasBuzonesAccess = hasDgrocBuzon || hasDgiurBuzon || perms.buzones_analisis || perms.secgdu;
 
@@ -162,7 +161,6 @@ function initAuth() {
         setDisplay('link-buzon-conforme', perms.buzon_dgroc || perms.dgroc || perms.buzon_conforme);
         setDisplay('link-buzon-contable', perms.buzon_dgroc || perms.dgroc || perms.buzon_contable);
         setDisplay('link-buzon-etapa_proyecto', perms.buzon_dgroc || perms.dgroc || perms.buzon_etapa_proyecto);
-        setDisplay('link-buzon-aviso_obra', perms.buzon_dgroc || perms.dgroc || perms.buzon_aviso_obra);
 
         // Granular links inside Buzones DGIUR
         setDisplay('link-buzon-morfologia', perms.buzon_dgiur || perms.dgiur || perms.buzon_morfologia);
@@ -174,7 +172,7 @@ function initAuth() {
         setDisplay('link-buzon-auditoria', perms.buzon_dgiur || perms.dgiur || perms.buzon_auditoria || isAdmin);
 
         // 3. Toggles for Reportes dropdown and its contents
-        const hasProdDgroc = perms.productividad_analistas || perms.productividad_catastro || perms.productividad_instalaciones || perms.productividad_conforme || perms.productividad_contable || perms.productividad_etapa_proyecto || perms.productividad_aviso_obra;
+        const hasProdDgroc = perms.productividad_analistas || perms.productividad_catastro || perms.productividad_instalaciones || perms.productividad_conforme || perms.productividad_contable || perms.productividad_etapa_proyecto;
         const hasProdDgiur = perms.productividad_analistas || perms.productividad_morfologia || perms.productividad_aph || perms.productividad_usos || perms.productividad_publico_privado || perms.productividad_copua || perms.productividad_privada;
         const hasProductividadAccess = hasProdDgroc || hasProdDgiur || perms.productividad_analistas || perms.productividad_otros;
 
@@ -201,7 +199,6 @@ function initAuth() {
         setDisplay('link-prod-conforme', perms.productividad_analistas || perms.productividad_conforme || isAdmin);
         setDisplay('link-prod-contable', perms.productividad_analistas || perms.productividad_contable || isAdmin);
         setDisplay('link-prod-etapa_proyecto', perms.productividad_analistas || perms.productividad_etapa_proyecto || isAdmin);
-        setDisplay('link-prod-aviso_obra', perms.productividad_analistas || perms.productividad_aviso_obra || isAdmin);
 
         const colProdDgiur = document.getElementById('menu-prod-col-dgiur');
         if (colProdDgiur) colProdDgiur.style.display = (hasProdDgiur || perms.productividad_otros || isAdmin) ? 'flex' : 'none';
@@ -225,7 +222,6 @@ function initAuth() {
         setDisplay('link-rrhh-conforme', perms.reportes_rrhh || perms.rrhh_conforme || isAdmin);
         setDisplay('link-rrhh-contable', perms.reportes_rrhh || perms.rrhh_contable || isAdmin);
         setDisplay('link-rrhh-etapa_proyecto', perms.reportes_rrhh || perms.rrhh_etapa_proyecto || isAdmin);
-        setDisplay('link-rrhh-aviso_obra', perms.reportes_rrhh || perms.rrhh_aviso_obra || isAdmin);
         setDisplay('link-rrhh-morfologia', perms.reportes_rrhh || perms.rrhh_morfologia || isAdmin);
         setDisplay('link-rrhh-aph', perms.reportes_rrhh || perms.rrhh_aph || isAdmin);
         setDisplay('link-rrhh-usos', perms.reportes_rrhh || perms.rrhh_usos || isAdmin);
@@ -395,11 +391,10 @@ const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "
 // --- METADATOS DE AYUDA (Para el Modal de Metodología) ---
 const BUZZERS_DOCS = {
     'catastro': 'DGROC-CIC, DGROC-COPIAPLANO, DGROC-DCATDES, DGROC-DCATPOL o DGROC-DCATTIT',
-    'contable': 'DGROC-CONTABLE o DGROC-OBRASADMIN',
+    'contable': 'DGROC-CONTABLE, DGROC-OBRASADMIN o DGROC-AUTOMAT',
     'instalaciones': 'DGROC-ELECTRICAS, DGROC-ELEVADORES, DGROC-INCENDIO, DGROC-SANITARIAS o DGROC-TERMICAS',
     'conforme': 'DGROC-OBRASDEMO',
     'etapa_proyecto': 'DGROC-OBRASTECNICA',
-    'aviso_obra': 'DGROC-AUTOMAT',
     'morfologia': 'DGIUR-03, DGIUR-ADMISIBILIDADMORFO, DGIUR-CONSULTASESPECIFICAS, DGIUR-CURVERIFICACION o DGIUR-DGIUR-PERMISO TEMPRANO',
     'aph': 'DGIUR-21',
     'usos': 'DGIUR-12'
@@ -411,12 +406,11 @@ const ANALYSTS_DOCS = {
     'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DGIUR-12", "DGIUR-ADMISIBILIDADUSOS", "DGIUR-EGOUS", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "SVC_DGIURUSOS", "VKAUFMAN"],
     'conforme': ["AGUEROJO", "AKRACOFF", "ALVAREZ.M", "ARAOZLUIS", "ATENCIOAL", "DALBORAF", "DGROC-ESPERAINSTALACIONES", "DGROC-OBRASDEMO", "ENCISOA", "EPARLATO", "ERDOCIAINA", "JBARRACO", "JLGARMENDIA", "JTERRILE", "MYUSHU", "S.SANCHEZPAZ", "SCAVALLARO"],
     'instalaciones': ["AQUINOLUCAS", "ARENAJ", "ARGUELLOJ", "BATALLANJ", "BENITOG", "BRIANMARTINEZ", "CORNAZM", "FICARRAR", "GAGLIARDIA", "LOPARDOC", "QUEIJASGUILLINP", "ROBLEDOJO", "ROLDANMI", "RUDAC", "SARIDISD", "TOLESANOA", "AURENA", "BATALLANGE", "BRITANP", "GUARDADOB", "JDECIMA", "PEREZGA", "RODRIGUEZESTEBAN", "RODRIGUEZNE", "SILESC", "VILLAGAB", "ABCRAGNO", "AGARCIAFIGUEROA", "CABRERAARI", "CAFELICE", "CAPOZZOG", "CSALGUERO", "DARANGURI", "DMOFFA", "FUHRY", "GONMAR", "J.OLIVERA", "LOPEZFE", "MARIANELAROCARO", "MBALDOME", "MLMAMONE", "MTRENQUE", "NIEVAL", "PCHERBENCO", "RADAA", "RIOSFE", "ROMANOFLA", "SANTACRUZ", "CANTARELLTORRES", "CIRIAE", "LOIACONOANA", "MCDIAMANTI", "POUSAF", "ARGUELLOSOL", "COSSM", "EIERACI", "HAMALAG", "RUIZMA", "BRITANG", "ENCISOROMERO", "PITTERIE", "WIERZBICKIIGOR"],
-    'contable': ["AMONTEVERDE", "AMORINC", "CARLOSDUARTE", "CAROJAS", "COLOTTAP", "CPENDON", "DAS", "DASTUGUEO", "DEGODOY", "DIAZBAR", "DKRENZ", "EDEFEO", "FABIANSANTILLAN", "FMHERRERA", "FSPANTI", "GARCIASEBA", "HRICCIARDI", "JOSEMARIAORTIZ", "JPOMAR", "JULILOPARDO", "LAMORGIAKA", "LBARRIENTOS", "LICETB", "M.ROSSO", "MARQUEZMAR", "MARTINEZCLA", "MLAURITO", "MMALACALZA", "NMONTEVERDE", "NMORENO", "POVIEDO", "PRESAF", "PVACEVEDO", "RIVERAMA", "ROBLEDOE", "RODRIGUEZLEA", "RODRIGUEZMAGD", "ROSARIODECRIS", "SCHULERG", "SENING", "SMERMOZ", "SORIAD", "SPOSAROAL", "TATOJ", "TIRENDIC", "TOMIPITES", "VICSOLMORE", "VILLACRI"],
+    'contable': ["AMONTEVERDE", "AMORINC", "CARLOSDUARTE", "CAROJAS", "COLOTTAP", "CPENDON", "DAS", "DASTUGUEO", "DEGODOY", "DIAZBAR", "DKRENZ", "EDEFEO", "FABIANSANTILLAN", "FMHERRERA", "FSPANTI", "GARCIASEBA", "HRICCIARDI", "JOSEMARIAORTIZ", "JPOMAR", "JULILOPARDO", "LAMORGIAKA", "LBARRIENTOS", "LICETB", "M.ROSSO", "MARQUEZMAR", "MARTINEZCLA", "MLAURITO", "MMALACALZA", "NMONTEVERDE", "NMORENO", "POVIEDO", "PRESAF", "PVACEVEDO", "RIVERAMA", "ROBLEDOE", "RODRIGUEZLEA", "RODRIGUEZMAGD", "ROSARIODECRIS", "SCHULERG", "SENING", "SMERMOZ", "SORIAD", "SPOSAROAL", "TATOJ", "TIRENDIC", "TOMIPITES", "VICSOLMORE", "VILLACRI", "DGROC-AUTOMAT"],
     'etapa_proyecto': ["A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", "DGROC-OBRASTECNICA", "DIMASOM", "DNKAINSKY", "FORGIONEA", "GAILLURJP", "GARRIONDO", "JOSEFINA.P", "M.SANCHEZ", "MARCE.TOSONI", "MARCETOSONI", "MARCETOSONI1", "MBRISA", "MCANOGARAY", "MCARLUCCIO", "MGALLARDOC", "MSTIBERTI", "NLOPEZQUIROGA", "ROCABERTJ", "SPUET", "TALAMOM", "VERA"],
     'morfologia': ["A.GUZMAN", "AGARTEAGA", "ALANDAZURI", "ALFONSOGA", "CAROLINAPRADO", "CGAMARRA", "CGENTILINI", "DANCOLOMBO", "ECAYSSIALS", "EVELYNTORRES", "FORFANO", "FOTTOGALLI", "FRANGARAY", "GBERNASCONI", "GCABADGIUR", "IANELUSTONDO", "IVALDES", "LNSPERTINO", "M.SABATINO", "MANUELALVELO", "MILAGROSTOURON", "MILENAAZULMORENO", "MLOBIANCOCRIADO", "MPLANS1", "MREIDMAN", "MVOSKIAN", "NASILANES", "NCASALE", "OVERRINA", "PTEIGA", "ROCAM", "SBONDOREVSKY", "SCABANELLAS", "SDAVIDOVSKY", "TOSELLIR", "VVINICIUS"],
     'aph': ["CHANTIRRO", "CHEZOM", "DAMATOG", "DESANTISA", "GALAMA", "GONZALEZNIETOR", "HERENUFE", "LSANTINMOLINA", "MARIANALVAREZ", "NASALVATIERRA", "PIOLON", "VASTAM"],
-    'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "VKAUFMAN"],
-    'aviso_obra': ["DGROC-AUTOMAT"]
+    'usos': ["ALEPABLOCASTRO", "ARVASR", "AUZONMJ", "BBORGIA", "BILLAUDL", "CLAUDIAVARELA", "DALUNNI", "DIMEGLIOA", "EDUARDODIAZ", "ELIANACABRERA", "FOVERDAGUER", "JBMENDY", "JLSCIA", "JLSCIARROTTA", "LASALAMI", "LTROLDAN", "MAYASTUY", "MERCADOEA", "MFALAPPA", "MIZONCA", "MOCANA", "MOURER", "MPSIMONI", "MYASTUY", "PGLEISS", "PORTAC", "ROCCOR", "SOFIAZANI", "VKAUFMAN"]
 };
 
 async function showView(viewId, updateHash = true) {
@@ -433,7 +427,6 @@ async function showView(viewId, updateHash = true) {
             'conforme': 'seguimiento_conforme',
             'contable': 'seguimiento_contable',
             'etapa_proyecto': 'seguimiento_etapa_proyecto',
-            'aviso_obra': 'seguimiento_aviso_obra',
             'regularizacion': 'seguimiento_conforme'
         };
 
@@ -543,7 +536,7 @@ async function showView(viewId, updateHash = true) {
 
     if (updateHash) {
         const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'];
-        const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
+        const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto'];
         if (dgiurGerencias.includes(viewId)) {
             window.location.hash = `#/dgiur/${viewId}`;
         } else if (dgrocGerencias.includes(viewId)) {
@@ -728,7 +721,7 @@ async function showView(viewId, updateHash = true) {
     if (viewId === 'publico_privado' || viewId === 'copua' || viewId === 'privada') {
         setTimeout(() => loadGenericGerenciaProdView(viewId), 50);
     } else {
-        const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+        const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'morfologia', 'aph', 'usos'];
         if (gerencias.includes(viewId)) {
             setTimeout(() => loadConsolidatedReport(viewId), 50);
         }
@@ -1029,7 +1022,7 @@ async function handleRouting() {
 
     const parts = hash.split('/');
     const dgiurGerencias = ['morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'auditoria'];
-    const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'];
+    const dgrocGerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto'];
 
     if (parts.length === 3) {
         const first = parts[0];
@@ -3944,7 +3937,6 @@ const PERMISSION_KEYS = {
     seguimiento_conforme: "Seguimiento: Conforme",
     seguimiento_contable: "Seguimiento: Contable",
     seguimiento_etapa_proyecto: "Seguimiento: Etapa Proyecto",
-    seguimiento_aviso_obra: "Seguimiento: Aviso de Obra",
 
     // Seguimiento DGIUR
     dgiur: "Seguimiento DGIUR (Todas las gerencias)",
@@ -3966,7 +3958,6 @@ const PERMISSION_KEYS = {
     buzon_conforme: "Buzón: Conforme",
     buzon_contable: "Buzón: Contable",
     buzon_etapa_proyecto: "Buzón: Etapa Proyecto",
-    buzon_aviso_obra: "Buzón: Aviso de Obra",
 
     // Buzones DGIUR
     buzon_dgiur: "Buzones DGIUR (Todas las gerencias)",
@@ -3985,7 +3976,6 @@ const PERMISSION_KEYS = {
     productividad_conforme: "Productividad: Conforme (DGROC)",
     productividad_contable: "Productividad: Contable (DGROC)",
     productividad_etapa_proyecto: "Productividad: Etapa Proyecto (DGROC)",
-    productividad_aviso_obra: "Productividad: Aviso de Obra (DGROC)",
     productividad_morfologia: "Productividad: Morfología (DGIUR)",
     productividad_aph: "Productividad: APH (DGIUR)",
     productividad_usos: "Productividad: Usos (DGIUR)",
@@ -4010,7 +4000,6 @@ const PERMISSION_KEYS = {
     rrhh_conforme: "RRHH: Conforme (DGROC)",
     rrhh_contable: "RRHH: Contable (DGROC)",
     rrhh_etapa_proyecto: "RRHH: Etapa Proyecto (DGROC)",
-    rrhh_aviso_obra: "RRHH: Aviso de Obra (DGROC)",
     rrhh_morfologia: "RRHH: Morfología (DGIUR)",
     rrhh_aph: "RRHH: APH (DGIUR)",
     rrhh_usos: "RRHH: Usos (DGIUR)",
@@ -4065,8 +4054,7 @@ const PERMISSION_GROUPS = {
         seguimiento_instalaciones: { label: "Instalaciones", desc: "Monitoreo y registro de planos de Instalaciones." },
         seguimiento_conforme: { label: "Conforme", desc: "Monitoreo de planos conforme de obra civil." },
         seguimiento_contable: { label: "Contable", desc: "Monitoreo de registro de profesionales y permisos." },
-        seguimiento_etapa_proyecto: { label: "Etapa Proyecto", desc: "Monitoreo de la gerencia Etapa Proyecto." },
-        seguimiento_aviso_obra: { label: "Aviso de Obra", desc: "Monitoreo de avisos de obra e inicios." }
+        seguimiento_etapa_proyecto: { label: "Etapa Proyecto", desc: "Monitoreo de la gerencia Etapa Proyecto." }
     },
     "Seguimiento DGIUR": {
         dgiur: { label: "DGIUR (Completa)", desc: "Acceso total a todas las gerencias de DGIUR." },
@@ -4087,8 +4075,7 @@ const PERMISSION_GROUPS = {
         buzon_instalaciones: { label: "Buzón Instalaciones", desc: "Bandeja de stock y analistas de Instalaciones." },
         buzon_conforme: { label: "Buzón Conforme", desc: "Bandeja de stock y analistas de Conforme." },
         buzon_contable: { label: "Buzón Contable", desc: "Bandeja de stock y analistas de Contable." },
-        buzon_etapa_proyecto: { label: "Buzón Etapa Proyecto", desc: "Bandeja de stock y analistas de Etapa Proyecto." },
-        buzon_aviso_obra: { label: "Buzón Aviso de Obra", desc: "Bandeja de stock y analistas de Aviso de Obra." }
+        buzon_etapa_proyecto: { label: "Buzón Etapa Proyecto", desc: "Bandeja de stock y analistas de Etapa Proyecto." }
     },
     "Buzones DGIUR": {
         buzon_dgiur: { label: "Buzones DGIUR (Todos)", desc: "Acceso a todas las bandejas de buzones de DGIUR." },
@@ -4106,7 +4093,6 @@ const PERMISSION_GROUPS = {
         productividad_conforme: { label: "Prod: Conforme (DGROC)", desc: "Productividad y rankings de analistas de Conforme." },
         productividad_contable: { label: "Prod: Contable (DGROC)", desc: "Productividad y rankings de analistas de Contable." },
         productividad_etapa_proyecto: { label: "Prod: Etapa Proyecto (DGROC)", desc: "Productividad y rankings de analistas de Etapa Proyecto." },
-        productividad_aviso_obra: { label: "Prod: Aviso de Obra (DGROC)", desc: "Productividad y rankings de analistas de Aviso de Obra." },
         productividad_morfologia: { label: "Prod: Morfología (DGIUR)", desc: "Productividad y rankings de analistas de Morfología." },
         productividad_aph: { label: "Prod: APH (DGIUR)", desc: "Productividad y rankings de analistas de APH." },
         productividad_usos: { label: "Prod: Usos (DGIUR)", desc: "Productividad y rankings de analistas de Usos." },
@@ -4133,7 +4119,6 @@ const PERMISSION_GROUPS = {
         rrhh_conforme: { label: "RRHH: Conforme (DGROC)", desc: "Visualizar reportes de RRHH del área de Conforme." },
         rrhh_contable: { label: "RRHH: Contable (DGROC)", desc: "Visualizar reportes de RRHH del área Contable." },
         rrhh_etapa_proyecto: { label: "RRHH: Etapa Proyecto (DGROC)", desc: "Visualizar reportes de RRHH del área de Etapa Proyecto." },
-        rrhh_aviso_obra: { label: "RRHH: Aviso de Obra (DGROC)", desc: "Visualizar reportes de RRHH del área de Aviso de Obra." },
         rrhh_morfologia: { label: "RRHH: Morfología (DGIUR)", desc: "Visualizar reportes de RRHH del área de Morfología." },
         rrhh_aph: { label: "RRHH: APH (DGIUR)", desc: "Visualizar reportes de RRHH del área de APH." },
         rrhh_usos: { label: "RRHH: Usos (DGIUR)", desc: "Visualizar reportes de RRHH del área de Usos." },
@@ -6195,7 +6180,7 @@ async function loadSeguimientoData() {
             <p style="color: #64748b;">Consolidando avance físico y ritmos mensuales de todas las tratas...</p>
         </div>`;
 
-    const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+    const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'morfologia', 'aph', 'usos'];
 
     try {
         // Cargar en paralelo todos los consolidados más la meta de Público Privado
@@ -6419,7 +6404,7 @@ function filterAndRenderSeguimiento() {
             perfClass = 'perf-low';
         }
 
-        let gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'aviso_obra' ? 'AVISO OBRA' : (t.gerencia === 'publico_privado' ? 'PÚBLICO PRIVADO' : t.gerencia.toUpperCase()));
+        let gerenciaDisplay = t.gerencia === 'etapa_proyecto' ? 'ETAPA PROYECTO' : (t.gerencia === 'publico_privado' ? 'PÚBLICO PRIVADO' : t.gerencia.toUpperCase());
 
         html += `
             <article class="trata-track-card" onclick="showTrataFromSeguimiento('${t.gerencia}', '${t.trataCode}', '${t.trataName.replace(/'/g, "\\'")}', '${t.customUrl || ''}')" style="cursor: pointer;">
@@ -6686,7 +6671,6 @@ function filterAndRenderSLA() {
 
         let gerenciaDisplay = gCode.toUpperCase();
         if (gCode === 'etapa_proyecto') gerenciaDisplay = 'ETAPA PROYECTO';
-        if (gCode === 'aviso_obra') gerenciaDisplay = 'AVISO OBRA';
         if (gCode === 'regularizacion') gerenciaDisplay = 'REGULARIZACIÓN';
 
         // Badge semafórico de SLA (Último mes)
@@ -8636,7 +8620,6 @@ function handleRuleFieldChange(selectElement) {
                 <option value="conforme">Conforme (DGROC)</option>
                 <option value="contable">Contable (DGROC)</option>
                 <option value="etapa_proyecto">Etapa Proyecto (DGROC)</option>
-                <option value="aviso_obra">Aviso de Obra (DGROC)</option>
                 <option value="morfologia">Morfología Urbana (DGIUR)</option>
                 <option value="aph">Protección Histórica APH (DGIUR)</option>
                 <option value="usos">Usos del Suelo (DGIUR)</option>
@@ -9800,7 +9783,6 @@ function filterAndRenderSubsanaciones() {
         regularizacion: "Regularización y Conforme (DGROC)",
         contable: "Contable (DGROC)",
         etapa_proyecto: "Etapa Proyecto (DGROC)",
-        aviso_obra: "Aviso de Obra (DGROC)",
         morfologia: "Morfología Urbana (DGIUR)",
         aph: "Protección Histórica APH (DGIUR)",
         usos: "Usos del Suelo (DGIUR)"
@@ -11085,8 +11067,7 @@ const BUZONES_GERENCIAS = {
         { id: 'instalaciones', label: 'Instalaciones' },
         { id: 'conforme', label: 'Conforme' },
         { id: 'contable', label: 'Contable' },
-        { id: 'etapa_proyecto', label: 'Etapa Proyecto' },
-        { id: 'aviso_obra', label: 'Aviso de Obra' }
+        { id: 'etapa_proyecto', label: 'Etapa Proyecto' }
     ],
     dgiur: [
         { id: 'morfologia', label: 'Morfología' },
@@ -11107,7 +11088,7 @@ async function showBuzonesView(area, gerencia = null, updateHash = true) {
     if (['publico_privado', 'copua', 'privada', 'auditoria'].includes(targetArea)) {
         targetGerencia = targetArea;
         targetArea = 'dgiur';
-    } else if (['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'].includes(targetArea)) {
+    } else if (['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto'].includes(targetArea)) {
         targetGerencia = targetArea;
         targetArea = 'dgroc';
     } else if (['morfologia', 'aph', 'usos'].includes(targetArea)) {
@@ -15641,7 +15622,6 @@ let ADMIN_GERENCIAS_LABELS = {
     conforme: 'DGROC - Conforme a Obra',
     contable: 'DGROC - Contable',
     etapa_proyecto: 'DGROC - Etapa Proyecto',
-    aviso_obra: 'DGROC - Aviso de Obra',
     morfologia: 'DGIUR - Morfología',
     aph: 'DGIUR - APH',
     usos: 'DGIUR - Usos',
@@ -16599,7 +16579,6 @@ const sectorConfig = {
     conforme: { label: "Conforme a Obra", icon: "fa-solid fa-clipboard-check", color: "#d97706" },
     contable: { label: "Contable", icon: "fa-solid fa-file-invoice-dollar", color: "#0d9488" },
     etapa_proyecto: { label: "Etapa Proyecto", icon: "fa-solid fa-folder-open", color: "#7c3aed" },
-    aviso_obra: { label: "Aviso de Obra", icon: "fa-solid fa-person-digging", color: "#ea580c" },
     morfologia: { label: "Morfología", icon: "fa-solid fa-shapes", color: "#db2777" },
     aph: { label: "APH", icon: "fa-solid fa-landmark", color: "#9333ea" },
     usos: { label: "Usos", icon: "fa-solid fa-house-laptop", color: "#2563eb" }
@@ -24075,8 +24054,7 @@ function renderPlanificacionTratasTable(tratas) {
         'etapa_proyecto': 'Etapa Proyecto',
         'morfologia': 'Morfología Urbana',
         'aph': 'Áreas Prot. Histórica (APH)',
-        'usos': 'Consulta de Usos',
-        'aviso_obra': 'Avisos de Obra'
+        'usos': 'Consulta de Usos'
     };
 
     let sumStock = 0;

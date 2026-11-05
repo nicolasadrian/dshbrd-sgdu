@@ -14,7 +14,7 @@ T_EXCLUIDO = "EXCLUIDO"
 
 GERENCIAS = [
     'catastro', 'instalaciones', 'regularizacion', 'contable', 'etapa_proyecto', 
-    'aviso_obra', 'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'auditoria'
+    'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'auditoria'
 ]
 
 def classify_action(ref, tipo_origen, tipo_actividad):

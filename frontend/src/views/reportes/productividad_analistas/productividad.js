@@ -7,7 +7,6 @@ export const PROD_GERENCIAS_CONFIG = {
     conforme: { key: 'conforme', name: 'Conforme', dir: 'DGROC', icon: 'fa-solid fa-clipboard-check', color: '#16a34a', bg: '#f0fdf4' },
     contable: { key: 'contable', name: 'Contable', dir: 'DGROC', icon: 'fa-solid fa-calculator', color: '#0284c7', bg: '#f0f9ff' },
     etapa_proyecto: { key: 'etapa_proyecto', name: 'Etapa Proyecto', dir: 'DGROC', icon: 'fa-solid fa-building-columns', color: '#7c3aed', bg: '#f5f3ff' },
-    aviso_obra: { key: 'aviso_obra', name: 'Aviso de Obra', dir: 'DGROC', icon: 'fa-solid fa-hard-hat', color: '#db2777', bg: '#fdf2f8' },
 
     // DGIUR
     morfologia: { key: 'morfologia', name: 'Morfología Urbana', dir: 'DGIUR', icon: 'fa-solid fa-cubes', color: '#0891b2', bg: '#ecfeff' },
@@ -168,7 +167,7 @@ function renderProdHubCards(sectoresData, perms, hasGlobal, isAdmin) {
 
     if (dgrocContainer) {
         let html = '';
-        ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra'].forEach(k => {
+        ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto'].forEach(k => {
             html += renderCard(k);
         });
         dgrocContainer.innerHTML = html || '<p style="color:#64748b; grid-column:1/-1;">Sin gerencias asignadas en DGROC.</p>';

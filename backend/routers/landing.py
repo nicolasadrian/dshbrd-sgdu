@@ -178,7 +178,7 @@ async def get_landing_stats():
                 "subsanaciones": 0, "subsanaciones_intervenciones": 0
             }
 
-            dgroc_list = ["catastro", "instalaciones", "regularizacion", "contable", "etapa_proyecto", "aviso_obra"]
+            dgroc_list = ["catastro", "instalaciones", "regularizacion", "contable", "etapa_proyecto"]
             dgiur_list = ["morfologia", "aph", "usos"]
 
             for g, cfg in TRAMITES_CONFIG.items():

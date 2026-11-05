@@ -149,7 +149,7 @@ try:
         conn.execute(text("""
             UPDATE cfg_gestion_metas
             SET direccion = 'DGROC'
-            WHERE direccion IS NULL AND TRIM(LOWER(gerencia)) IN ('catastro', 'instalaciones', 'conforme', 'regularizacion', 'contable', 'etapa_proyecto', 'aviso_obra')
+            WHERE direccion IS NULL AND TRIM(LOWER(gerencia)) IN ('catastro', 'instalaciones', 'conforme', 'regularizacion', 'contable', 'etapa_proyecto')
         """))
         conn.execute(text("""
             UPDATE cfg_gestion_metas

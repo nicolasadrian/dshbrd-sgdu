@@ -13,7 +13,6 @@ const VIEW_ROUTES = {
     'conforme': () => import('./views/seguimiento/dgroc/conforme.html?raw'),
     'contable': () => import('./views/seguimiento/dgroc/contable.html?raw'),
     'etapa_proyecto': () => import('./views/seguimiento/dgroc/etapa_proyecto.html?raw'),
-    'aviso_obra': () => import('./views/seguimiento/dgroc/aviso_obra.html?raw'),
     'trata_detail': () => import('./views/seguimiento/dgroc/trata_detail.html?raw'),
 
     // Seguimiento DGIUR
@@ -47,7 +46,6 @@ const VIEW_ROUTES = {
     'productividad_analistas_conforme': () => import('./views/reportes/productividad_analistas/conforme.html?raw'),
     'productividad_analistas_contable': () => import('./views/reportes/productividad_analistas/contable.html?raw'),
     'productividad_analistas_etapa_proyecto': () => import('./views/reportes/productividad_analistas/etapa_proyecto.html?raw'),
-    'productividad_analistas_aviso_obra': () => import('./views/reportes/productividad_analistas/aviso_obra.html?raw'),
     'productividad_analistas_morfologia': () => import('./views/reportes/productividad_analistas/morfologia.html?raw'),
     'productividad_analistas_aph': () => import('./views/reportes/productividad_analistas/aph.html?raw'),
     'productividad_analistas_usos': () => import('./views/reportes/productividad_analistas/usos.html?raw'),
@@ -62,7 +60,6 @@ const VIEW_ROUTES = {
     'reportes_rrhh_conforme': () => import('./views/reportes/reporte_rrhh/conforme.html?raw'),
     'reportes_rrhh_contable': () => import('./views/reportes/reporte_rrhh/contable.html?raw'),
     'reportes_rrhh_etapa_proyecto': () => import('./views/reportes/reporte_rrhh/etapa_proyecto.html?raw'),
-    'reportes_rrhh_aviso_obra': () => import('./views/reportes/reporte_rrhh/aviso_obra.html?raw'),
     'reportes_rrhh_morfologia': () => import('./views/reportes/reporte_rrhh/morfologia.html?raw'),
     'reportes_rrhh_aph': () => import('./views/reportes/reporte_rrhh/aph.html?raw'),
     'reportes_rrhh_usos': () => import('./views/reportes/reporte_rrhh/usos.html?raw'),
@@ -91,6 +88,7 @@ const VIEW_ROUTES = {
     'c3d_extensiones_revision': () => import('./views/ciudad3d/extensiones_irregulares/c3d_extensiones_revision.html?raw'),
     'c3d_extensiones_equipo': () => import('./views/ciudad3d/extensiones_irregulares/c3d_extensiones_equipo.html?raw'),
     'c3d_extensiones_mapa': () => import('./views/ciudad3d/extensiones_irregulares/c3d_extensiones_mapa.html?raw'),
+    'ciudad3d_catastro_seguimiento': () => import('./views/ciudad3d/catastro/catastro_seguimiento.html?raw'),
     'ciudad3d_manzanas_atipicas': () => import('./views/ciudad3d/manzanas_atipicas/ciudad3d_manzanas_atipicas.html?raw'),
     'ciudad3d_pdi': () => import('./views/ciudad3d/pdi/ciudad3d_pdi.html?raw'),
     'ciudad3d_pdi_validacion': () => import('./views/ciudad3d/pdi/ciudad3d_pdi_validacion.html?raw'),
@@ -285,6 +283,12 @@ function triggerViewInit(viewId) {
                 setTimeout(() => window.initLFIMap(), 150);
             }
         });
+    } else if (viewId === 'ciudad3d_catastro_seguimiento') {
+        import('./views/ciudad3d/catastro/catastro_seguimiento.js').then(module => {
+            if (typeof module.loadCatastroData === 'function') {
+                module.loadCatastroData();
+            }
+        });
     } else if (viewId === 'ciudad3d_manzanas_atipicas' && typeof window.loadCiudad3DManzanasAtipicas === 'function') {
         window.loadCiudad3DManzanasAtipicas();
     } else if (viewId === 'ciudad3d_pdi' && typeof window.loadCiudad3DPDI === 'function') {
@@ -326,7 +330,7 @@ function triggerViewInit(viewId) {
             setTimeout(() => window.loadGenericGerenciaProdView(viewId), 50);
         }
     } else {
-        const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'morfologia', 'aph', 'usos'];
+        const gerencias = ['catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'morfologia', 'aph', 'usos'];
         if (gerencias.includes(viewId) && typeof window.loadConsolidatedReport === 'function') {
             setTimeout(() => window.loadConsolidatedReport(viewId), 50);
         }

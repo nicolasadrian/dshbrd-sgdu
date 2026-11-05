@@ -94,22 +94,22 @@ def get_resolved_permissions(conn, username: str, role_name: str) -> dict:
         all_perms = [
             "admin",
             # Seguimiento DGROC
-            "dgroc", "seguimiento_catastro", "seguimiento_instalaciones", "seguimiento_conforme", "seguimiento_contable", "seguimiento_etapa_proyecto", "seguimiento_aviso_obra",
+            "dgroc", "seguimiento_catastro", "seguimiento_instalaciones", "seguimiento_conforme", "seguimiento_contable", "seguimiento_etapa_proyecto",
             # Seguimiento DGIUR
             "dgiur", "seguimiento_morfologia", "seguimiento_aph", "seguimiento_usos", "publico_privado", "copua", "privada", "family",
             # Seguimiento DGEUI
             "dgeui",
             # Buzones DGROC
-            "buzon_dgroc", "buzon_catastro", "buzon_instalaciones", "buzon_conforme", "buzon_contable", "buzon_etapa_proyecto", "buzon_aviso_obra",
+            "buzon_dgroc", "buzon_catastro", "buzon_instalaciones", "buzon_conforme", "buzon_contable", "buzon_etapa_proyecto",
             # Buzones DGIUR
             "buzon_dgiur", "buzon_morfologia", "buzon_aph", "buzon_usos", "buzon_publico_privado", "buzon_copua", "buzon_privada",
             # Reportes
             "seguimiento", "seguimiento_mh", "seguimiento_mh_asignar", "cierre", "sla", "subsanaciones", "productividad_analistas", "universo_tratas", "planificacion_nov_2026",
-            "productividad_catastro", "productividad_instalaciones", "productividad_conforme", "productividad_contable", "productividad_etapa_proyecto", "productividad_aviso_obra",
+            "productividad_catastro", "productividad_instalaciones", "productividad_conforme", "productividad_contable", "productividad_etapa_proyecto",
             "productividad_morfologia", "productividad_aph", "productividad_usos", "productividad_publico_privado", "productividad_copua", "productividad_privada", "productividad_otros",
             # Reportes RRHH
             "reportes_rrhh", "carga_reportes_rrhh",
-            "rrhh_catastro", "rrhh_instalaciones", "rrhh_conforme", "rrhh_contable", "rrhh_etapa_proyecto", "rrhh_aviso_obra",
+            "rrhh_catastro", "rrhh_instalaciones", "rrhh_conforme", "rrhh_contable", "rrhh_etapa_proyecto",
             "rrhh_morfologia", "rrhh_aph", "rrhh_usos", "rrhh_publico_privado", "rrhh_copua", "rrhh_privada", "rrhh_otros",
             # Analytics
             "analytics_estadistica", "ley_blanqueo", "analytics_m2_permisados", "analytics_avisos_obra", "analytics_conformes_obra", "analytics_pdl_blanqueo", "analytics_datasets",

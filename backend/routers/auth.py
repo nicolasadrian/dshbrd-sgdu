@@ -405,7 +405,6 @@ def _ensure_buzones_adicionales_table(conn):
             ('conforme', 'Conforme a Obra', 'DGROC', True),
             ('contable', 'Contable', 'DGROC', True),
             ('etapa_proyecto', 'Etapa Proyecto', 'DGROC', True),
-            ('aviso_obra', 'Aviso de Obra', 'DGROC', True),
             ('morfologia', 'Morfología', 'DGIUR', True),
             ('aph', 'APH', 'DGIUR', True),
             ('usos', 'Usos', 'DGIUR', True),
@@ -955,7 +954,7 @@ async def add_admin_analista(gerencia: str, req: AddAnalystRequest, current_user
     if not usuario_to_add:
         raise HTTPException(status_code=400, detail="Debe ingresar un usuario válido.")
         
-    DGROC_GERENCIAS = {'catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra', 'regularizacion'}
+    DGROC_GERENCIAS = {'catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'regularizacion'}
     DGIUR_GERENCIAS = {'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada'}
     dir_name = 'DGROC' if g_clean in DGROC_GERENCIAS else ('DGIUR' if g_clean in DGIUR_GERENCIAS else 'SECGDU')
 

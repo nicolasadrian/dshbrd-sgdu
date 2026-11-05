@@ -35,8 +35,8 @@ GERENCIA_ALIASES = {
     'usos_del_suelo': 'usos',
     'proyectos_publico_privado': 'publico_privado',
     'comision_copua': 'copua',
-    'avisos_obra': 'aviso_obra',
-    'avisos_de_obra': 'aviso_obra',
+    'avisos_obra': 'contable',
+    'avisos_de_obra': 'contable',
 }
 
 def normalize_gerencia_key(g: str) -> str:

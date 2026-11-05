@@ -2861,7 +2861,7 @@ async def get_sectores_analistas(current_user: User = Depends(get_current_user))
     
     # Check if user has at least one productivity or gerencia permission
     has_any_access = has_global or any(perms.get(f"productividad_{k}") for k in [
-        'catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto', 'aviso_obra',
+        'catastro', 'instalaciones', 'conforme', 'contable', 'etapa_proyecto',
         'morfologia', 'aph', 'usos', 'publico_privado', 'copua', 'privada', 'otros'
     ])
     if not has_any_access:
@@ -4241,4 +4241,356 @@ def extraer_lfi_troneras_endpoint(current_user: User = Depends(get_current_user)
         return result
     except Exception as e:
         logger.error(f"Error en extracción LFI/Troneras: {e}")
-        raise HTTPException(status_code=500, detail=f"Error durante el proceso de extracción: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error durante el proceso de extracción: {str(e)}")
+
+
+# -------------------------------------------------------------------------
+# Catastro - Ciudad 3D: Seguimiento, Dashboard y Carga
+# -------------------------------------------------------------------------
+
+class CatastroItemCreate(BaseModel):
+    fecha: Optional[str] = None
+    mensura: Optional[str] = None
+    expediente: Optional[str] = None
+    tipo: Optional[str] = None
+    smp_origen: Optional[str] = None
+    smp_surgente: Optional[str] = None
+    if_registro: Optional[str] = None
+    registro: Optional[str] = None
+    proceso_cartografia: Optional[str] = None
+    constitucion: Optional[str] = None
+    ficha_parcelaria: Optional[str] = None
+    shape_parcelas: Optional[str] = None
+    tad: Optional[str] = None
+    ciudad_3d: Optional[str] = None
+
+class CatastroItemUpdate(BaseModel):
+    fecha: Optional[str] = None
+    mensura: Optional[str] = None
+    expediente: Optional[str] = None
+    tipo: Optional[str] = None
+    smp_origen: Optional[str] = None
+    smp_surgente: Optional[str] = None
+    if_registro: Optional[str] = None
+    registro: Optional[str] = None
+    proceso_cartografia: Optional[str] = None
+    constitucion: Optional[str] = None
+    ficha_parcelaria: Optional[str] = None
+    shape_parcelas: Optional[str] = None
+    tad: Optional[str] = None
+    ciudad_3d: Optional[str] = None
+
+
+@router.get("/api/ciudad3d/catastro/dashboard")
+def get_catastro_dashboard(current_user: Optional[User] = Depends(get_current_user_from_param_or_header)):
+    """Retorna KPIs y agregados para el dashboard de Seguimiento Catastro - Ciudad 3D."""
+    if not geo_engine:
+        raise HTTPException(status_code=500, detail="Motor geo_engine no configurado")
+    try:
+        with geo_engine.connect() as conn:
+            # 1. Total y distribución por estado Ciudad 3D
+            estados_res = conn.execute(text("""
+                SELECT COALESCE(NULLIF(TRIM(ciudad_3d), ''), 'Sin Estado') as estado, COUNT(*) as cantidad
+                FROM public.cd3d_catastro_seguimiento
+                GROUP BY 1
+                ORDER BY 2 DESC
+            """)).fetchall()
+            por_estado = {r[0]: r[1] for r in estados_res}
+
+            # 2. Distribución por Tipo de Trámite
+            tipos_res = conn.execute(text("""
+                SELECT COALESCE(NULLIF(TRIM(tipo), ''), 'Sin Tipo') as tipo, COUNT(*) as cantidad
+                FROM public.cd3d_catastro_seguimiento
+                GROUP BY 1
+                ORDER BY 2 DESC
+            """)).fetchall()
+            por_tipo = {r[0]: r[1] for r in tipos_res}
+
+            # 3. Evolución mensual según Fecha
+            evolucion_res = conn.execute(text("""
+                SELECT TO_CHAR(fecha, 'YYYY-MM') as mes, COUNT(*) as cantidad
+                FROM public.cd3d_catastro_seguimiento
+                WHERE fecha IS NOT NULL AND fecha >= '2020-01-01'
+                GROUP BY 1
+                ORDER BY 1 ASC
+            """)).fetchall()
+            evolucion = [{"mes": r[0], "cantidad": r[1]} for r in evolucion_res]
+
+            # 4. Total general
+            total_general = conn.execute(text("SELECT COUNT(*) FROM public.cd3d_catastro_seguimiento")).scalar() or 0
+
+            return {
+                "total": total_general,
+                "por_estado": por_estado,
+                "por_tipo": por_tipo,
+                "evolucion": evolucion
+            }
+    except Exception as e:
+        logger.error(f"Error obteniendo dashboard catastro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/ciudad3d/catastro/listado")
+def list_catastro_seguimiento(
+    search: Optional[str] = Query(None),
+    tipo: Optional[str] = Query(None),
+    ciudad_3d: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=10, le=500),
+    current_user: Optional[User] = Depends(get_current_user_from_param_or_header)
+):
+    """Retorna listado paginado y filtrado de trámites catastrales."""
+    if not geo_engine:
+        raise HTTPException(status_code=500, detail="Motor geo_engine no configurado")
+    try:
+        offset = (page - 1) * page_size
+        where_clauses = ["1=1"]
+        params: Dict[str, Any] = {"limit": page_size, "offset": offset}
+
+        if search:
+            search_clean = f"%{search.strip().lower()}%"
+            where_clauses.append("""(
+                LOWER(COALESCE(mensura, '')) LIKE :search OR
+                LOWER(COALESCE(expediente, '')) LIKE :search OR
+                LOWER(COALESCE(smp_origen, '')) LIKE :search OR
+                LOWER(COALESCE(smp_surgente, '')) LIKE :search OR
+                LOWER(COALESCE(if_registro, '')) LIKE :search
+            )""")
+            params["search"] = search_clean
+
+        if tipo and tipo.strip() and tipo != "TODOS":
+            where_clauses.append("LOWER(TRIM(tipo)) = :tipo")
+            params["tipo"] = tipo.strip().lower()
+
+        if ciudad_3d and ciudad_3d.strip() and ciudad_3d != "TODOS":
+            where_clauses.append("LOWER(TRIM(ciudad_3d)) = :ciudad_3d")
+            params["ciudad_3d"] = ciudad_3d.strip().lower()
+
+        where_sql = " AND ".join(where_clauses)
+
+        with geo_engine.connect() as conn:
+            count_sql = f"SELECT COUNT(*) FROM public.cd3d_catastro_seguimiento WHERE {where_sql}"
+            total_count = conn.execute(text(count_sql), params).scalar() or 0
+
+            data_sql = f"""
+                SELECT 
+                    id,
+                    TO_CHAR(marca_temporal, 'YYYY-MM-DD HH24:MI:SS') as marca_temporal,
+                    TO_CHAR(fecha, 'YYYY-MM-DD') as fecha,
+                    mensura,
+                    expediente,
+                    tipo,
+                    smp_origen,
+                    smp_surgente,
+                    if_registro,
+                    TO_CHAR(registro, 'YYYY-MM-DD') as registro,
+                    proceso_cartografia,
+                    TO_CHAR(constitucion, 'YYYY-MM-DD') as constitucion,
+                    TO_CHAR(ficha_parcelaria, 'YYYY-MM-DD') as ficha_parcelaria,
+                    shape_parcelas,
+                    tad,
+                    ciudad_3d,
+                    COALESCE(check_c3d, 'PENDIENTE') as check_c3d,
+                    TO_CHAR(check_c3d_fecha, 'YYYY-MM-DD HH24:MI:SS') as check_c3d_fecha,
+                    check_c3d_detalle,
+                    TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
+                FROM public.cd3d_catastro_seguimiento
+                WHERE {where_sql}
+                ORDER BY id DESC
+                LIMIT :limit OFFSET :offset
+            """
+            rows = conn.execute(text(data_sql), params).mappings().fetchall()
+            items = [dict(r) for r in rows]
+
+            return {
+                "total": total_count,
+                "page": page,
+                "page_size": page_size,
+                "pages": (total_count + page_size - 1) // page_size,
+                "items": items
+            }
+    except Exception as e:
+        logger.error(f"Error listando seguimiento catastro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/ciudad3d/catastro/crear")
+def create_catastro_item(item: CatastroItemCreate, current_user: Optional[User] = Depends(get_current_user_from_param_or_header)):
+    """Crea una nueva fila en el listado de seguimiento."""
+    if not geo_engine:
+        raise HTTPException(status_code=500, detail="Motor geo_engine no configurado")
+
+    def parse_dt(d_str):
+        if not d_str or not d_str.strip():
+            return None
+        d_str = d_str.strip()
+        for f in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                return datetime.strptime(d_str, f).date()
+            except ValueError:
+                pass
+        return None
+
+    try:
+        with geo_engine.begin() as conn:
+            stmt = text("""
+                INSERT INTO public.cd3d_catastro_seguimiento (
+                    marca_temporal, fecha, mensura, expediente, tipo,
+                    smp_origen, smp_surgente, if_registro, registro,
+                    proceso_cartografia, constitucion, ficha_parcelaria,
+                    shape_parcelas, tad, ciudad_3d
+                ) VALUES (
+                    NOW(), :fecha, :mensura, :expediente, :tipo,
+                    :smp_origen, :smp_surgente, :if_registro, :registro,
+                    :proceso_cartografia, :constitucion, :ficha_parcelaria,
+                    :shape_parcelas, :tad, :ciudad_3d
+                ) RETURNING id
+            """)
+            new_id = conn.execute(stmt, {
+                "fecha": parse_dt(item.fecha),
+                "mensura": item.mensura.strip() if item.mensura else None,
+                "expediente": item.expediente.strip() if item.expediente else None,
+                "tipo": item.tipo.strip() if item.tipo else None,
+                "smp_origen": item.smp_origen.strip() if item.smp_origen else None,
+                "smp_surgente": item.smp_surgente.strip() if item.smp_surgente else None,
+                "if_registro": item.if_registro.strip() if item.if_registro else None,
+                "registro": parse_dt(item.registro),
+                "proceso_cartografia": item.proceso_cartografia.strip() if item.proceso_cartografia else None,
+                "constitucion": parse_dt(item.constitucion),
+                "ficha_parcelaria": parse_dt(item.ficha_parcelaria),
+                "shape_parcelas": item.shape_parcelas.strip() if item.shape_parcelas else None,
+                "tad": item.tad.strip() if item.tad else None,
+                "ciudad_3d": item.ciudad_3d.strip() if item.ciudad_3d else None
+            }).scalar()
+
+            return {"success": True, "id": new_id, "message": "Trámite registrado correctamente."}
+    except Exception as e:
+        logger.error(f"Error creando registro de catastro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/api/ciudad3d/catastro/{item_id}")
+def update_catastro_item(item_id: int, item: CatastroItemUpdate, current_user: Optional[User] = Depends(get_current_user_from_param_or_header)):
+    """Actualiza un trámite existente en catastro."""
+    if not geo_engine:
+        raise HTTPException(status_code=500, detail="Motor geo_engine no configurado")
+
+    def parse_dt(d_str):
+        if not d_str or not d_str.strip():
+            return None
+        d_str = d_str.strip()
+        for f in ('%Y-%m-%d', '%d/%m/%Y'):
+            try:
+                return datetime.strptime(d_str, f).date()
+            except ValueError:
+                pass
+        return None
+
+    try:
+        with geo_engine.begin() as conn:
+            stmt = text("""
+                UPDATE public.cd3d_catastro_seguimiento
+                SET 
+                    fecha = :fecha,
+                    mensura = :mensura,
+                    expediente = :expediente,
+                    tipo = :tipo,
+                    smp_origen = :smp_origen,
+                    smp_surgente = :smp_surgente,
+                    if_registro = :if_registro,
+                    registro = :registro,
+                    proceso_cartografia = :proceso_cartografia,
+                    constitucion = :constitucion,
+                    ficha_parcelaria = :ficha_parcelaria,
+                    shape_parcelas = :shape_parcelas,
+                    tad = :tad,
+                    ciudad_3d = :ciudad_3d,
+                    updated_at = NOW()
+                WHERE id = :item_id
+            """)
+            conn.execute(stmt, {
+                "item_id": item_id,
+                "fecha": parse_dt(item.fecha),
+                "mensura": item.mensura.strip() if item.mensura else None,
+                "expediente": item.expediente.strip() if item.expediente else None,
+                "tipo": item.tipo.strip() if item.tipo else None,
+                "smp_origen": item.smp_origen.strip() if item.smp_origen else None,
+                "smp_surgente": item.smp_surgente.strip() if item.smp_surgente else None,
+                "if_registro": item.if_registro.strip() if item.if_registro else None,
+                "registro": parse_dt(item.registro),
+                "proceso_cartografia": item.proceso_cartografia.strip() if item.proceso_cartografia else None,
+                "constitucion": parse_dt(item.constitucion),
+                "ficha_parcelaria": parse_dt(item.ficha_parcelaria),
+                "shape_parcelas": item.shape_parcelas.strip() if item.shape_parcelas else None,
+                "tad": item.tad.strip() if item.tad else None,
+                "ciudad_3d": item.ciudad_3d.strip() if item.ciudad_3d else None
+            })
+
+            return {"success": True, "message": "Trámite actualizado correctamente."}
+    except Exception as e:
+        logger.error(f"Error actualizando registro catastro {item_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/ciudad3d/catastro/verificar/{item_id}")
+def recheck_catastro_item(item_id: int, current_user: Optional[User] = Depends(get_current_user_from_param_or_header)):
+    """Rechequea el estado en Ciudad 3D para el SMP Surgente de un registro en particular."""
+    if not geo_engine:
+        raise HTTPException(status_code=500, detail="Motor geo_engine no configurado")
+
+    try:
+        try:
+            from verify_catastro_cd3d import verify_record_smps
+        except ImportError:
+            from backend.verify_catastro_cd3d import verify_record_smps
+
+        import json
+
+        with geo_engine.begin() as conn:
+            row = conn.execute(
+                text("SELECT smp_surgente FROM public.cd3d_catastro_seguimiento WHERE id = :id"),
+                {"id": item_id}
+            ).fetchone()
+
+            if not row:
+                raise HTTPException(status_code=404, detail="Trámite no encontrado")
+
+            smp_surgente = row[0]
+            verif = verify_record_smps(smp_surgente)
+
+            conn.execute(text("""
+                UPDATE public.cd3d_catastro_seguimiento
+                SET 
+                    check_c3d = :check_c3d,
+                    check_c3d_fecha = NOW(),
+                    check_c3d_detalle = CAST(:check_c3d_detalle AS jsonb),
+                    ciudad_3d = CASE WHEN :check_c3d = 'OK' THEN 'Publicado' ELSE ciudad_3d END,
+                    updated_at = NOW()
+                WHERE id = :id
+            """), {
+                "id": item_id,
+                "check_c3d": verif["status"],
+                "check_c3d_detalle": json.dumps(verif["detalles"])
+            })
+
+            # Obtener estado actualizado
+            current_estado = conn.execute(
+                text("SELECT ciudad_3d FROM public.cd3d_catastro_seguimiento WHERE id = :id"),
+                {"id": item_id}
+            ).scalar()
+
+            return {
+                "success": True,
+                "id": item_id,
+                "check_c3d": verif["status"],
+                "ciudad_3d": current_estado,
+                "check_c3d_detalle": verif["detalles"],
+                "message": f"Verificación completada: {verif['status']}"
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verificando registro catastro {item_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+

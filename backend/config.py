@@ -51,6 +51,7 @@ TRAMITES_CONFIG = {
         "MDUG1501J": {"nombre": "Permiso de Ejecución de Obra Civil.", "acronimos": "'IFPDO'"},
         "MDUG3001A": {"nombre": "Registro de Plano de Obra Civil: Registro en Etapa Proyecto (CONTINUAN A PERMISOS)", "acronimos": "'IFPDO'"},
         "MDUG3402A": {"nombre": "Permiso Temprano de Ejecución de Obra Civil.", "acronimos": "'IFPEO', 'IFPDO'"},
+        "MDUG0102B": {"nombre": "Aviso de obra.", "acronimos": "'IFCAO', 'IFCFP', 'IFCAC'"},
         "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
     },
     "etapa_proyecto": {
@@ -86,10 +87,6 @@ TRAMITES_CONFIG = {
         "MDUG4002A": {"nombre": "Consulta de usos B", "acronimos": "'DI', 'ANEXO', 'IF'"},
         "MJGG0302A": {"nombre": "Consulta de Usos No conforme", "acronimos": "'DI', 'ANEXO', 'IF'"},
         "MJGG0303A": {"nombre": "Consulta de Usos con Intervención del consejo", "acronimos": "'DI', 'ANEXO', 'IF'"},
-        "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
-    },
-    "aviso_obra": {
-        "MDUG0102B": {"nombre": "Aviso de obra.", "acronimos": "'IFCAO', 'IFCFP', 'IFCAC'"},
         "INTERVENCIONES": {"nombre": "Intervenciones", "acronimos": ""}
     }
 }
@@ -133,7 +130,7 @@ WHITELISTS = {
         "S.SANCHEZPAZ", "SCAVALLARO"
     ],
     "contable": [
-        'AMONTEVERDE', 'AMORINC', 'CARLOSDUARTE', 'CAROJAS', 'COLOTTAP', 'CPENDON', 'DAS', 'DASTUGUEO', 'DEGODOY', 'DIAZBAR', 'DKRENZ', 'EDEFEO', 'FABIANSANTILLAN', 'FMHERRERA', 'FSPANTI', 'GARCIASEBA', 'HRICCIARDI', 'JOSEMARIAORTIZ', 'JPOMAR', 'JULILOPARDO', 'LAMORGIAKA', 'LBARRIENTOS', 'LICETB', 'M.ROSSO', 'MARQUEZMAR', 'MARTINEZCLA', 'MLAURITO', 'MMALACALZA', 'NMONTEVERDE', 'NMORENO', 'POVIEDO', 'PRESAF', 'PVACEVEDO', 'RIVERAMA', 'ROBLEDOE', 'RODRIGUEZLEA', 'RODRIGUEZMAGD', 'ROSARIODECRIS', 'SCHULERG', 'SENING', 'SMERMOZ', 'SORIAD', 'SPOSAROAL', 'TATOJ', 'TIRENDIC', 'TOMIPITES', 'VICSOLMORE', 'VILLACRI'
+        'AMONTEVERDE', 'AMORINC', 'CARLOSDUARTE', 'CAROJAS', 'COLOTTAP', 'CPENDON', 'DAS', 'DASTUGUEO', 'DEGODOY', 'DIAZBAR', 'DKRENZ', 'EDEFEO', 'FABIANSANTILLAN', 'FMHERRERA', 'FSPANTI', 'GARCIASEBA', 'HRICCIARDI', 'JOSEMARIAORTIZ', 'JPOMAR', 'JULILOPARDO', 'LAMORGIAKA', 'LBARRIENTOS', 'LICETB', 'M.ROSSO', 'MARQUEZMAR', 'MARTINEZCLA', 'MLAURITO', 'MMALACALZA', 'NMONTEVERDE', 'NMORENO', 'POVIEDO', 'PRESAF', 'PVACEVEDO', 'RIVERAMA', 'ROBLEDOE', 'RODRIGUEZLEA', 'RODRIGUEZMAGD', 'ROSARIODECRIS', 'SCHULERG', 'SENING', 'SMERMOZ', 'SORIAD', 'SPOSAROAL', 'TATOJ', 'TIRENDIC', 'TOMIPITES', 'VICSOLMORE', 'VILLACRI', 'DGROC-AUTOMAT'
     ],
     "etapa_proyecto": [
         "A.PEREZ", "AGUSDEMARCO", "ANTOVERA", "BELOCURESJ", "COIROL", "DBECERRACURITIMA", 
@@ -150,9 +147,6 @@ WHITELISTS = {
     ],
     "usos": [
         'ALEPABLOCASTRO', 'ARVASR', 'AUZONMJ', 'BBORGIA', 'BILLAUDL', 'CLAUDIAVARELA', 'DALUNNI', 'DIMEGLIOA', 'EDUARDODIAZ', 'ELIANACABRERA', 'FOVERDAGUER', 'JBMENDY', 'JLSCIA', 'JLSCIARROTTA', 'LASALAMI', 'LTROLDAN', 'MAYASTUY', 'MERCADOEA', 'MFALAPPA', 'MIZONCA', 'MOCANA', 'MOURER', 'MPSIMONI', 'MYASTUY', 'PGLEISS', 'PORTAC', 'ROCCOR', 'SOFIAZANI', 'SVC_DGIURUSOS', 'VKAUFMAN'
-    ],
-    "aviso_obra": [
-        'DGROC-AUTOMAT'
     ]
 }
 
@@ -165,6 +159,5 @@ BUZZERS_MAP = {
     "etapa_proyecto": ['DGROC-OBRASTECNICA'],
     "morfologia": ['DGIUR-03', 'DGIUR-ADMISIBILIDADMORFO', 'DGIUR-CONSULTASESPECIFICAS', 'DGIUR-CURVERIFICACION', 'DGIUR-DGIUR-PERMISO TEMPRANO', 'DGIUR-VA II'],
     "aph": ['DGIUR-21', 'DGIUR-ADMISIBILIDADAPH', 'DGIUR-ADMISIMIDIDADAPH'],
-    "usos": ['DGIUR-12', 'DGIUR-ADMISIBILIDADUSOS', 'DGIUR-EGOUS'],
-    "aviso_obra": ['DGROC-AUTOMAT']
+    "usos": ['DGIUR-12', 'DGIUR-ADMISIBILIDADUSOS', 'DGIUR-EGOUS']
 }
