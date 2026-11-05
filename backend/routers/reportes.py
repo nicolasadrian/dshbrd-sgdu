@@ -5743,50 +5743,41 @@ async def get_planificacion_nov_2026(
                 try:
                     sb_rows = conn.execute(text(f"""
                         SELECT UPPER(TRIM(trata)) as trata,
-                               count(*) as total,
-                               count(*) FILTER (WHERE dias_subsanacion_abierta > 45) as mas_45,
-                               count(*) FILTER (WHERE dias_subsanacion_abierta <= 45) as hasta_45
+                               COALESCE(dias_en_gerencia, 0) as dias_ger,
+                               COALESCE(dias_subsanacion_abierta, 0) as dias_sub
                         FROM mv_{g}_subsanaciones 
-                        GROUP BY UPPER(TRIM(trata))
                     """)).fetchall()
-                    sb_map = {r[0]: {'total': r[1], 'mas_45': r[2] or 0, 'hasta_45': r[3] or 0} for r in sb_rows}
                 except Exception:
-                    sb_map = {}
+                    sb_rows = []
                 try:
                     int_rows = conn.execute(text(f"SELECT CURRENT_DATE - fecha_primer_ingreso_gerencia::date as dias FROM mv_{g}_intervenciones_stock")).fetchall()
                 except Exception:
                     int_rows = []
                 try:
-                    int_subs_row = conn.execute(text(f"""
-                        SELECT count(*) as total,
-                               count(*) FILTER (WHERE dias_subsanacion_abierta > 45) as mas_45,
-                               count(*) FILTER (WHERE dias_subsanacion_abierta <= 45) as hasta_45
+                    int_subs_rows = conn.execute(text(f"""
+                        SELECT CURRENT_DATE - fecha_primer_ingreso_gerencia::date as dias_ger,
+                               COALESCE(dias_subsanacion_abierta, 0) as dias_sub
                         FROM mv_{g}_intervenciones_subs
-                    """)).first()
-                    int_subs = int_subs_row[0] if int_subs_row else 0
-                    int_subs_mas_45 = (int_subs_row[1] or 0) if int_subs_row else 0
-                    int_subs_hasta_45 = (int_subs_row[2] or 0) if int_subs_row else 0
+                    """)).fetchall()
                 except Exception:
-                    int_subs = 0
-                    int_subs_mas_45 = 0
-                    int_subs_hasta_45 = 0
+                    int_subs_rows = []
 
                 gerencia_data[g] = {
                     'sp_rows': sp_rows,
-                    'sb_map': sb_map,
+                    'sb_rows': sb_rows,
                     'int_rows': int_rows,
-                    'int_subs': int_subs,
-                    'int_subs_mas_45': int_subs_mas_45,
-                    'int_subs_hasta_45': int_subs_hasta_45
+                    'int_subs_rows': int_subs_rows
                 }
 
             # 5. Consolidación por Trata
             tratas_result = []
             tot_stock = 0
+            tot_stock_subs = 0
             tot_flujo = 0
+            tot_flujo_subs = 0
             tot_subs = 0
-            tot_subs_mas_45 = 0
-            tot_subs_hasta_45 = 0
+            tot_subs_mas_65 = 0
+            tot_subs_hasta_65 = 0
             tot_tratas = len(tratas_cfg)
 
             gerencias_summary = {}
@@ -5803,28 +5794,36 @@ async def get_planificacion_nov_2026(
                 if t_res is None:
                     t_res = est_map.get((g, trata_code), 30)
 
-                g_info = gerencia_data.get(g, {'sp_rows': [], 'sb_map': {}, 'int_rows': [], 'int_subs': 0, 'int_subs_mas_45': 0, 'int_subs_hasta_45': 0})
+                g_info = gerencia_data.get(g, {'sp_rows': [], 'sb_rows': [], 'int_rows': [], 'int_subs_rows': []})
 
                 if trata_code == 'INTERVENCIONES':
                     stk = sum(1 for r in g_info['int_rows'] if (r[0] or 0) > t_res)
                     flj = sum(1 for r in g_info['int_rows'] if (r[0] or 0) <= t_res)
-                    sub = g_info['int_subs']
-                    sub_mas_45 = g_info['int_subs_mas_45']
-                    sub_hasta_45 = g_info['int_subs_hasta_45']
+                    int_subs = g_info['int_subs_rows']
+                    sub = len(int_subs)
+                    sub_mas_65 = sum(1 for r in int_subs if (r[1] or 0) > 65)
+                    sub_hasta_65 = sum(1 for r in int_subs if (r[1] or 0) <= 65)
+                    stk_subs = sum(1 for r in int_subs if max(0, (r[0] or 0) - (r[1] or 0)) > t_res)
+                    flj_subs = sum(1 for r in int_subs if max(0, (r[0] or 0) - (r[1] or 0)) <= t_res)
                 else:
                     matched_sp = [r for r in g_info['sp_rows'] if r[0] == trata_code or r[0] in tratas_inc]
                     stk = sum(1 for r in matched_sp if (r[1] or 0) > t_res)
                     flj = sum(1 for r in matched_sp if (r[1] or 0) <= t_res)
                     all_codes = set([trata_code] + tratas_inc)
-                    sub = sum(g_info['sb_map'].get(code, {}).get('total', 0) for code in all_codes)
-                    sub_mas_45 = sum(g_info['sb_map'].get(code, {}).get('mas_45', 0) for code in all_codes)
-                    sub_hasta_45 = sum(g_info['sb_map'].get(code, {}).get('hasta_45', 0) for code in all_codes)
+                    matched_sb = [r for r in g_info['sb_rows'] if r[0] in all_codes]
+                    sub = len(matched_sb)
+                    sub_mas_65 = sum(1 for r in matched_sb if (r[2] or 0) > 65)
+                    sub_hasta_65 = sum(1 for r in matched_sb if (r[2] or 0) <= 65)
+                    stk_subs = sum(1 for r in matched_sb if max(0, (r[1] or 0) - (r[2] or 0)) > t_res)
+                    flj_subs = sum(1 for r in matched_sb if max(0, (r[1] or 0) - (r[2] or 0)) <= t_res)
 
                 tot_stock += stk
+                tot_stock_subs += stk_subs
                 tot_flujo += flj
+                tot_flujo_subs += flj_subs
                 tot_subs += sub
-                tot_subs_mas_45 += sub_mas_45
-                tot_subs_hasta_45 += sub_hasta_45
+                tot_subs_mas_65 += sub_mas_65
+                tot_subs_hasta_65 += sub_hasta_65
 
                 if g not in gerencias_summary:
                     gerencias_summary[g] = {
@@ -5832,17 +5831,25 @@ async def get_planificacion_nov_2026(
                         'gerencia': g,
                         'total_tratas': 0,
                         'stock': 0,
+                        'stock_subs': 0,
                         'flujo': 0,
+                        'flujo_subs': 0,
                         'subsanaciones': 0,
+                        'subsanaciones_mas_65': 0,
+                        'subsanaciones_hasta_65': 0,
                         'subsanaciones_mas_45': 0,
                         'subsanaciones_hasta_45': 0
                     }
                 gerencias_summary[g]['total_tratas'] += 1
                 gerencias_summary[g]['stock'] += stk
+                gerencias_summary[g]['stock_subs'] += stk_subs
                 gerencias_summary[g]['flujo'] += flj
+                gerencias_summary[g]['flujo_subs'] += flj_subs
                 gerencias_summary[g]['subsanaciones'] += sub
-                gerencias_summary[g]['subsanaciones_mas_45'] += sub_mas_45
-                gerencias_summary[g]['subsanaciones_hasta_45'] += sub_hasta_45
+                gerencias_summary[g]['subsanaciones_mas_65'] += sub_mas_65
+                gerencias_summary[g]['subsanaciones_hasta_65'] += sub_hasta_65
+                gerencias_summary[g]['subsanaciones_mas_45'] += sub_mas_65
+                gerencias_summary[g]['subsanaciones_hasta_45'] += sub_hasta_65
 
                 tratas_result.append({
                     'id': t['id'],
@@ -5853,10 +5860,14 @@ async def get_planificacion_nov_2026(
                     'tiempo_resolucion': t_res,
                     'origen_tiempo': origen,
                     'stock': stk,
+                    'stock_subs': stk_subs,
                     'flujo': flj,
+                    'flujo_subs': flj_subs,
                     'subsanaciones': sub,
-                    'subsanaciones_mas_45': sub_mas_45,
-                    'subsanaciones_hasta_45': sub_hasta_45,
+                    'subsanaciones_mas_65': sub_mas_65,
+                    'subsanaciones_hasta_65': sub_hasta_65,
+                    'subsanaciones_mas_45': sub_mas_65,
+                    'subsanaciones_hasta_45': sub_hasta_65,
                     'total_tramites': stk + flj + sub
                 })
 
@@ -5865,10 +5876,14 @@ async def get_planificacion_nov_2026(
             return {
                 "totales": {
                     "stock": tot_stock,
+                    "stock_subs": tot_stock_subs,
                     "flujo": tot_flujo,
+                    "flujo_subs": tot_flujo_subs,
                     "subsanaciones": tot_subs,
-                    "subsanaciones_mas_45": tot_subs_mas_45,
-                    "subsanaciones_hasta_45": tot_subs_hasta_45,
+                    "subsanaciones_mas_65": tot_subs_mas_65,
+                    "subsanaciones_hasta_65": tot_subs_hasta_65,
+                    "subsanaciones_mas_45": tot_subs_mas_65,
+                    "subsanaciones_hasta_45": tot_subs_hasta_65,
                     "total_expedientes": tot_stock + tot_flujo + tot_subs,
                     "total_tratas": tot_tratas
                 },
@@ -6029,7 +6044,7 @@ async def get_planificacion_nov_2026_expedientes(
 
 @router.get("/api/reporte/planificacion-nov-2026/export-tarjeta")
 async def export_planificacion_nov_2026_tarjeta(
-    tipo: str,  # 'STOCK', 'FLUJO', 'SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45', 'TRATAS'
+    tipo: str,  # 'STOCK', 'FLUJO', 'SUBSANACIONES', 'SUBS_MAS_65', 'SUBS_HASTA_65', 'SUBS_STOCK', 'SUBS_FLUJO', 'TRATAS'
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -6042,7 +6057,7 @@ async def export_planificacion_nov_2026_tarjeta(
     from fastapi.responses import Response
 
     tipo_upper = (tipo or '').strip().upper()
-    valid_tipos = ['STOCK', 'FLUJO', 'SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45', 'TRATAS']
+    valid_tipos = ['STOCK', 'FLUJO', 'SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45', 'SUBS_MAS_65', 'SUBS_HASTA_65', 'SUBS_STOCK', 'SUBS_FLUJO', 'TRATAS']
     if tipo_upper not in valid_tipos:
         raise HTTPException(status_code=400, detail=f"Tipo no válido. Debe ser uno de {valid_tipos}")
 
@@ -6069,8 +6084,8 @@ async def export_planificacion_nov_2026_tarjeta(
                 writer.writerow([
                     'DIRECCION', 'GERENCIA', 'TRATA', 'DESCRIPCION_TRATA',
                     'PLAZO_OBJETIVO_DIAS', 'TIPO_PLAZO', 'STOCK_EN_SECTOR',
-                    'FLUJO_EN_PLAZO', 'SUBSANACIONES_TOTAL', 'SUBS_MAS_45_DIAS',
-                    'SUBS_HASTA_45_DIAS', 'TOTAL_ACTIVOS'
+                    'STOCK_SUBS_ESCENARIO', 'FLUJO_EN_PLAZO', 'FLUJO_SUBS_ESCENARIO',
+                    'SUBSANACIONES_TOTAL', 'SUBS_MAS_65_DIAS', 'SUBS_HASTA_65_DIAS', 'TOTAL_ACTIVOS'
                 ])
                 for t in tratas:
                     writer.writerow([
@@ -6081,10 +6096,12 @@ async def export_planificacion_nov_2026_tarjeta(
                         t.get('tiempo_resolucion', 0),
                         t.get('origen_tiempo', ''),
                         t.get('stock', 0),
+                        t.get('stock_subs', 0),
                         t.get('flujo', 0),
+                        t.get('flujo_subs', 0),
                         t.get('subsanaciones', 0),
-                        t.get('subsanaciones_mas_45', 0),
-                        t.get('subsanaciones_hasta_45', 0),
+                        t.get('subsanaciones_mas_65', 0),
+                        t.get('subsanaciones_hasta_65', 0),
                         t.get('total_tramites', 0)
                     ])
 
@@ -6136,8 +6153,8 @@ async def export_planificacion_nov_2026_tarjeta(
             gerencias = list(set(r['gerencia'] for r in tratas_cfg))
             expedientes_rows = []
 
-            # A. Exportar SUBSANACIONES (TOTAL, MAS_45 o HASTA_45)
-            if tipo_upper in ['SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45']:
+            # A. Exportar SUBSANACIONES (TOTAL, MAS_65, HASTA_65, SUBS_STOCK, SUBS_FLUJO)
+            if tipo_upper in ['SUBSANACIONES', 'SUBS_MAS_45', 'SUBS_HASTA_45', 'SUBS_MAS_65', 'SUBS_HASTA_65', 'SUBS_STOCK', 'SUBS_FLUJO']:
                 for g in gerencias:
                     # 1. Propias
                     try:
@@ -6150,9 +6167,18 @@ async def export_planificacion_nov_2026_tarjeta(
                         """)).fetchall()
                         for row in q_subs:
                             dias_sub = int(row[6] or 0)
-                            if tipo_upper == 'SUBS_MAS_45' and dias_sub <= 45:
+                            dias_ger = int(row[9] or 0)
+                            dias_neto = max(0, dias_ger - dias_sub)
+                            plazo_obj, tipo_plazo = get_plazo_objetivo(g, row[2])
+                            es_stock = (dias_neto > plazo_obj)
+
+                            if tipo_upper in ['SUBS_MAS_65', 'SUBS_MAS_45'] and dias_sub <= 65:
                                 continue
-                            if tipo_upper == 'SUBS_HASTA_45' and dias_sub > 45:
+                            if tipo_upper in ['SUBS_HASTA_65', 'SUBS_HASTA_45'] and dias_sub > 65:
+                                continue
+                            if tipo_upper == 'SUBS_STOCK' and not es_stock:
+                                continue
+                            if tipo_upper == 'SUBS_FLUJO' and es_stock:
                                 continue
 
                             dir_name, rep_trata, desc_trata = get_trata_info(g, row[2])
@@ -6166,10 +6192,14 @@ async def export_planificacion_nov_2026_tarjeta(
                                 'descripcion_trata': row[3] or desc_trata,
                                 'analista': row[4] or '-',
                                 'dias_subsanacion_abierta': dias_sub,
-                                'rango_subsanacion': '> 45 días' if dias_sub > 45 else '<= 45 días',
+                                'rango_subsanacion': '> 65 días' if dias_sub > 65 else '<= 65 días',
                                 'fecha_apertura_subsanacion': str(row[7])[:19] if row[7] else '',
                                 'dias_en_poder': int(row[5] or 0),
-                                'dias_en_gerencia': int(row[9] or 0),
+                                'dias_en_gerencia': dias_ger,
+                                'dias_neto_sin_subs': dias_neto,
+                                'plazo_objetivo': plazo_obj,
+                                'tipo_plazo': tipo_plazo,
+                                'escenario_respuesta_hoy': 'STOCK (> Plazo)' if es_stock else 'FLUJO (En Plazo)',
                                 'tipo_tramite': 'PROPIA'
                             })
                     except Exception:
@@ -6181,14 +6211,24 @@ async def export_planificacion_nov_2026_tarjeta(
                             SELECT id_expediente, expediente, UPPER(TRIM(trata)) as trata,
                                    descripcion_trata, analista, dias_en_poder_actual,
                                    dias_subsanacion_abierta, fecha_apertura_subsanacion,
-                                   fecha_primer_ingreso_gerencia
+                                   fecha_primer_ingreso_gerencia,
+                                   CURRENT_DATE - fecha_primer_ingreso_gerencia::date as dias_en_gerencia
                             FROM mv_{g}_intervenciones_subs
                         """)).fetchall()
                         for row in q_int_subs:
                             dias_sub = int(row[6] or 0)
-                            if tipo_upper == 'SUBS_MAS_45' and dias_sub <= 45:
+                            dias_ger = int(row[9] or 0)
+                            dias_neto = max(0, dias_ger - dias_sub)
+                            plazo_obj, tipo_plazo = get_plazo_objetivo(g, 'INTERVENCIONES')
+                            es_stock = (dias_neto > plazo_obj)
+
+                            if tipo_upper in ['SUBS_MAS_65', 'SUBS_MAS_45'] and dias_sub <= 65:
                                 continue
-                            if tipo_upper == 'SUBS_HASTA_45' and dias_sub > 45:
+                            if tipo_upper in ['SUBS_HASTA_65', 'SUBS_HASTA_45'] and dias_sub > 65:
+                                continue
+                            if tipo_upper == 'SUBS_STOCK' and not es_stock:
+                                continue
+                            if tipo_upper == 'SUBS_FLUJO' and es_stock:
                                 continue
 
                             expedientes_rows.append({
@@ -6201,10 +6241,14 @@ async def export_planificacion_nov_2026_tarjeta(
                                 'descripcion_trata': row[3] or 'Intervenciones',
                                 'analista': row[4] or '-',
                                 'dias_subsanacion_abierta': dias_sub,
-                                'rango_subsanacion': '> 45 días' if dias_sub > 45 else '<= 45 días',
+                                'rango_subsanacion': '> 65 días' if dias_sub > 65 else '<= 65 días',
                                 'fecha_apertura_subsanacion': str(row[7])[:19] if row[7] else '',
                                 'dias_en_poder': int(row[5] or 0),
-                                'dias_en_gerencia': '-',
+                                'dias_en_gerencia': dias_ger,
+                                'dias_neto_sin_subs': dias_neto,
+                                'plazo_objetivo': plazo_obj,
+                                'tipo_plazo': tipo_plazo,
+                                'escenario_respuesta_hoy': 'STOCK (> Plazo)' if es_stock else 'FLUJO (En Plazo)',
                                 'tipo_tramite': 'INTERVENCION'
                             })
                     except Exception:
@@ -6219,7 +6263,9 @@ async def export_planificacion_nov_2026_tarjeta(
                     'TRATA', 'TRATA_REPORTE', 'DESCRIPCION_TRATA', 'ANALISTA',
                     'DIAS_SUBSANACION_ABIERTA', 'RANGO_SUBSANACION',
                     'FECHA_APERTURA_SUBSANACION', 'DIAS_EN_PODER_ANALISTA',
-                    'DIAS_EN_GERENCIA', 'TIPO_TRAMITE'
+                    'DIAS_EN_GERENCIA', 'DIAS_TRAMITACION_SIN_SUBS',
+                    'PLAZO_OBJETIVO_DIAS', 'TIPO_PLAZO',
+                    'ESCENARIO_RESPUESTA_HOY', 'TIPO_TRAMITE'
                 ])
                 for exp in expedientes_rows:
                     writer.writerow([
@@ -6227,10 +6273,22 @@ async def export_planificacion_nov_2026_tarjeta(
                         exp['trata'], exp['trata_reporte'], exp['descripcion_trata'], exp['analista'],
                         exp['dias_subsanacion_abierta'], exp['rango_subsanacion'],
                         exp['fecha_apertura_subsanacion'], exp['dias_en_poder'],
-                        exp['dias_en_gerencia'], exp['tipo_tramite']
+                        exp['dias_en_gerencia'], exp['dias_neto_sin_subs'],
+                        exp['plazo_objetivo'], exp['tipo_plazo'],
+                        exp['escenario_respuesta_hoy'], exp['tipo_tramite']
                     ])
 
-                lbl = 'Subsanaciones_Total' if tipo_upper == 'SUBSANACIONES' else ('Subsanaciones_Mas_45_Dias' if tipo_upper == 'SUBS_MAS_45' else 'Subsanaciones_Hasta_45_Dias')
+                if tipo_upper in ['SUBS_MAS_65', 'SUBS_MAS_45']:
+                    lbl = 'Subsanaciones_Mas_65_Dias'
+                elif tipo_upper in ['SUBS_HASTA_65', 'SUBS_HASTA_45']:
+                    lbl = 'Subsanaciones_Hasta_65_Dias'
+                elif tipo_upper == 'SUBS_STOCK':
+                    lbl = 'Subsanaciones_Escenario_Stock'
+                elif tipo_upper == 'SUBS_FLUJO':
+                    lbl = 'Subsanaciones_Escenario_Flujo'
+                else:
+                    lbl = 'Subsanaciones_Total'
+
                 filename = f"Planificacion_{lbl}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
                 return Response(
                     content=output.getvalue().encode('utf-8-sig'),

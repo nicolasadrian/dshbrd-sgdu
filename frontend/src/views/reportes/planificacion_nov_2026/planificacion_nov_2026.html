@@ -21,7 +21,6 @@
 </div>
 
 <!-- Tarjetas KPI Héroe: Totales Generales -->
-<!-- Tarjetas KPI Héroe: Totales Generales -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
     <!-- Tarjeta 1: Stock Total -->
     <div class="analyst-card-premium" style="background: white; border: 1px solid #fee2e2; border-radius: 16px; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; position: relative; overflow: hidden; box-shadow: 0 4px 12px -2px rgba(239, 68, 68, 0.08);">
@@ -39,6 +38,13 @@
         </div>
         <div id="planif-tot-stock" style="font-size: 2.2rem; font-weight: 800; color: #991b1b; font-family: 'Outfit'; line-height: 1;">-</div>
         <p style="margin: 6px 0 0 0; color: #b91c1c; font-size: 0.8rem; font-weight: 500;">Expedientes que superan el SLA/Estimado</p>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap;">
+            <span onclick="downloadPlanifTarjetaExcel('SUBS_STOCK')" title="Descargar expedientes en subsanación que caerían en Stock al responderse hoy (Excel)"
+                style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; cursor: pointer; transition: background 0.15s;">
+                <i class="fa-solid fa-clock-rotate-left" style="font-size: 0.72rem;"></i> +<span id="planif-tot-stock-subs" style="font-weight: 800;">-</span> en subsanación
+                <i class="fa-solid fa-download" style="font-size: 0.7rem; opacity: 0.7; margin-left: 2px;"></i>
+            </span>
+        </div>
     </div>
 
     <!-- Tarjeta 2: Flujo Total -->
@@ -57,6 +63,13 @@
         </div>
         <div id="planif-tot-flujo" style="font-size: 2.2rem; font-weight: 800; color: #14532d; font-family: 'Outfit'; line-height: 1;">-</div>
         <p style="margin: 6px 0 0 0; color: #15803d; font-size: 0.8rem; font-weight: 500;">Expedientes dentro del plazo esperado</p>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap;">
+            <span onclick="downloadPlanifTarjetaExcel('SUBS_FLUJO')" title="Descargar expedientes en subsanación que caerían en Flujo al responderse hoy (Excel)"
+                style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; cursor: pointer; transition: background 0.15s;">
+                <i class="fa-solid fa-clock-rotate-left" style="font-size: 0.72rem;"></i> +<span id="planif-tot-flujo-subs" style="font-weight: 800;">-</span> en subsanación
+                <i class="fa-solid fa-download" style="font-size: 0.7rem; opacity: 0.7; margin-left: 2px;"></i>
+            </span>
+        </div>
     </div>
 
     <!-- Tarjeta 3: Subsanaciones -->
@@ -76,14 +89,14 @@
         <div id="planif-tot-subs" style="font-size: 2.2rem; font-weight: 800; color: #7c2d12; font-family: 'Outfit'; line-height: 1;">-</div>
         <p style="margin: 6px 0 0 0; color: #c2410c; font-size: 0.8rem; font-weight: 500;">Tareas TAD pendientes de subsanar (última activa)</p>
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap;">
-            <span onclick="downloadPlanifTarjetaExcel('SUBS_MAS_45')" title="Descargar en Excel subsanaciones > 45 días pendientes"
+            <span onclick="downloadPlanifTarjetaExcel('SUBS_MAS_65')" title="Descargar en Excel subsanaciones > 65 días pendientes"
                 style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; cursor: pointer; transition: background 0.15s;">
-                <i class="fa-solid fa-triangle-exclamation" style="font-size: 0.72rem;"></i> &gt; 45 días: <span id="planif-tot-subs-mas-45" style="font-weight: 800;">-</span>
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 0.72rem;"></i> &gt; 65 días: <span id="planif-tot-subs-mas-65" style="font-weight: 800;">-</span>
                 <i class="fa-solid fa-download" style="font-size: 0.7rem; opacity: 0.7; margin-left: 2px;"></i>
             </span>
-            <span onclick="downloadPlanifTarjetaExcel('SUBS_HASTA_45')" title="Descargar en Excel subsanaciones &le; 45 días pendientes"
+            <span onclick="downloadPlanifTarjetaExcel('SUBS_HASTA_65')" title="Descargar en Excel subsanaciones &le; 65 días pendientes"
                 style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 6px; font-size: 0.78rem; font-weight: 700; background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; cursor: pointer; transition: background 0.15s;">
-                &le; 45 días: <span id="planif-tot-subs-hasta-45" style="font-weight: 800;">-</span>
+                &le; 65 días: <span id="planif-tot-subs-hasta-65" style="font-weight: 800;">-</span>
                 <i class="fa-solid fa-download" style="font-size: 0.7rem; opacity: 0.7; margin-left: 2px;"></i>
             </span>
         </div>

@@ -23970,15 +23970,23 @@ let _planifData = null;
 
 async function loadPlanificacionNov2026Data() {
     const valStock = document.getElementById('planif-tot-stock');
+    const valStockSubs = document.getElementById('planif-tot-stock-subs');
     const valFlujo = document.getElementById('planif-tot-flujo');
+    const valFlujoSubs = document.getElementById('planif-tot-flujo-subs');
     const valSubs = document.getElementById('planif-tot-subs');
+    const valSubsMas65 = document.getElementById('planif-tot-subs-mas-65') || document.getElementById('planif-tot-subs-mas-45');
+    const valSubsHasta65 = document.getElementById('planif-tot-subs-hasta-65') || document.getElementById('planif-tot-subs-hasta-45');
     const valTratas = document.getElementById('planif-tot-tratas');
     const valExpSub = document.getElementById('planif-tot-expedientes-sub');
     const tbody = document.getElementById('planif-table-body');
 
     if (valStock) valStock.innerText = '...';
+    if (valStockSubs) valStockSubs.innerText = '...';
     if (valFlujo) valFlujo.innerText = '...';
+    if (valFlujoSubs) valFlujoSubs.innerText = '...';
     if (valSubs) valSubs.innerText = '...';
+    if (valSubsMas65) valSubsMas65.innerText = '...';
+    if (valSubsHasta65) valSubsHasta65.innerText = '...';
     if (valTratas) valTratas.innerText = '...';
     if (tbody) {
         tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 3rem; color: #64748b;"><span class="loader"></span><p style="margin-top: 8px; font-weight: 600;">Cargando métricas de tratas...</p></td></tr>`;
@@ -23991,8 +23999,12 @@ async function loadPlanificacionNov2026Data() {
 
         const tot = _planifData.totales || {};
         if (valStock) valStock.innerText = (tot.stock || 0).toLocaleString('es-AR');
+        if (valStockSubs) valStockSubs.innerText = (tot.stock_subs || 0).toLocaleString('es-AR');
         if (valFlujo) valFlujo.innerText = (tot.flujo || 0).toLocaleString('es-AR');
+        if (valFlujoSubs) valFlujoSubs.innerText = (tot.flujo_subs || 0).toLocaleString('es-AR');
         if (valSubs) valSubs.innerText = (tot.subsanaciones || 0).toLocaleString('es-AR');
+        if (valSubsMas65) valSubsMas65.innerText = ((tot.subsanaciones_mas_65 !== undefined ? tot.subsanaciones_mas_65 : tot.subsanaciones_mas_45) || 0).toLocaleString('es-AR');
+        if (valSubsHasta65) valSubsHasta65.innerText = ((tot.subsanaciones_hasta_65 !== undefined ? tot.subsanaciones_hasta_65 : tot.subsanaciones_hasta_45) || 0).toLocaleString('es-AR');
         if (valTratas) valTratas.innerText = (tot.total_tratas || 0).toLocaleString('es-AR');
         if (valExpSub) {
             valExpSub.innerText = `${(tot.total_expedientes || 0).toLocaleString('es-AR')} expedientes activos totales`;
@@ -24068,13 +24080,17 @@ function renderPlanificacionTratasTable(tratas) {
     };
 
     let sumStock = 0;
+    let sumStockSubs = 0;
     let sumFlujo = 0;
+    let sumFlujoSubs = 0;
     let sumSubs = 0;
     let sumTotal = 0;
 
     tbody.innerHTML = tratas.map(t => {
         sumStock += (t.stock || 0);
+        sumStockSubs += (t.stock_subs || 0);
         sumFlujo += (t.flujo || 0);
+        sumFlujoSubs += (t.flujo_subs || 0);
         sumSubs += (t.subsanaciones || 0);
         sumTotal += (t.total_tramites || 0);
 
@@ -24090,6 +24106,7 @@ function renderPlanificacionTratasTable(tratas) {
             : `<span style="font-size: 0.72rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">DGROC</span>`;
 
         const descSafe = (t.descripcion_trata || '').replace(/'/g, "\'");
+        const subs65 = (t.subsanaciones_mas_65 !== undefined) ? t.subsanaciones_mas_65 : (t.subsanaciones_mas_45 || 0);
 
         return `
             <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s; cursor: pointer;"
@@ -24111,14 +24128,23 @@ function renderPlanificacionTratasTable(tratas) {
                     </div>
                 </td>
                 <td style="padding: 11px 14px; text-align: center; vertical-align: middle;">${plazoBadge}</td>
-                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #b91c1c; font-size: 0.95rem; vertical-align: middle;">
-                    ${(t.stock || 0).toLocaleString('es-AR')}
+                <td style="padding: 11px 14px; text-align: right; vertical-align: middle;">
+                    <div style="font-weight: 800; color: #b91c1c; font-size: 0.95rem;">
+                        ${(t.stock || 0).toLocaleString('es-AR')}
+                    </div>
+                    ${(t.stock_subs > 0) ? `<div style="font-size: 0.72rem; color: #be123c; font-weight: 700;" title="Si se responde hoy la subsanación, ${t.stock_subs} trámite(s) superarían el plazo objetivo">+${t.stock_subs.toLocaleString('es-AR')} subs</div>` : ''}
                 </td>
-                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #15803d; font-size: 0.95rem; vertical-align: middle;">
-                    ${(t.flujo || 0).toLocaleString('es-AR')}
+                <td style="padding: 11px 14px; text-align: right; vertical-align: middle;">
+                    <div style="font-weight: 800; color: #15803d; font-size: 0.95rem;">
+                        ${(t.flujo || 0).toLocaleString('es-AR')}
+                    </div>
+                    ${(t.flujo_subs > 0) ? `<div style="font-size: 0.72rem; color: #16a34a; font-weight: 700;" title="Si se responde hoy la subsanación, ${t.flujo_subs} trámite(s) permanecerían en plazo">+${t.flujo_subs.toLocaleString('es-AR')} subs</div>` : ''}
                 </td>
-                <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #c2410c; font-size: 0.95rem; vertical-align: middle;">
-                    ${(t.subsanaciones || 0).toLocaleString('es-AR')}
+                <td style="padding: 11px 14px; text-align: right; vertical-align: middle;">
+                    <div style="font-weight: 800; color: #c2410c; font-size: 0.95rem;">
+                        ${(t.subsanaciones || 0).toLocaleString('es-AR')}
+                    </div>
+                    ${(subs65 > 0) ? `<div style="font-size: 0.72rem; color: #dc2626; font-weight: 700;" title="${subs65} subsanaciones llevan más de 65 días">&gt;65d: ${subs65.toLocaleString('es-AR')}</div>` : ''}
                 </td>
                 <td style="padding: 11px 14px; text-align: right; font-weight: 800; color: #0f172a; font-size: 0.98rem; vertical-align: middle;">
                     ${(t.total_tramites || 0).toLocaleString('es-AR')}
@@ -24133,16 +24159,22 @@ function renderPlanificacionTratasTable(tratas) {
                 <td colspan="5" style="padding: 12px 14px; font-weight: 800; color: #1e293b; text-transform: uppercase; font-size: 0.82rem; letter-spacing: 0.5px;">
                     Subtotal Filtrado (${tratas.length} tratas)
                 </td>
-                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #b91c1c; font-size: 1.05rem;">
-                    ${sumStock.toLocaleString('es-AR')}
+                <td style="padding: 12px 14px; text-align: right; vertical-align: middle;">
+                    <div style="font-weight: 800; color: #b91c1c; font-size: 1.05rem;">
+                        ${sumStock.toLocaleString('es-AR')}
+                    </div>
+                    ${sumStockSubs > 0 ? `<div style="font-size: 0.72rem; color: #be123c; font-weight: 700;">+${sumStockSubs.toLocaleString('es-AR')} subs</div>` : ''}
                 </td>
-                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #15803d; font-size: 1.05rem;">
-                    ${sumFlujo.toLocaleString('es-AR')}
+                <td style="padding: 12px 14px; text-align: right; vertical-align: middle;">
+                    <div style="font-weight: 800; color: #15803d; font-size: 1.05rem;">
+                        ${sumFlujo.toLocaleString('es-AR')}
+                    </div>
+                    ${sumFlujoSubs > 0 ? `<div style="font-size: 0.72rem; color: #16a34a; font-weight: 700;">+${sumFlujoSubs.toLocaleString('es-AR')} subs</div>` : ''}
                 </td>
-                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #c2410c; font-size: 1.05rem;">
+                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #c2410c; font-size: 1.05rem; vertical-align: middle;">
                     ${sumSubs.toLocaleString('es-AR')}
                 </td>
-                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #0f172a; font-size: 1.08rem;">
+                <td style="padding: 12px 14px; text-align: right; font-weight: 800; color: #0f172a; font-size: 1.08rem; vertical-align: middle;">
                     ${sumTotal.toLocaleString('es-AR')}
                 </td>
             </tr>
@@ -24157,9 +24189,11 @@ function exportPlanificacionNov2026Excel() {
     }
 
     let csv = '\uFEFF';
-    csv += 'DIRECCION;GERENCIA;TRATA;DESCRIPCION;PLAZO_OBJETIVO_DIAS;TIPO_PLAZO;STOCK;FLUJO;SUBSANACIONES;TOTAL_ACTIVOS\n';
+    csv += 'DIRECCION;GERENCIA;TRATA;DESCRIPCION;PLAZO_OBJETIVO_DIAS;TIPO_PLAZO;STOCK;STOCK_SUBS_ESCENARIO;FLUJO;FLUJO_SUBS_ESCENARIO;SUBSANACIONES_TOTAL;SUBS_MAS_65D;SUBS_HASTA_65D;TOTAL_ACTIVOS\n';
 
     _planifData.tratas.forEach(t => {
+        const subs65Mas = (t.subsanaciones_mas_65 !== undefined) ? t.subsanaciones_mas_65 : (t.subsanaciones_mas_45 || 0);
+        const subs65Hasta = (t.subsanaciones_hasta_65 !== undefined) ? t.subsanaciones_hasta_65 : (t.subsanaciones_hasta_45 || 0);
         const row = [
             `"${t.direccion || ''}"`,
             `"${t.gerencia || ''}"`,
@@ -24168,8 +24202,12 @@ function exportPlanificacionNov2026Excel() {
             t.tiempo_resolucion || 0,
             `"${t.origen_tiempo || ''}"`,
             t.stock || 0,
+            t.stock_subs || 0,
             t.flujo || 0,
+            t.flujo_subs || 0,
             t.subsanaciones || 0,
+            subs65Mas,
+            subs65Hasta,
             t.total_tramites || 0
         ];
         csv += row.join(';') + '\n';
@@ -24186,9 +24224,59 @@ function exportPlanificacionNov2026Excel() {
     URL.revokeObjectURL(url);
 }
 
+async function downloadPlanifTarjetaExcel(tipo) {
+    const TITULOS = {
+        'STOCK': 'Stock en Sector (Fuera de Plazo)',
+        'FLUJO': 'Flujo en Plazo',
+        'SUBSANACIONES': 'Subsanaciones Abiertas Totales',
+        'SUBS_MAS_65': 'Subsanaciones Abiertas con más de 65 días',
+        'SUBS_HASTA_65': 'Subsanaciones Abiertas con 65 días o menos',
+        'SUBS_MAS_45': 'Subsanaciones Abiertas con más de 65 días',
+        'SUBS_HASTA_45': 'Subsanaciones Abiertas con 65 días o menos',
+        'SUBS_STOCK': 'Subsanaciones Abiertas que caerían en Stock si se responden hoy',
+        'SUBS_FLUJO': 'Subsanaciones Abiertas que caerían en Flujo si se responden hoy',
+        'TRATAS': 'Matriz de Tratas Monitoreadas'
+    };
+
+    try {
+        const url = `${API_BASE}/reporte/planificacion-nov-2026/export-tarjeta?tipo=${encodeURIComponent(tipo)}`;
+        const res = await def_fetch(url);
+        if (!res) {
+            throw new Error('Sesión expirada o error de red');
+        }
+        if (!res.ok) {
+            const errJson = await res.json().catch(() => ({}));
+            throw new Error(errJson.detail || `Error ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        const disposition = res.headers.get('content-disposition');
+        let filename = `Planificacion_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`;
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+            const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+            if (matches != null && matches[1]) {
+                filename = matches[1].replace(/['"]/g, '');
+            }
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+        console.error('Error al descargar tarjeta:', err);
+        alert(`No se pudo descargar el archivo de ${TITULOS[tipo] || tipo}: ${err.message}`);
+    }
+}
+
 window.loadPlanificacionNov2026Data = loadPlanificacionNov2026Data;
 window.filterPlanificacionTratasTable = filterPlanificacionTratasTable;
 window.exportPlanificacionNov2026Excel = exportPlanificacionNov2026Excel;
+window.downloadPlanifTarjetaExcel = downloadPlanifTarjetaExcel;
 
 
 // PLANIFICACIÓN NOVIEMBRE 2026 - PESTAÑAS Y TIEMPOS DE TRAMITACIÓN
